@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "delivery-app-mock",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "../pureeats-delivery-react-app-2026", "run", "dev"],
+      "port": 5373
+    },
+    {
+      "name": "delivery-app-uat",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "../pureeats-delivery-react-app-2026", "run", "dev:uat"],
+      "port": 5373
+    },
+    {
+      "name": "customer-app-mock",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "../pureeats-customer-react-app-2026", "run", "dev"],
+      "port": 5273
+    },
+    {
+      "name": "admin-app-mock",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "../pureeats-admin-react-app-2026", "run", "dev"],
+      "port": 5173
+    }
+  ]
+}

@@ -1,0 +1,3286 @@
+<meta charset="utf-8">
+<title>Iterator Design Pattern — Complete Step-by-Step Interview Guide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; design pattern interview guide</div>
+      <h1>Iterator Design Pattern — Complete Step-by-Step Interview Guide</h1>
+      <p class="dek">A complete, progressive interview guide to the Iterator design pattern in Java — custom <code>Iterable</code>/<code>Iterator</code> implementations, filtering, limiting, and composing iterators, lazy evaluation, fail-fast behavior, SOLID design, and a full senior-level interview question bank.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-how-to-use-this-guide">How to Use This Guide</a></li><li class="toc-lvl-2"><a href="#2-start-with-a-simple-for-loop">Start With a Simple for Loop</a><ul><li class="toc-lvl-3"><a href="#interview-question-1">Interview Question 1</a><ul><li class="toc-lvl-4"><a href="#expected-answer">Expected Answer</a></li></ul></li></ul></li><li class="toc-lvl-2"><a href="#3-why-do-we-need-an-iterator">Why Do We Need an Iterator?</a><ul><li class="toc-lvl-3"><a href="#problem-1-internal-representation-leaks">Problem 1 — Internal Representation Leaks</a></li><li class="toc-lvl-3"><a href="#problem-2-tight-coupling">Problem 2 — Tight Coupling</a></li><li class="toc-lvl-3"><a href="#problem-3-traversal-logic-is-exposed">Problem 3 — Traversal Logic Is Exposed</a></li><li class="toc-lvl-3"><a href="#problem-4-different-traversal-strategies">Problem 4 — Different Traversal Strategies</a></li></ul></li><li class="toc-lvl-2"><a href="#4-what-happens-inside-enhanced-for">What Happens Inside Enhanced for?</a></li><li class="toc-lvl-2"><a href="#5-iterable-vs-iterator">Iterable vs Iterator</a><ul><li class="toc-lvl-3"><a href="#iterator">Iterator</a></li><li class="toc-lvl-3"><a href="#iterable">Iterable</a></li><li class="toc-lvl-3"><a href="#important-difference">Important Difference</a></li></ul></li><li class="toc-lvl-2"><a href="#6-basic-iterator-pattern">Basic Iterator Pattern</a></li><li class="toc-lvl-2"><a href="#7-implement-a-basic-iterator">Implement a Basic Iterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-2">Interview Question 2</a></li><li class="toc-lvl-3"><a href="#step-1-iterator-interface">Step 1 — Iterator Interface</a></li><li class="toc-lvl-3"><a href="#step-2-iterator-implementation">Step 2 — Iterator Implementation</a></li><li class="toc-lvl-3"><a href="#step-3-collection">Step 3 — Collection</a></li><li class="toc-lvl-3"><a href="#step-4-client">Step 4 — Client</a></li></ul></li><li class="toc-lvl-2"><a href="#8-iterator-contract">Iterator Contract</a></li><li class="toc-lvl-2"><a href="#9-odditerator">OddIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-3">Interview Question 3</a></li><li class="toc-lvl-3"><a href="#key-requirement">Key Requirement</a></li><li class="toc-lvl-3"><a href="#architecture">Architecture</a></li><li class="toc-lvl-3"><a href="#implementation">Implementation</a></li></ul></li><li class="toc-lvl-2"><a href="#10-eveniterator">EvenIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-4">Interview Question 4</a></li></ul></li><li class="toc-lvl-2"><a href="#11-negativeiterator">NegativeIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-5">Interview Question 5</a></li></ul></li><li class="toc-lvl-2"><a href="#12-positiveiterator">PositiveIterator</a></li><li class="toc-lvl-2"><a href="#13-iterator-depending-on-another-iterator">Iterator Depending on Another Iterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-6">Interview Question 6</a></li></ul></li><li class="toc-lvl-2"><a href="#14-generic-filteringiterator">Generic FilteringIterator</a><ul><li class="toc-lvl-3"><a href="#generic-design">Generic Design</a></li><li class="toc-lvl-3"><a href="#odd">Odd</a></li><li class="toc-lvl-3"><a href="#even">Even</a></li><li class="toc-lvl-3"><a href="#negative">Negative</a></li></ul></li><li class="toc-lvl-2"><a href="#15-forwarditerator">ForwardIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-7">Interview Question 7</a></li></ul></li><li class="toc-lvl-2"><a href="#16-backwarditerator">BackwardIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-8">Interview Question 8</a></li></ul></li><li class="toc-lvl-2"><a href="#17-can-backwarditerator-work-with-iteratort">Can BackwardIterator Work With Iterator&lt;T&gt;?</a></li><li class="toc-lvl-2"><a href="#18-rangeiterator">RangeIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-9">Interview Question 9</a></li><li class="toc-lvl-3"><a href="#implementation_1">Implementation</a></li></ul></li><li class="toc-lvl-2"><a href="#19-rangeiterator-with-step">RangeIterator With Step</a><ul><li class="toc-lvl-3"><a href="#interview-follow-ups">Interview Follow-ups</a></li></ul></li><li class="toc-lvl-2"><a href="#20-skipiterator">SkipIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-10">Interview Question 10</a></li><li class="toc-lvl-3"><a href="#implementation_2">Implementation</a></li></ul></li><li class="toc-lvl-2"><a href="#21-limititerator">LimitIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-11">Interview Question 11</a></li><li class="toc-lvl-3"><a href="#implementation_3">Implementation</a></li></ul></li><li class="toc-lvl-2"><a href="#22-zigzagiterator">ZigZagIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-12">Interview Question 12</a></li><li class="toc-lvl-3"><a href="#state">State</a></li><li class="toc-lvl-3"><a href="#implementation_4">Implementation</a></li></ul></li><li class="toc-lvl-2"><a href="#23-interleavingiterator">InterleavingIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-13">Interview Question 13</a></li><li class="toc-lvl-3"><a href="#basic-state">Basic State</a></li></ul></li><li class="toc-lvl-2"><a href="#24-interleaving-with-unequal-sources">Interleaving With Unequal Sources</a></li><li class="toc-lvl-2"><a href="#25-roundrobiniterator">RoundRobinIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-14">Interview Question 14</a></li></ul></li><li class="toc-lvl-2"><a href="#26-concatiterator">ConcatIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-15">Interview Question 15</a></li></ul></li><li class="toc-lvl-2"><a href="#27-flatteniterator">FlattenIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-16">Interview Question 16</a></li><li class="toc-lvl-3"><a href="#state_1">State</a></li></ul></li><li class="toc-lvl-2"><a href="#28-mapiterator">MapIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-17">Interview Question 17</a></li><li class="toc-lvl-3"><a href="#implementation_5">Implementation</a></li></ul></li><li class="toc-lvl-2"><a href="#29-peekiterator">PeekIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-18">Interview Question 18</a></li></ul></li><li class="toc-lvl-2"><a href="#30-distinctiterator">DistinctIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-19">Interview Question 19</a></li></ul></li><li class="toc-lvl-2"><a href="#31-can-distinctiterator-avoid-caching">Can DistinctIterator Avoid Caching?</a></li><li class="toc-lvl-2"><a href="#32-takewhileiterator">TakeWhileIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-20">Interview Question 20</a></li><li class="toc-lvl-3"><a href="#difference-between-filter-and-takewhile">Difference Between Filter and TakeWhile</a><ul><li class="toc-lvl-4"><a href="#filter">Filter</a></li><li class="toc-lvl-4"><a href="#takewhile">TakeWhile</a></li></ul></li></ul></li><li class="toc-lvl-2"><a href="#33-dropwhileiterator">DropWhileIterator</a></li><li class="toc-lvl-2"><a href="#34-zipiterator">ZipIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-21">Interview Question 21</a></li></ul></li><li class="toc-lvl-2"><a href="#35-zip-with-unequal-sources">Zip With Unequal Sources</a><ul><li class="toc-lvl-3"><a href="#stop-at-shortest">Stop at shortest</a></li><li class="toc-lvl-3"><a href="#continue-with-null">Continue with null</a></li><li class="toc-lvl-3"><a href="#throw-exception">Throw exception</a></li></ul></li><li class="toc-lvl-2"><a href="#36-partitioniterator">PartitionIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-22">Interview Question 22</a></li></ul></li><li class="toc-lvl-2"><a href="#37-cycleiterator">CycleIterator</a><ul><li class="toc-lvl-3"><a href="#interview-question-23">Interview Question 23</a></li></ul></li><li class="toc-lvl-2"><a href="#38-the-critical-cycleiterator-question">The Critical CycleIterator Question</a></li><li class="toc-lvl-2"><a href="#39-cycleiterator-without-caching">CycleIterator Without Caching</a><ul><li class="toc-lvl-3"><a href="#implementation_6">Implementation</a></li></ul></li><li class="toc-lvl-2"><a href="#40-why-iterable-is-important-for-cycleiterator">Why Iterable Is Important for CycleIterator</a><ul><li class="toc-lvl-3"><a href="#iterator_1">Iterator</a></li><li class="toc-lvl-3"><a href="#iterable_1">Iterable</a></li></ul></li><li class="toc-lvl-2"><a href="#41-cycleiterator-and-empty-source">CycleIterator and Empty Source</a><ul><li class="toc-lvl-3"><a href="#option-1">Option 1</a></li><li class="toc-lvl-3"><a href="#option-2">Option 2</a></li></ul></li><li class="toc-lvl-2"><a href="#42-cycle-limit">Cycle + Limit</a></li><li class="toc-lvl-2"><a href="#43-lazy-evaluation">Lazy Evaluation</a><ul><li class="toc-lvl-3"><a href="#interview-question-24">Interview Question 24</a><ul><li class="toc-lvl-4"><a href="#eager-approach">Eager approach</a></li></ul></li><li class="toc-lvl-3"><a href="#lazy-approach">Lazy approach</a></li></ul></li><li class="toc-lvl-2"><a href="#44-why-lazy-evaluation-matters">Why Lazy Evaluation Matters</a></li><li class="toc-lvl-2"><a href="#45-iterator-pipeline">Iterator Pipeline</a></li><li class="toc-lvl-2"><a href="#46-operation-ordering">Operation Ordering</a><ul><li class="toc-lvl-3"><a href="#pipeline-a">Pipeline A</a></li><li class="toc-lvl-3"><a href="#pipeline-b">Pipeline B</a></li></ul></li><li class="toc-lvl-2"><a href="#47-how-many-elements-are-consumed">How Many Elements Are Consumed?</a></li><li class="toc-lvl-2"><a href="#48-iterator-state-machine">Iterator State Machine</a></li><li class="toc-lvl-2"><a href="#49-multiple-hasnext-calls">Multiple hasNext() Calls</a></li><li class="toc-lvl-2"><a href="#50-calling-next-without-hasnext">Calling next() Without hasNext()</a></li><li class="toc-lvl-2"><a href="#51-null-elements">Null Elements</a></li><li class="toc-lvl-2"><a href="#52-empty-source">Empty Source</a><ul><li class="toc-lvl-3"><a href="#basic-iterator">Basic Iterator</a></li><li class="toc-lvl-3"><a href="#filteriterator">FilterIterator</a></li><li class="toc-lvl-3"><a href="#limititerator">LimitIterator</a></li><li class="toc-lvl-3"><a href="#flatteniterator">FlattenIterator</a></li><li class="toc-lvl-3"><a href="#interleavingiterator">InterleavingIterator</a></li><li class="toc-lvl-3"><a href="#cycleiterator">CycleIterator</a></li></ul></li><li class="toc-lvl-2"><a href="#53-remove">remove()</a></li><li class="toc-lvl-2"><a href="#54-remove-state-machine">remove() State Machine</a></li><li class="toc-lvl-2"><a href="#55-fail-fast-iterator">Fail-Fast Iterator</a></li><li class="toc-lvl-2"><a href="#56-modcount-concept">modCount Concept</a></li><li class="toc-lvl-2"><a href="#57-concurrent-modification">Concurrent Modification</a></li><li class="toc-lvl-2"><a href="#58-thread-safety">Thread Safety</a></li><li class="toc-lvl-2"><a href="#59-infinite-iterators">Infinite Iterators</a></li><li class="toc-lvl-2"><a href="#60-infinite-iterator-pipeline">Infinite Iterator Pipeline</a></li><li class="toc-lvl-2"><a href="#61-complexity-analysis">Complexity Analysis</a><ul><li class="toc-lvl-3"><a href="#typical-complexity-table">Typical Complexity Table</a></li></ul></li><li class="toc-lvl-2"><a href="#62-which-iterators-need-caching">Which Iterators Need Caching?</a><ul><li class="toc-lvl-3"><a href="#usually-no-caching">Usually no caching</a></li><li class="toc-lvl-3"><a href="#may-require-caching-or-stronger-source-capabilities">May require caching or stronger source capabilities</a><ul><li class="toc-lvl-4"><a href="#backwarditerator">BackwardIterator</a></li><li class="toc-lvl-4"><a href="#cycleiterator_1">CycleIterator</a></li><li class="toc-lvl-4"><a href="#distinctiterator">DistinctIterator</a></li><li class="toc-lvl-4"><a href="#peekiterator">PeekIterator</a></li></ul></li></ul></li><li class="toc-lvl-2"><a href="#63-what-does-without-caching-mean">What Does "Without Caching" Mean?</a></li><li class="toc-lvl-2"><a href="#64-iterator-composition">Iterator Composition</a></li><li class="toc-lvl-2"><a href="#65-example-complete-pipeline">Example Complete Pipeline</a></li><li class="toc-lvl-2"><a href="#66-solid-design">SOLID Design</a></li><li class="toc-lvl-2"><a href="#67-iterator-and-decorator-pattern">Iterator and Decorator Pattern</a></li><li class="toc-lvl-2"><a href="#68-iterator-and-strategy-pattern">Iterator and Strategy Pattern</a></li><li class="toc-lvl-2"><a href="#69-iterator-vs-stream">Iterator vs Stream</a></li><li class="toc-lvl-2"><a href="#70-why-custom-iterator-instead-of-stream">Why Custom Iterator Instead of Stream?</a></li><li class="toc-lvl-2"><a href="#71-multiple-independent-iterators">Multiple Independent Iterators</a></li><li class="toc-lvl-2"><a href="#72-important-principle">Important Principle</a></li><li class="toc-lvl-2"><a href="#73-resource-backed-iterator">Resource-Backed Iterator</a></li><li class="toc-lvl-2"><a href="#74-external-source-iterator">External Source Iterator</a></li><li class="toc-lvl-2"><a href="#75-pull-based-nature-of-iterator">Pull-Based Nature of Iterator</a></li><li class="toc-lvl-2"><a href="#76-common-mistakes">Common Mistakes</a><ul><li class="toc-lvl-3"><a href="#mistake-1-exposing-internal-data">Mistake 1 — Exposing Internal Data</a></li><li class="toc-lvl-3"><a href="#mistake-2-creating-intermediate-lists">Mistake 2 — Creating Intermediate Lists</a></li><li class="toc-lvl-3"><a href="#mistake-3-advancing-in-hasnext">Mistake 3 — Advancing in hasNext()</a></li><li class="toc-lvl-3"><a href="#mistake-4-returning-null-after-exhaustion">Mistake 4 — Returning null After Exhaustion</a></li><li class="toc-lvl-3"><a href="#mistake-5-ignoring-empty-input">Mistake 5 — Ignoring Empty Input</a></li><li class="toc-lvl-3"><a href="#mistake-6-ignoring-null-values">Mistake 6 — Ignoring Null Values</a></li><li class="toc-lvl-3"><a href="#mistake-7-assuming-reverse-traversal-is-always-possible">Mistake 7 — Assuming Reverse Traversal Is Always Possible</a></li><li class="toc-lvl-3"><a href="#mistake-8-assuming-cycle-always-works-without-caching">Mistake 8 — Assuming Cycle Always Works Without Caching</a></li><li class="toc-lvl-3"><a href="#mistake-9-ignoring-complexity">Mistake 9 — Ignoring Complexity</a></li></ul></li><li class="toc-lvl-2"><a href="#77-progressive-interview-question-set">Progressive Interview Question Set</a><ul><li class="toc-lvl-3"><a href="#level-1-fundamentals">Level 1 — Fundamentals</a><ul><li class="toc-lvl-4"><a href="#question-1">Question 1</a></li><li class="toc-lvl-4"><a href="#follow-up">Follow-up</a></li><li class="toc-lvl-4"><a href="#question-2">Question 2</a></li><li class="toc-lvl-4"><a href="#question-3">Question 3</a></li></ul></li><li class="toc-lvl-3"><a href="#level-2-basic-iterator">Level 2 — Basic Iterator</a><ul><li class="toc-lvl-4"><a href="#question-4">Question 4</a></li><li class="toc-lvl-4"><a href="#follow-up_1">Follow-up</a></li><li class="toc-lvl-4"><a href="#question-5">Question 5</a></li><li class="toc-lvl-4"><a href="#question-6">Question 6</a></li></ul></li></ul></li><li class="toc-lvl-2"><a href="#78-level-3-filtering">Level 3 — Filtering</a><ul><li class="toc-lvl-3"><a href="#question-7">Question 7</a></li><li class="toc-lvl-3"><a href="#question-8">Question 8</a></li><li class="toc-lvl-3"><a href="#question-9">Question 9</a></li><li class="toc-lvl-3"><a href="#question-10">Question 10</a></li><li class="toc-lvl-3"><a href="#follow-up_2">Follow-up</a></li><li class="toc-lvl-3"><a href="#follow-up_3">Follow-up</a></li></ul></li><li class="toc-lvl-2"><a href="#79-level-4-traversal">Level 4 — Traversal</a><ul><li class="toc-lvl-3"><a href="#question-11">Question 11</a></li><li class="toc-lvl-3"><a href="#question-12">Question 12</a></li><li class="toc-lvl-3"><a href="#follow-up_4">Follow-up</a></li><li class="toc-lvl-3"><a href="#question-13">Question 13</a></li></ul></li><li class="toc-lvl-2"><a href="#80-level-5-generation-and-limiting">Level 5 — Generation and Limiting</a><ul><li class="toc-lvl-3"><a href="#question-14">Question 14</a></li><li class="toc-lvl-3"><a href="#question-15">Question 15</a></li><li class="toc-lvl-3"><a href="#question-16">Question 16</a></li><li class="toc-lvl-3"><a href="#question-17">Question 17</a></li></ul></li><li class="toc-lvl-2"><a href="#81-level-6-composition">Level 6 — Composition</a><ul><li class="toc-lvl-3"><a href="#question-18">Question 18</a></li><li class="toc-lvl-3"><a href="#question-19">Question 19</a></li><li class="toc-lvl-3"><a href="#question-20">Question 20</a></li><li class="toc-lvl-3"><a href="#question-21">Question 21</a></li><li class="toc-lvl-3"><a href="#question-22">Question 22</a></li></ul></li><li class="toc-lvl-2"><a href="#82-level-7-advanced">Level 7 — Advanced</a><ul><li class="toc-lvl-3"><a href="#question-23">Question 23</a></li><li class="toc-lvl-3"><a href="#follow-up_5">Follow-up</a></li><li class="toc-lvl-3"><a href="#question-24">Question 24</a></li><li class="toc-lvl-3"><a href="#question-25">Question 25</a></li><li class="toc-lvl-3"><a href="#follow-up_6">Follow-up</a></li></ul></li><li class="toc-lvl-2"><a href="#83-level-8-java-behavior">Level 8 — Java Behavior</a><ul><li class="toc-lvl-3"><a href="#question-26">Question 26</a></li><li class="toc-lvl-3"><a href="#question-27">Question 27</a></li><li class="toc-lvl-3"><a href="#question-28">Question 28</a></li><li class="toc-lvl-3"><a href="#question-29">Question 29</a></li><li class="toc-lvl-3"><a href="#question-30">Question 30</a></li></ul></li><li class="toc-lvl-2"><a href="#84-level-9-architecture">Level 9 — Architecture</a><ul><li class="toc-lvl-3"><a href="#question-31">Question 31</a></li><li class="toc-lvl-3"><a href="#question-32">Question 32</a></li><li class="toc-lvl-3"><a href="#question-33">Question 33</a></li><li class="toc-lvl-3"><a href="#question-34">Question 34</a></li><li class="toc-lvl-3"><a href="#question-35">Question 35</a></li><li class="toc-lvl-3"><a href="#question-36">Question 36</a></li><li class="toc-lvl-3"><a href="#question-37">Question 37</a></li></ul></li><li class="toc-lvl-2"><a href="#85-final-senior-level-challenge">Final Senior-Level Challenge</a><ul><li class="toc-lvl-3"><a href="#problem">Problem</a></li></ul></li><li class="toc-lvl-2"><a href="#86-example-final-architecture">Example Final Architecture</a></li><li class="toc-lvl-2"><a href="#87-example-advanced-architecture">Example Advanced Architecture</a></li><li class="toc-lvl-2"><a href="#88-final-iterator-comparison">Final Iterator Comparison</a></li><li class="toc-lvl-2"><a href="#89-most-important-concepts">Most Important Concepts</a><ul><li class="toc-lvl-3"><a href="#concept-1-iterator-owns-traversal-state">Concept 1 — Iterator Owns Traversal State</a></li><li class="toc-lvl-3"><a href="#concept-2-iterable-creates-iterators">Concept 2 — Iterable Creates Iterators</a></li><li class="toc-lvl-3"><a href="#concept-3-iterator-can-wrap-iterator">Concept 3 — Iterator Can Wrap Iterator</a></li><li class="toc-lvl-3"><a href="#concept-4-lazy-evaluation">Concept 4 — Lazy Evaluation</a></li><li class="toc-lvl-3"><a href="#concept-5-source-capability-matters">Concept 5 — Source Capability Matters</a></li><li class="toc-lvl-3"><a href="#concept-6-no-caching-does-not-mean-no-restart">Concept 6 — No Caching Does Not Mean No Restart</a></li><li class="toc-lvl-3"><a href="#concept-7-some-operations-inherently-need-memory">Concept 7 — Some Operations Inherently Need Memory</a></li><li class="toc-lvl-3"><a href="#concept-8-operation-order-matters">Concept 8 — Operation Order Matters</a></li></ul></li><li class="toc-lvl-2"><a href="#90-final-interview-mental-model">Final Interview Mental Model</a></li><li class="toc-lvl-2"><a href="#91-final-interview-checklist">Final Interview Checklist</a></li><li class="toc-lvl-2"><a href="#92-ultimate-interview-question">Ultimate Interview Question</a></li><li class="toc-lvl-2"><a href="#93-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p>A progressive Java interview guide that starts with a simple <code>for</code> loop and gradually evolves into custom iterators, iterator composition, lazy evaluation, infinite iterators, and senior-level design questions.</p>
+</blockquote>
+<hr>
+<h2 id="1-how-to-use-this-guide">1. How to Use This Guide</h2>
+<p>The recommended interview progression is:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Simple for loop
+      |
+      v
+Why Iterator?
+      |
+      v
+Iterable vs Iterator
+      |
+      v
+Basic Iterator
+      |
+      v
+Filtering Iterator
+      |
+      v
+Iterator wrapping Iterator
+      |
+      v
+Traversal Strategies
+      |
+      v
+Iterator Composition
+      |
+      v
+Lazy Evaluation
+      |
+      v
+Cycle / Infinite Iterator
+      |
+      v
+Caching / Random Access
+      |
+      v
+Concurrency / Fail-Fast
+      |
+      v
+Senior-Level Design</code></pre></div>
+<p>The objective is not to memorize implementations.</p>
+<p>The objective is to understand:</p>
+<blockquote>
+<p><strong>What traversal problem are we solving, what state is required, and what capabilities does the source provide?</strong></p>
+</blockquote>
+<hr>
+<h2 id="2-start-with-a-simple-for-loop">2. Start With a Simple <code>for</code> Loop</h2>
+<h3 id="interview-question-1">Interview Question 1</h3>
+<p>Given:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>List&lt;Integer&gt; numbers =
+        List.of(10, 20, 30, 40, 50);</code></pre></div>
+<p>How would you print all values?</p>
+<h4 id="expected-answer">Expected Answer</h4>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>for (Integer number : numbers) {
+    System.out.println(number);
+}</code></pre></div>
+<p>Now the interviewer asks:</p>
+<blockquote>
+<p>What is happening internally?</p>
+</blockquote>
+<p>This is where the Iterator discussion begins.</p>
+<hr>
+<h2 id="3-why-do-we-need-an-iterator">3. Why Do We Need an Iterator?</h2>
+<p>Suppose we have:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>class UserCollection {
+
+    private User[] users;
+
+}</code></pre></div>
+<p>One simple design would expose:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public User[] getUsers() {
+    return users;
+}</code></pre></div>
+<p>The client can then do:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>User[] users = collection.getUsers();
+
+for (User user : users) {
+    // ...
+}</code></pre></div>
+<p>Ask:</p>
+<blockquote>
+<p>What problems do you see?</p>
+</blockquote>
+<h3 id="problem-1-internal-representation-leaks">Problem 1 — Internal Representation Leaks</h3>
+<p>The client knows the collection is implemented using:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>User[]</code></pre></div>
+<p>If we change it to:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>List&lt;User&gt;</code></pre></div>
+<p>the client may need to change.</p>
+<hr>
+<h3 id="problem-2-tight-coupling">Problem 2 — Tight Coupling</h3>
+<p>The client is coupled to the storage structure.</p>
+<hr>
+<h3 id="problem-3-traversal-logic-is-exposed">Problem 3 — Traversal Logic Is Exposed</h3>
+<p>The collection is responsible for storing data, while the client is responsible for understanding how to traverse it.</p>
+<hr>
+<h3 id="problem-4-different-traversal-strategies">Problem 4 — Different Traversal Strategies</h3>
+<p>Suppose we want:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Forward
+Backward
+Odd only
+Even only
+Negative only
+ZigZag
+Limited
+Filtered</code></pre></div>
+<p>We don't want the collection API to expose every possible traversal implementation.</p>
+<hr>
+<h2 id="4-what-happens-inside-enhanced-for">4. What Happens Inside Enhanced <code>for</code>?</h2>
+<p>Conceptually:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>for (Integer number : numbers) {
+    System.out.println(number);
+}</code></pre></div>
+<p>works like:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Iterator&lt;Integer&gt; iterator =
+        numbers.iterator();
+
+while (iterator.hasNext()) {
+
+    Integer number =
+            iterator.next();
+
+    System.out.println(number);
+}</code></pre></div>
+<p>The important transition is:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>for-each
+   |
+   v
+Iterable
+   |
+   | iterator()
+   v
+Iterator
+   |
+   +---- hasNext()
+   |
+   +---- next()</code></pre></div>
+<p>Now we can ask:</p>
+<blockquote>
+<p>What exactly is an Iterator?</p>
+</blockquote>
+<hr>
+<h2 id="5-iterable-vs-iterator">5. Iterable vs Iterator</h2>
+<p>This is one of the most important interview concepts.</p>
+<h3 id="iterator">Iterator</h3>
+<p>An <code>Iterator&lt;T&gt;</code> represents:</p>
+<blockquote>
+<p>One traversal over a source.</p>
+</blockquote>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Iterator&lt;Integer&gt; iterator =
+        numbers.iterator();</code></pre></div>
+<p>The iterator owns traversal state.</p>
+<p>For example:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>current index = 5</code></pre></div>
+<hr>
+<h3 id="iterable">Iterable</h3>
+<p>An <code>Iterable&lt;T&gt;</code> represents:</p>
+<blockquote>
+<p>Something from which an iterator can be obtained.</p>
+</blockquote>
+<p>Conceptually:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>interface Iterable&lt;T&gt; {
+
+    Iterator&lt;T&gt; iterator();
+}</code></pre></div>
+<p>Therefore:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterable
+    |
+    | iterator()
+    v
+Iterator</code></pre></div>
+<hr>
+<h3 id="important-difference">Important Difference</h3>
+<p>An <code>Iterable</code> can usually produce multiple independent iterators:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Iterator&lt;Integer&gt; a =
+        collection.iterator();
+
+Iterator&lt;Integer&gt; b =
+        collection.iterator();</code></pre></div>
+<p>Each can have independent traversal state.</p>
+<hr>
+<h2 id="6-basic-iterator-pattern">6. Basic Iterator Pattern</h2>
+<p>The Iterator pattern separates:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Collection</code></pre></div>
+<p>from:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Traversal</code></pre></div>
+<p>Conceptually:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+----------------------+
+|      Collection      |
+|----------------------|
+| Internal Data        |
++----------+-----------+
+           |
+           | creates
+           v
++----------------------+
+|       Iterator       |
+|----------------------|
+| Traversal State      |
+| hasNext()            |
+| next()               |
++----------------------+</code></pre></div>
+<p>The client does not need to know whether the underlying structure is:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Array
+List
+LinkedList
+Tree
+Database Cursor
+Remote Data Source</code></pre></div>
+<p>It only depends on the iterator contract.</p>
+<hr>
+<h2 id="7-implement-a-basic-iterator">7. Implement a Basic Iterator</h2>
+<h3 id="interview-question-2">Interview Question 2</h3>
+<p>Given:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>class UserCollection {
+
+    private final User[] users;
+
+    public UserCollection(User[] users) {
+        this.users = users;
+    }
+}</code></pre></div>
+<p>Design:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Iterator&lt;User&gt; iterator =
+        collection.iterator();
+
+while (iterator.hasNext()) {
+
+    User user =
+            iterator.next();
+}</code></pre></div>
+<hr>
+<h3 id="step-1-iterator-interface">Step 1 — Iterator Interface</h3>
+<p>For learning purposes:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>interface MyIterator&lt;T&gt; {
+
+    boolean hasNext();
+
+    T next();
+}</code></pre></div>
+<hr>
+<h3 id="step-2-iterator-implementation">Step 2 — Iterator Implementation</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>class UserIterator
+        implements MyIterator&lt;User&gt; {
+
+    private final User[] users;
+
+    private int index;
+
+    public UserIterator(User[] users) {
+        this.users = users;
+    }
+
+    @Override
+    public boolean hasNext() {
+        return index &lt; users.length;
+    }
+
+    @Override
+    public User next() {
+
+        if (!hasNext()) {
+            throw new NoSuchElementException();
+        }
+
+        return users[index++];
+    }
+}</code></pre></div>
+<hr>
+<h3 id="step-3-collection">Step 3 — Collection</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>class UserCollection {
+
+    private final User[] users;
+
+    public UserCollection(User[] users) {
+        this.users = users;
+    }
+
+    public MyIterator&lt;User&gt; iterator() {
+        return new UserIterator(users);
+    }
+}</code></pre></div>
+<hr>
+<h3 id="step-4-client">Step 4 — Client</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>MyIterator&lt;User&gt; iterator =
+        collection.iterator();
+
+while (iterator.hasNext()) {
+
+    User user =
+            iterator.next();
+
+    System.out.println(user);
+}</code></pre></div>
+<hr>
+<h2 id="8-iterator-contract">8. Iterator Contract</h2>
+<p>The basic contract is:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>hasNext()
+    |
+    +---- true
+    |       |
+    |       v
+    |     next()
+    |
+    +---- false
+            |
+            v
+        iteration ends</code></pre></div>
+<p>A Java-style iterator normally behaves like:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>if (!hasNext()) {
+    throw new NoSuchElementException();
+}</code></pre></div>
+<hr>
+<h2 id="9-odditerator">9. OddIterator</h2>
+<h3 id="interview-question-3">Interview Question 3</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4 5 6 7 8 9 10</code></pre></div>
+<p>Design:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>OddIterator</code></pre></div>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 3 5 7 9</code></pre></div>
+<hr>
+<h3 id="key-requirement">Key Requirement</h3>
+<p>Do not do:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>List&lt;Integer&gt; oddNumbers = new ArrayList&lt;&gt;();</code></pre></div>
+<p>and populate it first.</p>
+<p>We want:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Lazy traversal</code></pre></div>
+<hr>
+<h3 id="architecture">Architecture</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Original Iterator
+       |
+       v
+OddIterator
+       |
+       v
+1 3 5 7 9</code></pre></div>
+<hr>
+<h3 id="implementation">Implementation</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>class OddIterator
+        implements MyIterator&lt;Integer&gt; {
+
+    private final MyIterator&lt;Integer&gt; source;
+
+    private Integer nextValue;
+
+    private boolean prepared;
+
+    public OddIterator(
+            MyIterator&lt;Integer&gt; source) {
+
+        this.source = source;
+    }
+
+    private void prepare() {
+
+        if (prepared) {
+            return;
+        }
+
+        while (source.hasNext()) {
+
+            Integer value =
+                    source.next();
+
+            if (value % 2 != 0) {
+
+                nextValue = value;
+                prepared = true;
+
+                return;
+            }
+        }
+
+        prepared = true;
+        nextValue = null;
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        prepare();
+
+        return nextValue != null;
+    }
+
+    @Override
+    public Integer next() {
+
+        prepare();
+
+        if (nextValue == null) {
+            throw new NoSuchElementException();
+        }
+
+        Integer result = nextValue;
+
+        nextValue = null;
+        prepared = false;
+
+        return result;
+    }
+}</code></pre></div>
+<hr>
+<h2 id="10-eveniterator">10. EvenIterator</h2>
+<h3 id="interview-question-4">Interview Question 4</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4 5 6 7 8</code></pre></div>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>2 4 6 8</code></pre></div>
+<p>Condition:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>value % 2 == 0</code></pre></div>
+<p>Architecture:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Source Iterator
+      |
+      v
+EvenIterator
+      |
+      v
+2 4 6 8</code></pre></div>
+<hr>
+<h2 id="11-negativeiterator">11. NegativeIterator</h2>
+<h3 id="interview-question-5">Interview Question 5</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>10 -5 3 -8 -2 7</code></pre></div>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>-5 -8 -2</code></pre></div>
+<p>Condition:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>value &lt; 0</code></pre></div>
+<p>The important point is that the iterator should consume values from the source lazily.</p>
+<hr>
+<h2 id="12-positiveiterator">12. PositiveIterator</h2>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>-10 5 -3 8 -2</code></pre></div>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>5 8</code></pre></div>
+<p>Condition:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>value &gt; 0</code></pre></div>
+<hr>
+<h2 id="13-iterator-depending-on-another-iterator">13. Iterator Depending on Another Iterator</h2>
+<p>This is an important interview progression.</p>
+<h3 id="interview-question-6">Interview Question 6</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4 5 6 7 8 9 10 11</code></pre></div>
+<p>Apply:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>OddIterator</code></pre></div>
+<p>Result:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 3 5 7 9 11</code></pre></div>
+<p>Now apply another:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>OddIterator</code></pre></div>
+<p>Result:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 5 9</code></pre></div>
+<p>Architecture:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Original Iterator
+       |
+       v
+OddIterator #1
+       |
+       v
+OddIterator #2
+       |
+       v
+Client</code></pre></div>
+<p>The second iterator does not need to know where the first iterator gets its data.</p>
+<p>It only knows:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterator&lt;T&gt;</code></pre></div>
+<p>This leads to an important design principle:</p>
+<blockquote>
+<p><strong>An iterator can wrap another iterator.</strong></p>
+</blockquote>
+<hr>
+<h2 id="14-generic-filteringiterator">14. Generic FilteringIterator</h2>
+<p>At this point ask:</p>
+<blockquote>
+<p>Are OddIterator, EvenIterator, NegativeIterator and PositiveIterator duplicating the same algorithm?</p>
+</blockquote>
+<p>Yes.</p>
+<p>The only thing changing is the condition.</p>
+<p>Therefore create:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>FilteringIterator&lt;T&gt;</code></pre></div>
+<hr>
+<h3 id="generic-design">Generic Design</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>class FilteringIterator&lt;T&gt;
+        implements MyIterator&lt;T&gt; {
+
+    private final MyIterator&lt;T&gt; source;
+
+    private final Predicate&lt;T&gt; predicate;
+
+    private T nextValue;
+
+    private boolean prepared;
+
+    public FilteringIterator(
+            MyIterator&lt;T&gt; source,
+            Predicate&lt;T&gt; predicate) {
+
+        this.source = source;
+        this.predicate = predicate;
+    }
+
+    private void prepare() {
+
+        if (prepared) {
+            return;
+        }
+
+        while (source.hasNext()) {
+
+            T candidate =
+                    source.next();
+
+            if (predicate.test(candidate)) {
+
+                nextValue = candidate;
+
+                prepared = true;
+
+                return;
+            }
+        }
+
+        nextValue = null;
+
+        prepared = true;
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        prepare();
+
+        return nextValue != null;
+    }
+
+    @Override
+    public T next() {
+
+        prepare();
+
+        if (nextValue == null) {
+            throw new NoSuchElementException();
+        }
+
+        T result = nextValue;
+
+        nextValue = null;
+        prepared = false;
+
+        return result;
+    }
+}</code></pre></div>
+<hr>
+<h3 id="odd">Odd</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>new FilteringIterator&lt;&gt;(
+        iterator,
+        value -&gt; value % 2 != 0
+);</code></pre></div>
+<hr>
+<h3 id="even">Even</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>new FilteringIterator&lt;&gt;(
+        iterator,
+        value -&gt; value % 2 == 0
+);</code></pre></div>
+<hr>
+<h3 id="negative">Negative</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>new FilteringIterator&lt;&gt;(
+        iterator,
+        value -&gt; value &lt; 0
+);</code></pre></div>
+<hr>
+<h2 id="15-forwarditerator">15. ForwardIterator</h2>
+<h3 id="interview-question-7">Interview Question 7</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4 5</code></pre></div>
+<p>Output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4 5</code></pre></div>
+<p>State:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private int index;</code></pre></div>
+<p>Algorithm:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>next():
+    return data[index]
+    index++</code></pre></div>
+<p>Space:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>O(1)</code></pre></div>
+<hr>
+<h2 id="16-backwarditerator">16. BackwardIterator</h2>
+<h3 id="interview-question-8">Interview Question 8</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4 5</code></pre></div>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>5 4 3 2 1</code></pre></div>
+<p>For a <code>List&lt;T&gt;</code>:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>class BackwardIterator&lt;T&gt;
+        implements MyIterator&lt;T&gt; {
+
+    private final List&lt;T&gt; list;
+
+    private int index;
+
+    public BackwardIterator(List&lt;T&gt; list) {
+
+        this.list = list;
+
+        this.index =
+                list.size() - 1;
+    }
+
+    @Override
+    public boolean hasNext() {
+        return index &gt;= 0;
+    }
+
+    @Override
+    public T next() {
+
+        if (!hasNext()) {
+            throw new NoSuchElementException();
+        }
+
+        return list.get(index--);
+    }
+}</code></pre></div>
+<hr>
+<h2 id="17-can-backwarditerator-work-with-iteratort">17. Can BackwardIterator Work With <code>Iterator&lt;T&gt;</code>?</h2>
+<p>Ask:</p>
+<blockquote>
+<p>Can you implement BackwardIterator if the only input is:</p>
+</blockquote>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Iterator&lt;T&gt;</code></pre></div>
+<p>Generally:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>No.</code></pre></div>
+<p>Why?</p>
+<p>A normal iterator provides:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>hasNext()
+next()</code></pre></div>
+<p>It does not provide:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>previous()</code></pre></div>
+<p>or:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>get(index)</code></pre></div>
+<p>Therefore backward traversal requires one of:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Random-access collection
+        OR
+Bidirectional iterator
+        OR
+Cached data</code></pre></div>
+<p>This is a very important interview concept:</p>
+<blockquote>
+<p><strong>The iterator algorithm is constrained by the capabilities of the source.</strong></p>
+</blockquote>
+<hr>
+<h2 id="18-rangeiterator">18. RangeIterator</h2>
+<h3 id="interview-question-9">Interview Question 9</h3>
+<p>Design:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>RangeIterator(5, 10)</code></pre></div>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>5 6 7 8 9 10</code></pre></div>
+<hr>
+<h3 id="implementation_1">Implementation</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>class RangeIterator
+        implements MyIterator&lt;Integer&gt; {
+
+    private int current;
+
+    private final int end;
+
+    public RangeIterator(
+            int start,
+            int end) {
+
+        this.current = start;
+        this.end = end;
+    }
+
+    @Override
+    public boolean hasNext() {
+        return current &lt;= end;
+    }
+
+    @Override
+    public Integer next() {
+
+        if (!hasNext()) {
+            throw new NoSuchElementException();
+        }
+
+        return current++;
+    }
+}</code></pre></div>
+<hr>
+<h2 id="19-rangeiterator-with-step">19. RangeIterator With Step</h2>
+<p>Follow-up:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>RangeIterator(0, 10, 2)</code></pre></div>
+<p>Output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>0 2 4 6 8 10</code></pre></div>
+<p>Reverse:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>RangeIterator(10, 0, -2)</code></pre></div>
+<p>Output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>10 8 6 4 2 0</code></pre></div>
+<hr>
+<h3 id="interview-follow-ups">Interview Follow-ups</h3>
+<p>Ask:</p>
+<ol>
+<li>What if step is zero?</li>
+<li>What if start &gt; end?</li>
+<li>Should the end be inclusive?</li>
+<li>Should negative steps be allowed?</li>
+<li>What exception should invalid arguments produce?</li>
+<li>Can this iterator be infinite?</li>
+</ol>
+<hr>
+<h2 id="20-skipiterator">20. SkipIterator</h2>
+<h3 id="interview-question-10">Interview Question 10</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4 5 6 7</code></pre></div>
+<p>Skip first three.</p>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>4 5 6 7</code></pre></div>
+<p>Architecture:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Source
+  |
+  v
+SkipIterator(3)
+  |
+  v
+4 5 6 7</code></pre></div>
+<hr>
+<h3 id="implementation_2">Implementation</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>class SkipIterator&lt;T&gt;
+        implements MyIterator&lt;T&gt; {
+
+    private final MyIterator&lt;T&gt; source;
+
+    public SkipIterator(
+            MyIterator&lt;T&gt; source,
+            int skip) {
+
+        this.source = source;
+
+        for (
+            int i = 0;
+            i &lt; skip &amp;&amp; source.hasNext();
+            i++
+        ) {
+            source.next();
+        }
+    }
+
+    @Override
+    public boolean hasNext() {
+        return source.hasNext();
+    }
+
+    @Override
+    public T next() {
+
+        if (!hasNext()) {
+            throw new NoSuchElementException();
+        }
+
+        return source.next();
+    }
+}</code></pre></div>
+<hr>
+<h2 id="21-limititerator">21. LimitIterator</h2>
+<h3 id="interview-question-11">Interview Question 11</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4 5 6 7 8</code></pre></div>
+<p>Limit:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>3</code></pre></div>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3</code></pre></div>
+<hr>
+<h3 id="implementation_3">Implementation</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>class LimitIterator&lt;T&gt;
+        implements MyIterator&lt;T&gt; {
+
+    private final MyIterator&lt;T&gt; source;
+
+    private final int limit;
+
+    private int count;
+
+    public LimitIterator(
+            MyIterator&lt;T&gt; source,
+            int limit) {
+
+        this.source = source;
+        this.limit = limit;
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        return count &lt; limit
+                &amp;&amp; source.hasNext();
+    }
+
+    @Override
+    public T next() {
+
+        if (!hasNext()) {
+            throw new NoSuchElementException();
+        }
+
+        count++;
+
+        return source.next();
+    }
+}</code></pre></div>
+<p>Space:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>O(1)</code></pre></div>
+<p>No caching is required.</p>
+<hr>
+<h2 id="22-zigzagiterator">22. ZigZagIterator</h2>
+<h3 id="interview-question-12">Interview Question 12</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4 5 6 7</code></pre></div>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 7 2 6 3 5 4</code></pre></div>
+<hr>
+<h3 id="state">State</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>left  = 0
+right = 6</code></pre></div>
+<p>Alternate:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>left
+right
+left
+right
+...</code></pre></div>
+<hr>
+<h3 id="implementation_4">Implementation</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>class ZigZagIterator&lt;T&gt;
+        implements MyIterator&lt;T&gt; {
+
+    private final List&lt;T&gt; list;
+
+    private int left = 0;
+
+    private int right;
+
+    private boolean takeLeft = true;
+
+    public ZigZagIterator(List&lt;T&gt; list) {
+
+        this.list = list;
+
+        this.right =
+                list.size() - 1;
+    }
+
+    @Override
+    public boolean hasNext() {
+        return left &lt;= right;
+    }
+
+    @Override
+    public T next() {
+
+        if (!hasNext()) {
+            throw new NoSuchElementException();
+        }
+
+        if (takeLeft) {
+
+            takeLeft = false;
+
+            return list.get(left++);
+        }
+
+        takeLeft = true;
+
+        return list.get(right--);
+    }
+}</code></pre></div>
+<p>Space:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>O(1)</code></pre></div>
+<p>Requirement:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Random access</code></pre></div>
+<p>for this implementation.</p>
+<hr>
+<h2 id="23-interleavingiterator">23. InterleavingIterator</h2>
+<h3 id="interview-question-13">Interview Question 13</h3>
+<p>Given:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>A = 1 2 3 4
+
+B = 10 20 30 40</code></pre></div>
+<p>Output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 10 2 20 3 30 4 40</code></pre></div>
+<p>Architecture:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterator A -----\
+                  \
+                   InterleavingIterator
+                  /
+Iterator B -----/</code></pre></div>
+<hr>
+<h3 id="basic-state">Basic State</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private boolean useFirst;</code></pre></div>
+<p>Algorithm:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>if both have values:
+    alternate
+
+if A is exhausted:
+    continue B
+
+if B is exhausted:
+    continue A</code></pre></div>
+<hr>
+<h2 id="24-interleaving-with-unequal-sources">24. Interleaving With Unequal Sources</h2>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>A = 1 2
+
+B = 10 20 30 40</code></pre></div>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 10 2 20 30 40</code></pre></div>
+<p>The implementation must handle exhaustion of one child iterator.</p>
+<hr>
+<h2 id="25-roundrobiniterator">25. RoundRobinIterator</h2>
+<p>Now generalize the problem.</p>
+<h3 id="interview-question-14">Interview Question 14</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>A = 1 2 3
+
+B = 10 20
+
+C = 100 200 300</code></pre></div>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 10 100 2 20 200 3 300</code></pre></div>
+<p>Use:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Queue&lt;Iterator&lt;T&gt;&gt;</code></pre></div>
+<p>Conceptually:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Queue
+
+[A, B, C]
+
+Take A
+Queue -&gt; [B, C, A]
+
+Take B
+Queue -&gt; [C, A, B]
+
+Take C
+Queue -&gt; [A, B, C]</code></pre></div>
+<p>If an iterator becomes exhausted, do not put it back into the queue.</p>
+<hr>
+<h2 id="26-concatiterator">26. ConcatIterator</h2>
+<h3 id="interview-question-15">Interview Question 15</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>A = 1 2 3
+
+B = 10 20</code></pre></div>
+<p>Output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 10 20</code></pre></div>
+<p>Architecture:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterator A
+    |
+    v
+consume completely
+    |
+    v
+Iterator B
+    |
+    v
+consume completely</code></pre></div>
+<p>For multiple iterators:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>List&lt;Iterator&lt;T&gt;&gt;</code></pre></div>
+<p>and maintain:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>int currentIteratorIndex;</code></pre></div>
+<hr>
+<h2 id="27-flatteniterator">27. FlattenIterator</h2>
+<h3 id="interview-question-16">Interview Question 16</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>[
+    [1, 2],
+    [3, 4, 5],
+    [6]
+]</code></pre></div>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4 5 6</code></pre></div>
+<p>Architecture:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Outer Iterator
+       |
+       v
+Current Inner Iterator
+       |
+       v
+FlattenIterator</code></pre></div>
+<hr>
+<h3 id="state_1">State</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private final Iterator&lt;List&lt;T&gt;&gt; outer;
+
+private Iterator&lt;T&gt; inner;</code></pre></div>
+<p>Algorithm:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>while inner is exhausted:
+
+    if outer has another collection:
+        inner = outer.next().iterator()
+    else:
+        no more elements
+
+return inner.next()</code></pre></div>
+<hr>
+<h2 id="28-mapiterator">28. MapIterator</h2>
+<h3 id="interview-question-17">Interview Question 17</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4</code></pre></div>
+<p>Transformation:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>x -&gt; x * x</code></pre></div>
+<p>Output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 4 9 16</code></pre></div>
+<hr>
+<h3 id="implementation_5">Implementation</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>class MapIterator&lt;T, R&gt;
+        implements MyIterator&lt;R&gt; {
+
+    private final MyIterator&lt;T&gt; source;
+
+    private final Function&lt;T, R&gt; mapper;
+
+    public MapIterator(
+            MyIterator&lt;T&gt; source,
+            Function&lt;T, R&gt; mapper) {
+
+        this.source = source;
+        this.mapper = mapper;
+    }
+
+    @Override
+    public boolean hasNext() {
+        return source.hasNext();
+    }
+
+    @Override
+    public R next() {
+
+        if (!hasNext()) {
+            throw new NoSuchElementException();
+        }
+
+        return mapper.apply(
+                source.next()
+        );
+    }
+}</code></pre></div>
+<hr>
+<h2 id="29-peekiterator">29. PeekIterator</h2>
+<h3 id="interview-question-18">Interview Question 18</h3>
+<p>Design:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>T peek();
+
+T next();
+
+boolean hasNext();</code></pre></div>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3</code></pre></div>
+<p>Calling:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>peek()</code></pre></div>
+<p>returns:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1</code></pre></div>
+<p>Calling again:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>peek()</code></pre></div>
+<p>still returns:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1</code></pre></div>
+<p>Then:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>next()</code></pre></div>
+<p>returns:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1</code></pre></div>
+<p>The iterator needs a one-element buffer.</p>
+<hr>
+<h2 id="30-distinctiterator">30. DistinctIterator</h2>
+<h3 id="interview-question-19">Interview Question 19</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 2 3 3 3 4</code></pre></div>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4</code></pre></div>
+<p>Typical design:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Set&lt;T&gt; seen =
+        new HashSet&lt;&gt;();</code></pre></div>
+<p>Algorithm:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>candidate
+    |
+    v
+already seen?
+   /       \
+ yes       no
+ |          |
+skip      remember
+             |
+             v
+           return</code></pre></div>
+<hr>
+<h2 id="31-can-distinctiterator-avoid-caching">31. Can DistinctIterator Avoid Caching?</h2>
+<p>For arbitrary data:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>No.</code></pre></div>
+<p>Why?</p>
+<p>The iterator needs to remember previously seen values.</p>
+<p>Worst-case:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>O(n)</code></pre></div>
+<p>additional memory.</p>
+<p>This is a useful contrast with:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>FilterIterator</code></pre></div>
+<p>which only needs:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>O(1)</code></pre></div>
+<p>additional state.</p>
+<hr>
+<h2 id="32-takewhileiterator">32. TakeWhileIterator</h2>
+<h3 id="interview-question-20">Interview Question 20</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4 0 5 6</code></pre></div>
+<p>Condition:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>x &gt; 0</code></pre></div>
+<p>Output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4</code></pre></div>
+<p>The first failed condition ends iteration.</p>
+<hr>
+<h3 id="difference-between-filter-and-takewhile">Difference Between Filter and TakeWhile</h3>
+<h4 id="filter">Filter</h4>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 0 3 4</code></pre></div>
+<p>Condition:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>x &gt; 0</code></pre></div>
+<p>Output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4</code></pre></div>
+<h4 id="takewhile">TakeWhile</h4>
+<p>Output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2</code></pre></div>
+<p>because <code>0</code> terminates traversal.</p>
+<hr>
+<h2 id="33-dropwhileiterator">33. DropWhileIterator</h2>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 0 4 5</code></pre></div>
+<p>Condition:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>x &gt; 0</code></pre></div>
+<p>Drop while condition is true.</p>
+<p>Output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>0 4 5</code></pre></div>
+<p>After the first failure, return the remaining values without continuing to evaluate the predicate.</p>
+<hr>
+<h2 id="34-zipiterator">34. ZipIterator</h2>
+<h3 id="interview-question-21">Interview Question 21</h3>
+<p>Given:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>A = 1 2 3
+
+B = 10 20 30</code></pre></div>
+<p>Return:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>(1,10)
+(2,20)
+(3,30)</code></pre></div>
+<p>Conceptually:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>A.next() + B.next()</code></pre></div>
+<hr>
+<h2 id="35-zip-with-unequal-sources">35. Zip With Unequal Sources</h2>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>A = 1 2 3 4
+
+B = 10 20</code></pre></div>
+<p>Possible contracts:</p>
+<h4 id="stop-at-shortest">Stop at shortest</h4>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>(1,10)
+(2,20)</code></pre></div>
+<h4 id="continue-with-null">Continue with null</h4>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>(1,10)
+(2,20)
+(3,null)
+(4,null)</code></pre></div>
+<h4 id="throw-exception">Throw exception</h4>
+<p>Possible if equal-length sources are required.</p>
+<p>The key interview lesson:</p>
+<blockquote>
+<p><strong>Clarify the contract before implementing.</strong></p>
+</blockquote>
+<hr>
+<h2 id="36-partitioniterator">36. PartitionIterator</h2>
+<h3 id="interview-question-22">Interview Question 22</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4 5 6 7</code></pre></div>
+<p>Chunk size:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>3</code></pre></div>
+<p>Output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>[1,2,3]
+[4,5,6]
+[7]</code></pre></div>
+<p>This iterator returns:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Iterator&lt;List&lt;T&gt;&gt;</code></pre></div>
+<p>instead of:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Iterator&lt;T&gt;</code></pre></div>
+<p>The iterator itself is still lazy, but each chunk requires temporary storage.</p>
+<p>Space:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>O(chunkSize)</code></pre></div>
+<hr>
+<h2 id="37-cycleiterator">37. CycleIterator</h2>
+<h3 id="interview-question-23">Interview Question 23</h3>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3</code></pre></div>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>CycleIterator</code></pre></div>
+<p>Conceptual output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 1 2 3 1 2 3 ...</code></pre></div>
+<p>This is an infinite iterator.</p>
+<hr>
+<h2 id="38-the-critical-cycleiterator-question">38. The Critical CycleIterator Question</h2>
+<p>Ask:</p>
+<blockquote>
+<p>Can you implement CycleIterator using only <code>Iterator&lt;T&gt;</code> and without caching?</p>
+</blockquote>
+<p>Generally:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>No.</code></pre></div>
+<p>Why?</p>
+<p>A normal iterator eventually reaches:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 -&gt; 2 -&gt; 3 -&gt; exhausted</code></pre></div>
+<p>There is no generic:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>restart()</code></pre></div>
+<p>or:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>previous()</code></pre></div>
+<p>operation.</p>
+<p>Therefore, without caching, the source must provide another way to restart traversal.</p>
+<hr>
+<h2 id="39-cycleiterator-without-caching">39. CycleIterator Without Caching</h2>
+<p>Use:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Iterable&lt;T&gt;</code></pre></div>
+<p>instead of:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Iterator&lt;T&gt;</code></pre></div>
+<p>because:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>source.iterator()</code></pre></div>
+<p>can create a new iterator.</p>
+<p>Architecture:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterable
+   |
+   +---- Iterator #1
+   |
+   +---- Iterator #2
+   |
+   +---- Iterator #3
+   |
+   +---- ...</code></pre></div>
+<hr>
+<h3 id="implementation_6">Implementation</h3>
+<p>A clean implementation can be:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>class CycleIterator&lt;T&gt;
+        implements MyIterator&lt;T&gt; {
+
+    private final Iterable&lt;T&gt; source;
+
+    private Iterator&lt;T&gt; current;
+
+    public CycleIterator(
+            Iterable&lt;T&gt; source) {
+
+        this.source = source;
+
+        this.current =
+                source.iterator();
+    }
+
+    @Override
+    public boolean hasNext() {
+
+        if (current.hasNext()) {
+            return true;
+        }
+
+        current =
+                source.iterator();
+
+        return current.hasNext();
+    }
+
+    @Override
+    public T next() {
+
+        if (!current.hasNext()) {
+
+            current =
+                    source.iterator();
+        }
+
+        if (!current.hasNext()) {
+
+            throw new NoSuchElementException(
+                    &quot;Cannot iterate an empty source&quot;
+            );
+        }
+
+        return current.next();
+    }
+}</code></pre></div>
+<p>No entire collection is cached.</p>
+<hr>
+<h2 id="40-why-iterable-is-important-for-cycleiterator">40. Why <code>Iterable</code> Is Important for CycleIterator</h2>
+<p>Compare:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterator&lt;T&gt;</code></pre></div>
+<p>with:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterable&lt;T&gt;</code></pre></div>
+<h4 id="iterator_1">Iterator</h4>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>One traversal
+     |
+     v
+1 -&gt; 2 -&gt; 3 -&gt; END</code></pre></div>
+<h4 id="iterable_1">Iterable</h4>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>source.iterator()
+       |
+       v
+1 -&gt; 2 -&gt; 3
+
+source.iterator()
+       |
+       v
+1 -&gt; 2 -&gt; 3
+
+source.iterator()
+       |
+       v
+1 -&gt; 2 -&gt; 3</code></pre></div>
+<p>Therefore:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>No caching
++
+Restartable source
+=
+Cycle possible</code></pre></div>
+<hr>
+<h2 id="41-cycleiterator-and-empty-source">41. CycleIterator and Empty Source</h2>
+<p>Suppose:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>List&lt;Integer&gt; list =
+        List.of();</code></pre></div>
+<p>What should:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>CycleIterator</code></pre></div>
+<p>do?</p>
+<p>An empty source cannot meaningfully cycle.</p>
+<p>Possible API contracts:</p>
+<h4 id="option-1">Option 1</h4>
+<p>Allow creation but:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>hasNext() == false</code></pre></div>
+<h4 id="option-2">Option 2</h4>
+<p>Throw during construction.</p>
+<p>Either is possible if explicitly documented.</p>
+<p>The important thing is:</p>
+<blockquote>
+<p>Do not accidentally create an infinite iterator whose <code>hasNext()</code> always returns <code>true</code> for an empty source.</p>
+</blockquote>
+<hr>
+<h2 id="42-cycle-limit">42. Cycle + Limit</h2>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3</code></pre></div>
+<p>Pipeline:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>CycleIterator
+      |
+      v
+LimitIterator(8)</code></pre></div>
+<p>Output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 1 2 3 1 2</code></pre></div>
+<p>Architecture:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterable
+   |
+   v
+CycleIterator
+   |
+   v
+LimitIterator(8)
+   |
+   v
+Client</code></pre></div>
+<p>This is a good demonstration of iterator composition.</p>
+<hr>
+<h2 id="43-lazy-evaluation">43. Lazy Evaluation</h2>
+<h3 id="interview-question-24">Interview Question 24</h3>
+<p>What does lazy iteration mean?</p>
+<h4 id="eager-approach">Eager approach</h4>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Source
+  |
+  v
+Create filtered List
+  |
+  v
+Create limited List
+  |
+  v
+Create mapped List
+  |
+  v
+Client</code></pre></div>
+<p>This may create many intermediate objects.</p>
+<hr>
+<h3 id="lazy-approach">Lazy approach</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Source
+  |
+  v
+FilterIterator
+  |
+  v
+LimitIterator
+  |
+  v
+MapIterator
+  |
+  v
+Client</code></pre></div>
+<p>Each element is processed only when the client requests it.</p>
+<hr>
+<h2 id="44-why-lazy-evaluation-matters">44. Why Lazy Evaluation Matters</h2>
+<p>Suppose:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1,000,000,000 elements</code></pre></div>
+<p>We need:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>first 5 odd numbers</code></pre></div>
+<p>A lazy pipeline:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Source
+  |
+  v
+OddIterator
+  |
+  v
+LimitIterator(5)</code></pre></div>
+<p>can stop as soon as five results are found.</p>
+<p>It does not need to build a billion-element intermediate collection.</p>
+<hr>
+<h2 id="45-iterator-pipeline">45. Iterator Pipeline</h2>
+<p>Consider:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Range(1, 100)
+      |
+      v
+Filter odd
+      |
+      v
+Skip 5
+      |
+      v
+Limit 10
+      |
+      v
+Map x -&gt; x * 10
+      |
+      v
+Client</code></pre></div>
+<p>Result:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>110
+130
+150
+170
+190
+210
+230
+250
+270
+290</code></pre></div>
+<p>No intermediate result list is required.</p>
+<hr>
+<h2 id="46-operation-ordering">46. Operation Ordering</h2>
+<p>This is a very important interview follow-up.</p>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 2 3 4 5 6 7 8 9 10</code></pre></div>
+<hr>
+<h3 id="pipeline-a">Pipeline A</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Filter odd
+   |
+   v
+Limit 3</code></pre></div>
+<p>Output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 3 5</code></pre></div>
+<hr>
+<h3 id="pipeline-b">Pipeline B</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Limit 3
+   |
+   v
+Filter odd</code></pre></div>
+<p>Output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 3</code></pre></div>
+<p>Therefore:</p>
+<blockquote>
+<p><strong>Iterator operations are not necessarily commutative.</strong></p>
+</blockquote>
+<p>The order changes both:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>result</code></pre></div>
+<p>and:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>amount of source data consumed</code></pre></div>
+<hr>
+<h2 id="47-how-many-elements-are-consumed">47. How Many Elements Are Consumed?</h2>
+<p>Consider:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Range(1, 1_000_000_000)
+        |
+        v
+Filter odd
+        |
+        v
+Limit 5</code></pre></div>
+<p>The iterator only needs to inspect enough values to find:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1
+3
+5
+7
+9</code></pre></div>
+<p>It does not need to traverse the entire billion-element range.</p>
+<p>This is the core benefit of lazy iteration.</p>
+<hr>
+<h2 id="48-iterator-state-machine">48. Iterator State Machine</h2>
+<p>An iterator is fundamentally a stateful object.</p>
+<p>For a basic iterator:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>START
+  |
+  | next()
+  v
+POSITION 1
+  |
+  | next()
+  v
+POSITION 2
+  |
+  | next()
+  v
+POSITION 3
+  |
+  v
+EXHAUSTED</code></pre></div>
+<p>Complex iterators have more state.</p>
+<p>For example:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>PeekIterator</code></pre></div>
+<p>needs:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>source state
++
+buffer state</code></pre></div>
+<hr>
+<h2 id="49-multiple-hasnext-calls">49. Multiple <code>hasNext()</code> Calls</h2>
+<p>Consider:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>iterator.hasNext();
+iterator.hasNext();
+iterator.hasNext();
+
+iterator.next();</code></pre></div>
+<p>The three <code>hasNext()</code> calls should not consume three elements.</p>
+<p>For a filtering iterator, one possible implementation is:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>hasNext()
+    |
+    v
+prepare next matching value
+    |
+    v
+cache one value</code></pre></div>
+<p>Then:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>next()</code></pre></div>
+<p>consumes that cached value.</p>
+<hr>
+<h2 id="50-calling-next-without-hasnext">50. Calling <code>next()</code> Without <code>hasNext()</code></h2>
+<p>Consider:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>iterator.next();</code></pre></div>
+<p>without calling:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>hasNext();</code></pre></div>
+<p>A good iterator should normally support this.</p>
+<p>Therefore <code>next()</code> should validate exhaustion itself:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>if (!hasNext()) {
+    throw new NoSuchElementException();
+}</code></pre></div>
+<p>Do not assume callers always call <code>hasNext()</code> first.</p>
+<hr>
+<h2 id="51-null-elements">51. Null Elements</h2>
+<p>Suppose the source contains:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1 null 2 null 3</code></pre></div>
+<p>A filtering iterator cannot safely use:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>nextValue == null</code></pre></div>
+<p>as the only indication of:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>No value available</code></pre></div>
+<p>because:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>null</code></pre></div>
+<p>might itself be a valid element.</p>
+<p>Use an explicit state flag such as:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private boolean prepared;
+
+private boolean hasBufferedValue;</code></pre></div>
+<p>This is a good senior-level edge-case question.</p>
+<hr>
+<h2 id="52-empty-source">52. Empty Source</h2>
+<p>Every iterator should define behavior for:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>[]</code></pre></div>
+<p>Ask:</p>
+<h4 id="basic-iterator">Basic Iterator</h4>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>hasNext() -&gt; false
+next() -&gt; NoSuchElementException</code></pre></div>
+<h4 id="filteriterator">FilterIterator</h4>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>hasNext() -&gt; false</code></pre></div>
+<h4 id="limititerator">LimitIterator</h4>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>hasNext() -&gt; false</code></pre></div>
+<h4 id="flatteniterator">FlattenIterator</h4>
+<p>Skip empty inner collections.</p>
+<h4 id="interleavingiterator">InterleavingIterator</h4>
+<p>Continue with the non-empty source.</p>
+<h4 id="cycleiterator">CycleIterator</h4>
+<p>Must explicitly define empty-source behavior.</p>
+<hr>
+<h2 id="53-remove">53. <code>remove()</code></h2>
+<p>Java's <code>Iterator</code> historically supports:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>boolean hasNext();
+
+T next();
+
+void remove();</code></pre></div>
+<p>Now ask:</p>
+<blockquote>
+<p>What should happen if <code>remove()</code> is called before <code>next()</code>?</p>
+</blockquote>
+<p>Usually invalid.</p>
+<p>Ask:</p>
+<blockquote>
+<p>What if <code>remove()</code> is called twice without another <code>next()</code>?</p>
+</blockquote>
+<p>Also invalid.</p>
+<p>Therefore an iterator supporting <code>remove()</code> has a richer state machine.</p>
+<hr>
+<h2 id="54-remove-state-machine">54. <code>remove()</code> State Machine</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>START
+  |
+  | next()
+  v
+CAN_REMOVE
+  |
+  | remove()
+  v
+CANNOT_REMOVE
+  |
+  | next()
+  v
+CAN_REMOVE</code></pre></div>
+<p>Invalid:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>START
+ |
+ | remove()
+ X</code></pre></div>
+<p>And:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>CAN_REMOVE
+ |
+ | remove()
+ v
+CANNOT_REMOVE
+ |
+ | remove()
+ X</code></pre></div>
+<p>This is an excellent state-machine interview problem.</p>
+<hr>
+<h2 id="55-fail-fast-iterator">55. Fail-Fast Iterator</h2>
+<p>Suppose:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>List&lt;Integer&gt; list =
+        new ArrayList&lt;&gt;(
+                List.of(1, 2, 3)
+        );
+
+Iterator&lt;Integer&gt; iterator =
+        list.iterator();</code></pre></div>
+<p>Then the list is modified:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>list.add(100);</code></pre></div>
+<p>while iteration is in progress.</p>
+<p>What should happen?</p>
+<p>Java collection iterators often use fail-fast behavior and may throw:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>ConcurrentModificationException</code></pre></div>
+<hr>
+<h2 id="56-modcount-concept">56. <code>modCount</code> Concept</h2>
+<p>Conceptually:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>class Collection {
+
+    int modCount;
+}</code></pre></div>
+<p>Iterator remembers:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>int expectedModCount;</code></pre></div>
+<p>When the collection changes structurally:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>modCount++</code></pre></div>
+<p>Iterator checks:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>if (expectedModCount != modCount) {
+
+    throw new ConcurrentModificationException();
+}</code></pre></div>
+<p>Important:</p>
+<blockquote>
+<p>Fail-fast behavior is a detection mechanism, not a thread-safety mechanism.</p>
+</blockquote>
+<hr>
+<h2 id="57-concurrent-modification">57. Concurrent Modification</h2>
+<p>Consider:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Thread A
+    |
+    +---- iterator.next()
+
+
+Thread B
+    |
+    +---- collection.remove(...)</code></pre></div>
+<p>Without appropriate synchronization or a concurrent collection, behavior may be unsafe or inconsistent.</p>
+<p>A production API should explicitly define its concurrency semantics.</p>
+<hr>
+<h2 id="58-thread-safety">58. Thread Safety</h2>
+<p>Ask:</p>
+<blockquote>
+<p>Is an Iterator automatically thread-safe?</p>
+</blockquote>
+<p>No.</p>
+<p>Possible designs:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. Iterator is not thread-safe
+2. Caller synchronizes externally
+3. Source is immutable
+4. Iterator uses a snapshot
+5. Source is a concurrent collection
+6. Iterator itself synchronizes</code></pre></div>
+<p>Do not automatically synchronize everything.</p>
+<p>Thread safety is an API design decision.</p>
+<hr>
+<h2 id="59-infinite-iterators">59. Infinite Iterators</h2>
+<p>Examples:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>CycleIterator</code></pre></div>
+<p>and:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>RangeIterator(0, infinity)</code></pre></div>
+<p>For an infinite iterator:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>hasNext()</code></pre></div>
+<p>may always return:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>true</code></pre></div>
+<p>for a non-empty source.</p>
+<p>Therefore:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>while (iterator.hasNext()) {
+    iterator.next();
+}</code></pre></div>
+<p>may never terminate.</p>
+<p>Infinite iterators are generally combined with:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>LimitIterator</code></pre></div>
+<p>or another terminating operation.</p>
+<hr>
+<h2 id="60-infinite-iterator-pipeline">60. Infinite Iterator Pipeline</h2>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Infinite Range
+      |
+      v
+EvenIterator
+      |
+      v
+LimitIterator(10)
+      |
+      v
+Client</code></pre></div>
+<p>Only ten results are produced.</p>
+<hr>
+<h2 id="61-complexity-analysis">61. Complexity Analysis</h2>
+<p>A strong interview answer should discuss:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Time complexity</code></pre></div>
+<p>and:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Additional space complexity</code></pre></div>
+<hr>
+<h3 id="typical-complexity-table">Typical Complexity Table</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Iterator</th>
+<th style="text-align: right;">Extra Space</th>
+<th>Special Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Forward</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Filtering</td>
+<td style="text-align: right;">O(1)</td>
+<td>Predicate</td>
+</tr>
+<tr>
+<td>Odd</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Even</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Negative</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Positive</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Range</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Skip</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Limit</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Map</td>
+<td style="text-align: right;">O(1)</td>
+<td>Function</td>
+</tr>
+<tr>
+<td>Backward</td>
+<td style="text-align: right;">O(1)</td>
+<td>Random access/reverse source</td>
+</tr>
+<tr>
+<td>ZigZag</td>
+<td style="text-align: right;">O(1)</td>
+<td>Random access</td>
+</tr>
+<tr>
+<td>Interleave</td>
+<td style="text-align: right;">O(1)</td>
+<td>Multiple sources</td>
+</tr>
+<tr>
+<td>Round Robin</td>
+<td style="text-align: right;">O(k)</td>
+<td>Queue of iterators</td>
+</tr>
+<tr>
+<td>Concat</td>
+<td style="text-align: right;">O(1)</td>
+<td>Multiple sources</td>
+</tr>
+<tr>
+<td>Flatten</td>
+<td style="text-align: right;">O(depth/current state)</td>
+<td>Nested source</td>
+</tr>
+<tr>
+<td>Peek</td>
+<td style="text-align: right;">O(1)</td>
+<td>One-element buffer</td>
+</tr>
+<tr>
+<td>Distinct</td>
+<td style="text-align: right;">O(n)</td>
+<td>Set of seen values</td>
+</tr>
+<tr>
+<td>Cycle</td>
+<td style="text-align: right;">O(1)</td>
+<td>Restartable source</td>
+</tr>
+<tr>
+<td>Partition</td>
+<td style="text-align: right;">O(chunk size)</td>
+<td>Chunk buffer</td>
+</tr>
+</tbody>
+</table></div>
+<p>Where:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>n = number of source elements
+
+k = number of child iterators</code></pre></div>
+<hr>
+<h2 id="62-which-iterators-need-caching">62. Which Iterators Need Caching?</h2>
+<p>This is one of the strongest senior interview questions.</p>
+<h3 id="usually-no-caching">Usually no caching</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>ForwardIterator
+FilteringIterator
+OddIterator
+EvenIterator
+NegativeIterator
+PositiveIterator
+RangeIterator
+SkipIterator
+LimitIterator
+MapIterator
+TakeWhileIterator
+DropWhileIterator</code></pre></div>
+<p>These can generally operate using:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>O(1)</code></pre></div>
+<p>additional state.</p>
+<hr>
+<h3 id="may-require-caching-or-stronger-source-capabilities">May require caching or stronger source capabilities</h3>
+<h4 id="backwarditerator">BackwardIterator</h4>
+<p>Requires:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Random access
+OR
+Reverse traversal
+OR
+Cached elements</code></pre></div>
+<hr>
+<h4 id="cycleiterator_1">CycleIterator</h4>
+<p>Without caching it requires:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Restartable source</code></pre></div>
+<p>such as:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterable&lt;T&gt;</code></pre></div>
+<hr>
+<h4 id="distinctiterator">DistinctIterator</h4>
+<p>Requires remembering previously seen values:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>O(n)</code></pre></div>
+<hr>
+<h4 id="peekiterator">PeekIterator</h4>
+<p>Requires a small look-ahead buffer:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>O(1)</code></pre></div>
+<hr>
+<h2 id="63-what-does-without-caching-mean">63. What Does "Without Caching" Mean?</h2>
+<p>Suppose an interviewer says:</p>
+<blockquote>
+<p>Implement CycleIterator without caching.</p>
+</blockquote>
+<p>Do not immediately code.</p>
+<p>Ask:</p>
+<blockquote>
+<p>What type of source do I receive?</p>
+</blockquote>
+<p>If:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Iterator&lt;T&gt;</code></pre></div>
+<p>then:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Cannot generally restart.</code></pre></div>
+<p>If:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Iterable&lt;T&gt;</code></pre></div>
+<p>then:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>source.iterator()</code></pre></div>
+<p>can create a new traversal.</p>
+<p>Therefore:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterator&lt;T&gt;
++
+No caching
+=
+Generally impossible to restart</code></pre></div>
+<p>while:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterable&lt;T&gt;
++
+No caching
+=
+Restart possible</code></pre></div>
+<p>This is a key abstraction-level answer.</p>
+<hr>
+<h2 id="64-iterator-composition">64. Iterator Composition</h2>
+<p>The real power of the pattern is composition.</p>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Source
+  |
+  v
+Filter
+  |
+  v
+Skip
+  |
+  v
+Limit
+  |
+  v
+Map
+  |
+  v
+Client</code></pre></div>
+<p>Each component has one responsibility.</p>
+<hr>
+<h2 id="65-example-complete-pipeline">65. Example Complete Pipeline</h2>
+<p>Input:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Range(1, 100)</code></pre></div>
+<p>Pipeline:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Filter odd
+     |
+     v
+Skip 5
+     |
+     v
+Limit 10
+     |
+     v
+Map x -&gt; x * 10</code></pre></div>
+<p>Result:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>110
+130
+150
+170
+190
+210
+230
+250
+270
+290</code></pre></div>
+<p>No intermediate collection is necessary.</p>
+<hr>
+<h2 id="66-solid-design">66. SOLID Design</h2>
+<p>The design naturally follows the Single Responsibility Principle.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>FilteringIterator
+    -&gt; filtering
+
+LimitIterator
+    -&gt; limiting
+
+SkipIterator
+    -&gt; skipping
+
+MapIterator
+    -&gt; mapping
+
+CycleIterator
+    -&gt; cycling
+
+FlattenIterator
+    -&gt; flattening</code></pre></div>
+<p>New behaviors can be introduced by creating new iterator decorators rather than modifying existing iterators.</p>
+<hr>
+<h2 id="67-iterator-and-decorator-pattern">67. Iterator and Decorator Pattern</h2>
+<p>Consider:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>new LimitIterator&lt;&gt;(
+    new FilteringIterator&lt;&gt;(
+        source,
+        predicate
+    ),
+    10
+);</code></pre></div>
+<p>Conceptually:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Source
+  |
+  v
+FilteringIterator
+  |
+  v
+LimitIterator</code></pre></div>
+<p>Each layer wraps the same abstraction:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterator&lt;T&gt;</code></pre></div>
+<p>This is structurally similar to the Decorator pattern.</p>
+<hr>
+<h2 id="68-iterator-and-strategy-pattern">68. Iterator and Strategy Pattern</h2>
+<p>Different iterators represent different traversal strategies:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Forward
+Backward
+ZigZag
+Odd
+Even</code></pre></div>
+<p>The client can use the common interface while the iterator encapsulates the traversal algorithm.</p>
+<p>Therefore Iterator and Strategy can naturally overlap in implementation.</p>
+<hr>
+<h2 id="69-iterator-vs-stream">69. Iterator vs Stream</h2>
+<p>Java Streams provide higher-level lazy pipelines.</p>
+<p>For example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>numbers.stream()
+       .filter(x -&gt; x % 2 != 0)
+       .skip(5)
+       .limit(10)
+       .map(x -&gt; x * 10);</code></pre></div>
+<p>Conceptually this resembles:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterator
+    |
+    v
+Filter
+    |
+    v
+Skip
+    |
+    v
+Limit
+    |
+    v
+Map</code></pre></div>
+<p>However, they are not identical abstractions.</p>
+<p>An iterator gives direct, explicit traversal:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>hasNext()
+next()</code></pre></div>
+<p>A Stream provides a richer processing model.</p>
+<hr>
+<h2 id="70-why-custom-iterator-instead-of-stream">70. Why Custom Iterator Instead of Stream?</h2>
+<p>A custom iterator can make sense when:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. You need a custom traversal algorithm.
+
+2. An API specifically requires Iterator.
+
+3. You need explicit traversal state.
+
+4. You are implementing a custom collection.
+
+5. You need a reusable traversal abstraction.
+
+6. You are implementing an external cursor-like source.</code></pre></div>
+<hr>
+<h2 id="71-multiple-independent-iterators">71. Multiple Independent Iterators</h2>
+<p>Consider:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Iterator&lt;Integer&gt; a =
+        collection.iterator();
+
+Iterator&lt;Integer&gt; b =
+        collection.iterator();</code></pre></div>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterator A -&gt; independent state
+
+Iterator B -&gt; independent state</code></pre></div>
+<p>For example:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Collection
+   |
+   +---- Iterator A
+   |        index = 3
+   |
+   +---- Iterator B
+            index = 0</code></pre></div>
+<p>The collection data can be shared.</p>
+<p>The traversal state should normally belong to each iterator.</p>
+<hr>
+<h2 id="72-important-principle">72. Important Principle</h2>
+<blockquote>
+<p><strong>Traversal state belongs to the Iterator, not the Collection.</strong></p>
+</blockquote>
+<p>Bad design:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>class Collection {
+
+    private int currentIndex;
+}</code></pre></div>
+<p>Then two clients interfere with each other.</p>
+<p>Better:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Collection
+   |
+   +---- Iterator A -&gt; index A
+   |
+   +---- Iterator B -&gt; index B</code></pre></div>
+<hr>
+<h2 id="73-resource-backed-iterator">73. Resource-Backed Iterator</h2>
+<p>Suppose an iterator reads from:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Database ResultSet</code></pre></div>
+<p>or:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>InputStream</code></pre></div>
+<p>Now ask:</p>
+<blockquote>
+<p>Is <code>Iterator&lt;T&gt;</code> enough?</p>
+</blockquote>
+<p>Not necessarily.</p>
+<p>The underlying source may require:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>close()</code></pre></div>
+<p>or:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>try-with-resources</code></pre></div>
+<p>or:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>transaction management</code></pre></div>
+<p>This introduces a broader design question:</p>
+<blockquote>
+<p>How should traversal resources be managed?</p>
+</blockquote>
+<hr>
+<h2 id="74-external-source-iterator">74. External Source Iterator</h2>
+<p>Imagine:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Database
+    |
+    v
+ResultSet
+    |
+    v
+Iterator&lt;T&gt;
+    |
+    v
+Client</code></pre></div>
+<p>Potential concerns include:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Connection lifetime
+Transaction lifetime
+Network failure
+Timeout
+Resource cleanup
+Pagination
+Fetch size
+Retry</code></pre></div>
+<p>This is where a simple Iterator pattern can evolve into a real system-design problem.</p>
+<hr>
+<h2 id="75-pull-based-nature-of-iterator">75. Pull-Based Nature of Iterator</h2>
+<p>Iterator processing is naturally pull-based:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Consumer
+   |
+   | next()
+   v
+Source</code></pre></div>
+<p>The consumer decides:</p>
+<blockquote>
+<p>"Give me the next item."</p>
+</blockquote>
+<p>This is different from push-based processing:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Producer
+   |
+   | event
+   v
+Consumer</code></pre></div>
+<p>This distinction becomes useful when discussing:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Reactive Streams
+Backpressure
+Message queues
+Event processing</code></pre></div>
+<hr>
+<h2 id="76-common-mistakes">76. Common Mistakes</h2>
+<h3 id="mistake-1-exposing-internal-data">Mistake 1 — Exposing Internal Data</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public List&lt;T&gt; getData()</code></pre></div>
+<p>when the client only needs traversal.</p>
+<hr>
+<h3 id="mistake-2-creating-intermediate-lists">Mistake 2 — Creating Intermediate Lists</h3>
+<p>Bad:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>List&lt;Integer&gt; result = new ArrayList&lt;&gt;();
+
+for (...) {
+    if (...) {
+        result.add(...);
+    }
+}</code></pre></div>
+<p>when the requirement is lazy traversal.</p>
+<hr>
+<h3 id="mistake-3-advancing-in-hasnext">Mistake 3 — Advancing in <code>hasNext()</code></h3>
+<p>Bad:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>boolean hasNext() {
+    return source.next() != null;
+}</code></pre></div>
+<p>This consumes an element.</p>
+<hr>
+<h3 id="mistake-4-returning-null-after-exhaustion">Mistake 4 — Returning <code>null</code> After Exhaustion</h3>
+<p>Usually prefer:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>throw new NoSuchElementException();</code></pre></div>
+<p>for Java-style iterators.</p>
+<hr>
+<h3 id="mistake-5-ignoring-empty-input">Mistake 5 — Ignoring Empty Input</h3>
+<p>Especially dangerous for:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>CycleIterator
+FlattenIterator
+InterleavingIterator</code></pre></div>
+<hr>
+<h3 id="mistake-6-ignoring-null-values">Mistake 6 — Ignoring Null Values</h3>
+<p>Do not assume:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>null == exhausted</code></pre></div>
+<p>unless the API explicitly forbids null elements.</p>
+<hr>
+<h3 id="mistake-7-assuming-reverse-traversal-is-always-possible">Mistake 7 — Assuming Reverse Traversal Is Always Possible</h3>
+<p>A normal:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Iterator&lt;T&gt;</code></pre></div>
+<p>is forward-only.</p>
+<hr>
+<h3 id="mistake-8-assuming-cycle-always-works-without-caching">Mistake 8 — Assuming Cycle Always Works Without Caching</h3>
+<p>A plain iterator cannot generally rewind.</p>
+<p>You need:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>restartable source</code></pre></div>
+<p>or:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>cached elements</code></pre></div>
+<hr>
+<h3 id="mistake-9-ignoring-complexity">Mistake 9 — Ignoring Complexity</h3>
+<p>A correct implementation is not enough.</p>
+<p>Always discuss:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Time
+Space
+Source requirements</code></pre></div>
+<hr>
+<h2 id="77-progressive-interview-question-set">77. Progressive Interview Question Set</h2>
+<p>The following sequence can be used directly in an interview.</p>
+<hr>
+<h3 id="level-1-fundamentals">Level 1 — Fundamentals</h3>
+<h4 id="question-1">Question 1</h4>
+<blockquote>
+<p>Given a list, print every element using a <code>for</code> loop.</p>
+</blockquote>
+<h4 id="follow-up">Follow-up</h4>
+<blockquote>
+<p>What happens internally in enhanced <code>for</code>?</p>
+</blockquote>
+<hr>
+<h4 id="question-2">Question 2</h4>
+<blockquote>
+<p>Why do we need Iterator?</p>
+</blockquote>
+<p>Expected discussion:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Encapsulation
+Decoupling
+Traversal abstraction
+Multiple traversal strategies</code></pre></div>
+<hr>
+<h4 id="question-3">Question 3</h4>
+<blockquote>
+<p>What is the difference between Iterable and Iterator?</p>
+</blockquote>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterable -&gt; can create iterator
+
+Iterator -&gt; represents one traversal</code></pre></div>
+<hr>
+<h3 id="level-2-basic-iterator">Level 2 — Basic Iterator</h3>
+<h4 id="question-4">Question 4</h4>
+<blockquote>
+<p>Implement an Iterator over an array.</p>
+</blockquote>
+<h4 id="follow-up_1">Follow-up</h4>
+<blockquote>
+<p>Where should the current index live?</p>
+</blockquote>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterator</code></pre></div>
+<hr>
+<h4 id="question-5">Question 5</h4>
+<blockquote>
+<p>What happens when <code>next()</code> is called after exhaustion?</p>
+</blockquote>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>NoSuchElementException</code></pre></div>
+<p>for Java-style behavior.</p>
+<hr>
+<h4 id="question-6">Question 6</h4>
+<blockquote>
+<p>What happens if <code>hasNext()</code> is called five times?</p>
+</blockquote>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>It should not accidentally consume five elements.</code></pre></div>
+<hr>
+<h2 id="78-level-3-filtering">78. Level 3 — Filtering</h2>
+<h4 id="question-7">Question 7</h4>
+<blockquote>
+<p>Implement OddIterator.</p>
+</blockquote>
+<h4 id="question-8">Question 8</h4>
+<blockquote>
+<p>Implement EvenIterator.</p>
+</blockquote>
+<h4 id="question-9">Question 9</h4>
+<blockquote>
+<p>Implement NegativeIterator.</p>
+</blockquote>
+<h4 id="question-10">Question 10</h4>
+<blockquote>
+<p>Implement PositiveIterator.</p>
+</blockquote>
+<hr>
+<h4 id="follow-up_2">Follow-up</h4>
+<blockquote>
+<p>Can OddIterator consume another OddIterator?</p>
+</blockquote>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Yes.</code></pre></div>
+<p>Architecture:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterator
+   |
+   v
+OddIterator
+   |
+   v
+OddIterator</code></pre></div>
+<hr>
+<h4 id="follow-up_3">Follow-up</h4>
+<blockquote>
+<p>Can we generalize all these iterators?</p>
+</blockquote>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>FilteringIterator&lt;T&gt;</code></pre></div>
+<p>with:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Predicate&lt;T&gt;</code></pre></div>
+<hr>
+<h2 id="79-level-4-traversal">79. Level 4 — Traversal</h2>
+<h4 id="question-11">Question 11</h4>
+<blockquote>
+<p>Implement ForwardIterator.</p>
+</blockquote>
+<h4 id="question-12">Question 12</h4>
+<blockquote>
+<p>Implement BackwardIterator.</p>
+</blockquote>
+<h4 id="follow-up_4">Follow-up</h4>
+<blockquote>
+<p>Can BackwardIterator work with only Iterator<T>?</p>
+</blockquote>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Generally no.</code></pre></div>
+<hr>
+<h4 id="question-13">Question 13</h4>
+<blockquote>
+<p>Implement ZigZagIterator.</p>
+</blockquote>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>left
+right
+left
+right</code></pre></div>
+<hr>
+<h2 id="80-level-5-generation-and-limiting">80. Level 5 — Generation and Limiting</h2>
+<h4 id="question-14">Question 14</h4>
+<blockquote>
+<p>Implement RangeIterator.</p>
+</blockquote>
+<h4 id="question-15">Question 15</h4>
+<blockquote>
+<p>Add step support.</p>
+</blockquote>
+<h4 id="question-16">Question 16</h4>
+<blockquote>
+<p>Implement SkipIterator.</p>
+</blockquote>
+<h4 id="question-17">Question 17</h4>
+<blockquote>
+<p>Implement LimitIterator.</p>
+</blockquote>
+<hr>
+<h2 id="81-level-6-composition">81. Level 6 — Composition</h2>
+<h4 id="question-18">Question 18</h4>
+<blockquote>
+<p>Implement MapIterator.</p>
+</blockquote>
+<h4 id="question-19">Question 19</h4>
+<blockquote>
+<p>Implement ConcatIterator.</p>
+</blockquote>
+<h4 id="question-20">Question 20</h4>
+<blockquote>
+<p>Implement InterleavingIterator.</p>
+</blockquote>
+<h4 id="question-21">Question 21</h4>
+<blockquote>
+<p>Generalize interleaving to N iterators.</p>
+</blockquote>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>RoundRobinIterator</code></pre></div>
+<p>using:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Queue&lt;Iterator&lt;T&gt;&gt;</code></pre></div>
+<hr>
+<h4 id="question-22">Question 22</h4>
+<blockquote>
+<p>Implement FlattenIterator.</p>
+</blockquote>
+<hr>
+<h2 id="82-level-7-advanced">82. Level 7 — Advanced</h2>
+<h4 id="question-23">Question 23</h4>
+<blockquote>
+<p>Implement CycleIterator.</p>
+</blockquote>
+<h4 id="follow-up_5">Follow-up</h4>
+<blockquote>
+<p>Can you implement it without caching?</p>
+</blockquote>
+<p>Expected discussion:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterator&lt;T&gt; -&gt; generally no
+
+Iterable&lt;T&gt; -&gt; yes, because iterator can restart</code></pre></div>
+<hr>
+<h4 id="question-24">Question 24</h4>
+<blockquote>
+<p>Implement PeekIterator.</p>
+</blockquote>
+<h4 id="question-25">Question 25</h4>
+<blockquote>
+<p>Implement DistinctIterator.</p>
+</blockquote>
+<h4 id="follow-up_6">Follow-up</h4>
+<blockquote>
+<p>Can DistinctIterator work with O(1) memory?</p>
+</blockquote>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Not for arbitrary input.</code></pre></div>
+<hr>
+<h2 id="83-level-8-java-behavior">83. Level 8 — Java Behavior</h2>
+<h4 id="question-26">Question 26</h4>
+<blockquote>
+<p>Explain remove().</p>
+</blockquote>
+<h4 id="question-27">Question 27</h4>
+<blockquote>
+<p>What happens if the collection changes during iteration?</p>
+</blockquote>
+<h4 id="question-28">Question 28</h4>
+<blockquote>
+<p>What is fail-fast behavior?</p>
+</blockquote>
+<h4 id="question-29">Question 29</h4>
+<blockquote>
+<p>What is modCount?</p>
+</blockquote>
+<h4 id="question-30">Question 30</h4>
+<blockquote>
+<p>Is Iterator thread-safe?</p>
+</blockquote>
+<hr>
+<h2 id="84-level-9-architecture">84. Level 9 — Architecture</h2>
+<h4 id="question-31">Question 31</h4>
+<blockquote>
+<p>How would you build a reusable iterator pipeline?</p>
+</blockquote>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Source
+  |
+  v
+Filter
+  |
+  v
+Skip
+  |
+  v
+Limit
+  |
+  v
+Map</code></pre></div>
+<hr>
+<h4 id="question-32">Question 32</h4>
+<blockquote>
+<p>Which iterators require caching?</p>
+</blockquote>
+<hr>
+<h4 id="question-33">Question 33</h4>
+<blockquote>
+<p>Which require random access?</p>
+</blockquote>
+<hr>
+<h4 id="question-34">Question 34</h4>
+<blockquote>
+<p>Which operations are lazy?</p>
+</blockquote>
+<hr>
+<h4 id="question-35">Question 35</h4>
+<blockquote>
+<p>What are the time and space complexities?</p>
+</blockquote>
+<hr>
+<h4 id="question-36">Question 36</h4>
+<blockquote>
+<p>How does Iterator relate to SOLID?</p>
+</blockquote>
+<hr>
+<h4 id="question-37">Question 37</h4>
+<blockquote>
+<p>How does Iterator relate to Decorator and Strategy?</p>
+</blockquote>
+<hr>
+<h2 id="85-final-senior-level-challenge">85. Final Senior-Level Challenge</h2>
+<h3 id="problem">Problem</h3>
+<p>Design a reusable lazy iterator framework supporting:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Range
+Filter
+Map
+Skip
+Limit
+Cycle
+Concat
+Flatten
+Interleave</code></pre></div>
+<p>Requirements:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. Avoid unnecessary caching.
+
+2. Support iterator composition.
+
+3. Preserve lazy evaluation.
+
+4. Define empty-source behavior.
+
+5. Define exhaustion behavior.
+
+6. Discuss complexity.
+
+7. Explain source requirements.
+
+8. Explain which operations need random access.
+
+9. Explain which operations need caching.
+
+10. Explain whether Iterator&lt;T&gt; is enough.
+
+11. Explain whether Iterable&lt;T&gt; is required.
+
+12. Explain thread-safety behavior.</code></pre></div>
+<hr>
+<h2 id="86-example-final-architecture">86. Example Final Architecture</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                         +----------------+
+                         |    Iterable    |
+                         +-------+--------+
+                                 |
+                            iterator()
+                                 |
+                                 v
+                         +----------------+
+                         |    Iterator    |
+                         +-------+--------+
+                                 |
+             +-------------------+-------------------+
+             |                   |                   |
+             v                   v                   v
+          Filter              Skip                Limit
+             |                   |                   |
+             +-------------------+-------------------+
+                                 |
+                                 v
+                                Map
+                                 |
+                                 v
+                               Client</code></pre></div>
+<hr>
+<h2 id="87-example-advanced-architecture">87. Example Advanced Architecture</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                     +-------------------+
+                     |      Source       |
+                     +---------+---------+
+                               |
+                               v
+                     +-------------------+
+                     | FilterIterator    |
+                     +---------+---------+
+                               |
+                               v
+                     +-------------------+
+                     | SkipIterator      |
+                     +---------+---------+
+                               |
+                               v
+                     +-------------------+
+                     | LimitIterator     |
+                     +---------+---------+
+                               |
+                               v
+                     +-------------------+
+                     | MapIterator       |
+                     +---------+---------+
+                               |
+                               v
+                            Client</code></pre></div>
+<hr>
+<h2 id="88-final-iterator-comparison">88. Final Iterator Comparison</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Iterator</th>
+<th>Purpose</th>
+<th>Lazy</th>
+<th style="text-align: right;">Extra Space</th>
+<th>Source Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Forward</td>
+<td>Forward traversal</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Backward</td>
+<td>Reverse traversal</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>Random access/reverse source</td>
+</tr>
+<tr>
+<td>Odd</td>
+<td>Odd filtering</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Even</td>
+<td>Even filtering</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Negative</td>
+<td>Negative filtering</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Positive</td>
+<td>Positive filtering</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Filtering</td>
+<td>Generic filtering</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>Predicate</td>
+</tr>
+<tr>
+<td>Range</td>
+<td>Generate range</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Skip</td>
+<td>Skip prefix</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Limit</td>
+<td>Restrict output count</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Map</td>
+<td>Transform values</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>Function</td>
+</tr>
+<tr>
+<td>ZigZag</td>
+<td>Alternate ends</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>Random access</td>
+</tr>
+<tr>
+<td>Interleave</td>
+<td>Alternate sources</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>Multiple sources</td>
+</tr>
+<tr>
+<td>Round Robin</td>
+<td>N-source interleave</td>
+<td>Yes</td>
+<td style="text-align: right;">O(k)</td>
+<td>Queue</td>
+</tr>
+<tr>
+<td>Concat</td>
+<td>Sequential sources</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>Multiple sources</td>
+</tr>
+<tr>
+<td>Flatten</td>
+<td>Flatten nested sources</td>
+<td>Yes</td>
+<td style="text-align: right;">O(depth)</td>
+<td>Nested source</td>
+</tr>
+<tr>
+<td>Peek</td>
+<td>Look ahead</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>One-value buffer</td>
+</tr>
+<tr>
+<td>Distinct</td>
+<td>Remove duplicates</td>
+<td>Yes</td>
+<td style="text-align: right;">O(n)</td>
+<td>Seen set</td>
+</tr>
+<tr>
+<td>TakeWhile</td>
+<td>Stop at predicate failure</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>Predicate</td>
+</tr>
+<tr>
+<td>DropWhile</td>
+<td>Drop prefix by predicate</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>Predicate</td>
+</tr>
+<tr>
+<td>Zip</td>
+<td>Pair sources</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1)</td>
+<td>Two sources</td>
+</tr>
+<tr>
+<td>Partition</td>
+<td>Group elements</td>
+<td>Yes</td>
+<td style="text-align: right;">O(chunk size)</td>
+<td>Chunk buffer</td>
+</tr>
+<tr>
+<td>Cycle</td>
+<td>Repeat source</td>
+<td>Yes</td>
+<td style="text-align: right;">O(1) without cache</td>
+<td>Restartable source</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="89-most-important-concepts">89. Most Important Concepts</h2>
+<h3 id="concept-1-iterator-owns-traversal-state">Concept 1 — Iterator Owns Traversal State</h3>
+<p>The collection owns:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Data</code></pre></div>
+<p>The iterator owns:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Traversal state</code></pre></div>
+<hr>
+<h3 id="concept-2-iterable-creates-iterators">Concept 2 — Iterable Creates Iterators</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterable
+    |
+    v
+iterator()
+    |
+    v
+Iterator</code></pre></div>
+<hr>
+<h3 id="concept-3-iterator-can-wrap-iterator">Concept 3 — Iterator Can Wrap Iterator</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Source
+  |
+  v
+OddIterator
+  |
+  v
+LimitIterator
+  |
+  v
+MapIterator</code></pre></div>
+<hr>
+<h3 id="concept-4-lazy-evaluation">Concept 4 — Lazy Evaluation</h3>
+<p>Do not unnecessarily create:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>List A
+List B
+List C</code></pre></div>
+<p>Instead:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterator
+   |
+   v
+Iterator
+   |
+   v
+Iterator</code></pre></div>
+<hr>
+<h3 id="concept-5-source-capability-matters">Concept 5 — Source Capability Matters</h3>
+<p>A traversal algorithm cannot do something the source does not support.</p>
+<p>For example:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Iterator&lt;T&gt;</code></pre></div>
+<p>does not provide:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>previous()</code></pre></div>
+<p>Therefore backward traversal is not generally possible.</p>
+<hr>
+<h3 id="concept-6-no-caching-does-not-mean-no-restart">Concept 6 — No Caching Does Not Mean No Restart</h3>
+<p>If the source is:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Iterable&lt;T&gt;</code></pre></div>
+<p>we can request:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>source.iterator()</code></pre></div>
+<p>again.</p>
+<p>Therefore:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>No caching
++
+Restartable source</code></pre></div>
+<p>can support cycling.</p>
+<hr>
+<h3 id="concept-7-some-operations-inherently-need-memory">Concept 7 — Some Operations Inherently Need Memory</h3>
+<p>For example:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>DistinctIterator</code></pre></div>
+<p>needs to remember previously seen values.</p>
+<hr>
+<h3 id="concept-8-operation-order-matters">Concept 8 — Operation Order Matters</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Filter -&gt; Limit</code></pre></div>
+<p>is not necessarily equivalent to:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Limit -&gt; Filter</code></pre></div>
+<hr>
+<h2 id="90-final-interview-mental-model">90. Final Interview Mental Model</h2>
+<p>Whenever an interviewer asks:</p>
+<blockquote>
+<p>"Design an iterator."</p>
+</blockquote>
+<p>Immediately think:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                What is my source?
+                       |
+                       v
+              What capabilities?
+                       |
+          +------------+-------------+
+          |            |             |
+       Forward      Random       Restartable
+       only         access         source
+          |            |             |
+          v            v             v
+       Filter       Reverse        Cycle
+       Map          ZigZag
+       Skip
+       Limit</code></pre></div>
+<p>Then ask:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>What state do I need?
+
+Do I need buffering?
+
+Do I need caching?
+
+Do I need random access?
+
+Can I wrap another iterator?
+
+Is the operation lazy?
+
+What happens at exhaustion?
+
+What happens for empty input?
+
+What happens with null?
+
+What is the complexity?
+
+What happens if the source changes?
+
+Is it thread-safe?</code></pre></div>
+<hr>
+<h2 id="91-final-interview-checklist">91. Final Interview Checklist</h2>
+<p>When designing any iterator, walk through these questions:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. What is the input/source?
+
+2. Is it:
+   - Iterator&lt;T&gt;
+   - Iterable&lt;T&gt;
+   - List&lt;T&gt;
+   - Array
+   - Stream
+   - External source?
+
+3. What is the traversal order?
+
+4. What state does the iterator need?
+
+5. Does hasNext() advance the source?
+
+6. What does next() do after exhaustion?
+
+7. Can the source contain null?
+
+8. Is the iterator lazy?
+
+9. Does it require buffering?
+
+10. Does it require caching?
+
+11. Does it require random access?
+
+12. Can it wrap another iterator?
+
+13. Can it compose with another iterator?
+
+14. What happens with an empty source?
+
+15. What happens with an infinite source?
+
+16. What is the time complexity?
+
+17. What is the additional space complexity?
+
+18. Is it thread-safe?
+
+19. What happens if the source changes?
+
+20. Does it support remove()?
+
+21. Can the collection create multiple independent iterators?
+
+22. Does the source need to be restartable?
+
+23. Can the iterator terminate?
+
+24. Is operation ordering important?</code></pre></div>
+<hr>
+<h2 id="92-ultimate-interview-question">92. Ultimate Interview Question</h2>
+<p>After the candidate has implemented several individual iterators, ask:</p>
+<blockquote>
+<p><strong>Design a generic lazy iterator framework where every iterator can be composed with another iterator. Support filtering, mapping, skipping, limiting, flattening, concatenation, interleaving, cycling, and range generation. Avoid unnecessary caching. For every iterator, explain the required source capabilities, time complexity, space complexity, and whether the operation is lazy.</strong></p>
+</blockquote>
+<p>The candidate should eventually arrive at something conceptually similar to:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                         +----------------+
+                         |    Iterable    |
+                         +-------+--------+
+                                 |
+                            iterator()
+                                 |
+                                 v
+                         +----------------+
+                         |    Iterator    |
+                         +-------+--------+
+                                 |
+             +-------------------+-------------------+
+             |                   |                   |
+             v                   v                   v
+          Filter              Skip                Limit
+             |                   |                   |
+             +-------------------+-------------------+
+                                 |
+                                 v
+                                Map
+                                 |
+                                 v
+                               Client</code></pre></div>
+<hr>
+<h2 id="93-final-takeaway">93. Final Takeaway</h2>
+<p>The Iterator pattern is not fundamentally about:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>hasNext()
+next()</code></pre></div>
+<p>Those are only the interface.</p>
+<p>The real design problem is:</p>
+<blockquote>
+<p><strong>How can we expose controlled traversal over a data source while keeping the source's internal representation hidden and allowing different traversal strategies to be composed efficiently and lazily?</strong></p>
+</blockquote>
+<p>Once that idea is clear, the different iterator problems become variations of the same problem:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>OddIterator
+EvenIterator
+NegativeIterator
+PositiveIterator
+ForwardIterator
+BackwardIterator
+RangeIterator
+SkipIterator
+LimitIterator
+ZigZagIterator
+InterleavingIterator
+RoundRobinIterator
+ConcatIterator
+FlattenIterator
+MapIterator
+PeekIterator
+DistinctIterator
+TakeWhileIterator
+DropWhileIterator
+ZipIterator
+CycleIterator</code></pre></div>
+<p>For every one of them, ask:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                 +---------------------+
+                 |   What is source?   |
+                 +----------+----------+
+                            |
+                            v
+                 +---------------------+
+                 | What traversal is   |
+                 | required?           |
+                 +----------+----------+
+                            |
+                            v
+                 +---------------------+
+                 | What state is       |
+                 | required?           |
+                 +----------+----------+
+                            |
+                            v
+                 +---------------------+
+                 | Need caching?       |
+                 | Need buffering?     |
+                 | Need random access? |
+                 +----------+----------+
+                            |
+                            v
+                 +---------------------+
+                 | Can it compose with |
+                 | another iterator?   |
+                 +----------+----------+
+                            |
+                            v
+                 +---------------------+
+                 | Complexity +        |
+                 | edge cases          |
+                 +---------------------+</code></pre></div>
+<p>That is the mental model that turns an Iterator interview from a collection of coding exercises into a <strong>design problem</strong>.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Iterator Design Pattern — Complete Step-by-Step Interview Guide.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

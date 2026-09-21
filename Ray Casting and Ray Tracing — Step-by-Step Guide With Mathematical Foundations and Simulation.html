@@ -1,0 +1,1658 @@
+<meta charset="utf-8">
+<title>Ray Casting and Ray Tracing — Step-by-Step Guide With Mathematical Foundations and Simulation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$']],
+      displayMath: [['$$', '$$']]
+    }
+  };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js" id="MathJax-script" async></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  .rt-demo{ margin:0 0 18px; padding:16px; background:var(--surface-alt); border:1px solid var(--border); border-radius:10px; }
+  .rt-demo canvas{ display:block; max-width:100%; height:auto; background:#000; border-radius:6px; border:1px solid var(--border); outline:none; }
+  .rt-demo-hint{ margin:10px 0 0; font-size:13px; color:var(--ink-faint); }
+  .rt-demo-hint kbd{ font-family:'IBM Plex Mono',monospace; background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:1px 6px; }
+  .rt-demo-controls{ margin-top:12px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; font-size:13.5px; }
+  .rt-demo-controls label{ display:inline-flex; align-items:center; gap:6px; cursor:pointer; }
+  .rt-demo-controls button{ font-family:'IBM Plex Sans',sans-serif; font-size:13px; font-weight:600; color:#fff; background:var(--accent-strong); border:none; border-radius:7px; padding:7px 14px; cursor:pointer; }
+  .rt-demo-controls button:hover{ background:var(--accent); }
+  .rt-demo-timing{ color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; font-size:12px; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; computer graphics guide</div>
+      <h1>Ray Casting and Ray Tracing — Step-by-Step Guide With Mathematical Foundations and Simulation</h1>
+      <p class="dek">A step-by-step guide to ray casting and ray tracing built from first principles &mdash; full mathematical derivations of vectors, dot/cross products, ray&ndash;sphere/plane/triangle intersection, Phong/Blinn-Phong shading, reflection, Snell's-law refraction, and Fresnel &mdash; plus live, interactive browser simulations of both algorithms.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-ray-casting-vs-ray-tracing-whats-the-difference">Ray Casting vs Ray Tracing: What's the Difference?</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-vectors-in-3d-points-directions-and-basic-operations">Vectors in 3D: Points, Directions, and Basic Operations</a></li><li class="toc-lvl-2"><a href="#7-vector-addition-subtraction-and-scalar-multiplication">Vector Addition, Subtraction, and Scalar Multiplication</a></li><li class="toc-lvl-2"><a href="#8-the-dot-product-definition-formula-and-geometric-meaning">The Dot Product: Definition, Formula, and Geometric Meaning</a></li><li class="toc-lvl-2"><a href="#9-using-the-dot-product-for-angles-and-projections">Using the Dot Product for Angles and Projections</a></li><li class="toc-lvl-2"><a href="#10-the-cross-product-definition-formula-and-geometric-meaning">The Cross Product: Definition, Formula, and Geometric Meaning</a></li><li class="toc-lvl-2"><a href="#11-normal-vectors-and-why-they-matter-for-shading">Normal Vectors and Why They Matter for Shading</a></li><li class="toc-lvl-2"><a href="#12-vector-normalization-unit-vectors">Vector Normalization (Unit Vectors)</a></li><li class="toc-lvl-2"><a href="#13-parametric-line-equations-the-foundation-of-a-ray">Parametric Line Equations: The Foundation of a Ray</a></li><li class="toc-lvl-2"><a href="#14-the-ray-equation-pt-origin-t-direction">The Ray Equation: P(t) = Origin + t · Direction</a></li><li class="toc-lvl-2"><a href="#15-coordinate-systems-world-space-camera-space-screen-space">Coordinate Systems: World Space, Camera Space, Screen Space</a></li><li class="toc-lvl-2"><a href="#16-the-camera-model-field-of-view-aspect-ratio-and-the-image-plane">The Camera Model: Field of View, Aspect Ratio, and the Image Plane</a></li><li class="toc-lvl-2"><a href="#17-generating-a-ray-for-each-pixel-camera-ray-generation">Generating a Ray for Each Pixel (Camera Ray Generation)</a></li><li class="toc-lvl-2"><a href="#18-what-is-ray-casting-concretely">What Is Ray Casting, Concretely?</a></li><li class="toc-lvl-2"><a href="#19-the-2d-grid-world-representation">The 2D Grid World Representation</a></li><li class="toc-lvl-2"><a href="#20-casting-a-single-ray-through-a-grid-dda-algorithm">Casting a Single Ray Through a Grid (DDA Algorithm)</a></li><li class="toc-lvl-2"><a href="#21-the-digital-differential-analyzer-dda-algorithm-derived-step-by-step">The Digital Differential Analyzer (DDA) Algorithm, Derived Step by Step</a></li><li class="toc-lvl-2"><a href="#22-detecting-wall-hits-and-computing-distance">Detecting Wall Hits and Computing Distance</a></li><li class="toc-lvl-2"><a href="#23-fixing-the-fisheye-effect-perpendicular-distance-correction">Fixing the Fisheye Effect (Perpendicular Distance Correction)</a></li><li class="toc-lvl-2"><a href="#24-rendering-a-vertical-wall-slice-from-a-single-ray">Rendering a Vertical Wall Slice From a Single Ray</a></li><li class="toc-lvl-2"><a href="#25-casting-a-ray-for-every-screen-column">Casting a Ray for Every Screen Column</a></li><li class="toc-lvl-2"><a href="#26-phase-1-implementing-the-2d-ray-caster-in-java">Phase 1 — Implementing the 2D Ray Caster in Java</a></li><li class="toc-lvl-2"><a href="#27-adding-player-movement-and-rotation">Adding Player Movement and Rotation</a></li><li class="toc-lvl-2"><a href="#28-the-live-ray-casting-simulation-what-youll-see-in-the-html-version">The Live Ray Casting Simulation (What You'll See in the HTML Version)</a></li><li class="toc-lvl-2"><a href="#29-from-2d-grids-to-3d-scenes-what-changes">From 2D Grids to 3D Scenes: What Changes</a></li><li class="toc-lvl-2"><a href="#30-implicit-surfaces-and-the-sphere-equation">Implicit Surfaces and the Sphere Equation</a></li><li class="toc-lvl-2"><a href="#31-deriving-the-ray-sphere-intersection-formula-the-quadratic">Deriving the Ray-Sphere Intersection Formula (the Quadratic)</a></li><li class="toc-lvl-2"><a href="#32-solving-the-quadratic-discriminant-roots-and-choosing-the-nearest-hit">Solving the Quadratic: Discriminant, Roots, and Choosing the Nearest Hit</a></li><li class="toc-lvl-2"><a href="#33-ray-plane-intersection-derived-from-the-plane-equation">Ray-Plane Intersection, Derived From the Plane Equation</a></li><li class="toc-lvl-2"><a href="#34-ray-triangle-intersection-the-mollertrumbore-algorithm-derived">Ray-Triangle Intersection: The Möller–Trumbore Algorithm, Derived</a></li><li class="toc-lvl-2"><a href="#35-barycentric-coordinates-and-why-they-matter-for-interpolation">Barycentric Coordinates and Why They Matter for Interpolation</a></li><li class="toc-lvl-2"><a href="#36-computing-surface-normals-at-a-hit-point">Computing Surface Normals at a Hit Point</a></li><li class="toc-lvl-2"><a href="#37-the-rendering-equation-conceptual-introduction">The Rendering Equation (Conceptual Introduction)</a></li><li class="toc-lvl-2"><a href="#38-local-illumination-ambient-diffuse-and-specular-components">Local Illumination: Ambient, Diffuse, and Specular Components</a></li><li class="toc-lvl-2"><a href="#39-deriving-lambertian-diffuse-shading-from-the-dot-product">Deriving Lambertian (Diffuse) Shading From the Dot Product</a></li><li class="toc-lvl-2"><a href="#40-deriving-phong-specular-shading">Deriving Phong Specular Shading</a></li><li class="toc-lvl-2"><a href="#41-blinn-phong-a-cheaper-more-physically-plausible-approximation">Blinn-Phong: A Cheaper, More Physically Plausible Approximation</a></li><li class="toc-lvl-2"><a href="#42-putting-it-together-the-full-phong-lighting-model">Putting It Together: The Full Phong Lighting Model</a></li><li class="toc-lvl-2"><a href="#43-shadows-casting-a-shadow-ray-toward-the-light">Shadows: Casting a Shadow Ray Toward the Light</a></li><li class="toc-lvl-2"><a href="#44-multiple-lights-and-light-attenuation">Multiple Lights and Light Attenuation</a></li><li class="toc-lvl-2"><a href="#45-the-law-of-reflection-derived-from-the-normal-vector">The Law of Reflection, Derived From the Normal Vector</a></li><li class="toc-lvl-2"><a href="#46-implementing-reflection-rays">Implementing Reflection Rays</a></li><li class="toc-lvl-2"><a href="#47-snells-law-and-refraction-derived">Snell's Law and Refraction, Derived</a></li><li class="toc-lvl-2"><a href="#48-the-fresnel-effect-why-glass-reflects-and-refracts-at-once">The Fresnel Effect: Why Glass Reflects and Refracts at Once</a></li><li class="toc-lvl-2"><a href="#49-recursive-ray-tracing-bouncing-rays-and-depth-limiting">Recursive Ray Tracing: Bouncing Rays and Depth Limiting</a></li><li class="toc-lvl-2"><a href="#50-total-internal-reflection">Total Internal Reflection</a></li><li class="toc-lvl-2"><a href="#51-phase-2-designing-the-scene-graph-spheres-planes-materials-lights">Phase 2 — Designing the Scene Graph (Spheres, Planes, Materials, Lights)</a></li><li class="toc-lvl-2"><a href="#52-phase-3-the-core-ray-tracing-loop">Phase 3 — The Core Ray Tracing Loop</a></li><li class="toc-lvl-2"><a href="#53-phase-4-implementing-diffuse-and-specular-shading-in-code">Phase 4 — Implementing Diffuse and Specular Shading in Code</a></li><li class="toc-lvl-2"><a href="#54-phase-5-implementing-shadows-in-code">Phase 5 — Implementing Shadows in Code</a></li><li class="toc-lvl-2"><a href="#55-phase-6-implementing-reflections-in-code">Phase 6 — Implementing Reflections in Code</a></li><li class="toc-lvl-2"><a href="#56-phase-7-implementing-refraction-in-code">Phase 7 — Implementing Refraction in Code</a></li><li class="toc-lvl-2"><a href="#57-phase-8-anti-aliasing-via-supersampling">Phase 8 — Anti-Aliasing via Supersampling</a></li><li class="toc-lvl-2"><a href="#58-phase-9-writing-the-output-image-ppm-format">Phase 9 — Writing the Output Image (PPM Format)</a></li><li class="toc-lvl-2"><a href="#59-full-worked-example-rendering-three-spheres-and-a-floor-plane">Full Worked Example: Rendering Three Spheres and a Floor Plane</a></li><li class="toc-lvl-2"><a href="#60-why-naive-ray-tracing-is-slow-the-intersection-test-bottleneck">Why Naive Ray Tracing Is Slow: The Intersection Test Bottleneck</a></li><li class="toc-lvl-2"><a href="#61-acceleration-structures-bounding-volume-hierarchies-bvh">Acceleration Structures: Bounding Volume Hierarchies (BVH)</a></li><li class="toc-lvl-2"><a href="#62-building-a-bvh-step-by-step">Building a BVH, Step by Step</a></li><li class="toc-lvl-2"><a href="#63-multithreading-the-render-loop">Multithreading the Render Loop</a></li><li class="toc-lvl-2"><a href="#64-soft-shadows-via-area-lights-and-multiple-samples">Soft Shadows via Area Lights and Multiple Samples</a></li><li class="toc-lvl-2"><a href="#65-global-illumination-and-path-tracing-a-glimpse-beyond-this-guide">Global Illumination and Path Tracing: A Glimpse Beyond This Guide</a></li><li class="toc-lvl-2"><a href="#66-common-mistakes">Common Mistakes</a></li><li class="toc-lvl-2"><a href="#67-testing-strategy-comparing-against-known-analytical-results">Testing Strategy (Comparing Against Known Analytical Results)</a></li><li class="toc-lvl-2"><a href="#68-the-live-ray-tracing-simulation-what-youll-see-in-the-html-version">The Live Ray Tracing Simulation (What You'll See in the HTML Version)</a></li><li class="toc-lvl-2"><a href="#69-final-architecture">Final Architecture</a></li><li class="toc-lvl-2"><a href="#70-suggested-v2-enhancements">Suggested V2 Enhancements</a></li><li class="toc-lvl-2"><a href="#71-progressive-interviewpractice-question-set">Progressive Interview/Practice Question Set</a></li><li class="toc-lvl-2"><a href="#72-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>Goal:</strong> Learn ray casting and ray tracing from first principles — starting with the vector algebra that underpins both, through a classic 2D DDA ray caster (the Wolfenstein-3D technique), through the full geometry and physics of a recursive 3D ray tracer (sphere/plane/triangle intersection, Phong/Blinn-Phong shading, shadows, reflection, refraction, Fresnel), and finish with <strong>live, interactive simulations of both</strong> that you can run directly in a browser.</p>
+<p><strong>Watch this first — a clear visual introduction to ray casting:</strong> <a href="https://www.youtube.com/watch?v=TOEi6T2mtHo">https://www.youtube.com/watch?v=TOEi6T2mtHo</a></p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<p>Two related but distinct things, built in order:</p>
+<ol>
+<li><strong>A 2D ray caster</strong> — the technique behind <em>Wolfenstein 3D</em> (1992): a grid-based world, one ray per screen column, and a clever trick (the DDA algorithm) that finds wall hits without checking every cell. Fast enough to run in real time on 1990s hardware, and fast enough to run in your browser today with zero optimization effort.</li>
+<li><strong>A 3D ray tracer</strong> — a physically-motivated renderer that fires a ray per pixel into a 3D scene, computes exact geometric intersections with spheres/planes/triangles, and shades each hit point using the same lighting mathematics that underlies most of computer graphics: Lambertian diffuse, Phong/Blinn-Phong specular, shadow rays, recursive reflection, and Snell's-law refraction.</li>
+</ol>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Ray Casting (2D, this guide's §18-§28)          Ray Tracing (3D, this guide's §29-§59)
+
+  Player                                          Camera
+    |  one ray per screen COLUMN                    |  one ray per PIXEL
+    v                                                v
+  2D grid of wall cells                          3D scene of spheres/planes/triangles
+    |  DDA: step cell-by-cell, no real math          |  exact algebra: solve for t analytically
+    v                                                v
+  Wall hit -&gt; distance -&gt; wall-slice height       Hit point -&gt; normal -&gt; shade -&gt; maybe
+                                                   spawn MORE rays (shadow/reflect/refract)
+</code></pre></div>
+<p>Every section from here forward either derives a piece of the mathematics both techniques depend on, or uses that mathematics to build working code — by the end, §68's live simulation is a ray tracer whose every line of code you will have derived yourself, not copied from a black box.</p>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to:</p>
+<ul>
+<li>Derive, not just recall, the ray-sphere intersection formula, the reflection formula, and Snell's law in vector form.</li>
+<li>Explain exactly what the DDA algorithm is doing at each step, and why it never needs a square root or a floating-point wall-crossing search.</li>
+<li>Explain why ray casting looks distorted ("fisheye") without a specific correction, and derive that correction.</li>
+<li>Build a Lambertian + Phong/Blinn-Phong shading model from the dot product upward, understanding what each term physically represents.</li>
+<li>Explain why ray tracing is recursive, what a "depth limit" is protecting against, and how reflection and refraction rays are generated.</li>
+<li>Know exactly where naive ray tracing's cost comes from, and what a bounding volume hierarchy does about it.</li>
+</ul>
+<hr>
+<h2 id="3-ray-casting-vs-ray-tracing-whats-the-difference">3. Ray Casting vs Ray Tracing: What's the Difference?</h2>
+<p>This distinction confuses people constantly, including in professional contexts, so it's worth being precise before writing a single line of code:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Ray Casting</th>
+<th>Ray Tracing</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rays per hit</td>
+<td>One ray, one hit, done</td>
+<td>One ray can spawn <em>more</em> rays (shadow, reflection, refraction) — recursive</td>
+</tr>
+<tr>
+<td>Typical dimensionality</td>
+<td>2D world, rendered to look pseudo-3D (Wolfenstein 3D, Doom's engine family)</td>
+<td>True 3D scene geometry</td>
+</tr>
+<tr>
+<td>What a "hit" gives you</td>
+<td>A distance (used to draw a flat-shaded vertical strip)</td>
+<td>A distance, a surface normal, a material — enough to compute realistic shading, shadows, and reflections</td>
+</tr>
+<tr>
+<td>Light transport modeled</td>
+<td>None — walls are flat-shaded or texture-mapped by distance only</td>
+<td>Local illumination at minimum (Phong-family models); global illumination in advanced variants (§65)</td>
+</tr>
+<tr>
+<td>Real-time feasibility (no GPU)</td>
+<td>Yes — this is precisely why it powered early-90s games</td>
+<td>Historically no for anything but tiny/low-res scenes; modern GPUs with dedicated ray-tracing hardware changed this</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>The one-sentence version:</strong> ray casting is a specific, cheap, 2D-world technique that fakes a 3D look with a single non-recursive ray per column; ray tracing is a general, recursive, fully-3D simulation of how light rays travel, bounce, and combine. Historically "ray casting" is also used as a <em>general</em> term for "any technique that fires rays to determine visibility" — which is why the first bounce of a ray tracer (finding the nearest surface a camera ray hits) is sometimes itself called "casting a ray." Both usages are correct; §18 and §29 make clear which sense is meant at each point in this guide.</p>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Core algorithm code (this document)</td>
+<td>Java</td>
+<td>Matches this guide's Java-based derivations and keeps the math visible in typed, explicit code — no operator-overloading magic hiding a vector operation.</td>
+</tr>
+<tr>
+<td>Live simulations (the HTML companion, §28/§68)</td>
+<td>Vanilla JavaScript + <code>&lt;canvas&gt;</code></td>
+<td>Runs directly in a browser with zero build step or dependency — you can open the HTML file and watch both algorithms execute.</td>
+</tr>
+<tr>
+<td>Output for the offline ray tracer</td>
+<td>The PPM image format (§58)</td>
+<td>The simplest possible image format to write by hand — three ASCII numbers per pixel, no compression, no library needed.</td>
+</tr>
+<tr>
+<td>Math library</td>
+<td>None — hand-rolled <code>Vec3</code></td>
+<td>Seeing every dot product, cross product, and normalization explicitly is the entire point of this guide.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>raytracing/
+├── src/main/java/com/example/raytracing/
+│   ├── math/
+│   │   ├── Vec3.java
+│   │   └── Ray.java
+│   ├── raycasting2d/
+│   │   ├── GridWorld.java
+│   │   ├── DdaRayCaster.java
+│   │   └── RayCastRenderer.java
+│   ├── geometry/
+│   │   ├── Hittable.java
+│   │   ├── HitRecord.java
+│   │   ├── Sphere.java
+│   │   ├── Plane.java
+│   │   └── Triangle.java
+│   ├── shading/
+│   │   ├── Material.java
+│   │   ├── Light.java
+│   │   └── PhongShader.java
+│   ├── scene/
+│   │   ├── Scene.java
+│   │   ├── Camera.java
+│   │   └── BvhNode.java
+│   └── RayTracer.java
+└── src/main/resources/
+    └── raytracer_output.ppm
+</code></pre></div>
+<hr>
+<h2 id="6-vectors-in-3d-points-directions-and-basic-operations">6. Vectors in 3D: Points, Directions, and Basic Operations</h2>
+<p>A 3D vector <code>(x, y, z)</code> plays <strong>two different roles</strong> in graphics, and confusing them is a classic source of bugs:</p>
+<ul>
+<li>As a <strong>point</strong>, it names a location in space.</li>
+<li>As a <strong>direction</strong>, it names a displacement — "this far in x, this far in y, this far in z" — with no fixed location.</li>
+</ul>
+<p>A ray's origin is a point; a ray's direction is a direction. Subtracting two points gives a direction (the displacement from one to the other); adding a direction to a point gives another point. This guide uses one <code>Vec3</code> class for both, exactly as most real graphics code does, but keeping the <em>role</em> straight in your head at each step is what makes the rest of this guide's formulas make sense instead of feeling like arbitrary rules.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// math/Vec3.java
+public class Vec3 {
+    public final double x, y, z;
+    public Vec3(double x, double y, double z) { this.x = x; this.y = y; this.z = z; }
+}
+</code></pre></div>
+<hr>
+<h2 id="7-vector-addition-subtraction-and-scalar-multiplication">7. Vector Addition, Subtraction, and Scalar Multiplication</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public Vec3 add(Vec3 o) { return new Vec3(x + o.x, y + o.y, z + o.z); }
+public Vec3 subtract(Vec3 o) { return new Vec3(x - o.x, y - o.y, z - o.z); }
+public Vec3 scale(double t) { return new Vec3(x * t, y * t, z * t); }
+</code></pre></div>
+<p>Geometrically: <code>A + B</code> places <code>B</code>'s displacement starting at the tip of <code>A</code> (the parallelogram rule); <code>A - B</code> gives the displacement <em>from</em> <code>B</code> <em>to</em> <code>A</code> — this single fact is what makes "direction to the light" compute as <code>lightPosition.subtract(hitPoint)</code> and not the other way around, a sign error that silently produces backwards shading if you get it wrong (§39 revisits this exact trap).</p>
+<hr>
+<h2 id="8-the-dot-product-definition-formula-and-geometric-meaning">8. The Dot Product: Definition, Formula, and Geometric Meaning</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public double dot(Vec3 o) { return x * o.x + y * o.y + z * o.z; }
+</code></pre></div>
+<p>Algebraically, that's the entire definition. Its geometric meaning is what makes it indispensable for graphics:</p>
+<p>$$\vec{a} \cdot \vec{b} = |\vec{a}|\,|\vec{b}|\cos\theta$$</p>
+<p>where $\theta$ is the angle between the two vectors. Three consequences fall out of this immediately:</p>
+<ul>
+<li>If both vectors are <strong>unit length</strong> (§12), the dot product <strong>is</strong> $\cos\theta$ — no trigonometric function call needed to know "how aligned" two directions are.</li>
+<li>The dot product is <strong>positive</strong> when the angle is less than 90° (vectors point "the same general way"), <strong>zero</strong> at exactly 90° (perpendicular), and <strong>negative</strong> beyond 90° (pointing away from each other).</li>
+<li>$\vec{a} \cdot \vec{a} = |\vec{a}|^2$ — the dot product of a vector with itself is its squared length, which is exactly how §31 avoids a square root when testing ray-sphere intersection.</li>
+</ul>
+<hr>
+<h2 id="9-using-the-dot-product-for-angles-and-projections">9. Using the Dot Product for Angles and Projections</h2>
+<p>Two uses this guide relies on constantly:</p>
+<p><strong>Testing "is this surface facing the light?"</strong> — if $\vec{N}$ (surface normal) and $\vec{L}$ (direction to light) are both unit vectors, <code>N.dot(L)</code> is $\cos\theta$ between them. A negative value means the light is <em>behind</em> the surface relative to this normal — exactly the <code>max(0, N·L)</code> clamp in §39's Lambertian formula.</p>
+<p><strong>Projecting one vector onto another</strong> — the length of $\vec{a}$'s projection onto unit vector $\hat{b}$ is simply $\vec{a} \cdot \hat{b}$, and the projected vector itself is $(\vec{a} \cdot \hat{b})\,\hat{b}$. §45's reflection derivation is built entirely from this one idea: decompose a vector into a piece parallel to the normal (via projection) and a piece perpendicular to it, then flip only the parallel piece.</p>
+<hr>
+<h2 id="10-the-cross-product-definition-formula-and-geometric-meaning">10. The Cross Product: Definition, Formula, and Geometric Meaning</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public Vec3 cross(Vec3 o) {
+    return new Vec3(
+        y * o.z - z * o.y,
+        z * o.x - x * o.z,
+        x * o.y - y * o.x
+    );
+}
+</code></pre></div>
+<p>Where the dot product answers "how aligned are these two vectors," the cross product answers "what direction is perpendicular to <em>both</em> of them." Its magnitude is $|\vec{a}||\vec{b}|\sin\theta$ (largest when the vectors are perpendicular, zero when parallel — the opposite behavior from the dot product), and its direction follows the right-hand rule: point your fingers along $\vec{a}$, curl them toward $\vec{b}$, and your thumb points along $\vec{a} \times \vec{b}$.</p>
+<p>This is exactly how §36 computes a triangle's surface normal: two of its edges, crossed, give a vector perpendicular to the triangle's plane — which <em>is</em> the surface normal, up to normalization and a sign convention for "which side is outward."</p>
+<hr>
+<h2 id="11-normal-vectors-and-why-they-matter-for-shading">11. Normal Vectors and Why They Matter for Shading</h2>
+<p>A <strong>surface normal</strong> is a unit vector perpendicular to a surface at a given point, pointing <em>away</em> from the solid the surface bounds. Every shading calculation in §37–§44 — how bright a point looks, which direction light reflects off it, whether it's in shadow — is computed relative to this one vector, because it's the only thing at a hit point that encodes "which way is this surface facing." Get the normal's direction or sign wrong, and every downstream lighting calculation silently inverts or corrupts, which is why §36 and §51 treat "compute the normal correctly, including its sign" as a first-class step, not an afterthought.</p>
+<hr>
+<h2 id="12-vector-normalization-unit-vectors">12. Vector Normalization (Unit Vectors)</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public double length() { return Math.sqrt(x * x + y * y + z * z); }
+public Vec3 normalize() { double len = length(); return new Vec3(x / len, y / len, z / len); }
+</code></pre></div>
+<p>A <strong>unit vector</strong> has length exactly 1. Normalizing a direction throws away its magnitude and keeps only "which way" — essential because almost every formula in this guide (the dot-product-as-cosine trick in §8, the reflection formula in §45, Snell's law in §47) is only correct, as written, when its input vectors are unit length. A shading bug where highlights look wrong or shadows are subtly misplaced is very often, in practice, a forgotten <code>.normalize()</code> call.</p>
+<hr>
+<h2 id="13-parametric-line-equations-the-foundation-of-a-ray">13. Parametric Line Equations: The Foundation of a Ray</h2>
+<p>A line through a point with a given direction is written parametrically as a function of one real number $t$:</p>
+<p>$$P(t) = O + t\,\vec{D}$$</p>
+<p>At $t = 0$, $P(0) = O$ — the starting point. As $t$ increases, you move further along $\vec{D}$. Every value of $t$ produces exactly one point on the line; every point on the line corresponds to exactly one $t$. This single equation, restricted to $t \geq 0$ (a <strong>ray</strong>, not a full line — you can't travel "backward" from the origin), is the mathematical object both ray casting and ray tracing are named after.</p>
+<hr>
+<h2 id="14-the-ray-equation-pt-origin-t-direction">14. The Ray Equation: P(t) = Origin + t · Direction</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// math/Ray.java
+public class Ray {
+    public final Vec3 origin;
+    public final Vec3 direction; // convention used throughout this guide: always normalized
+
+    public Ray(Vec3 origin, Vec3 direction) {
+        this.origin = origin;
+        this.direction = direction.normalize();
+    }
+
+    public Vec3 pointAt(double t) { return origin.add(direction.scale(t)); }
+}
+</code></pre></div>
+<p>Keeping <code>direction</code> normalized by convention (rather than re-normalizing everywhere it's used) is a deliberate simplification: it means <code>t</code> in <code>pointAt(t)</code> is literally "distance traveled along the ray," which makes comparing two hit distances (§32's "choose the nearest root") a direct, meaningful comparison rather than a comparison of two different, un-comparable scales.</p>
+<hr>
+<h2 id="15-coordinate-systems-world-space-camera-space-screen-space">15. Coordinate Systems: World Space, Camera Space, Screen Space</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Space</th>
+<th>What coordinates mean in it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>World space</strong></td>
+<td>Where objects actually live — a sphere's center at <code>(0, 1, -5)</code> means exactly that, in the scene's own fixed frame of reference.</td>
+</tr>
+<tr>
+<td><strong>Camera space</strong></td>
+<td>Coordinates relative to the camera: the camera sits at the origin, looking down one axis (by convention, often $-z$). Simplifies visibility and projection math.</td>
+</tr>
+<tr>
+<td><strong>Screen space</strong></td>
+<td>2D pixel coordinates on the final image — <code>(x, y)</code> where <code>x</code> runs <code>0..width</code> and <code>y</code> runs <code>0..height</code>.</td>
+</tr>
+</tbody>
+</table></div>
+<p>§17's camera-ray generation is precisely the process of turning a <strong>screen-space</strong> pixel coordinate into a <strong>world-space</strong> ray — the bridge between "which pixel am I computing" and "which 3D geometry could that pixel be looking at."</p>
+<hr>
+<h2 id="16-the-camera-model-field-of-view-aspect-ratio-and-the-image-plane">16. The Camera Model: Field of View, Aspect Ratio, and the Image Plane</h2>
+<p>A camera is defined by a position, a look direction, an "up" vector (to fix its orientation/roll), a <strong>field of view</strong> (how wide an angle the camera sees, in degrees), and the output image's <strong>aspect ratio</strong> (width ÷ height). Together these define a virtual rectangle in 3D space — the <strong>image plane</strong> — placed one unit in front of the camera, sized so that its horizontal extent corresponds exactly to the field of view:</p>
+<p>$$\text{halfHeight} = \tan\left(\frac{\text{fov}}{2}\right), \quad \text{halfWidth} = \text{halfHeight} \times \text{aspectRatio}$$</p>
+<p>Every pixel in the final image corresponds to exactly one point on this virtual rectangle — §17 turns that correspondence into code.</p>
+<hr>
+<h2 id="17-generating-a-ray-for-each-pixel-camera-ray-generation">17. Generating a Ray for Each Pixel (Camera Ray Generation)</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// scene/Camera.java
+public class Camera {
+    private final Vec3 origin;
+    private final Vec3 lowerLeftCorner;
+    private final Vec3 horizontal, vertical;
+
+    public Camera(Vec3 lookFrom, Vec3 lookAt, Vec3 up, double fovDegrees, double aspectRatio) {
+        double theta = Math.toRadians(fovDegrees);
+        double halfHeight = Math.tan(theta / 2);
+        double halfWidth = aspectRatio * halfHeight;
+
+        Vec3 w = lookFrom.subtract(lookAt).normalize();      // points BACKWARD, away from lookAt — camera convention
+        Vec3 u = up.cross(w).normalize();                    // &quot;right&quot; direction (§10's cross product)
+        Vec3 v = w.cross(u);                                 // recomputed &quot;up&quot;, guaranteed perpendicular to both
+
+        this.origin = lookFrom;
+        this.horizontal = u.scale(2 * halfWidth);
+        this.vertical = v.scale(2 * halfHeight);
+        this.lowerLeftCorner = origin.subtract(horizontal.scale(0.5)).subtract(vertical.scale(0.5)).subtract(w);
+    }
+
+    /** s, t range 0..1 across the image — this IS the screen-space-to-world-space bridge from §15. */
+    public Ray getRay(double s, double t) {
+        Vec3 pointOnImagePlane = lowerLeftCorner.add(horizontal.scale(s)).add(vertical.scale(t));
+        return new Ray(origin, pointOnImagePlane.subtract(origin));
+    }
+}
+</code></pre></div>
+<p>For every pixel <code>(px, py)</code> in a <code>width × height</code> image, <code>s = px / width</code> and <code>t = py / height</code> — one call to <code>getRay(s, t)</code> per pixel is the entire bridge from "which pixel" to "which ray to trace," and it's the very first line of §52's main render loop.</p>
+<hr>
+<h2 id="18-what-is-ray-casting-concretely">18. What Is Ray Casting, Concretely?</h2>
+<p>Ray casting, in the classic (Wolfenstein-3D) sense, renders a <strong>2D grid world</strong> — a top-down map where each cell is either empty or a wall — as if you were standing inside it and looking around in 3D. The trick: for each vertical strip (column) of the output image, cast <strong>one ray</strong> from the player's position, in a slightly different direction per column, find the nearest wall it hits, and draw that column as a vertical strip whose height is inversely proportional to the hit distance (closer walls look taller). No 3D geometry, no lighting model — just distance-to-height, repeated once per column. Watch the video linked on the first page for a visual walkthrough of exactly this idea before diving into the algorithm below.</p>
+<hr>
+<h2 id="19-the-2d-grid-world-representation">19. The 2D Grid World Representation</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// raycasting2d/GridWorld.java
+public class GridWorld {
+    private final int[][] map; // 0 = empty, non-zero = a wall (the value can select a texture/color)
+    private final int width, height;
+
+    public GridWorld(int[][] map) {
+        this.map = map;
+        this.height = map.length;
+        this.width = map[0].length;
+    }
+
+    public boolean isWall(int cellX, int cellY) {
+        if (cellX &lt; 0 || cellX &gt;= width || cellY &lt; 0 || cellY &gt;= height) return true; // out of bounds = solid
+        return map[cellY][cellX] != 0;
+    }
+}
+</code></pre></div>
+<p>A world this simple — a 2D array of integers — is the entire "level geometry" a ray caster needs. The player's position <code>(posX, posY)</code> is a floating-point coordinate <em>within</em> this grid (e.g. <code>(4.5, 4.5)</code> is the center of cell <code>(4, 4)</code>).</p>
+<hr>
+<h2 id="20-casting-a-single-ray-through-a-grid-dda-algorithm">20. Casting a Single Ray Through a Grid (DDA Algorithm)</h2>
+<p>The naive approach — step the ray forward by a tiny fixed distance and check "am I inside a wall cell yet?" — works, but its accuracy and cost are both tied to how small that step is: too large and you can step clean through a thin wall, too small and you waste enormous amounts of computation per ray. The <strong>Digital Differential Analyzer (DDA)</strong> algorithm instead steps <strong>exactly one grid line at a time</strong> — always landing precisely on a cell boundary, in the correct order, with no wasted steps and no risk of skipping a cell — using only additions, no square roots, inside its loop.</p>
+<hr>
+<h2 id="21-the-digital-differential-analyzer-dda-algorithm-derived-step-by-step">21. The Digital Differential Analyzer (DDA) Algorithm, Derived Step by Step</h2>
+<p>The question DDA answers, cell by cell: "how far do I have to travel along this ray to cross the <em>next</em> vertical grid line, versus the next <em>horizontal</em> grid line — and which happens first?"</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Given a ray direction (rayDirX, rayDirY):
+
+1. deltaDistX = how far you travel ALONG THE RAY to cross one full grid cell in X
+             = |1 / rayDirX|   (if rayDirX == 0, this is infinite — the ray never crosses a vertical line)
+   deltaDistY = |1 / rayDirY|, symmetrically
+
+2. stepX = +1 if rayDirX &gt; 0, else -1   (which direction, in grid cells, we're moving in X)
+   stepY = +1 if rayDirY &gt; 0, else -1
+
+3. sideDistX = the ray-distance from the START to the FIRST vertical grid line it will cross
+             = (mapX + 1 - posX) * deltaDistX   if stepX &gt; 0
+             = (posX - mapX) * deltaDistX       if stepX &lt; 0
+   sideDistY computed symmetrically for the first horizontal grid line
+
+4. Loop:
+   - If sideDistX &lt; sideDistY: the ray reaches the next VERTICAL line first.
+         Advance: mapX += stepX; sideDistX += deltaDistX; record &quot;hit a vertical (EW-facing) wall side&quot;
+     Else: the ray reaches the next HORIZONTAL line first.
+         Advance: mapY += stepY; sideDistY += deltaDistY; record &quot;hit a horizontal (NS-facing) wall side&quot;
+   - If GridWorld.isWall(mapX, mapY): STOP. This is the hit cell.
+   - Otherwise, repeat step 4.
+</code></pre></div>
+<p>Why <code>deltaDistX = |1 / rayDirX|</code>: the ray's direction vector <code>(rayDirX, rayDirY)</code> advances by <code>rayDirX</code> in the x-coordinate for every 1 unit of ray-distance traveled (assuming the direction vector is treated as "per unit ray-length"). To advance by exactly <code>1</code> in x (one full grid cell), you need <code>1 / rayDirX</code> units of ray-distance — the absolute value because "distance traveled" is never negative even when <code>rayDirX</code> is.</p>
+<hr>
+<h2 id="22-detecting-wall-hits-and-computing-distance">22. Detecting Wall Hits and Computing Distance</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// raycasting2d/DdaRayCaster.java
+public class DdaRayCaster {
+    public record HitResult(double perpWallDist, boolean hitVerticalSide) { }
+
+    public HitResult cast(GridWorld world, double posX, double posY, double rayDirX, double rayDirY) {
+        int mapX = (int) posX, mapY = (int) posY;
+        double deltaDistX = (rayDirX == 0) ? Double.MAX_VALUE : Math.abs(1 / rayDirX);
+        double deltaDistY = (rayDirY == 0) ? Double.MAX_VALUE : Math.abs(1 / rayDirY);
+
+        int stepX = rayDirX &lt; 0 ? -1 : 1;
+        int stepY = rayDirY &lt; 0 ? -1 : 1;
+        double sideDistX = (rayDirX &lt; 0) ? (posX - mapX) * deltaDistX : (mapX + 1.0 - posX) * deltaDistX;
+        double sideDistY = (rayDirY &lt; 0) ? (posY - mapY) * deltaDistY : (mapY + 1.0 - posY) * deltaDistY;
+
+        boolean hitVerticalSide = false;
+        while (true) {
+            if (sideDistX &lt; sideDistY) {
+                sideDistX += deltaDistX;
+                mapX += stepX;
+                hitVerticalSide = true;
+            } else {
+                sideDistY += deltaDistY;
+                mapY += stepY;
+                hitVerticalSide = false;
+            }
+            if (world.isWall(mapX, mapY)) break;
+        }
+
+        // perpendicular distance, NOT Euclidean distance to the hit point — see §23 for why this matters
+        double perpWallDist = hitVerticalSide
+            ? (sideDistX - deltaDistX)
+            : (sideDistY - deltaDistY);
+        return new HitResult(perpWallDist, hitVerticalSide);
+    }
+}
+</code></pre></div>
+<p><code>hitVerticalSide</code> is worth its keep beyond bookkeeping: real ray casters shade vertical-side (east/west-facing) walls slightly differently from horizontal-side (north/south-facing) walls — a cheap, non-physical trick that gives the illusion of directional lighting for free.</p>
+<hr>
+<h2 id="23-fixing-the-fisheye-effect-perpendicular-distance-correction">23. Fixing the Fisheye Effect (Perpendicular Distance Correction)</h2>
+<p>If you render wall height from the <strong>raw Euclidean distance</strong> the DDA loop finds (straight-line distance from the player to the hit point), the result looks warped — walls bow outward like a fisheye lens, worse toward the edges of the screen. The cause: rays toward the edge of the field of view travel <em>further</em> than rays down the center to reach an object at the same perpendicular distance from the player, simply because they're angled.</p>
+<p>The fix is to project that distance back onto the direction the player is <em>facing</em> — the <strong>perpendicular distance</strong> — rather than using the true point-to-point distance:</p>
+<p>$$\text{perpWallDist} = \text{trueDistance} \times \cos(\theta)$$</p>
+<p>where $\theta$ is the angle between this ray and the player's forward direction. DDA computes this perpendicular distance directly, as a side effect of how <code>sideDistX</code>/<code>sideDistY</code> accumulate (the <code>sideDistX - deltaDistX</code> line in §22) — no explicit cosine ever needs to be computed, which is a large part of why this specific algorithm, not a naive distance-based one, became the standard technique.</p>
+<hr>
+<h2 id="24-rendering-a-vertical-wall-slice-from-a-single-ray">24. Rendering a Vertical Wall Slice From a Single Ray</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// raycasting2d/RayCastRenderer.java
+public void renderColumn(Graphics g, int screenX, int screenHeight, DdaRayCaster.HitResult hit) {
+    int lineHeight = (int) (screenHeight / hit.perpWallDist()); // closer wall (small dist) -&gt; taller strip
+    int drawStart = Math.max(0, -lineHeight / 2 + screenHeight / 2);
+    int drawEnd = Math.min(screenHeight - 1, lineHeight / 2 + screenHeight / 2);
+
+    Color color = hit.hitVerticalSide() ? Color.DARK_GRAY : Color.GRAY; // cheap directional shading, §22
+    g.setColor(color);
+    g.drawLine(screenX, drawStart, screenX, drawEnd);
+}
+</code></pre></div>
+<p><code>screenHeight / perpWallDist</code> is the entire "3D illusion": a wall twice as far away renders at half the height, which is exactly how perspective projection behaves for an object of fixed real-world size — derived here from a simple inverse relationship rather than a full projection matrix, because a ray caster's world is 2D and doesn't need one.</p>
+<hr>
+<h2 id="25-casting-a-ray-for-every-screen-column">25. Casting a Ray for Every Screen Column</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public void renderFrame(Graphics g, GridWorld world, double posX, double posY,
+                         double dirX, double dirY, double planeX, double planeY, int screenWidth, int screenHeight) {
+    DdaRayCaster caster = new DdaRayCaster();
+    for (int x = 0; x &lt; screenWidth; x++) {
+        double cameraX = 2.0 * x / screenWidth - 1; // ranges from -1 (left edge) to +1 (right edge)
+        double rayDirX = dirX + planeX * cameraX;   // dir +/- a fraction of the camera &quot;plane&quot; vector -&gt; field of view
+        double rayDirY = dirY + planeY * cameraX;
+
+        DdaRayCaster.HitResult hit = caster.cast(world, posX, posY, rayDirX, rayDirY);
+        renderColumn(g, x, screenHeight, hit);
+    }
+}
+</code></pre></div>
+<p>The <code>plane</code> vector (perpendicular to <code>dir</code>, scaled to control field of view — a narrower plane vector means a narrower FOV) plays the exact same role here that <code>horizontal</code>/<code>vertical</code> played in §17's 3D camera: it's what turns "which screen column" into "which ray direction," just in 2D instead of 3D.</p>
+<hr>
+<h2 id="26-phase-1-implementing-the-2d-ray-caster-in-java">26. Phase 1 — Implementing the 2D Ray Caster in Java</h2>
+<p>Putting §19, §22, and §25 together is the entire ray caster — there is no additional machinery. A minimal <code>main</code> that renders one static frame:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public static void main(String[] args) {
+    int[][] map = {
+        {1,1,1,1,1,1,1,1},
+        {1,0,0,0,0,0,0,1},
+        {1,0,1,0,1,0,0,1},
+        {1,0,0,0,0,0,0,1},
+        {1,1,1,1,1,1,1,1},
+    };
+    GridWorld world = new GridWorld(map);
+    RayCastRenderer renderer = new RayCastRenderer();
+    // posX/posY = player position, dirX/dirY = facing direction, planeX/planeY = camera plane (FOV)
+    renderer.renderFrame(graphics, world, 3.5, 2.5, -1, 0, 0, 0.66, 640, 480);
+}
+</code></pre></div>
+<hr>
+<h2 id="27-adding-player-movement-and-rotation">27. Adding Player Movement and Rotation</h2>
+<p>Movement is just updating <code>(posX, posY)</code> along <code>(dirX, dirY)</code>, with a wall check so the player can't walk through geometry the ray caster itself renders as solid:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public void moveForward(GridWorld world, double speed) {
+    double newX = posX + dirX * speed;
+    double newY = posY + dirY * speed;
+    if (!world.isWall((int) newX, (int) posY)) posX = newX; // check X and Y independently -&gt; sliding along walls
+    if (!world.isWall((int) posX, (int) newY)) posY = newY;
+}
+
+public void rotate(double angle) {
+    double oldDirX = dirX;
+    dirX = dirX * Math.cos(angle) - dirY * Math.sin(angle); // standard 2D rotation matrix
+    dirY = oldDirX * Math.sin(angle) + dirY * Math.cos(angle);
+    double oldPlaneX = planeX;
+    planeX = planeX * Math.cos(angle) - planeY * Math.sin(angle); // the camera plane must rotate WITH the view direction
+    planeY = oldPlaneX * Math.sin(angle) + planeY * Math.cos(angle);
+}
+</code></pre></div>
+<p>Checking the X and Y movement <strong>independently</strong> (rather than rejecting the whole move if the diagonal target cell is a wall) is what produces the natural "slide along the wall" feel instead of a hard stop the instant you brush a wall at an angle — a small detail with an outsized effect on how the simulation <em>feels</em> to move around in.</p>
+<hr>
+<h2 id="28-the-live-ray-casting-simulation-what-youll-see-in-the-html-version">28. The Live Ray Casting Simulation (What You'll See in the HTML Version)</h2>
+<p>The HTML companion to this document embeds a <strong>real, interactive, running implementation</strong> of everything in §18–§27 — the same DDA algorithm, the same perpendicular-distance fisheye correction, the same independent-axis collision sliding — written in vanilla JavaScript against an HTML <code>&lt;canvas&gt;</code>, controllable with the arrow keys. There is no simplification between the Java code above and the JavaScript that actually runs: every formula in §21–§23 appears in that script unchanged, just in a different language. If you're reading the Markdown version of this guide, open the HTML version to drive it yourself — the Java above and the live JS are two renderings of the exact same algorithm.</p>
+<div class="rt-demo">
+  <canvas id="raycastCanvas" width="640" height="320" tabindex="0"></canvas>
+  <p class="rt-demo-hint">Click the canvas, then use <kbd>&larr;</kbd> <kbd>&rarr;</kbd> to turn and <kbd>&uarr;</kbd> <kbd>&darr;</kbd> to move.</p>
+</div>
+<script>
+(function() {
+  var canvas = document.getElementById('raycastCanvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+
+  var map = [
+    [1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,0,1,1,0,0,1],
+    [1,0,1,0,0,0,1,0,0,1],
+    [1,0,1,0,1,0,1,0,0,1],
+    [1,0,0,0,1,0,0,0,0,1],
+    [1,0,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1]
+  ];
+  var mapW = map[0].length, mapH = map.length;
+  function isWall(x, y) {
+    if (x < 0 || x >= mapW || y < 0 || y >= mapH) return true;
+    return map[y][x] !== 0;
+  }
+
+  var posX = 4.5, posY = 5.5;
+  var dirX = -1, dirY = 0;
+  var planeX = 0, planeY = 0.66;
+
+  var keys = {};
+  canvas.addEventListener('keydown', function(e) {
+    keys[e.key] = true;
+    if (e.key.indexOf('Arrow') === 0) e.preventDefault();
+  });
+  canvas.addEventListener('keyup', function(e) { keys[e.key] = false; });
+  canvas.addEventListener('click', function() { canvas.focus(); });
+
+  function update(dt) {
+    var moveSpeed = dt * 3.0;
+    var rotSpeed = dt * 2.0;
+    if (keys['ArrowUp']) {
+      var nx = posX + dirX * moveSpeed, ny = posY + dirY * moveSpeed;
+      if (!isWall(Math.floor(nx), Math.floor(posY))) posX = nx;
+      if (!isWall(Math.floor(posX), Math.floor(ny))) posY = ny;
+    }
+    if (keys['ArrowDown']) {
+      var nx2 = posX - dirX * moveSpeed, ny2 = posY - dirY * moveSpeed;
+      if (!isWall(Math.floor(nx2), Math.floor(posY))) posX = nx2;
+      if (!isWall(Math.floor(posX), Math.floor(ny2))) posY = ny2;
+    }
+    if (keys['ArrowRight']) {
+      var a = -rotSpeed;
+      var oldDirX = dirX;
+      dirX = dirX * Math.cos(a) - dirY * Math.sin(a);
+      dirY = oldDirX * Math.sin(a) + dirY * Math.cos(a);
+      var oldPlaneX = planeX;
+      planeX = planeX * Math.cos(a) - planeY * Math.sin(a);
+      planeY = oldPlaneX * Math.sin(a) + planeY * Math.cos(a);
+    }
+    if (keys['ArrowLeft']) {
+      var b = rotSpeed;
+      var oldDirX2 = dirX;
+      dirX = dirX * Math.cos(b) - dirY * Math.sin(b);
+      dirY = oldDirX2 * Math.sin(b) + dirY * Math.cos(b);
+      var oldPlaneX2 = planeX;
+      planeX = planeX * Math.cos(b) - planeY * Math.sin(b);
+      planeY = oldPlaneX2 * Math.sin(b) + planeY * Math.cos(b);
+    }
+  }
+
+  var colors = { 1: [200,60,60], 2: [60,160,60], 3: [60,100,200] };
+
+  function render() {
+    ctx.fillStyle = '#8fd3ff'; ctx.fillRect(0, 0, W, H / 2);
+    ctx.fillStyle = '#555555'; ctx.fillRect(0, H / 2, W, H / 2);
+
+    for (var x = 0; x < W; x++) {
+      var cameraX = 2 * x / W - 1;
+      var rayDirX = dirX + planeX * cameraX;
+      var rayDirY = dirY + planeY * cameraX;
+
+      var mapX = Math.floor(posX), mapY = Math.floor(posY);
+      var deltaDistX = (rayDirX === 0) ? 1e30 : Math.abs(1 / rayDirX);
+      var deltaDistY = (rayDirY === 0) ? 1e30 : Math.abs(1 / rayDirY);
+
+      var stepX, stepY, sideDistX, sideDistY;
+      if (rayDirX < 0) { stepX = -1; sideDistX = (posX - mapX) * deltaDistX; }
+      else { stepX = 1; sideDistX = (mapX + 1 - posX) * deltaDistX; }
+      if (rayDirY < 0) { stepY = -1; sideDistY = (posY - mapY) * deltaDistY; }
+      else { stepY = 1; sideDistY = (mapY + 1 - posY) * deltaDistY; }
+
+      var hit = false, side = 0, guard = 0;
+      while (!hit && guard < 200) {
+        guard++;
+        if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0; }
+        else { sideDistY += deltaDistY; mapY += stepY; side = 1; }
+        if (isWall(mapX, mapY)) hit = true;
+      }
+
+      var perpWallDist = side === 0 ? (sideDistX - deltaDistX) : (sideDistY - deltaDistY);
+      if (perpWallDist < 1e-6) perpWallDist = 1e-6;
+      var lineHeight = Math.floor(H / perpWallDist);
+      var drawStart = Math.max(0, Math.floor(-lineHeight / 2 + H / 2));
+      var drawEnd = Math.min(H - 1, Math.floor(lineHeight / 2 + H / 2));
+
+      var shade = side === 1 ? 0.7 : 1.0;
+      var wallType = (map[mapY] && map[mapY][mapX]) ? map[mapY][mapX] : 1;
+      var c = colors[wallType] || colors[1];
+      ctx.fillStyle = 'rgb(' + (c[0]*shade|0) + ',' + (c[1]*shade|0) + ',' + (c[2]*shade|0) + ')';
+      ctx.fillRect(x, drawStart, 1, Math.max(1, drawEnd - drawStart));
+    }
+  }
+
+  var lastTime = performance.now();
+  function loop(now) {
+    var dt = Math.min(0.1, (now - lastTime) / 1000);
+    lastTime = now;
+    update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+<hr>
+<h2 id="29-from-2d-grids-to-3d-scenes-what-changes">29. From 2D Grids to 3D Scenes: What Changes</h2>
+<p>Ray tracing keeps the ray equation (§14) and the per-pixel ray generation (§17) completely unchanged from what a 3D-aware ray caster would already need — what's genuinely new is <strong>what the ray is tested against</strong>. Instead of "is this grid cell a wall," a ray tracer asks "does this ray intersect this sphere / this plane / this triangle," and needs that answer as an <strong>exact real number</strong> ($t$, the ray equation's parameter) rather than a "yes/no, stepped one grid cell at a time" answer. §30–§36 derive that exact intersection math for the three most common primitives.</p>
+<hr>
+<h2 id="30-implicit-surfaces-and-the-sphere-equation">30. Implicit Surfaces and the Sphere Equation</h2>
+<p>A sphere of radius $r$ centered at $C$ is the set of all points $P$ satisfying:</p>
+<p>$$|P - C|^2 = r^2$$</p>
+<p>This is an <strong>implicit</strong> equation — it doesn't tell you how to <em>generate</em> points on the sphere, only how to <em>test</em> whether a given point is on it (or, with $&lt;$/$&gt;$, inside/outside it). That test-ability is exactly what makes it easy to combine with the ray equation: substitute $P(t)$ from §14 in for $P$, and solve for the values of $t$ that satisfy the equation.</p>
+<hr>
+<h2 id="31-deriving-the-ray-sphere-intersection-formula-the-quadratic">31. Deriving the Ray-Sphere Intersection Formula (the Quadratic)</h2>
+<p>Substitute the ray equation $P(t) = O + t\vec{D}$ into the sphere equation, writing $\vec{oc} = O - C$ for brevity:</p>
+<p>$$|O + t\vec{D} - C|^2 = r^2 \quad\Longrightarrow\quad |\vec{oc} + t\vec{D}|^2 = r^2$$</p>
+<p>Expand the squared length using the dot product ($|\vec{v}|^2 = \vec{v}\cdot\vec{v}$, §8):</p>
+<p>$$(\vec{oc} + t\vec{D})\cdot(\vec{oc} + t\vec{D}) = r^2$$
+$$\vec{oc}\cdot\vec{oc} + 2t(\vec{oc}\cdot\vec{D}) + t^2(\vec{D}\cdot\vec{D}) = r^2$$</p>
+<p>Rearranged into standard quadratic form $at^2 + bt + c = 0$:</p>
+<p>$$a = \vec{D}\cdot\vec{D}, \qquad b = 2(\vec{oc}\cdot\vec{D}), \qquad c = \vec{oc}\cdot\vec{oc} - r^2$$</p>
+<p>If $\vec{D}$ is normalized (§14's convention), $a = 1$ always — one less multiplication per test, which matters when this test runs millions of times per render.</p>
+<hr>
+<h2 id="32-solving-the-quadratic-discriminant-roots-and-choosing-the-nearest-hit">32. Solving the Quadratic: Discriminant, Roots, and Choosing the Nearest Hit</h2>
+<p>The quadratic formula gives $t = \dfrac{-b \pm \sqrt{b^2 - 4ac}}{2a}$. The term under the square root, the <strong>discriminant</strong>, tells you everything about whether (and how) the ray hits the sphere <em>before</em> you even compute a root:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Discriminant</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>$&lt; 0$</td>
+<td>No real roots — the ray misses the sphere entirely</td>
+</tr>
+<tr>
+<td>$= 0$</td>
+<td>Exactly one root — the ray grazes the sphere tangentially</td>
+</tr>
+<tr>
+<td>$&gt; 0$</td>
+<td>Two roots — the ray enters and exits the sphere</td>
+</tr>
+</tbody>
+</table></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// geometry/Sphere.java
+public HitRecord hit(Ray ray, double tMin, double tMax) {
+    Vec3 oc = ray.origin.subtract(center);
+    double a = ray.direction.dot(ray.direction);
+    double b = 2.0 * oc.dot(ray.direction);
+    double c = oc.dot(oc) - radius * radius;
+    double discriminant = b * b - 4 * a * c;
+    if (discriminant &lt; 0) return null; // no intersection
+
+    double sqrtD = Math.sqrt(discriminant);
+    double t = (-b - sqrtD) / (2 * a);   // try the NEARER root first
+    if (t &lt; tMin || t &gt; tMax) {
+        t = (-b + sqrtD) / (2 * a);      // nearer root was behind us or out of range — try the farther one
+        if (t &lt; tMin || t &gt; tMax) return null;
+    }
+    Vec3 hitPoint = ray.pointAt(t);
+    Vec3 outwardNormal = hitPoint.subtract(center).scale(1.0 / radius); // cheaper than a fresh normalize() — see §36
+    return new HitRecord(t, hitPoint, outwardNormal);
+}
+</code></pre></div>
+<p>Trying the <strong>nearer</strong> root ($-b - \sqrt{\text{disc}}$) first, and only falling back to the farther one, is what correctly handles a camera positioned <em>inside</em> a sphere (the near root is behind the camera, at negative $t$) without any special-case code — the <code>tMin</code>/<code>tMax</code> bounds check does all the work.</p>
+<hr>
+<h2 id="33-ray-plane-intersection-derived-from-the-plane-equation">33. Ray-Plane Intersection, Derived From the Plane Equation</h2>
+<p>A plane is defined by a point $P_0$ on it and a normal $\vec{N}$ perpendicular to it. A point $P$ lies on the plane exactly when the vector from $P_0$ to $P$ is perpendicular to $\vec{N}$ — i.e. their dot product is zero:</p>
+<p>$$\vec{N} \cdot (P - P_0) = 0$$</p>
+<p>Substituting the ray equation:</p>
+<p>$$\vec{N} \cdot (O + t\vec{D} - P_0) = 0 \;\Longrightarrow\; \vec{N}\cdot(O - P_0) + t(\vec{N}\cdot\vec{D}) = 0$$</p>
+<p>$$t = \frac{\vec{N}\cdot(P_0 - O)}{\vec{N}\cdot\vec{D}}$$</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// geometry/Plane.java
+public HitRecord hit(Ray ray, double tMin, double tMax) {
+    double denom = normal.dot(ray.direction);
+    if (Math.abs(denom) &lt; 1e-6) return null; // ray is (near) parallel to the plane — N·D ≈ 0, division would blow up
+    double t = normal.dot(point.subtract(ray.origin)) / denom;
+    if (t &lt; tMin || t &gt; tMax) return null;
+    return new HitRecord(t, ray.pointAt(t), normal);
+}
+</code></pre></div>
+<p>Unlike a sphere, a plane is infinite and unbounded — this <code>hit</code> method will report a hit anywhere on that infinite plane, which is exactly right for a "floor" but means a <em>finite</em> flat surface (a rectangle, a disc) needs an additional bounds check on the hit point after this formula finds $t$.</p>
+<hr>
+<h2 id="34-ray-triangle-intersection-the-mollertrumbore-algorithm-derived">34. Ray-Triangle Intersection: The Möller–Trumbore Algorithm, Derived</h2>
+<p>A triangle with vertices $V_0, V_1, V_2$ can be described by two edge vectors $\vec{e_1} = V_1 - V_0$ and $\vec{e_2} = V_2 - V_0$: every point on the triangle's plane is $V_0 + u\vec{e_1} + v\vec{e_2}$ for some scalars $u, v$ (with $u, v \geq 0$ and $u+v \leq 1$ restricting you to <em>inside</em> the triangle, not just its plane — see §35). Setting this equal to the ray equation gives one vector equation in three unknowns ($t$, $u$, $v$):</p>
+<p>$$O + t\vec{D} = V_0 + u\vec{e_1} + v\vec{e_2}$$</p>
+<p>Rearranged into a linear system $t\vec{D} - u\vec{e_1} - v\vec{e_2} = O - V_0$, this is a standard 3-equations-in-3-unknowns linear system, solvable by <strong>Cramer's rule</strong> — and Cramer's rule for a 3×3 system is expressible entirely in terms of dot and cross products, which is exactly what the Möller–Trumbore algorithm's famously compact code is doing:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// geometry/Triangle.java
+public HitRecord hit(Ray ray, double tMin, double tMax) {
+    Vec3 e1 = v1.subtract(v0);
+    Vec3 e2 = v2.subtract(v0);
+    Vec3 h = ray.direction.cross(e2);
+    double a = e1.dot(h);
+    if (Math.abs(a) &lt; 1e-8) return null; // ray is parallel to the triangle's plane
+
+    double f = 1.0 / a;
+    Vec3 s = ray.origin.subtract(v0);
+    double u = f * s.dot(h);
+    if (u &lt; 0 || u &gt; 1) return null; // outside the triangle along the e1 direction
+
+    Vec3 q = s.cross(e1);
+    double v = f * ray.direction.dot(q);
+    if (v &lt; 0 || u + v &gt; 1) return null; // outside the triangle along the e2 direction, or past the far edge
+
+    double t = f * e2.dot(q);
+    if (t &lt; tMin || t &gt; tMax) return null;
+
+    Vec3 normal = e1.cross(e2).normalize(); // §10 and §36 — perpendicular to both edges
+    return new HitRecord(t, ray.pointAt(t), normal);
+}
+</code></pre></div>
+<p>Each rejected case above (<code>a</code> near zero, <code>u</code> out of <code>[0,1]</code>, <code>v</code> out of range, <code>u+v &gt; 1</code>) corresponds to a distinct geometric "definitely no hit" fact, checked in the cheapest-first order — this is why Möller–Trumbore is the standard triangle-intersection routine in essentially every ray tracer and GPU rasterizer built since its 1997 publication.</p>
+<hr>
+<h2 id="35-barycentric-coordinates-and-why-they-matter-for-interpolation">35. Barycentric Coordinates and Why They Matter for Interpolation</h2>
+<p>The $(u, v)$ pair §34 solves for are two of a triangle's three <strong>barycentric coordinates</strong> — weights $(w_0, w_1, w_2) = (1 - u - v,\ u,\ v)$ that sum to 1 and describe a hit point as a weighted average of the triangle's three vertices: $P = w_0 V_0 + w_1 V_1 + w_2 V_2$. Their real power is that <strong>any per-vertex quantity</strong> — not just position, but a normal, a texture coordinate, a color — can be interpolated across the triangle's surface using these same three weights, which is exactly how smooth-shaded (as opposed to flat-shaded) triangle meshes compute a continuously-varying normal at every point on a triangle from just three stored vertex normals.</p>
+<hr>
+<h2 id="36-computing-surface-normals-at-a-hit-point">36. Computing Surface Normals at a Hit Point</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Primitive</th>
+<th>Normal at a hit point</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sphere</td>
+<td>$(P_{\text{hit}} - C) / r$ — the direction from the center outward, already unit length if divided by the true radius (§32)</td>
+</tr>
+<tr>
+<td>Plane</td>
+<td>The plane's defining normal, unchanged everywhere — a plane is flat by definition</td>
+</tr>
+<tr>
+<td>Triangle (flat-shaded)</td>
+<td>$\vec{e_1} \times \vec{e_2}$, normalized (§10, §34) — constant across the whole triangle</td>
+</tr>
+<tr>
+<td>Triangle (smooth-shaded)</td>
+<td>$w_0 N_0 + w_1 N_1 + w_2 N_2$ using §35's barycentric weights and the three vertices' <em>stored</em> normals, then re-normalized</td>
+</tr>
+</tbody>
+</table></div>
+<p>One subtlety worth internalizing now, because §43 and §46 both depend on it: a computed normal always points in a <em>consistent</em> geometric direction, but shading math (§39 onward) needs it to point toward the side the ray arrived <em>from</em>. If a ray can hit a surface from either side (the inside of a hollow sphere, a double-sided triangle), the normal must be flipped — <code>if (ray.direction.dot(outwardNormal) &gt; 0) normal = normal.scale(-1);</code> — before it's handed to any shading calculation, or the lighting math silently produces nonsense on back-facing hits.</p>
+<hr>
+<h2 id="37-the-rendering-equation-conceptual-introduction">37. The Rendering Equation (Conceptual Introduction)</h2>
+<p>Every physically-motivated renderer, from this guide's simple Phong model to a full path tracer, is an approximation of one equation — the <strong>rendering equation</strong> (Kajiya, 1986), which says, informally: <em>the light leaving a point in a given direction equals the light the point emits, plus the light arriving from every other direction, weighted by how much the surface reflects light from that incoming direction into this outgoing one, integrated over the entire hemisphere above the surface.</em></p>
+<p>$$L_o(p, \omega_o) = L_e(p, \omega_o) + \int_{\Omega} f_r(p, \omega_i, \omega_o)\, L_i(p, \omega_i)\, (\vec{N}\cdot\omega_i)\, d\omega_i$$</p>
+<p>A full path tracer (§65) attempts to estimate this integral directly via random sampling. This guide's <strong>local illumination</strong> model (§38–§44) is a drastic, deliberate simplification of it: instead of integrating over every incoming direction, it considers light from only a handful of <em>explicit</em> point lights, and ignores indirect light bouncing off other surfaces entirely (except for the one explicit reflection/refraction ray of §45–§50). Naming the full equation here is what makes it clear, later, exactly which physical effects this guide's model does and doesn't capture — and why.</p>
+<hr>
+<h2 id="38-local-illumination-ambient-diffuse-and-specular-components">38. Local Illumination: Ambient, Diffuse, and Specular Components</h2>
+<p>The classic Phong reflection model splits the light at a point into three additive terms:</p>
+<p>$$I = I_{\text{ambient}} + I_{\text{diffuse}} + I_{\text{specular}}$$</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Physical intuition</th>
+<th>Depends on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Ambient</strong></td>
+<td>A crude stand-in for all the indirect light this simplified model doesn't otherwise compute — prevents unlit surfaces from being pure black</td>
+<td>Nothing but a constant — no geometry, no light position</td>
+</tr>
+<tr>
+<td><strong>Diffuse</strong> (§39)</td>
+<td>Light scattered equally in all directions by a rough surface (matte paint, chalk)</td>
+<td>The angle between the surface normal and the direction to the light</td>
+</tr>
+<tr>
+<td><strong>Specular</strong> (§40–§41)</td>
+<td>The bright highlight from a light source reflecting almost-directly off a shiny surface</td>
+<td>The angle between the <em>reflected</em> light direction and the direction to the <em>viewer</em></td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="39-deriving-lambertian-diffuse-shading-from-the-dot-product">39. Deriving Lambertian (Diffuse) Shading From the Dot Product</h2>
+<p><strong>Lambert's cosine law</strong>, observed experimentally in 1760 and derivable from basic radiometry, states that the apparent brightness of a perfectly diffuse (matte) surface is proportional to the cosine of the angle between the surface normal and the direction to the light source — <em>not</em> to the viewer's position at all, which is why a matte surface looks equally bright from any viewing angle.</p>
+<p>$$I_{\text{diffuse}} = k_d \, I_{\text{light}} \, \max(0,\ \vec{N} \cdot \vec{L})$$</p>
+<p>where $\vec{N}$ is the (unit) surface normal, $\vec{L}$ is the (unit) direction <strong>from the hit point toward the light</strong> (§7's subtraction order matters here — <code>light.position.subtract(hitPoint)</code>, then normalized), and $k_d$ is the surface's diffuse reflectance (its "matte color"). The <code>max(0, ...)</code> clamp (§9) is what correctly darkens a surface facing away from the light to exactly zero, rather than a nonsensical negative brightness.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>double diffuseIntensity = Math.max(0, normal.dot(lightDir)) * light.intensity;
+Vec3 diffuseColor = material.diffuseColor.scale(diffuseIntensity);
+</code></pre></div>
+<hr>
+<h2 id="40-deriving-phong-specular-shading">40. Deriving Phong Specular Shading</h2>
+<p>A shiny highlight is bright only when the viewer is looking almost exactly along the direction the light <em>would</em> perfectly mirror-reflect off the surface. Phong's model computes that mirror-reflection direction $\vec{R}$ (§45 derives this formula in full) and compares it to the direction toward the viewer $\vec{V}$:</p>
+<p>$$I_{\text{specular}} = k_s \, I_{\text{light}} \, \max(0,\ \vec{R}\cdot\vec{V})^{n}$$</p>
+<p>The exponent $n$ — the <strong>shininess</strong> — controls how tight the highlight is: a low $n$ (say, 8) spreads a soft, broad highlight; a high $n$ (say, 200) produces a small, sharp, mirror-like glint. Raising a value already in $[0,1]$ to a higher power pushes it toward zero faster, which is precisely why a larger exponent narrows the highlight — a purely mathematical consequence of exponentiation, not a separate physical rule.</p>
+<hr>
+<h2 id="41-blinn-phong-a-cheaper-more-physically-plausible-approximation">41. Blinn-Phong: A Cheaper, More Physically Plausible Approximation</h2>
+<p>Computing the true reflection vector $\vec{R}$ per pixel, per light, is one extra formula's worth of work (§45) that Blinn-Phong avoids by introducing the <strong>halfway vector</strong> — the direction exactly between the light and the viewer:</p>
+<p>$$\vec{H} = \text{normalize}(\vec{L} + \vec{V}), \qquad I_{\text{specular}} = k_s\, I_{\text{light}}\, \max(0,\ \vec{N}\cdot\vec{H})^{n'}$$</p>
+<p>$\vec{N}\cdot\vec{H}$ is large exactly when $\vec{N}$ is "between" $\vec{L}$ and $\vec{V}$ in the same sense that $\vec{R}\cdot\vec{V}$ is large when $\vec{R}$ points at the viewer — the two formulas produce visually similar highlights (with a different, empirically-adjusted shininess exponent $n'$ needed to match brightness falloff), but Blinn-Phong also happens to avoid a specific artifact original Phong has at grazing angles, which is why it's the more common choice in real-time engines to this day.</p>
+<hr>
+<h2 id="42-putting-it-together-the-full-phong-lighting-model">42. Putting It Together: The Full Phong Lighting Model</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// shading/PhongShader.java
+public Vec3 shade(HitRecord hit, Material material, Light light, Vec3 viewDir) {
+    Vec3 lightDir = light.position.subtract(hit.point).normalize();     // §39 — direction TO the light
+    Vec3 halfway = lightDir.add(viewDir).normalize();                   // §41
+
+    double diffuseTerm = Math.max(0, hit.normal.dot(lightDir));
+    double specularTerm = Math.pow(Math.max(0, hit.normal.dot(halfway)), material.shininess);
+
+    Vec3 ambient = material.color.scale(material.ambientStrength);
+    Vec3 diffuse = material.color.scale(diffuseTerm * light.intensity);
+    Vec3 specular = new Vec3(1, 1, 1).scale(specularTerm * light.intensity); // highlights are usually near-white, not the surface color
+
+    return ambient.add(diffuse).add(specular);
+}
+</code></pre></div>
+<p>Specular highlights being tinted toward white (rather than the surface's own color) is a deliberate, physically-motivated choice: for most non-metallic materials, the light bouncing straight off the surface without penetrating it at all retains the light's color, not the material's — this is the same underlying physics that makes a shiny red apple's highlight look white, not red.</p>
+<hr>
+<h2 id="43-shadows-casting-a-shadow-ray-toward-the-light">43. Shadows: Casting a Shadow Ray Toward the Light</h2>
+<p>§42's shading assumes the light can actually "see" the hit point — if another object sits between them, the point should be in shadow. The test: fire a second ray, a <strong>shadow ray</strong>, from the hit point toward the light, and check whether it hits anything <em>before</em> reaching the light's distance.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public boolean isInShadow(Scene scene, Vec3 hitPoint, Vec3 lightDir, double distanceToLight) {
+    Vec3 shadowRayOrigin = hitPoint.add(lightDir.scale(1e-4)); // §44's &quot;shadow acne&quot; fix — see the note below
+    Ray shadowRay = new Ray(shadowRayOrigin, lightDir);
+    HitRecord blocker = scene.hitAnything(shadowRay, 0.001, distanceToLight);
+    return blocker != null;
+}
+</code></pre></div>
+<p><strong>Why nudge the shadow ray's origin slightly off the surface?</strong> Due to ordinary floating-point rounding, a ray whose origin is computed as "exactly on the surface" can, due to tiny rounding error, register as intersecting that <em>same</em> surface again at $t \approx 0$ — a bug universally nicknamed <strong>shadow acne</strong>, appearing as dark speckling across lit surfaces. Nudging the origin a small distance along the normal (or, as above, along the shadow ray direction) pushes it just clear of the surface, avoiding the spurious self-intersection without introducing a visible gap.</p>
+<hr>
+<h2 id="44-multiple-lights-and-light-attenuation">44. Multiple Lights and Light Attenuation</h2>
+<p>Real scenes have more than one light — §42's <code>shade</code> is called once per light, and the results are summed:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Vec3 totalColor = material.color.scale(material.ambientStrength); // ambient term added once, not per light
+for (Light light : scene.getLights()) {
+    Vec3 lightDir = light.position.subtract(hit.point).normalize();
+    double distanceToLight = light.position.subtract(hit.point).length();
+    if (isInShadow(scene, hit.point, lightDir, distanceToLight)) continue; // this light contributes nothing here
+    double attenuation = 1.0 / (1.0 + 0.09 * distanceToLight + 0.032 * distanceToLight * distanceToLight);
+    totalColor = totalColor.add(phongShader.shade(hit, material, light, viewDir).scale(attenuation));
+}
+</code></pre></div>
+<p><strong>Attenuation</strong> — light weakening with distance — follows an inverse-square law physically ($1/d^2$), but a pure inverse-square term blows up unrealistically as $d \to 0$; the quadratic-plus-linear-plus-constant formula above (a common real-time-graphics approximation) tames that behavior while still falling off believably at typical scene distances.</p>
+<hr>
+<h2 id="45-the-law-of-reflection-derived-from-the-normal-vector">45. The Law of Reflection, Derived From the Normal Vector</h2>
+<p>Decompose an incoming direction $\vec{D}$ (pointing <em>toward</em> the surface) into two components relative to the normal $\vec{N}$: a part parallel to $\vec{N}$, and a part perpendicular to it (lying in the surface's plane). Using §9's projection formula, the parallel part is $(\vec{D}\cdot\vec{N})\vec{N}$, and the perpendicular part is whatever's left: $\vec{D} - (\vec{D}\cdot\vec{N})\vec{N}$.</p>
+<p>The law of reflection says the perpendicular component is <strong>unchanged</strong> by a mirror bounce, while the parallel component <strong>flips sign</strong> — physically, the reflected ray leaves at the same angle it arrived, on the other side of the normal, in the same plane. Flipping only the parallel part and re-adding the unperturbed perpendicular part:</p>
+<p>$$\vec{R} = \big(\vec{D} - (\vec{D}\cdot\vec{N})\vec{N}\big) - (\vec{D}\cdot\vec{N})\vec{N} = \vec{D} - 2(\vec{D}\cdot\vec{N})\vec{N}$$</p>
+<hr>
+<h2 id="46-implementing-reflection-rays">46. Implementing Reflection Rays</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public static Vec3 reflect(Vec3 incident, Vec3 normal) {
+    return incident.subtract(normal.scale(2 * incident.dot(normal)));
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Vec3 reflectedDir = reflect(ray.direction, hit.normal);
+Ray reflectedRay = new Ray(hit.point.add(hit.normal.scale(1e-4)), reflectedDir); // same &quot;nudge off the surface&quot; fix as §43
+Vec3 reflectedColor = traceRay(scene, reflectedRay, depth - 1); // §49 — recursion, with a decrementing depth budget
+finalColor = finalColor.add(reflectedColor.scale(material.reflectivity));
+</code></pre></div>
+<p><code>material.reflectivity</code> (a value in $[0, 1]$) blends between the surface's own shaded color and whatever the reflected ray sees — <code>0</code> is a fully matte, non-reflective material; <code>1</code> is a perfect mirror; intermediate values (a shiny-but-not-mirror-like plastic, for instance) blend the two.</p>
+<hr>
+<h2 id="47-snells-law-and-refraction-derived">47. Snell's Law and Refraction, Derived</h2>
+<p>When light passes from a medium with refractive index $n_1$ (e.g. air, $n_1 \approx 1.0$) into one with index $n_2$ (e.g. glass, $n_2 \approx 1.5$), it bends according to <strong>Snell's law</strong>:</p>
+<p>$$n_1 \sin\theta_1 = n_2 \sin\theta_2$$</p>
+<p>where $\theta_1$ is the angle of incidence (from the normal) and $\theta_2$ is the angle of refraction. Deriving the <em>vector</em> form (not just the scalar angle relationship) takes a bit more geometry: decompose the incident direction into components parallel and perpendicular to the normal (same idea as §45), scale the perpendicular component by $\eta = n_1/n_2$ (Snell's law directly relates the <em>sines</em>, which are proportional to the perpendicular components), and solve for the parallel component using the fact that the refracted direction must remain unit length:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public static Vec3 refract(Vec3 incident, Vec3 normal, double eta) {
+    double cosThetaI = -normal.dot(incident);
+    double sin2ThetaT = eta * eta * (1.0 - cosThetaI * cosThetaI);
+    if (sin2ThetaT &gt; 1.0) return null; // total internal reflection — see §50, no refraction is possible
+    double cosThetaT = Math.sqrt(1.0 - sin2ThetaT);
+    return incident.scale(eta).add(normal.scale(eta * cosThetaI - cosThetaT));
+}
+</code></pre></div>
+<p><code>eta = n1 / n2</code> is the ratio of refractive indices for the two media the ray is crossing — computed as $1/1.5$ when entering glass from air, and its reciprocal, $1.5/1$, when exiting glass back into air (tracking "which medium am I currently inside" is a real bookkeeping responsibility a recursive ray tracer with transparent objects must handle explicitly, easy to get backwards).</p>
+<hr>
+<h2 id="48-the-fresnel-effect-why-glass-reflects-and-refracts-at-once">48. The Fresnel Effect: Why Glass Reflects and Refracts at Once</h2>
+<p>Look at a window at a shallow, grazing angle and it becomes far more reflective than looking straight through it — this is the <strong>Fresnel effect</strong>: the fraction of light reflected (versus refracted/transmitted) at a boundary between two media depends on the viewing angle, always increasing toward 100% reflection as the angle becomes more grazing. The full physical formula (the Fresnel equations) is involved; <strong>Schlick's approximation</strong> captures the same behavior cheaply:</p>
+<p>$$R_0 = \left(\frac{n_1 - n_2}{n_1 + n_2}\right)^2, \qquad R(\theta) = R_0 + (1 - R_0)(1 - \cos\theta)^5$$</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public static double schlickReflectance(double cosine, double refractiveIndexRatio) {
+    double r0 = (1 - refractiveIndexRatio) / (1 + refractiveIndexRatio);
+    r0 = r0 * r0;
+    return r0 + (1 - r0) * Math.pow(1 - cosine, 5);
+}
+</code></pre></div>
+<p>$R(\theta)$ is used directly as a blend weight: a glass sphere's final color at a given hit point is <code>reflectedColor * R(θ) + refractedColor * (1 - R(θ))</code> — a physically-motivated mix rather than an artist-chosen constant, and the reason a well-implemented glass material looks convincingly like <em>glass</em> instead of like a semi-transparent colored filter.</p>
+<hr>
+<h2 id="49-recursive-ray-tracing-bouncing-rays-and-depth-limiting">49. Recursive Ray Tracing: Bouncing Rays and Depth Limiting</h2>
+<p>A perfectly reflective sphere facing a mirror could, in principle, bounce a ray back and forth forever — every recursive ray tracer therefore takes a <strong>depth</strong> parameter, decremented on every bounce, that forces the recursion to stop and return a default color (usually black, or the scene's background/ambient color) once exhausted:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public Vec3 traceRay(Scene scene, Ray ray, int depth) {
+    if (depth &lt;= 0) return Vec3.BLACK; // depth budget exhausted — stop recursing, contribute nothing further
+    HitRecord hit = scene.hitNearest(ray, 0.001, Double.MAX_VALUE);
+    if (hit == null) return scene.backgroundColor(ray);
+
+    Vec3 localColor = computeLocalShading(scene, hit); // §42-§44 — ambient + diffuse + specular + shadows
+    Vec3 reflectedColor = Vec3.BLACK, refractedColor = Vec3.BLACK;
+
+    if (hit.material.reflectivity &gt; 0) {
+        Ray reflectedRay = new Ray(hit.point.add(hit.normal.scale(1e-4)), reflect(ray.direction, hit.normal));
+        reflectedColor = traceRay(scene, reflectedRay, depth - 1); // recursive call, ONE LESS depth remaining
+    }
+    if (hit.material.transparency &gt; 0) {
+        Vec3 refractDir = refract(ray.direction, hit.normal, hit.enteringMaterial ? 1.0 / hit.material.refractiveIndex : hit.material.refractiveIndex);
+        if (refractDir != null) {
+            Ray refractedRay = new Ray(hit.point.subtract(hit.normal.scale(1e-4)), refractDir); // nudge INTO the surface, not away
+            refractedColor = traceRay(scene, refractedRay, depth - 1);
+        } else {
+            reflectedColor = traceRay(scene, new Ray(hit.point.add(hit.normal.scale(1e-4)), reflect(ray.direction, hit.normal)), depth - 1); // §50
+        }
+    }
+    return localColor.scale(1 - hit.material.reflectivity - hit.material.transparency)
+        .add(reflectedColor.scale(hit.material.reflectivity))
+        .add(refractedColor.scale(hit.material.transparency));
+}
+</code></pre></div>
+<p>The <code>depth</code> parameter is doing exactly the same conceptual job as a base case in any other recursive algorithm — without it, <code>traceRay</code> has no proof of termination, and a scene with two facing mirrors would recurse until the call stack overflows.</p>
+<hr>
+<h2 id="50-total-internal-reflection">50. Total Internal Reflection</h2>
+<p>§47's <code>refract</code> function returns <code>null</code> whenever <code>sin2ThetaT &gt; 1.0</code> — a real physical phenomenon, not a numerical edge case to paper over: when light tries to exit a <em>denser</em> medium into a <em>less dense</em> one (glass to air, not air to glass) at a sufficiently shallow angle, Snell's law has <strong>no solution</strong> — $\sin\theta_2$ would need to exceed 1, which is impossible for a real angle. Physically, 100% of the light reflects instead of refracting at all — this is exactly how fiber-optic cables work, and exactly why looking up from underwater at a shallow angle shows a mirror-like reflection of the pool floor instead of a view of the sky. §49's fallback to a pure reflection ray in that branch is not a hack — it's the physically correct behavior for this specific geometric case.</p>
+<hr>
+<h2 id="51-phase-2-designing-the-scene-graph-spheres-planes-materials-lights">51. Phase 2 — Designing the Scene Graph (Spheres, Planes, Materials, Lights)</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// geometry/Hittable.java — the one interface every intersectable object implements
+public interface Hittable {
+    HitRecord hit(Ray ray, double tMin, double tMax);
+}
+
+// geometry/HitRecord.java
+public class HitRecord {
+    public final double t;
+    public final Vec3 point;
+    public final Vec3 normal;
+    public final Material material;
+    public HitRecord(double t, Vec3 point, Vec3 normal, Material material) {
+        this.t = t; this.point = point; this.normal = normal; this.material = material;
+    }
+}
+
+// shading/Material.java
+public class Material {
+    public Vec3 color;
+    public double ambientStrength, shininess, reflectivity, transparency, refractiveIndex;
+}
+
+// shading/Light.java
+public class Light {
+    public Vec3 position;
+    public double intensity;
+}
+
+// scene/Scene.java
+public class Scene {
+    private final List&lt;Hittable&gt; objects = new ArrayList&lt;&gt;();
+    private final List&lt;Light&gt; lights = new ArrayList&lt;&gt;();
+
+    public HitRecord hitNearest(Ray ray, double tMin, double tMax) {
+        HitRecord closest = null;
+        double closestT = tMax;
+        for (Hittable object : objects) {
+            HitRecord hit = object.hit(ray, tMin, closestT);
+            if (hit != null) { closest = hit; closestT = hit.t; }
+        }
+        return closest;
+    }
+}
+</code></pre></div>
+<p>Every primitive (<code>Sphere</code>, <code>Plane</code>, <code>Triangle</code> from §32–§34) implements the same <code>Hittable</code> interface — <code>Scene.hitNearest</code> never needs to know which kind of geometry it's testing against, only that it can ask "does this ray hit you, and if so, how far away, and closer than the closest hit so far?"</p>
+<hr>
+<h2 id="52-phase-3-the-core-ray-tracing-loop">52. Phase 3 — The Core Ray Tracing Loop</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// RayTracer.java
+public BufferedImage render(Scene scene, Camera camera, int width, int height, int maxDepth) {
+    BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+    for (int py = 0; py &lt; height; py++) {
+        for (int px = 0; px &lt; width; px++) {
+            double s = (double) px / (width - 1);
+            double t = (double) (height - 1 - py) / (height - 1); // flip Y — image rows go top-to-bottom, world Y is up
+            Ray ray = camera.getRay(s, t);                        // §17
+            Vec3 color = traceRay(scene, ray, maxDepth);           // §49
+            image.setRGB(px, py, toRgbInt(color));
+        }
+    }
+    return image;
+}
+</code></pre></div>
+<p>This double loop — one call to <code>getRay</code> and one call to <code>traceRay</code> per pixel, nothing else — is the entire "outer shell" of a ray tracer. Every section from §29 onward exists to make one of those two function calls meaningful.</p>
+<hr>
+<h2 id="53-phase-4-implementing-diffuse-and-specular-shading-in-code">53. Phase 4 — Implementing Diffuse and Specular Shading in Code</h2>
+<p>Already fully derived and coded in §39–§42 (<code>PhongShader.shade</code>) — this phase is purely the integration step: <code>computeLocalShading</code> (referenced in §49) loops over every light in the scene and calls <code>PhongShader.shade</code> once per light, summing the results, exactly as shown in §44.</p>
+<hr>
+<h2 id="54-phase-5-implementing-shadows-in-code">54. Phase 5 — Implementing Shadows in Code</h2>
+<p>Also already fully derived in §43 (<code>isInShadow</code>) — the integration point is <code>computeLocalShading</code> skipping a light's contribution entirely when <code>isInShadow</code> returns true, as shown in §44's loop (<code>if (isInShadow(...)) continue;</code>).</p>
+<hr>
+<h2 id="55-phase-6-implementing-reflections-in-code">55. Phase 6 — Implementing Reflections in Code</h2>
+<p>Fully derived in §45–§46 and wired into the main recursive loop in §49 — nothing further to add here; this phase exists in the roadmap only to mark it as a distinct, independently-testable milestone (§67's testing strategy treats it as such).</p>
+<hr>
+<h2 id="56-phase-7-implementing-refraction-in-code">56. Phase 7 — Implementing Refraction in Code</h2>
+<p>Fully derived in §47–§48 and wired into §49's recursive loop, including the Fresnel-weighted blend between reflection and refraction and the total-internal-reflection fallback (§50). Like §55, this phase is complete by construction of the earlier sections — called out here as its own milestone because it is, in practice, the single hardest part of a ray tracer to get bug-free (sign errors in <code>eta</code>, forgetting to nudge the refracted ray <em>into</em> rather than away from the surface, and mismatched "which medium am I in" bookkeeping are all extremely common).</p>
+<hr>
+<h2 id="57-phase-8-anti-aliasing-via-supersampling">57. Phase 8 — Anti-Aliasing via Supersampling</h2>
+<p>A single ray per pixel produces jagged, "stair-stepped" edges wherever an object's silhouette doesn't align with the pixel grid — because each pixel's color is an all-or-nothing sample of whatever the ray happened to hit. <strong>Supersampling</strong> fires <em>several</em> rays per pixel, at slightly jittered sub-pixel positions, and averages the results:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public Vec3 samplePixelAntiAliased(Scene scene, Camera camera, int px, int py, int width, int height, int samplesPerPixel, int maxDepth) {
+    Vec3 colorSum = Vec3.BLACK;
+    for (int sample = 0; sample &lt; samplesPerPixel; sample++) {
+        double jitterX = Math.random(); // a random offset WITHIN this pixel's footprint
+        double jitterY = Math.random();
+        double s = (px + jitterX) / (width - 1);
+        double t = (height - 1 - (py + jitterY)) / (double) (height - 1);
+        colorSum = colorSum.add(traceRay(scene, camera.getRay(s, t), maxDepth));
+    }
+    return colorSum.scale(1.0 / samplesPerPixel);
+}
+</code></pre></div>
+<p>Averaging several randomly-jittered samples per pixel means a pixel straddling an edge gets a color <em>blended</em> between the two sides in proportion to how much of the pixel's area each side actually covers — smoothing the jaggedness into a gradient the eye reads as a clean edge, at the direct cost of <code>samplesPerPixel</code> times more ray-tracing work per pixel.</p>
+<hr>
+<h2 id="58-phase-9-writing-the-output-image-ppm-format">58. Phase 9 — Writing the Output Image (PPM Format)</h2>
+<p>The <strong>PPM</strong> (Portable Pixmap) format is about as simple as an image format can be: a short text header, then three ASCII numbers (red, green, blue, each <code>0-255</code>) per pixel, row by row:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public void writePpm(BufferedImage image, Path outputPath) throws IOException {
+    try (PrintWriter writer = new PrintWriter(Files.newBufferedWriter(outputPath))) {
+        int width = image.getWidth(), height = image.getHeight();
+        writer.println(&quot;P3&quot;);                 // &quot;P3&quot; = ASCII PPM, as opposed to &quot;P6&quot; (binary)
+        writer.println(width + &quot; &quot; + height);
+        writer.println(&quot;255&quot;);                 // maximum value per color channel
+        for (int y = 0; y &lt; height; y++) {
+            for (int x = 0; x &lt; width; x++) {
+                int rgb = image.getRGB(x, y);
+                writer.println(((rgb &gt;&gt; 16) &amp; 0xFF) + &quot; &quot; + ((rgb &gt;&gt; 8) &amp; 0xFF) + &quot; &quot; + (rgb &amp; 0xFF));
+            }
+        }
+    }
+}
+</code></pre></div>
+<p>No library, no compression, no binary parsing — just three numbers per pixel — which is exactly why PPM is the traditional first output format for a hand-built ray tracer: it proves the renderer works with the absolute minimum of code standing between "computed colors" and "a file you can open and look at" (most image viewers, and tools like GIMP or ImageMagick, read <code>.ppm</code> natively).</p>
+<hr>
+<h2 id="59-full-worked-example-rendering-three-spheres-and-a-floor-plane">59. Full Worked Example: Rendering Three Spheres and a Floor Plane</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public static void main(String[] args) throws IOException {
+    Scene scene = new Scene();
+    scene.add(new Sphere(new Vec3(0, 0, -1), 0.5, matteRed));
+    scene.add(new Sphere(new Vec3(1.2, 0, -1.5), 0.5, shinyBlue));      // higher shininess, some reflectivity
+    scene.add(new Sphere(new Vec3(-1.2, 0, -1.5), 0.5, glassMaterial)); // transparency + refractiveIndex = 1.5
+    scene.add(new Plane(new Vec3(0, -0.5, 0), new Vec3(0, 1, 0), checkerFloor));
+    scene.addLight(new Light(new Vec3(2, 2, 1), 1.0));
+
+    Camera camera = new Camera(new Vec3(0, 0.5, 1), new Vec3(0, 0, -1), new Vec3(0, 1, 0), 60, 16.0 / 9.0);
+    RayTracer tracer = new RayTracer();
+    BufferedImage image = tracer.render(scene, camera, 800, 450, /* maxDepth */ 5);
+    tracer.writePpm(image, Path.of(&quot;raytracer_output.ppm&quot;));
+}
+</code></pre></div>
+<p>Tracing what happens for one pixel that lands on the glass sphere: <code>traceRay</code> finds the nearest hit (§32's quadratic), computes local Phong shading including a shadow-ray check against the floor and other spheres (§43–§44), computes both a reflected ray (§46) and — since <code>transparency &gt; 0</code> — a refracted ray via Snell's law (§47), blends all three using the material's reflectivity/transparency weights (ideally Fresnel-weighted per §48), and recurses up to 4 more times (<code>maxDepth - 1</code>) for whatever those secondary rays hit, before finally returning one RGB color for that single pixel. Every section from §6 to §58 contributes to that one pixel's final color.</p>
+<hr>
+<h2 id="60-why-naive-ray-tracing-is-slow-the-intersection-test-bottleneck">60. Why Naive Ray Tracing Is Slow: The Intersection Test Bottleneck</h2>
+<p><code>Scene.hitNearest</code> (§51), as written, tests <strong>every</strong> object in the scene against <strong>every</strong> ray — for $N$ objects and $W \times H$ pixels at 1 ray/pixel, that's $O(N \times W \times H)$ intersection tests before even counting §57's supersampling multiplier or §49's recursive secondary rays. A scene with a few spheres is fine; a scene with a million triangles (an imported 3D model) is not — the vast majority of those tests are against objects nowhere near the ray's actual path, wasted work in an amount that grows linearly with scene complexity for every single ray.</p>
+<hr>
+<h2 id="61-acceleration-structures-bounding-volume-hierarchies-bvh">61. Acceleration Structures: Bounding Volume Hierarchies (BVH)</h2>
+<p>A <strong>Bounding Volume Hierarchy</strong> wraps groups of objects in progressively larger bounding boxes, arranged as a binary tree — testing a ray against the <em>root</em> box first, and only descending into a child box (and eventually the real geometry) if the ray actually hits that box. A ray that misses a large region of the scene entirely is rejected with <strong>one</strong> cheap box test instead of testing every object inside that region individually.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    [Box containing EVERYTHING]
+                    /                        \
+        [Box: left half of scene]    [Box: right half of scene]
+           /            \                /              \
+      [Sphere A]    [Sphere B]      [Triangle 1]    [Box: 500 more triangles]
+                                                          /          \
+                                                   ... recursively subdivided ...
+</code></pre></div>
+<p>Ray-box intersection itself is cheap and simple (an <strong>axis-aligned bounding box</strong>, or AABB, test — three interval overlaps, one per axis, no square roots), which is exactly what makes the BVH's "reject early, cheaply" strategy pay for itself.</p>
+<hr>
+<h2 id="62-building-a-bvh-step-by-step">62. Building a BVH, Step by Step</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// scene/BvhNode.java
+public class BvhNode implements Hittable {
+    private final Hittable left, right;
+    private final AABB boundingBox;
+
+    public static BvhNode build(List&lt;Hittable&gt; objects) {
+        if (objects.size() == 1) return new BvhNode(objects.get(0), objects.get(0));
+        int axis = pickLongestAxis(objects);                          // split along whichever axis the objects spread out most
+        objects.sort(Comparator.comparingDouble(o -&gt; o.boundingBox().centroid(axis)));
+        int mid = objects.size() / 2;
+        Hittable leftSubtree = build(objects.subList(0, mid));         // recursively build each half
+        Hittable rightSubtree = build(objects.subList(mid, objects.size()));
+        return new BvhNode(leftSubtree, rightSubtree);
+    }
+
+    @Override
+    public HitRecord hit(Ray ray, double tMin, double tMax) {
+        if (!boundingBox.hit(ray, tMin, tMax)) return null;             // the entire optimization, in one line
+        HitRecord leftHit = left.hit(ray, tMin, tMax);
+        HitRecord rightHit = right.hit(ray, tMin, leftHit != null ? leftHit.t : tMax); // shrink the search range if left already found something closer
+        return rightHit != null ? rightHit : leftHit;
+    }
+}
+</code></pre></div>
+<p>Building the tree by repeatedly splitting along the axis the objects spread out most, and recursing until each leaf holds one object, turns $O(N)$ per-ray intersection cost into $O(\log N)$ for a reasonably balanced tree — the same complexity win a balanced binary search tree gives over a linear scan through a sorted array, applied to 3D space instead of a 1D key.</p>
+<hr>
+<h2 id="63-multithreading-the-render-loop">63. Multithreading the Render Loop</h2>
+<p>Every pixel's color (§52) depends only on that pixel's own ray and the (read-only, once the scene is built) <code>Scene</code> — no pixel's computation depends on any other pixel's result, which makes ray tracing an unusually easy problem to parallelize:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public BufferedImage renderParallel(Scene scene, Camera camera, int width, int height, int maxDepth) {
+    BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+    IntStream.range(0, height).parallel().forEach(py -&gt; {  // each row is independent — safe to run across threads
+        for (int px = 0; px &lt; width; px++) {
+            Vec3 color = traceRay(scene, camera.getRay((double) px / width, (double) py / height), maxDepth);
+            synchronized (image) { image.setRGB(px, py, toRgbInt(color)); } // BufferedImage isn't thread-safe to write concurrently
+        }
+    });
+    return image;
+}
+</code></pre></div>
+<p>This is the same "embarrassingly parallel" property that made ray tracing an early, natural fit for GPU compute — every pixel's work is independent, so the only synchronization needed anywhere in this loop is around the shared output buffer itself, not around any part of the actual tracing logic.</p>
+<hr>
+<h2 id="64-soft-shadows-via-area-lights-and-multiple-samples">64. Soft Shadows via Area Lights and Multiple Samples</h2>
+<p>§43's shadow rays produce perfectly sharp shadow edges — physically correct only for an infinitesimally small ("point") light source. Real lights have area (a light bulb, a window), which produces <strong>soft shadows</strong> — a gradual penumbra where the light source is partially, but not fully, occluded. Approximating this: treat a light as a small disc or sphere, and for each shading calculation, cast <strong>several</strong> shadow rays toward randomly-sampled points on that light's surface instead of one ray toward its center, averaging the resulting shadow/lit fraction:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>double litFraction = 0;
+for (int i = 0; i &lt; shadowSamples; i++) {
+    Vec3 sampledLightPoint = light.position.add(randomPointOnDisc(light.radius));
+    if (!isInShadow(scene, hit.point, sampledLightPoint.subtract(hit.point).normalize(), sampledLightPoint.subtract(hit.point).length())) {
+        litFraction += 1.0 / shadowSamples;
+    }
+}
+</code></pre></div>
+<p>A point fully visible to the light gets <code>litFraction = 1</code> (fully lit), a point fully blocked gets <code>0</code> (fully shadowed), and a point at the shadow's edge — visible to <em>some</em> sampled points on the light but not others — gets a value in between, which is exactly the soft gradient a penumbra should have.</p>
+<hr>
+<h2 id="65-global-illumination-and-path-tracing-a-glimpse-beyond-this-guide">65. Global Illumination and Path Tracing: A Glimpse Beyond This Guide</h2>
+<p>Everything built through §64 is <strong>local illumination with a fixed set of explicit secondary rays</strong> (one reflection, one refraction, a handful of shadow rays) — it never accounts for light bouncing off <em>one ordinary diffuse surface onto another</em> (a red wall subtly tinting a nearby white object red, for instance), an effect called <strong>indirect illumination</strong> or <strong>color bleeding</strong>. §37's full rendering equation captures this in its integral over every incoming direction; <strong>path tracing</strong> approximates that integral via Monte Carlo sampling — firing many random rays per pixel, each bouncing multiple times off diffuse surfaces according to the surface's reflectance distribution, and averaging enormous numbers of samples to converge on a noise-free image. This is a substantially larger topic (importance sampling, Monte Carlo variance/convergence, denoising) than this guide's scope, but every piece of vector math, intersection code, and shading logic built here (§6–§59) is exactly what a path tracer is built from — the difference is <em>how many</em> rays get fired per pixel and how their contributions get combined, not a different geometric foundation.</p>
+<hr>
+<h2 id="66-common-mistakes">66. Common Mistakes</h2>
+<ul>
+<li><strong>Mistake 1 — Forgetting to normalize a ray direction (§14).</strong> Silently breaks every formula in this guide that assumes unit-length inputs, most confusingly the quadratic in §31 (<code>a</code> is no longer 1) and the dot-product-as-cosine shortcut in §8.</li>
+<li><strong>Mistake 2 — Sign errors in "direction to the light" (§7, §39).</strong> Computing <code>hitPoint.subtract(light.position)</code> instead of <code>light.position.subtract(hitPoint)</code> produces a direction pointing <em>away</em> from the light, silently darkening every surface that should be lit.</li>
+<li><strong>Mistake 3 — Shadow acne from skipping the origin nudge (§43).</strong> A shadow ray that isn't offset slightly off the surface can spuriously re-intersect the very surface it started from, producing speckled dark noise on lit surfaces.</li>
+<li><strong>Mistake 4 — No recursion depth limit (§49).</strong> A scene with two facing mirrors (or a glass object bouncing internally) recurses without bound, eventually overflowing the call stack.</li>
+<li><strong>Mistake 5 — Getting <code>eta</code> (the refractive index ratio) backwards or failing to track "which medium am I in" (§47, §56).</strong> Produces refraction that bends the wrong way, or a glass object that looks correct entering but wrong exiting.</li>
+<li><strong>Mistake 6 — Choosing the farther root instead of the nearer one in ray-sphere intersection (§32).</strong> Renders the back face of a sphere as if it were the front, or fails to correctly handle a camera positioned inside an object.</li>
+<li><strong>Mistake 7 — Treating DDA's <code>sideDistX</code>/<code>sideDistY</code> as the true hit distance instead of using the perpendicular distance (§23).</strong> Reintroduces the fisheye distortion the entire point of the DDA bookkeeping was designed to avoid.</li>
+<li><strong>Mistake 8 — Testing every object against every ray with no acceleration structure (§60) on a scene with thousands of triangles.</strong> Correct, but slow enough to make iteration on a real scene painfully slow — the first thing to fix once render times become the bottleneck.</li>
+</ul>
+<hr>
+<h2 id="67-testing-strategy-comparing-against-known-analytical-results">67. Testing Strategy (Comparing Against Known Analytical Results)</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>What to test</th>
+<th>Known correct answer</th>
+<th>Why it's a good test</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ray straight at a sphere's center</td>
+<td>Hit distance = <code>distance(origin, center) - radius</code> exactly</td>
+<td>A simple, hand-computable case that catches sign/formula errors in §31-§32 immediately</td>
+</tr>
+<tr>
+<td>Ray tangent to a sphere</td>
+<td>Discriminant exactly (or very nearly) zero</td>
+<td>Exercises the boundary case between "hit" and "miss"</td>
+</tr>
+<tr>
+<td>Ray parallel to a plane</td>
+<td>No hit, ever, regardless of distance</td>
+<td>Catches a missing or incorrect near-zero-denominator check in §33</td>
+</tr>
+<tr>
+<td>A point light directly above a flat diffuse surface, viewed from directly above</td>
+<td>Diffuse term should equal <code>k_d * lightIntensity</code> exactly (<code>N·L = 1</code>)</td>
+<td>A precise, hand-computable check on §39's formula</td>
+</tr>
+<tr>
+<td>A fully-reflective sphere next to a fully-diffuse sphere of a known color</td>
+<td>The reflective sphere's surface should show a recognizable, undistorted-in-principle mirror image of the diffuse one</td>
+<td>Validates §45-§46's reflection direction is geometrically correct, not just "looks shiny"</td>
+</tr>
+<tr>
+<td>A glass sphere at normal incidence (looking straight through it)</td>
+<td>Should show the scene behind it with minimal distortion and near-zero reflection (Fresnel at 0° is close to <code>R0</code>, small for glass)</td>
+<td>Validates §47-§48 together</td>
+</tr>
+<tr>
+<td>DDA against a single-cell-thick wall at a shallow grazing angle</td>
+<td>The wall must never be "skipped" (a naive fixed-step raymarcher can miss it; DDA, correctly implemented, cannot)</td>
+<td>The core correctness guarantee DDA is supposed to provide over the naive approach (§20)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Comparing against a <strong>hand-computable, exact</strong> expected value — not just "does the image look plausible" — is what actually catches the sign errors and off-by-one mistakes in §66's list before they hide inside a complex, hard-to-debug scene.</p>
+<hr>
+<h2 id="68-the-live-ray-tracing-simulation-what-youll-see-in-the-html-version">68. The Live Ray Tracing Simulation (What You'll See in the HTML Version)</h2>
+<p>The HTML companion also embeds a <strong>real, running software ray tracer</strong> — vanilla JavaScript, no WebGL, rendering directly into a <code>&lt;canvas&gt;</code> pixel by pixel. It implements the sphere and plane intersection math from §31–§33, the Phong/Blinn-Phong shading from §39–§42, shadow rays from §43, and one level of recursive reflection from §45–§46, at a resolution and sample count tuned to finish in well under a second in a browser — click "Render" and watch the same mathematics from §29–§49 produce an actual image, line by line, in real time. Refraction and the full Fresnel blend (§47–§48) are described in this document's math but intentionally left out of the <em>live</em> demo to keep it fast enough to feel interactive; the offline Java renderer in §51–§59 implements the complete model, glass sphere included.</p>
+<div class="rt-demo">
+  <canvas id="raytraceCanvas" width="360" height="200"></canvas>
+  <div class="rt-demo-controls">
+    <label><input type="checkbox" id="rtShadows" checked> Shadows</label>
+    <label><input type="checkbox" id="rtReflections" checked> Reflections</label>
+    <button id="rtRenderBtn" type="button">Render</button>
+    <span id="rtTiming" class="rt-demo-timing"></span>
+  </div>
+</div>
+<script>
+(function() {
+  var canvas = document.getElementById('raytraceCanvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+
+  function vec(x,y,z){ return {x:x,y:y,z:z}; }
+  function add(a,b){ return vec(a.x+b.x, a.y+b.y, a.z+b.z); }
+  function sub(a,b){ return vec(a.x-b.x, a.y-b.y, a.z-b.z); }
+  function scale(a,t){ return vec(a.x*t, a.y*t, a.z*t); }
+  function dot(a,b){ return a.x*b.x + a.y*b.y + a.z*b.z; }
+  function length(a){ return Math.sqrt(dot(a,a)); }
+  function normalize(a){ var l = length(a); return l > 0 ? scale(a, 1/l) : a; }
+  function reflect(d,n){ return sub(d, scale(n, 2*dot(d,n))); }
+
+  var spheres = [
+    { center: vec(-0.8, 0, -3), radius: 0.9, color: vec(220,60,60), reflectivity: 0.1, shininess: 32 },
+    { center: vec(0.9, -0.2, -2.2), radius: 0.6, color: vec(60,120,220), reflectivity: 0.5, shininess: 64 },
+    { center: vec(0.0, 0.6, -4), radius: 0.7, color: vec(80,200,120), reflectivity: 0.2, shininess: 16 }
+  ];
+  var plane = { point: vec(0,-0.9,0), normal: vec(0,1,0), reflectivity: 0.15 };
+  var light = { position: vec(2, 3, 0), intensity: 1.2 };
+
+  function hitSphere(s, ro, rd, tMin, tMax) {
+    var oc = sub(ro, s.center);
+    var a = dot(rd, rd);
+    var b = 2 * dot(oc, rd);
+    var c = dot(oc, oc) - s.radius * s.radius;
+    var disc = b*b - 4*a*c;
+    if (disc < 0) return null;
+    var sq = Math.sqrt(disc);
+    var t = (-b - sq) / (2*a);
+    if (t < tMin || t > tMax) { t = (-b + sq) / (2*a); if (t < tMin || t > tMax) return null; }
+    var point = add(ro, scale(rd, t));
+    var normal = normalize(sub(point, s.center));
+    return { t: t, point: point, normal: normal, color: s.color, reflectivity: s.reflectivity, shininess: s.shininess };
+  }
+
+  function hitPlane(pl, ro, rd, tMin, tMax) {
+    var denom = dot(pl.normal, rd);
+    if (Math.abs(denom) < 1e-6) return null;
+    var t = dot(sub(pl.point, ro), pl.normal) / denom;
+    if (t < tMin || t > tMax) return null;
+    var point = add(ro, scale(rd, t));
+    var cx = Math.floor(point.x + 1000), cz = Math.floor(point.z + 1000);
+    var isLight = (cx + cz) % 2 === 0;
+    var color = isLight ? vec(230,230,230) : vec(90,90,90);
+    return { t: t, point: point, normal: pl.normal, color: color, reflectivity: pl.reflectivity, shininess: 8 };
+  }
+
+  function hitScene(ro, rd, tMin, tMax) {
+    var closest = null, closestT = tMax;
+    for (var i = 0; i < spheres.length; i++) {
+      var h = hitSphere(spheres[i], ro, rd, tMin, closestT);
+      if (h) { closest = h; closestT = h.t; }
+    }
+    var hp = hitPlane(plane, ro, rd, tMin, closestT);
+    if (hp) { closest = hp; closestT = hp.t; }
+    return closest;
+  }
+
+  function traceRay(ro, rd, depth, opts) {
+    var hit = hitScene(ro, rd, 0.001, 1e9);
+    if (!hit) {
+      var t = 0.5 * (normalize(rd).y + 1);
+      return add(scale(vec(255,255,255), 1 - t), scale(vec(140,180,255), t));
+    }
+    var lightDir = normalize(sub(light.position, hit.point));
+    var distToLight = length(sub(light.position, hit.point));
+    var viewDir = normalize(scale(rd, -1));
+    var halfway = normalize(add(lightDir, viewDir));
+
+    var inShadow = false;
+    if (opts.shadows) {
+      var shadowOrigin = add(hit.point, scale(hit.normal, 1e-3));
+      var blocker = hitScene(shadowOrigin, lightDir, 0.001, distToLight);
+      inShadow = !!blocker;
+    }
+
+    var ambient = scale(hit.color, 0.15);
+    var diffuse = vec(0,0,0), specular = vec(0,0,0);
+    if (!inShadow) {
+      var diffuseTerm = Math.max(0, dot(hit.normal, lightDir)) * light.intensity;
+      diffuse = scale(hit.color, diffuseTerm);
+      var specTerm = Math.pow(Math.max(0, dot(hit.normal, halfway)), hit.shininess) * light.intensity;
+      specular = scale(vec(255,255,255), specTerm);
+    }
+    var color = add(add(ambient, diffuse), specular);
+
+    if (opts.reflections && depth > 0 && hit.reflectivity > 0) {
+      var reflDir = reflect(rd, hit.normal);
+      var reflOrigin = add(hit.point, scale(hit.normal, 1e-3));
+      var reflColor = traceRay(reflOrigin, reflDir, depth - 1, opts);
+      color = add(scale(color, 1 - hit.reflectivity), scale(reflColor, hit.reflectivity));
+    }
+    return vec(Math.min(255, color.x), Math.min(255, color.y), Math.min(255, color.z));
+  }
+
+  function render() {
+    var t0 = performance.now();
+    var opts = {
+      shadows: document.getElementById('rtShadows').checked,
+      reflections: document.getElementById('rtReflections').checked
+    };
+    var imgData = ctx.createImageData(W, H);
+    var camOrigin = vec(0, 0, 1);
+    var aspect = W / H;
+    var fov = Math.PI / 3;
+    var halfHeight = Math.tan(fov / 2);
+    var halfWidth = aspect * halfHeight;
+
+    for (var py = 0; py < H; py++) {
+      for (var px = 0; px < W; px++) {
+        var sx = (2 * (px + 0.5) / W - 1) * halfWidth;
+        var sy = (1 - 2 * (py + 0.5) / H) * halfHeight;
+        var rd = normalize(vec(sx, sy, -1));
+        var color = traceRay(camOrigin, rd, 2, opts);
+        var idx = (py * W + px) * 4;
+        imgData.data[idx] = color.x;
+        imgData.data[idx+1] = color.y;
+        imgData.data[idx+2] = color.z;
+        imgData.data[idx+3] = 255;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    var t1 = performance.now();
+    document.getElementById('rtTiming').textContent = 'Rendered ' + W + 'x' + H + ' in ' + (t1 - t0).toFixed(0) + 'ms';
+  }
+
+  document.getElementById('rtRenderBtn').addEventListener('click', render);
+  document.getElementById('rtShadows').addEventListener('change', render);
+  document.getElementById('rtReflections').addEventListener('change', render);
+  render();
+})();
+</script>
+<hr>
+<h2 id="69-final-architecture">69. Final Architecture</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                          Camera (§16-17)
+                                |
+                    getRay(s, t) per pixel (§52)
+                                |
+                                v
+                    RayTracer.traceRay(ray, depth) (§49)
+                                |
+                    Scene.hitNearest(ray) (§51)
+                                |
+                    BVH (§61-62) -&gt; Hittable primitives
+                    Sphere (§31-32) / Plane (§33) / Triangle (§34-36)
+                                |
+                    HitRecord: point, normal, material
+                                |
+              +-----------------+-----------------+
+              v                                   v
+    Local shading (§37-44)              Recursive secondary rays
+    ambient + diffuse + specular         reflection (§45-46)
+    + shadow rays                        refraction (§47-48, §50)
+              |                                   |
+              +-----------------+-----------------+
+                                v
+                    Blended final pixel color
+                                |
+                    Supersampling average (§57)
+                                |
+                    PPM file (§58) or &lt;canvas&gt; pixel (§68)
+</code></pre></div>
+<p>Separately, the 2D ray caster (§18-§28) is architecturally simpler and independent of all of the above — it shares only the ray equation (§13-§14) and the "one ray, find the nearest hit, use the distance" shape with its 3D sibling.</p>
+<hr>
+<h2 id="70-suggested-v2-enhancements">70. Suggested V2 Enhancements</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Enhancement</th>
+<th>What it adds</th>
+<th>Where it plugs in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Texture mapping</td>
+<td>Wood grain, brick patterns, images wrapped onto surfaces instead of flat colors</td>
+<td>Requires per-primitive UV coordinates (barycentric-interpolated for triangles, §35) mapped into a 2D image lookup, replacing <code>material.color</code> with a texture sample</td>
+</tr>
+<tr>
+<td>Perlin/procedural noise textures</td>
+<td>Marble, wood, clouds, without a texture image file</td>
+<td>A noise function evaluated at the hit point's world-space coordinates, feeding into the material's color or bump-mapped normal</td>
+</tr>
+<tr>
+<td>Bump/normal mapping</td>
+<td>Surface detail (bumps, wrinkles) without added geometry</td>
+<td>Perturbing the shading normal (§36) using a lookup texture, without changing the true geometric surface</td>
+</tr>
+<tr>
+<td>Depth of field</td>
+<td>Realistic camera focus blur</td>
+<td>Jittering the camera's ray <em>origin</em> across a small lens aperture (in addition to §57's per-pixel jitter), converging rays through a focal point</td>
+</tr>
+<tr>
+<td>Path tracing / global illumination</td>
+<td>Indirect lighting, color bleeding, soft area-light shadows without explicit sampling code (§64)</td>
+<td>The substantially larger extension outlined conceptually in §65</td>
+</tr>
+<tr>
+<td>GPU acceleration (compute shaders)</td>
+<td>Orders-of-magnitude faster rendering by tracing millions of rays in parallel</td>
+<td>Porting §52's per-pixel loop to run on the GPU, one thread per pixel (or per ray)</td>
+</tr>
+<tr>
+<td>Constructive Solid Geometry (CSG)</td>
+<td>Objects built by boolean union/intersection/difference of primitives</td>
+<td>Combining multiple <code>t</code> intervals per object (entry/exit pairs) with boolean interval logic before picking the nearest valid surface</td>
+</tr>
+<tr>
+<td>Volumetric rendering (fog, smoke)</td>
+<td>Light scattering <em>within</em> a volume, not just at surfaces</td>
+<td>Requires ray-marching through a density field rather than a single surface intersection per ray</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="71-progressive-interviewpractice-question-set">71. Progressive Interview/Practice Question Set</h2>
+<p><strong>Level 1 — Vector foundations</strong>
+1. Explain, geometrically, what the dot product and cross product each compute, and why one uses cosine and the other sine.
+2. Why must a ray's direction be normalized for the ray-sphere intersection formula in §31 to work correctly as written?</p>
+<p><strong>Level 2 — Ray casting</strong>
+3. Walk through the DDA algorithm step by step for a ray pointed diagonally through a grid, tracking <code>sideDistX</code>/<code>sideDistY</code> by hand for the first three steps.
+4. Why does ray casting look distorted without the perpendicular-distance correction, and why does DDA compute that correction "for free"?</p>
+<p><strong>Level 3 — Intersection math</strong>
+5. Derive the ray-sphere intersection quadratic from the sphere's implicit equation and the ray equation, from scratch.
+6. What does a negative discriminant mean geometrically, and what does exactly one root (discriminant = 0) mean?</p>
+<p><strong>Level 4 — Shading</strong>
+7. Explain why Lambertian diffuse shading depends only on the light direction and normal, never the viewer's position, while specular shading depends on both.
+8. Why is a shadow ray's origin nudged slightly off the surface before it's traced?</p>
+<p><strong>Level 5 — Reflection, refraction, recursion</strong>
+9. Derive the mirror reflection formula from first principles (decomposing a vector relative to a normal).
+10. What does total internal reflection mean physically, and how does a ray tracer's code detect it?
+11. Why does a recursive ray tracer need an explicit depth limit, and what happens to image quality as that limit increases?</p>
+<p><strong>Level 6 — Performance</strong>
+12. Explain what a bounding volume hierarchy does to reduce ray-scene intersection cost, and why testing a bounding box first is cheap.
+13. Why is ray tracing considered "embarrassingly parallel," and what's the one part of a naive parallel implementation that still needs synchronization?</p>
+<p><strong>Final challenge:</strong> Design (in words, with the relevant formulas named) a renderer feature that shows a colored, slightly blurred reflection of a diffuse red wall on a glossy (not perfectly mirror-smooth) metal sphere — identify which of this guide's sections' formulas you'd combine, and where you'd introduce randomness to produce the "glossy" (rather than perfectly sharp) blur.</p>
+<hr>
+<h2 id="72-final-takeaway">72. Final Takeaway</h2>
+<p>Both algorithms in this guide reduce, ultimately, to the same equation repeated at different scales: $P(t) = O + t\vec{D}$ (§13–§14). Ray casting asks that equation "which grid cell do you cross next" (§20–§23); ray tracing asks it "which exact 3D surface do you intersect, and at what geometric angle" (§30–§36), then layers a physically-motivated lighting model (§37–§44) and a recursive bouncing scheme (§45–§50) on top of the <em>same</em> underlying question. Every piece of "magic" in a renderer — a wall that shrinks correctly with distance, a highlight that appears in exactly the right place, a glass sphere that both reflects and refracts — is one specific, derivable formula from this guide, not an unexplainable rule. Whether you build the version in this document in Java, port it to another language, or extend the live JavaScript simulations in the companion HTML file, the underlying mathematics — vectors, dot products, quadratics, and the law of reflection — is exactly the same mathematics inside every production renderer, from a 1992 shareware game to a modern GPU path tracer.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Ray Casting and Ray Tracing &mdash; Step-by-Step Guide With Mathematical Foundations and Simulation.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

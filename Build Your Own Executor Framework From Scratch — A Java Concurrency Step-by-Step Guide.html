@@ -1,0 +1,1333 @@
+<meta charset="utf-8">
+<title>Build Your Own Executor Framework From Scratch — A Java Concurrency Step-by-Step Guide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; concurrency internals guide</div>
+      <h1>Build Your Own Executor Framework From Scratch — A Java Concurrency Step-by-Step Guide</h1>
+      <p class="dek">A step-by-step guide to building a thread pool executor from scratch in Java — a hand-built blocking queue, core/max pool sizing with idle timeout, rejection policies, a real Future/FutureTask state machine, and graceful and immediate shutdown, plus a Spring-style declarative @Async annotation built on a from-scratch explanation of Java dynamic proxies (java.lang.reflect.Proxy/InvocationHandler).</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-build-this-interview-motivation">Why Build This? (Interview Motivation)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-phase-1-the-executor-interface-decoupling-what-from-how">Phase 1 — The Executor Interface: Decoupling "What" from "How"</a></li><li class="toc-lvl-2"><a href="#7-why-executor-exists-the-problem-with-new-thread-per-task">Why Executor Exists: The Problem With new Thread() Per Task</a></li><li class="toc-lvl-2"><a href="#8-phase-2-executorservice-lifecycle-and-submission">Phase 2 — ExecutorService: Lifecycle and Submission</a></li><li class="toc-lvl-2"><a href="#9-runnable-vs-callable-tasks-with-and-without-a-result">Runnable vs Callable: Tasks With and Without a Result</a></li><li class="toc-lvl-2"><a href="#10-phase-3-the-future-interface-getting-a-result-later">Phase 3 — The Future Interface: Getting a Result Later</a></li><li class="toc-lvl-2"><a href="#11-why-a-blocking-queue-is-the-right-handoff-structure">Why a Blocking Queue Is the Right Handoff Structure</a></li><li class="toc-lvl-2"><a href="#12-phase-4-building-a-minimal-blockingqueue-from-scratch">Phase 4 — Building a Minimal BlockingQueue From Scratch</a></li><li class="toc-lvl-2"><a href="#13-waitnotify-vs-modern-lockcondition-why-we-use-the-latter">wait()/notify() vs Modern Lock/Condition — Why We Use the Latter</a></li><li class="toc-lvl-2"><a href="#14-phase-5-implementing-put-and-take-with-reentrantlock-condition">Phase 5 — Implementing put() and take() With ReentrantLock + Condition</a></li><li class="toc-lvl-2"><a href="#15-bounded-vs-unbounded-queues-and-why-capacity-matters">Bounded vs Unbounded Queues and Why Capacity Matters</a></li><li class="toc-lvl-2"><a href="#16-phase-6-the-worker-a-thread-that-loops-forever-pulling-tasks">Phase 6 — The Worker: A Thread That Loops Forever, Pulling Tasks</a></li><li class="toc-lvl-2"><a href="#17-why-workers-reuse-threads-instead-of-creating-one-per-task">Why Workers Reuse Threads Instead of Creating One Per Task</a></li><li class="toc-lvl-2"><a href="#18-phase-7-wiring-workers-to-the-queue">Phase 7 — Wiring Workers to the Queue</a></li><li class="toc-lvl-2"><a href="#19-handling-an-exception-thrown-inside-a-task">Handling an Exception Thrown Inside a Task</a></li><li class="toc-lvl-2"><a href="#20-worker-thread-naming-and-threadfactory">Worker Thread Naming and ThreadFactory</a></li><li class="toc-lvl-2"><a href="#21-phase-8-designing-minithreadpoolexecutors-fields">Phase 8 — Designing MiniThreadPoolExecutor's Fields</a></li><li class="toc-lvl-2"><a href="#22-phase-9-implementing-executerunnable">Phase 9 — Implementing execute(Runnable)</a></li><li class="toc-lvl-2"><a href="#23-the-exact-decision-order-core-then-queue-then-max-then-reject-deriving-it">The Exact Decision Order: Core, Then Queue, Then Max, Then Reject (Deriving It)</a></li><li class="toc-lvl-2"><a href="#24-phase-10-growing-beyond-corepoolsize-non-core-threads">Phase 10 — Growing Beyond corePoolSize: Non-Core Threads</a></li><li class="toc-lvl-2"><a href="#25-phase-11-idle-timeout-killing-non-core-threads-with-keepalivetime">Phase 11 — Idle Timeout: Killing Non-Core Threads With keepAliveTime</a></li><li class="toc-lvl-2"><a href="#26-why-corepoolsize-threads-dont-time-out-by-default">Why corePoolSize Threads Don't Time Out by Default</a></li><li class="toc-lvl-2"><a href="#27-what-happens-when-the-pool-and-queue-are-both-full">What Happens When the Pool and Queue Are Both Full</a></li><li class="toc-lvl-2"><a href="#28-phase-12-the-rejectedexecutionhandler-interface">Phase 12 — The RejectedExecutionHandler Interface</a></li><li class="toc-lvl-2"><a href="#29-implementing-the-four-standard-rejection-policies">Implementing the Four Standard Rejection Policies</a></li><li class="toc-lvl-2"><a href="#30-phase-13-wrapping-a-callable-in-a-futuretask">Phase 13 — Wrapping a Callable in a FutureTask</a></li><li class="toc-lvl-2"><a href="#31-phase-14-implementing-futuretasks-state-machine">Phase 14 — Implementing FutureTask's State Machine</a></li><li class="toc-lvl-2"><a href="#32-phase-15-submit-returning-a-future">Phase 15 — submit() Returning a Future</a></li><li class="toc-lvl-2"><a href="#33-cancellation-what-canceltrue-actually-does">Cancellation: What cancel(true) Actually Does</a></li><li class="toc-lvl-2"><a href="#34-handling-get-timeouts-and-exceptions">Handling get() Timeouts and Exceptions</a></li><li class="toc-lvl-2"><a href="#35-why-shutdown-needs-two-modes">Why Shutdown Needs Two Modes</a></li><li class="toc-lvl-2"><a href="#36-phase-16-implementing-shutdown">Phase 16 — Implementing shutdown()</a></li><li class="toc-lvl-2"><a href="#37-phase-17-implementing-shutdownnow">Phase 17 — Implementing shutdownNow()</a></li><li class="toc-lvl-2"><a href="#38-phase-18-awaittermination">Phase 18 — awaitTermination()</a></li><li class="toc-lvl-2"><a href="#39-full-worked-example-submitting-tasks-and-collecting-results">Full Worked Example: Submitting Tasks and Collecting Results</a></li><li class="toc-lvl-2"><a href="#40-tracing-a-task-end-to-end">Tracing a Task End to End</a></li><li class="toc-lvl-2"><a href="#41-final-architecture-of-the-core-executor">Final Architecture (of the Core Executor)</a></li><li class="toc-lvl-2"><a href="#42-why-a-declarative-async-is-worth-building-on-top-of-miniexecutor">Why a Declarative @Async Is Worth Building on Top of MiniExecutor</a></li><li class="toc-lvl-2"><a href="#43-phase-19-the-async-annotation-and-a-named-executor-registry">Phase 19 — The @Async Annotation and a Named-Executor Registry</a></li><li class="toc-lvl-2"><a href="#44-understanding-dynamic-proxies-how-javalangreflectproxy-actually-works">Understanding Dynamic Proxies: How java.lang.reflect.Proxy Actually Works</a></li><li class="toc-lvl-2"><a href="#45-phase-20-generating-a-proxy-instance-and-routing-every-call-through-one-handler">Phase 20 — Generating a Proxy Instance and Routing Every Call Through One Handler</a></li><li class="toc-lvl-2"><a href="#46-jdk-dynamic-proxies-vs-subclassing-cglibbytebuddy-why-async-needs-an-interface">JDK Dynamic Proxies vs Subclassing (CGLIB/ByteBuddy): Why @Async Needs an Interface</a></li><li class="toc-lvl-2"><a href="#47-phase-21-an-asyncinvocationhandler-intercepting-the-method-call">Phase 21 — An AsyncInvocationHandler: Intercepting the Method Call</a></li><li class="toc-lvl-2"><a href="#48-phase-22-wiring-the-proxy-into-bean-creation-a-beanpostprocessor">Phase 22 — Wiring the Proxy Into Bean Creation (a BeanPostProcessor)</a></li><li class="toc-lvl-2"><a href="#49-handling-void-vs-future-returning-async-methods-differently">Handling void vs Future-Returning @Async Methods Differently</a></li><li class="toc-lvl-2"><a href="#50-configuring-a-per-method-executor-asyncname">Configuring a Per-Method Executor: @Async("name")</a></li><li class="toc-lvl-2"><a href="#51-phase-23-a-full-worked-example-an-async-notification-service">Phase 23 — A Full Worked Example: An Async Notification Service</a></li><li class="toc-lvl-2"><a href="#52-limitations-of-this-design-self-invocation-interface-only-proxying-and-how-real-spring-handles-them">Limitations of This Design (Self-Invocation, Interface-Only Proxying) and How Real Spring Handles Them</a></li><li class="toc-lvl-2"><a href="#53-thread-pool-sizing-for-cpu-bound-work">Thread Pool Sizing for CPU-Bound Work</a></li><li class="toc-lvl-2"><a href="#54-thread-pool-sizing-for-io-bound-work">Thread Pool Sizing for I/O-Bound Work</a></li><li class="toc-lvl-2"><a href="#55-monitoring-active-count-queue-size-completed-task-count">Monitoring: Active Count, Queue Size, Completed Task Count</a></li><li class="toc-lvl-2"><a href="#56-phase-24-a-minimal-scheduledexecutorservice">Phase 24 — A Minimal ScheduledExecutorService</a></li><li class="toc-lvl-2"><a href="#57-implementing-a-delayqueue-from-scratch">Implementing a DelayQueue From Scratch</a></li><li class="toc-lvl-2"><a href="#58-work-stealing-and-forkjoinpool-a-different-architecture-entirely">Work Stealing and ForkJoinPool: A Different Architecture Entirely</a></li><li class="toc-lvl-2"><a href="#59-virtual-threads-as-an-alternative-to-pooling-platform-threads">Virtual Threads as an Alternative to Pooling Platform Threads</a></li><li class="toc-lvl-2"><a href="#60-common-mistakes">Common Mistakes</a></li><li class="toc-lvl-2"><a href="#61-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#62-design-patterns-used">Design Patterns Used</a></li><li class="toc-lvl-2"><a href="#63-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#64-suggested-v2-enhancements">Suggested V2 Enhancements</a></li><li class="toc-lvl-2"><a href="#65-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>Goal:</strong> Build a working replacement for <code>java.util.concurrent.ExecutorService</code>/<code>ThreadPoolExecutor</code> — a hand-rolled blocking queue, reusable worker threads, core/max pool sizing with idle timeout, rejection policies, <code>Future</code>-returning task submission with a real state machine, and both graceful and immediate shutdown — deriving every design decision from a concrete problem the previous step left unsolved.</p>
+<p>This guide assumes the concurrency foundations already built in the companion <a href="Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide.md">ConcurrentHashMap guide</a> (the Java Memory Model, <code>volatile</code>, CAS, <code>synchronized</code>) and reuses that vocabulary rather than re-deriving it from zero.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<p>We are building <strong>MiniExecutor</strong> — a task-execution framework architecturally close to the real <code>ThreadPoolExecutor</code>. By the end of this guide you will have:</p>
+<ul>
+<li>An <strong><code>Executor</code>/<code>ExecutorService</code></strong>-shaped API that decouples <em>submitting</em> work from <em>how</em> it eventually runs.</li>
+<li>A <strong>hand-built blocking queue</strong> (<code>put</code>/<code>take</code>, using <code>ReentrantLock</code> + <code>Condition</code>, not <code>wait</code>/<code>notify</code>) as the handoff structure between callers and workers.</li>
+<li><strong>Reusable worker threads</strong> that loop, pulling tasks from the queue, instead of a thread being created and destroyed per task.</li>
+<li>The real <strong>core/max pool sizing model</strong>: a fixed number of always-alive core threads, additional threads spun up only once the queue is full, and idle non-core threads reaped after a timeout.</li>
+<li><strong>Rejection policies</strong> (<code>AbortPolicy</code>, <code>CallerRunsPolicy</code>, <code>DiscardPolicy</code>, <code>DiscardOldestPolicy</code>) for the moment the pool and queue are both genuinely full.</li>
+<li>A real <strong><code>FutureTask</code></strong> implementation — a state machine, not just a wrapper — supporting <code>get()</code>, timeouts, and cancellation.</li>
+<li>Both <strong>graceful (<code>shutdown()</code>)</strong> and <strong>immediate (<code>shutdownNow()</code>)</strong> termination, and <code>awaitTermination()</code>.</li>
+<li>A look at <strong><code>ScheduledExecutorService</code></strong> (delayed/periodic tasks via a <code>DelayQueue</code>), <strong><code>ForkJoinPool</code></strong>'s different work-stealing architecture, and <strong>virtual threads</strong> as an alternative to pooling.</li>
+</ul>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Caller thread                     MiniThreadPoolExecutor                    Worker threads
+     |                                     |                                       |
+     |-- execute(task) -------------------&gt;|                                       |
+     |                          core threads free? -&gt; hand off directly ----------&gt;| runs task
+     |                          core threads busy? -&gt; enqueue --------------------&gt;| take()s it eventually
+     |                          queue full, below max? -&gt; spawn a new worker -----&gt;| runs task
+     |                          queue full, at max? -&gt; RejectedExecutionHandler    |
+     |&lt;-- returns immediately (execute) or a Future (submit) ---------------------&gt;|</code></pre></div>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to:</p>
+<ul>
+<li>Explain exactly why <code>new Thread(task).start()</code> per task is dangerous at scale, in the same concrete terms the <a href="Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide.md">MiniTomcat guide's §15</a> already established, and why a pool of reusable threads fixes it.</li>
+<li>Implement a correct blocking queue using <code>ReentrantLock</code>/<code>Condition</code>, and explain why that's the modern replacement for <code>wait()</code>/<code>notify()</code>.</li>
+<li>State, from memory, the <em>exact</em> order <code>ThreadPoolExecutor.execute()</code> makes its decision (core → queue → max → reject) — and explain why that specific order, not a more "obvious" one, is what real <code>ThreadPoolExecutor</code> uses.</li>
+<li>Explain why core threads don't time out by default but non-core ones do, and what <code>allowCoreThreadTimeOut</code> changes.</li>
+<li>Implement <code>FutureTask</code> as a genuine state machine, and explain what <code>cancel(true)</code> actually does to a running thread.</li>
+<li>Explain the real difference between <code>shutdown()</code> and <code>shutdownNow()</code>, and what happens to a task sitting in the queue under each.</li>
+<li>Give a defensible thread-pool size for a stated CPU-bound or I/O-bound workload, from a formula you can derive, not one you memorized.</li>
+</ul>
+<hr>
+<h2 id="3-why-build-this-interview-motivation">3. Why Build This? (Interview Motivation)</h2>
+<blockquote>
+<p><strong>"Implement a fixed-size thread pool executor supporting task submission with a <code>Future</code>-based result, a bounded queue, and graceful shutdown. Explain exactly what happens when a task is submitted and every worker is busy — and what happens when the queue is also full."</strong></p>
+</blockquote>
+<p>This is one of the most common <strong>senior Java/backend interview questions</strong> because <code>ExecutorService</code> is used constantly but understood only shallowly by most engineers — reproducing it forces genuine understanding of:</p>
+<ul>
+<li><strong>Producer-consumer coordination</strong> — the blocking queue between submitters and workers is the same pattern behind message queues, connection pools, and the <a href="Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide.md">MiniTomcat guide's own request-handling pool</a>.</li>
+<li><strong>Resource bounding</strong> — exactly the "bound every resource" discipline that guide's §15–§19 already argued for, now built rather than just configured.</li>
+<li><strong>Asynchronous result handling</strong> — <code>Future</code>/<code>FutureTask</code> is a small but genuinely tricky state machine, and a common source of subtle bugs (blocking forever on <code>get()</code>, mishandling cancellation) when misunderstood.</li>
+<li><strong>Graceful degradation</strong> — rejection policies and shutdown semantics are about behaving correctly and predictably under overload, not just under the happy path.</li>
+</ul>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language / JDK</td>
+<td>Java 21</td>
+<td><code>ReentrantLock</code>/<code>Condition</code>, <code>AtomicInteger</code>, and <code>Thread.ofVirtual()</code> (§49) are all first-class here.</td>
+</tr>
+<tr>
+<td>Concurrency primitives</td>
+<td><code>java.util.concurrent.locks.ReentrantLock</code>/<code>Condition</code>, <code>java.util.concurrent.atomic.AtomicInteger</code></td>
+<td>The modern replacement for <code>synchronized</code>/<code>wait</code>/<code>notify</code> — see §13 for why.</td>
+</tr>
+<tr>
+<td>No <code>java.util.concurrent.Executors</code>/<code>ThreadPoolExecutor</code></td>
+<td>—</td>
+<td>The entire point is to build what those classes are built from, not call them.</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>JUnit 5 + a concurrent stress harness (same shape as the <a href="Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide.md">ConcurrentHashMap guide's §59</a>)</td>
+<td>Pool-sizing and shutdown bugs are timing-dependent — only real concurrent load exposes them reliably.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>miniexecutor/
+├── src/main/java/com/example/miniexecutor/
+│   ├── api/
+│   │   ├── MiniExecutor.java              // §6
+│   │   ├── MiniExecutorService.java       // §8
+│   │   ├── MiniFuture.java                // §10
+│   │   └── MiniCallable.java
+│   ├── queue/
+│   │   └── MiniBlockingQueue.java         // §12, §14
+│   ├── pool/
+│   │   ├── Worker.java                    // §16-§20
+│   │   ├── MiniThreadPoolExecutor.java    // §21-§26, §36-§38
+│   │   ├── RejectedExecutionHandler.java  // §28
+│   │   └── RejectionPolicies.java         // §29
+│   ├── future/
+│   │   └── MiniFutureTask.java            // §30-§34
+│   └── scheduled/
+│       ├── DelayQueue.java                // §47
+│       └── MiniScheduledExecutor.java     // §46
+└── src/test/java/com/example/miniexecutor/
+    ├── MiniBlockingQueueTest.java
+    ├── PoolSizingTest.java
+    ├── RejectionPolicyTest.java
+    ├── FutureTaskCancellationTest.java
+    └── ShutdownSemanticsTest.java</code></pre></div>
+<p>For §42 onward, one addition ties this executor into the MiniSpring companion guide's bean container:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>miniexecutor-spring-integration/
+└── src/main/java/com/example/miniexecutor/async/
+    ├── Async.java                     // §43 — the annotation itself
+    ├── AsyncExecutorRegistry.java     // §43
+    ├── AsyncInvocationHandler.java    // §45
+    └── AsyncAnnotationBeanPostProcessor.java // §46</code></pre></div>
+<hr>
+<h2 id="6-phase-1-the-executor-interface-decoupling-what-from-how">6. Phase 1 — The Executor Interface: Decoupling "What" from "How"</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// api/MiniExecutor.java
+public interface MiniExecutor {
+    void execute(Runnable task);
+}</code></pre></div>
+<p>One method. That's deliberate — <code>Executor</code> (the real <code>java.util.concurrent</code> interface this mirrors) exists purely to separate <strong>submitting</strong> a unit of work from <strong>deciding how it runs</strong> (a new thread? a pooled thread? the calling thread itself? a remote machine?). Code that depends only on <code>MiniExecutor</code> never needs to change if the execution strategy behind it changes from, say, a thread pool (§21) to a direct-call stub in a test — the entire point of the interface is what it <em>doesn't</em> let a caller see.</p>
+<hr>
+<h2 id="7-why-executor-exists-the-problem-with-new-thread-per-task">7. Why Executor Exists: The Problem With new Thread() Per Task</h2>
+<p>Without this abstraction, submitting background work usually means <code>new Thread(task).start()</code> directly at the call site — exactly the anti-pattern the <a href="Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide.md">MiniTomcat guide's §14–§15</a> already traces in full: unbounded thread creation under load exhausts stack memory and OS scheduling capacity long before CPU becomes the bottleneck, with no single place in the code to apply a limit. <code>MiniExecutor</code> is the seam where that limit gets enforced — once — instead of needing to be remembered at every call site that wants to run something in the background.</p>
+<hr>
+<h2 id="8-phase-2-executorservice-lifecycle-and-submission">8. Phase 2 — ExecutorService: Lifecycle and Submission</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// api/MiniExecutorService.java
+public interface MiniExecutorService extends MiniExecutor {
+    &lt;T&gt; MiniFuture&lt;T&gt; submit(Callable&lt;T&gt; task);   // §9-§10 — a task that PRODUCES a result
+    MiniFuture&lt;Void&gt; submit(Runnable task);        // a task that doesn't, wrapped for a uniform return type
+
+    void shutdown();                                // §36 — graceful: finish what's running/queued, then stop
+    List&lt;Runnable&gt; shutdownNow();                   // §37 — immediate: stop now, return what never ran
+    boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException; // §38
+    boolean isShutdown();
+    boolean isTerminated();
+}</code></pre></div>
+<p><code>ExecutorService</code> extends the bare <code>Executor</code> with exactly two new concerns: <strong>getting a result back</strong> (<code>submit</code>, returning a <code>Future</code>) and <strong>lifecycle management</strong> (<code>shutdown</code>/<code>shutdownNow</code>/<code>awaitTermination</code>) — everything else in this guide is in service of implementing these two concerns correctly.</p>
+<hr>
+<h2 id="9-runnable-vs-callable-tasks-with-and-without-a-result">9. Runnable vs Callable: Tasks With and Without a Result</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@FunctionalInterface
+public interface MiniCallable&lt;V&gt; {
+    V call() throws Exception; // unlike Runnable.run(), returns a value AND can throw a checked exception
+}</code></pre></div>
+<p><code>Runnable.run()</code> returns nothing and cannot throw a checked exception — perfectly fine for fire-and-forget work (§47's <code>logAnalyticsEvent</code> example later), but useless for a task whose entire purpose is to <em>compute something</em>. <code>Callable&lt;V&gt;</code> exists specifically to carry that result (and any checked exception the computation might throw) back out — the two interfaces aren't redundant, they're modeling two genuinely different shapes of work.</p>
+<hr>
+<h2 id="10-phase-3-the-future-interface-getting-a-result-later">10. Phase 3 — The Future Interface: Getting a Result Later</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// api/MiniFuture.java
+public interface MiniFuture&lt;V&gt; {
+    boolean cancel(boolean mayInterruptIfRunning); // §33
+    boolean isCancelled();
+    boolean isDone();
+    V get() throws InterruptedException, ExecutionException;                       // blocks until the result exists
+    V get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException; // §34
+}</code></pre></div>
+<p><code>submit()</code> (§8) returns one of these <strong>immediately</strong>, before the task has necessarily even started running — <code>MiniFuture</code> is a handle to a result that will exist <em>eventually</em>, not the result itself. Everything interesting about <code>Future</code> is in exactly how <code>get()</code> waits for that eventuality correctly, how <code>cancel()</code> interacts with a task that might already be mid-execution, and how a checked exception thrown inside the task's <code>call()</code> gets faithfully carried across a thread boundary to the caller of <code>get()</code> — all three built in §30–§34.</p>
+<hr>
+<h2 id="11-why-a-blocking-queue-is-the-right-handoff-structure">11. Why a Blocking Queue Is the Right Handoff Structure</h2>
+<p>Once tasks are submitted faster than workers can run them (or workers are momentarily all busy), submitted tasks need somewhere to wait — a <strong>queue</strong>. It needs to be a specific <em>kind</em> of queue, though: an ordinary <code>java.util.Queue</code> isn't safe for concurrent access at all, and even a merely thread-safe one doesn't solve the real problem — a worker calling <code>take()</code> needs to <strong>block</strong> when the queue is empty (there's nothing productive to do but wait) and automatically wake up the instant something is enqueued, rather than either spinning in a busy loop (wasting CPU) or returning <code>null</code> and forcing the worker to poll on a timer (wasting latency). A <strong>blocking queue</strong> is exactly a queue with that wait-and-wake-up behavior built in.</p>
+<hr>
+<h2 id="12-phase-4-building-a-minimal-blockingqueue-from-scratch">12. Phase 4 — Building a Minimal BlockingQueue From Scratch</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// queue/MiniBlockingQueue.java
+public class MiniBlockingQueue&lt;E&gt; {
+    private final Object[] items;
+    private int head, tail, count;
+    private final ReentrantLock lock = new ReentrantLock();
+    private final Condition notEmpty = lock.newCondition(); // signaled when an item is added
+    private final Condition notFull = lock.newCondition();  // signaled when an item is removed
+
+    public MiniBlockingQueue(int capacity) { this.items = new Object[capacity]; }
+}</code></pre></div>
+<p>A <strong>circular buffer</strong> (<code>head</code>/<code>tail</code> wrapping around via modulo) backs the queue — a fixed-size array reused indefinitely, rather than a linked structure allocating a new node per element, which avoids per-<code>put</code> allocation entirely on the hot path.</p>
+<hr>
+<h2 id="13-waitnotify-vs-modern-lockcondition-why-we-use-the-latter">13. wait()/notify() vs Modern Lock/Condition — Why We Use the Latter</h2>
+<p>Java's original concurrency primitives — <code>synchronized</code>, <code>Object.wait()</code>/<code>notify()</code>/<code>notifyAll()</code> — can absolutely implement a blocking queue, but <code>ReentrantLock</code>/<code>Condition</code> (used throughout this guide) improve on them in ways that matter directly here:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th><code>synchronized</code> + <code>wait</code>/<code>notify</code></th>
+<th><code>ReentrantLock</code> + <code>Condition</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Number of wait-sets per lock</td>
+<td>Exactly one — every waiter, regardless of <em>what</em> it's waiting for, wakes on any <code>notify</code></td>
+<td><strong>Multiple</strong>, via separate <code>Condition</code> objects — <code>notEmpty</code> and <code>notFull</code> (§12) let a <code>put()</code> wake only queue-space-waiters and a <code>take()</code> wake only item-waiters, never both indiscriminately</td>
+</tr>
+<tr>
+<td>Interruptible waiting</td>
+<td><code>wait()</code> throws <code>InterruptedException</code>, but there's no built-in timed-wait-with-clean-cancellation story beyond <code>wait(long)</code>'s coarser semantics</td>
+<td><code>awaitNanos</code>/<code>await(timeout, unit)</code> give precise, first-class timeout support — directly used by §34's <code>get(timeout, unit)</code></td>
+</tr>
+<tr>
+<td>Fairness options</td>
+<td>None</td>
+<td><code>ReentrantLock</code>'s constructor can request FIFO fairness among waiting threads, trading some throughput for predictable ordering</td>
+</tr>
+</tbody>
+</table></div>
+<p>Using two separate <code>Condition</code>s (<code>notEmpty</code>, <code>notFull</code>) instead of one shared wait-set is the concrete, load-bearing reason this guide reaches for <code>Lock</code>/<code>Condition</code> rather than <code>synchronized</code>/<code>wait</code>/<code>notify</code> — it avoids waking up threads that have no chance of proceeding (a <code>put()</code>-waiter woken by a <code>take()</code>, for instance, when only <em>another</em> <code>put()</code>-waiter could actually make progress), which matters directly for throughput under real contention.</p>
+<hr>
+<h2 id="14-phase-5-implementing-put-and-take-with-reentrantlock-condition">14. Phase 5 — Implementing put() and take() With ReentrantLock + Condition</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public void put(E item) throws InterruptedException {
+    lock.lock();
+    try {
+        while (count == items.length) {      // WHILE, not if — see the note below
+            notFull.await();                  // releases the lock, sleeps, re-acquires the lock before returning
+        }
+        items[tail] = item;
+        tail = (tail + 1) % items.length;
+        count++;
+        notEmpty.signal();                    // wake exactly one waiting take() — there's exactly one new item to give it
+    } finally {
+        lock.unlock();
+    }
+}
+
+@SuppressWarnings(&quot;unchecked&quot;)
+public E take() throws InterruptedException {
+    lock.lock();
+    try {
+        while (count == 0) {
+            notEmpty.await();
+        }
+        E item = (E) items[head];
+        items[head] = null;                   // avoid holding a stale reference — lets the GC reclaim it
+        head = (head + 1) % items.length;
+        count--;
+        notFull.signal();                     // wake exactly one waiting put() — there's exactly one new slot for it
+        return item;
+    } finally {
+        lock.unlock();
+    }
+}</code></pre></div>
+<p><strong>Why <code>while (count == items.length)</code> and not <code>if</code>:</strong> between <code>notFull.await()</code> returning and this thread re-acquiring the lock, <strong>another thread could have raced in and refilled the slot that was just freed</strong> — checking the condition again after waking (a "spurious wakeup" guard, but more importantly a genuine re-check against real races) is not defensive paranoia, it's required for correctness; skipping it is one of the most common blocking-queue implementation bugs.</p>
+<hr>
+<h2 id="15-bounded-vs-unbounded-queues-and-why-capacity-matters">15. Bounded vs Unbounded Queues and Why Capacity Matters</h2>
+<p>§12's <code>MiniBlockingQueue</code> is deliberately <strong>bounded</strong> — a fixed-size backing array. An <strong>unbounded</strong> queue (no capacity limit at all) might seem simpler, but it silently removes an entire category of backpressure this guide's pool design depends on: with §12's queue, <code>put()</code> genuinely <strong>blocks</strong> once the queue is full, which is exactly the signal §23's <code>execute()</code> decision logic uses to decide "should I spin up another worker thread, or is the pool truly saturated?" An unbounded queue can never report "full," which — as the <a href="Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide.md">MiniTomcat guide's §19</a> already warns — silently defeats a pool's <code>maximumPoolSize</code> entirely, since step 3 of §23's decision order (grow past <code>corePoolSize</code>) never triggers if the queue always has room.</p>
+<hr>
+<h2 id="16-phase-6-the-worker-a-thread-that-loops-forever-pulling-tasks">16. Phase 6 — The Worker: A Thread That Loops Forever, Pulling Tasks</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// pool/Worker.java
+public class Worker implements Runnable {
+    private final MiniBlockingQueue&lt;Runnable&gt; queue;
+    private final MiniThreadPoolExecutor pool;
+    volatile Thread thread;
+    volatile boolean running = true;
+
+    Worker(MiniBlockingQueue&lt;Runnable&gt; queue, MiniThreadPoolExecutor pool) {
+        this.queue = queue;
+        this.pool = pool;
+    }
+
+    @Override
+    public void run() {
+        this.thread = Thread.currentThread();
+        try {
+            while (running) {
+                Runnable task = pool.getTask(this); // §25 — may return null on an idle timeout, ending this worker
+                if (task == null) break;
+                runTask(task); // §19
+            }
+        } finally {
+            pool.workerFinished(this); // deregister — §25, §26
+        }
+    }
+}</code></pre></div>
+<p>The entire idea of a thread pool lives in this one loop: a <code>Worker</code> is a thread that <strong>never returns from <code>run()</code> after just one task</strong> — it keeps asking the pool for the next piece of work until told to stop, which is precisely what makes it reusable rather than a one-shot <code>Thread</code>.</p>
+<hr>
+<h2 id="17-why-workers-reuse-threads-instead-of-creating-one-per-task">17. Why Workers Reuse Threads Instead of Creating One Per Task</h2>
+<p>Creating a native OS thread is a genuinely expensive operation (stack allocation, kernel-level bookkeeping) — the <a href="Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide.md">MiniTomcat guide's §15</a> already quantifies this cost. A <code>Worker</code> that loops (§16) pays that thread-creation cost <strong>once</strong> and amortizes it across every task it ever runs, which is the entire performance argument for pooling threads at all, as opposed to <code>new Thread(task).start()</code> per submission — the two approaches run identical task code, but one pays thread-creation overhead per task and the other pays it once per worker's entire lifetime.</p>
+<hr>
+<h2 id="18-phase-7-wiring-workers-to-the-queue">18. Phase 7 — Wiring Workers to the Queue</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// MiniThreadPoolExecutor.java (partial — full class assembled across §21-§38)
+Runnable getTask(Worker worker) {
+    try {
+        if (shouldWorkerTimeOut(worker)) {                          // §25 — non-core workers past keepAliveTime
+            return queue.poll(keepAliveTime, keepAliveUnit);         // returns null if nothing arrives within the timeout
+        }
+        return queue.take();                                        // core workers (or timeout disabled) wait forever
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return null; // treat interruption as &quot;stop this worker&quot; — used by shutdownNow(), §37
+    }
+}</code></pre></div>
+<p><code>getTask</code> is the single method that ties a <code>Worker</code>'s loop (§16) to both the shared queue (§12–§14) and the pool's own sizing/timeout policy (§25) — a worker never talks to the queue directly, so every sizing decision the pool wants to make can be centralized here rather than scattered across worker instances.</p>
+<hr>
+<h2 id="19-handling-an-exception-thrown-inside-a-task">19. Handling an Exception Thrown Inside a Task</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private void runTask(Runnable task) {
+    try {
+        task.run();
+    } catch (RuntimeException | Error e) {
+        pool.getUncaughtExceptionHandler().accept(task, e); // logged, NEVER allowed to kill the worker thread
+    }
+}</code></pre></div>
+<p>An uncaught exception inside <code>task.run()</code> must <strong>never</strong> be allowed to propagate out of <code>Worker.run()</code> — if it did, the exception would terminate that worker's thread entirely, silently shrinking the pool by one every time any submitted task throws, until (given enough failing tasks) the pool has no workers left at all. Catching broadly here and routing to a configurable handler is what keeps one bad task from degrading the entire pool's capacity.</p>
+<hr>
+<h2 id="20-worker-thread-naming-and-threadfactory">20. Worker Thread Naming and ThreadFactory</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface MiniThreadFactory {
+    Thread newThread(Runnable r);
+}
+
+public class NamedThreadFactory implements MiniThreadFactory {
+    private final String prefix;
+    private final AtomicInteger counter = new AtomicInteger(1);
+    public NamedThreadFactory(String prefix) { this.prefix = prefix; }
+
+    @Override
+    public Thread newThread(Runnable r) {
+        Thread t = new Thread(r, prefix + &quot;-&quot; + counter.getAndIncrement());
+        t.setDaemon(false); // non-daemon — matches the MiniTomcat guide's §16 reasoning: let in-flight work finish before JVM exit
+        return t;
+    }
+}</code></pre></div>
+<p>Giving every worker thread a distinguishable name (<code>"miniexecutor-worker-3"</code> rather than the JVM default <code>"Thread-17"</code>) is not cosmetic — it's what makes a thread dump under production load actually diagnosable, letting you see at a glance how many pool threads exist, which pool they belong to, and (cross-referenced with their stack traces) what each one is currently blocked on.</p>
+<hr>
+<h2 id="21-phase-8-designing-minithreadpoolexecutors-fields">21. Phase 8 — Designing MiniThreadPoolExecutor's Fields</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// pool/MiniThreadPoolExecutor.java
+public class MiniThreadPoolExecutor implements MiniExecutorService {
+    private final int corePoolSize;
+    private final int maximumPoolSize;
+    private final long keepAliveTime;
+    private final TimeUnit keepAliveUnit;
+    private final MiniBlockingQueue&lt;Runnable&gt; workQueue;
+    private final MiniThreadFactory threadFactory;
+    private final RejectedExecutionHandler rejectionHandler; // §28
+
+    private final Set&lt;Worker&gt; workers = ConcurrentHashMap.newKeySet(); // every currently-live worker
+    private final AtomicInteger poolSize = new AtomicInteger(0);        // current worker COUNT — read far more than it's written
+    private volatile boolean shutdown = false;
+
+    public MiniThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit keepAliveUnit,
+                                   MiniBlockingQueue&lt;Runnable&gt; workQueue, MiniThreadFactory threadFactory,
+                                   RejectedExecutionHandler rejectionHandler) {
+        if (corePoolSize &lt; 0 || maximumPoolSize &lt;= 0 || maximumPoolSize &lt; corePoolSize) {
+            throw new IllegalArgumentException(&quot;Invalid pool size configuration&quot;);
+        }
+        this.corePoolSize = corePoolSize;
+        this.maximumPoolSize = maximumPoolSize;
+        this.keepAliveTime = keepAliveTime;
+        this.keepAliveUnit = keepAliveUnit;
+        this.workQueue = workQueue;
+        this.threadFactory = threadFactory;
+        this.rejectionHandler = rejectionHandler;
+    }
+}</code></pre></div>
+<p>Every one of these seven fields corresponds to a distinct, real decision this guide's §23 decision logic makes — there is no field here that isn't load-bearing for a specific piece of <code>execute()</code>'s behavior.</p>
+<hr>
+<h2 id="22-phase-9-implementing-executerunnable">22. Phase 9 — Implementing execute(Runnable)</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Override
+public void execute(Runnable task) {
+    if (shutdown) {
+        rejectionHandler.rejectedExecution(task, this); // §28-§29 — reject immediately, don't even try to enqueue
+        return;
+    }
+    if (poolSize.get() &lt; corePoolSize) {
+        if (addWorker(task, true)) return;                  // §24 — &quot;true&quot; marks this as a CORE worker (§26)
+    }
+    if (workQueue.offer(task)) {                              // non-blocking enqueue attempt — see §14's put(), but non-blocking here
+        return;
+    }
+    if (poolSize.get() &lt; maximumPoolSize) {
+        if (addWorker(task, false)) return;                  // &quot;false&quot; marks this as a NON-core worker (§25, §26)
+    }
+    rejectionHandler.rejectedExecution(task, this);           // pool AND queue are both genuinely full — §27-§29
+}</code></pre></div>
+<p><code>workQueue.offer(task)</code> (a non-blocking "try to enqueue, return <code>false</code> if full" variant of §14's blocking <code>put()</code>) is what lets <code>execute()</code> make an immediate decision rather than ever blocking the <em>caller</em> — a design choice worth naming explicitly, since a caller invoking <code>execute()</code> reasonably expects it to return quickly, delegating the actual waiting to whichever <code>Worker</code> eventually calls <code>take()</code>, not to the submitting thread itself.</p>
+<hr>
+<h2 id="23-the-exact-decision-order-core-then-queue-then-max-then-reject-deriving-it">23. The Exact Decision Order: Core, Then Queue, Then Max, Then Reject (Deriving It)</h2>
+<p>§22's four-step order is not arbitrary — each step is checked only because the previous one specifically failed, and the order itself encodes a real preference:</p>
+<ol>
+<li><strong>Prefer spinning up a core thread first</strong>, even if an existing core thread happens to be idle at that exact instant — real <code>ThreadPoolExecutor</code> does this too. This sounds wasteful, but it guarantees that a burst of <code>corePoolSize</code> tasks arriving together gets <code>corePoolSize</code> threads working on them <strong>immediately</strong>, rather than some sitting in the queue behind others purely due to scheduling luck.</li>
+<li><strong>Only once core capacity is fully committed, try the queue</strong> — this is the pool's actual buffering mechanism, and it's tried <em>before</em> growing the pool further, specifically because a queued task waiting briefly for an existing thread to free up is normally cheaper than paying to create a whole new thread.</li>
+<li><strong>Only once the queue itself is full does the pool grow past <code>corePoolSize</code></strong> — this is the step <a href="Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide.md">the MiniTomcat guide's §17</a> already flags as surprising: the pool does <strong>not</strong> grow just because tasks are queueing, only once queueing capacity is <em>also</em> exhausted. A bounded queue (§15) is what makes this step reachable at all.</li>
+<li><strong>Only once every option above is exhausted — core threads busy, queue full, and already at <code>maximumPoolSize</code> — does rejection (§27) happen.</strong></li>
+</ol>
+<p>Getting this order backwards (e.g., trying to grow the pool before trying the queue) would mean a bounded queue's entire purpose — absorbing a short burst without needing new threads — never actually gets used, defeating the reason a queue is in this design at all.</p>
+<hr>
+<h2 id="24-phase-10-growing-beyond-corepoolsize-non-core-threads">24. Phase 10 — Growing Beyond corePoolSize: Non-Core Threads</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private boolean addWorker(Runnable firstTask, boolean isCore) {
+    int currentSize = poolSize.get();
+    int limit = isCore ? corePoolSize : maximumPoolSize;
+    if (currentSize &gt;= limit) return false;
+    if (!poolSize.compareAndSet(currentSize, currentSize + 1)) {
+        return addWorker(firstTask, isCore); // another thread changed poolSize concurrently — retry with a fresh read
+    }
+
+    Worker worker = new Worker(workQueue, this);
+    workers.add(worker);
+    Thread thread = threadFactory.newThread(worker);
+    worker.thread = thread;
+    if (firstTask != null) workQueue.offer(firstTask); // hand the triggering task in via the queue — the new worker picks it up immediately
+    thread.start();
+    return true;
+}</code></pre></div>
+<p>A <strong>non-core</strong> worker is, mechanically, identical in every way to a core one (same <code>Worker</code> class, same <code>run()</code> loop) — the <em>only</em> difference is which limit (<code>corePoolSize</code> vs <code>maximumPoolSize</code>) governed whether it was allowed to be created, and, per §25, whether it's willing to sit idle forever waiting for the next task or will eventually time out.</p>
+<hr>
+<h2 id="25-phase-11-idle-timeout-killing-non-core-threads-with-keepalivetime">25. Phase 11 — Idle Timeout: Killing Non-Core Threads With keepAliveTime</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// Referenced from Worker.getTask() (§18)
+boolean shouldWorkerTimeOut(Worker worker) {
+    return isNonCoreWorker(worker) || allowCoreThreadTimeOut; // §26
+}
+
+void workerFinished(Worker worker) {
+    workers.remove(worker);
+    poolSize.decrementAndGet(); // the thread is genuinely gone — the pool can spin up a fresh one later if load returns
+}</code></pre></div>
+<p>When <code>getTask</code> (§18) uses <code>queue.poll(keepAliveTime, unit)</code> instead of the blocking <code>queue.take()</code>, it returns <code>null</code> if no task arrives within that window — <code>Worker.run()</code>'s loop (§16) treats a <code>null</code> task as "time to stop," and the thread exits, calling <code>workerFinished</code> on its way out. This is what keeps a burst-driven pool from permanently holding onto threads it only needed briefly: extra capacity created to absorb a spike (§24) quietly gives itself back once the spike passes and the queue goes idle for longer than <code>keepAliveTime</code>.</p>
+<hr>
+<h2 id="26-why-corepoolsize-threads-dont-time-out-by-default">26. Why corePoolSize Threads Don't Time Out by Default</h2>
+<p>Core threads exist specifically to be <strong>always ready</strong> — that's the entire distinction §23's step 1 relies on (prefer a core thread immediately, without even checking the queue first). If core threads timed out and disappeared during a quiet period, the <em>next</em> burst of tasks would pay full thread-creation cost all over again for what's supposed to be the pool's baseline, defeating the reason a "core" tier exists separately from the elastic "max" tier at all. <code>allowCoreThreadTimeOut</code> (referenced in §25) is an explicit opt-in for the (less common) case where even the baseline threads should be reclaimed during genuinely extended idle periods — a deliberate override of the default, not the default itself.</p>
+<hr>
+<h2 id="27-what-happens-when-the-pool-and-queue-are-both-full">27. What Happens When the Pool and Queue Are Both Full</h2>
+<p>§22's final <code>if</code> branch — <code>poolSize.get() &lt; maximumPoolSize</code> failing — means every option this design offers has been exhausted: every thread up to the maximum is busy, and the bounded queue (§15) has no room for one more waiting task. Something has to give, and <strong>silently dropping the task</strong> is never an acceptable default (a dropped task looks, from the caller's perspective, identical to one that's just running slowly — until it never completes) — the pool needs to make an explicit, pluggable decision about what happens next.</p>
+<hr>
+<h2 id="28-phase-12-the-rejectedexecutionhandler-interface">28. Phase 12 — The RejectedExecutionHandler Interface</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// pool/RejectedExecutionHandler.java
+public interface RejectedExecutionHandler {
+    void rejectedExecution(Runnable task, MiniThreadPoolExecutor executor);
+}</code></pre></div>
+<p>Making rejection a pluggable <strong>strategy</strong> (rather than one hard-coded behavior) is deliberate: "the pool is saturated" is a business-meaningful event whose correct response genuinely differs by workload — a batch job might want to block the submitter until room frees up; a live HTTP request handler (exactly <a href="Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide.md">the MiniTomcat guide's own use of this pattern</a>, §19) might want to fail fast with a <code>503</code>. One interface, several interchangeable implementations (§29), lets the same <code>MiniThreadPoolExecutor</code> serve both needs without any change to its own code.</p>
+<hr>
+<h2 id="29-implementing-the-four-standard-rejection-policies">29. Implementing the Four Standard Rejection Policies</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class AbortPolicy implements RejectedExecutionHandler {
+    @Override
+    public void rejectedExecution(Runnable task, MiniThreadPoolExecutor executor) {
+        throw new RejectedExecutionException(&quot;Task &quot; + task + &quot; rejected — pool and queue both full&quot;);
+    }
+}
+
+public class CallerRunsPolicy implements RejectedExecutionHandler {
+    @Override
+    public void rejectedExecution(Runnable task, MiniThreadPoolExecutor executor) {
+        if (!executor.isShutdown()) task.run(); // runs SYNCHRONOUSLY on the submitting thread — a natural, self-throttling backpressure
+    }
+}
+
+public class DiscardPolicy implements RejectedExecutionHandler {
+    @Override
+    public void rejectedExecution(Runnable task, MiniThreadPoolExecutor executor) { /* deliberately does nothing */ }
+}
+
+public class DiscardOldestPolicy implements RejectedExecutionHandler {
+    @Override
+    public void rejectedExecution(Runnable task, MiniThreadPoolExecutor executor) {
+        executor.getWorkQueue().pollOldest();  // makes room by dropping the LONGEST-WAITING queued task
+        executor.execute(task);                 // then retries the newly-submitted one
+    }
+}</code></pre></div>
+<p><code>CallerRunsPolicy</code> deserves the same call-out <a href="Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide.md">the MiniTomcat guide's §19</a> gives it: running the rejected task on the <strong>calling</strong> thread means that thread can't submit anything else until this task finishes — a simple, effective, self-limiting brake on the rate new work arrives, without needing any separate rate-limiting mechanism at all.</p>
+<hr>
+<h2 id="30-phase-13-wrapping-a-callable-in-a-futuretask">30. Phase 13 — Wrapping a Callable in a FutureTask</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// future/MiniFutureTask.java
+public class MiniFutureTask&lt;V&gt; implements Runnable, MiniFuture&lt;V&gt; {
+    private final Callable&lt;V&gt; task;
+    private volatile State state = State.NEW;
+    private V result;
+    private Throwable exception;
+    private volatile Thread runnerThread; // the worker thread actually executing call() — needed for cancel(true), §33
+
+    private enum State { NEW, RUNNING, COMPLETED, FAILED, CANCELLED }
+
+    public MiniFutureTask(Callable&lt;V&gt; task) { this.task = task; }
+}</code></pre></div>
+<p><code>MiniFutureTask</code> implements <strong>both</strong> <code>Runnable</code> (so it can be handed straight to <code>execute()</code>, §22) <strong>and</strong> <code>MiniFuture&lt;V&gt;</code> (so it can be handed straight back to whoever called <code>submit()</code>) — one object plays both roles, which is exactly what lets <code>submit()</code> (§32) be a thin wrapper: construct one of these, <code>execute()</code> it, return it.</p>
+<hr>
+<h2 id="31-phase-14-implementing-futuretasks-state-machine">31. Phase 14 — Implementing FutureTask's State Machine</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private final Object lock = new Object();
+
+@Override
+public void run() {
+    synchronized (lock) {
+        if (state != State.NEW) return; // already cancelled before it even started — see §33
+        state = State.RUNNING;
+        runnerThread = Thread.currentThread();
+    }
+    try {
+        V value = task.call();
+        synchronized (lock) {
+            if (state == State.RUNNING) { result = value; state = State.COMPLETED; }
+            lock.notifyAll(); // wake every thread blocked in get() (§34)
+        }
+    } catch (Throwable t) {
+        synchronized (lock) {
+            if (state == State.RUNNING) { exception = t; state = State.FAILED; }
+            lock.notifyAll();
+        }
+    } finally {
+        synchronized (lock) { runnerThread = null; }
+    }
+}</code></pre></div>
+<p>The state machine (<code>NEW → RUNNING → COMPLETED</code>/<code>FAILED</code>, or <code>NEW</code>/<code>RUNNING → CANCELLED</code>) is what makes concurrent access from multiple directions — the worker thread running <code>run()</code>, a caller thread calling <code>get()</code>, another thread calling <code>cancel()</code> — resolve unambiguously: every transition checks the <em>current</em> state before acting, so a cancellation that arrives after the task already completed is a correct no-op, not a race that corrupts an already-delivered result.</p>
+<hr>
+<h2 id="32-phase-15-submit-returning-a-future">32. Phase 15 — submit() Returning a Future</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// MiniThreadPoolExecutor — implementing MiniExecutorService's submit()
+@Override
+public &lt;T&gt; MiniFuture&lt;T&gt; submit(Callable&lt;T&gt; task) {
+    MiniFutureTask&lt;T&gt; futureTask = new MiniFutureTask&lt;&gt;(task);
+    execute(futureTask); // MiniFutureTask IS a Runnable (§30) — flows through the exact same execute() logic as §22
+    return futureTask;    // the caller gets a handle back immediately, before the task has necessarily even started
+}
+
+@Override
+public MiniFuture&lt;Void&gt; submit(Runnable task) {
+    return submit(() -&gt; { task.run(); return null; }); // adapt a Runnable into a Callable&lt;Void&gt; — reuses everything above
+}</code></pre></div>
+<p>Nothing about §21–§29's pool logic needed to change to support <code>submit()</code> — a <code>MiniFutureTask</code> is, from <code>execute()</code>'s point of view, just another <code>Runnable</code>, which is precisely the payoff of §30's design decision to have it implement both interfaces at once.</p>
+<hr>
+<h2 id="33-cancellation-what-canceltrue-actually-does">33. Cancellation: What cancel(true) Actually Does</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Override
+public boolean cancel(boolean mayInterruptIfRunning) {
+    synchronized (lock) {
+        if (state != State.NEW &amp;&amp; state != State.RUNNING) return false; // already finished — too late to cancel
+        if (state == State.RUNNING) {
+            if (!mayInterruptIfRunning) return false; // caller explicitly said &quot;don't interrupt a running task&quot;
+            if (runnerThread != null) runnerThread.interrupt(); // §18's Worker sees this as InterruptedException
+        }
+        state = State.CANCELLED;
+        lock.notifyAll();
+        return true;
+    }
+}</code></pre></div>
+<p><code>cancel(true)</code> does <strong>not</strong> forcibly kill a thread — Java has no safe mechanism to do that. It calls <code>Thread.interrupt()</code>, which sets an interrupt flag the running task's own code must <strong>choose to check</strong> (via <code>Thread.interrupted()</code>, or implicitly by calling a blocking method like <code>Thread.sleep()</code> or <code>queue.take()</code>, which throw <code>InterruptedException</code> when interrupted). A task that never checks for interruption, and contains no interruptible blocking calls, <strong>will not actually stop</strong> just because <code>cancel(true)</code> was called — this is a real, honest limitation worth stating plainly rather than implying cancellation is more forceful than it actually is.</p>
+<hr>
+<h2 id="34-handling-get-timeouts-and-exceptions">34. Handling get() Timeouts and Exceptions</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Override
+public V get() throws InterruptedException, ExecutionException {
+    synchronized (lock) {
+        while (state == State.NEW || state == State.RUNNING) lock.wait(); // blocks until run() calls notifyAll()
+        return resultOrThrow();
+    }
+}
+
+@Override
+public V get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+    long deadline = System.nanoTime() + unit.toNanos(timeout);
+    synchronized (lock) {
+        while (state == State.NEW || state == State.RUNNING) {
+            long remainingNanos = deadline - System.nanoTime();
+            if (remainingNanos &lt;= 0) throw new TimeoutException();
+            lock.wait(remainingNanos / 1_000_000, (int) (remainingNanos % 1_000_000)); // millis + nanos overload
+        }
+        return resultOrThrow();
+    }
+}
+
+private V resultOrThrow() throws ExecutionException {
+    if (state == State.CANCELLED) throw new CancellationException();
+    if (state == State.FAILED) throw new ExecutionException(exception); // wraps the task's own exception, doesn't lose it
+    return result;
+}</code></pre></div>
+<p>Wrapping the task's thrown exception inside <code>ExecutionException</code> (rather than rethrowing it directly) is a deliberate, important design choice: it lets <code>get()</code>'s caller distinguish, syntactically, between "the task itself failed" (unwrap <code>ExecutionException.getCause()</code>) and "something went wrong with <code>get()</code>/the Future mechanism itself" (<code>InterruptedException</code>, <code>TimeoutException</code>, <code>CancellationException</code>) — conflating these would make correct error handling by callers considerably harder.</p>
+<hr>
+<h2 id="35-why-shutdown-needs-two-modes">35. Why Shutdown Needs Two Modes</h2>
+<p>Stopping a pool has two genuinely different, both legitimate, meanings: <strong>"stop accepting new work, but let everything already accepted finish"</strong> (a normal, graceful deploy/restart) and <strong>"stop everything, right now, and tell me what didn't get to run"</strong> (an emergency shutdown, or a test harness that needs a clean, immediate teardown). Conflating these into one <code>stop()</code> method would force every caller into whichever behavior happened to be implemented, even when the other one is what the situation actually calls for.</p>
+<hr>
+<h2 id="36-phase-16-implementing-shutdown">36. Phase 16 — Implementing shutdown()</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Override
+public void shutdown() {
+    shutdown = true; // execute() (§22) now rejects every NEW submission immediately
+    // Deliberately does NOT touch the queue or interrupt any worker — every already-queued or already-running
+    // task is left completely alone, exactly per the &quot;graceful&quot; contract this method promises.
+}</code></pre></div>
+<p>The smallest possible implementation is also the correct one here: once <code>shutdown</code> is <code>true</code>, §22's very first check rejects all new work, while every worker (§16) keeps looping — pulling from the queue via <code>getTask</code> (§18) — until the queue is genuinely empty, at which point each worker's <code>queue.poll</code>/<code>take</code> eventually returns nothing new to do and the workers exit naturally (§25's timeout path, or a dedicated "queue is empty and shutdown is set" check added to <code>Worker.run()</code>).</p>
+<hr>
+<h2 id="37-phase-17-implementing-shutdownnow">37. Phase 17 — Implementing shutdownNow()</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Override
+public List&lt;Runnable&gt; shutdownNow() {
+    shutdown = true;
+    List&lt;Runnable&gt; neverRan = workQueue.drainAll(); // §12's queue — every task still waiting, removed and returned
+    for (Worker worker : workers) {
+        if (worker.thread != null) worker.thread.interrupt(); // §33's exact interruption mechanism, applied pool-wide
+    }
+    return neverRan; // the caller can inspect/reschedule/log exactly what got abandoned
+}</code></pre></div>
+<p><code>shutdownNow()</code> makes the opposite tradeoff from <code>shutdown()</code> deliberately: it <strong>interrupts every running worker immediately</strong> (subject to the same "the task must actually check for interruption" caveat §33 already names) and <strong>hands back every task that was still waiting</strong>, so nothing simply vanishes without the caller knowing — abrupt, but honest about exactly what didn't get to run.</p>
+<hr>
+<h2 id="38-phase-18-awaittermination">38. Phase 18 — awaitTermination()</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Override
+public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
+    long deadline = System.nanoTime() + unit.toNanos(timeout);
+    while (!isTerminated()) {
+        if (System.nanoTime() &gt;= deadline) return false; // timed out — some workers are still running
+        Thread.sleep(10); // simple polling; a production-grade version would use a Condition signaled by workerFinished (§25)
+    }
+    return true;
+}
+
+@Override
+public boolean isTerminated() {
+    return shutdown &amp;&amp; workers.isEmpty(); // shutdown was requested AND every worker has actually exited
+}</code></pre></div>
+<p><code>awaitTermination</code> is what lets calling code <strong>wait, with a bound</strong>, for a graceful shutdown to actually finish — the common, correct pattern (<code>shutdown()</code> immediately followed by <code>awaitTermination(...)</code>, falling back to <code>shutdownNow()</code> if the timeout expires) mirrors exactly the three-step graceful shutdown the <a href="Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide.md">MiniTomcat guide's §21</a> already established: stop intake, drain with a deadline, then force.</p>
+<hr>
+<h2 id="39-full-worked-example-submitting-tasks-and-collecting-results">39. Full Worked Example: Submitting Tasks and Collecting Results</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>MiniThreadPoolExecutor pool = new MiniThreadPoolExecutor(
+    4, 8, 30, TimeUnit.SECONDS,
+    new MiniBlockingQueue&lt;&gt;(100),
+    new NamedThreadFactory(&quot;report-worker&quot;),
+    new CallerRunsPolicy()
+);
+
+List&lt;MiniFuture&lt;Integer&gt;&gt; futures = new ArrayList&lt;&gt;();
+for (int i = 0; i &lt; 20; i++) {
+    int input = i;
+    futures.add(pool.submit(() -&gt; expensiveComputation(input))); // returns immediately, 20 times
+}
+
+int total = 0;
+for (MiniFuture&lt;Integer&gt; future : futures) {
+    total += future.get(); // blocks only as long as THIS particular task hasn't finished yet
+}
+
+pool.shutdown();
+pool.awaitTermination(10, TimeUnit.SECONDS);</code></pre></div>
+<p>20 tasks submitted essentially instantly; at most 4 run concurrently at first (<code>corePoolSize</code>), with the rest queueing (§23's step 2) and, if the queue fills, spilling into up to 4 more threads (<code>maximumPoolSize</code>, step 3) — all invisible to this calling code, which only ever sees "submit, get a <code>Future</code>, call <code>get()</code> when the result is needed."</p>
+<hr>
+<h2 id="40-tracing-a-task-end-to-end">40. Tracing a Task End to End</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>pool.submit(callable)
+  -&gt; new MiniFutureTask(callable)                          (§30)
+  -&gt; pool.execute(futureTask)                               (§22)
+       poolSize &lt; corePoolSize? -&gt; addWorker(futureTask, isCore=true) -&gt; new Worker, new Thread, thread.start() (§24)
+  -&gt; Worker.run() starts on its own thread                  (§16)
+       getTask(this) -&gt; queue.take() or the task handed in directly via addWorker's offer()  (§18)
+       runTask(task) -&gt; task.run()                           (§19, and §31's FutureTask.run())
+            state: NEW -&gt; RUNNING -&gt; COMPLETED (or FAILED)   (§31)
+            lock.notifyAll()                                 -- wakes any thread blocked in future.get()
+  -&gt; caller's future.get() unblocks, returns the result       (§34)
+  -&gt; Worker loops back to getTask() for the NEXT task, reusing the SAME thread (§16-§17)</code></pre></div>
+<p>Every mechanism built in §6–§38 appears somewhere in this one trace — a single submitted task exercises the full pool sizing decision, the worker loop, the future state machine, and (implicitly) the queue's <code>put</code>/<code>take</code> machinery underneath it all.</p>
+<hr>
+<h2 id="41-final-architecture-of-the-core-executor">41. Final Architecture (of the Core Executor)</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                        Caller
+                          |
+                execute(task) / submit(callable)
+                          |
+                          v
+              +------------------------+
+              | MiniThreadPoolExecutor  |
+              |  (§21-§29)               |
+              +-----------+------------+
+                          |
+        +------------------+------------------+
+        v                                     v
+  poolSize &lt; core?                    queue.offer() succeeded?
+  addWorker(core=true) (§24)               |  no -&gt; poolSize &lt; max?
+        |                                   |        addWorker(core=false) (§24)
+        v                                   v              |
+  +------------------------+      +------------------+     v
+  |   Worker thread(s)      |&lt;----&gt;| MiniBlockingQueue |   (still full) -&gt; RejectedExecutionHandler (§28-§29)
+  |  loop: getTask()-&gt;run()  |      |  put()/take() (§12-14)|
+  |  (§16-§20, §25-§26)      |      +------------------+
+  +-----------+--------------+
+              |
+              v
+      MiniFutureTask.run()
+      state machine (§30-§31)
+              |
+              v
+      caller's future.get() (§32, §34)
+      cancel() (§33)
+
+  shutdown()/shutdownNow()/awaitTermination() (§35-§38) control the whole lifecycle from outside this loop</code></pre></div>
+<hr>
+<h2 id="42-why-a-declarative-async-is-worth-building-on-top-of-miniexecutor">42. Why a Declarative @Async Is Worth Building on Top of MiniExecutor</h2>
+<p>Everything through §41 requires a caller to explicitly write <code>pool.submit(() -&gt; doWork())</code> — correct, but it means "this method runs asynchronously" is a decision made <strong>at every call site</strong>, easy to forget, and impossible to change centrally later (want <code>sendEmail</code> to suddenly run synchronously in tests? every call site needs editing). Spring's real <code>@Async</code> solves this by making "runs asynchronously" a property of the <strong>method's declaration</strong> instead — annotate it once, and every caller gets asynchronous behavior automatically, without their own code changing at all. Building this requires solving a problem this guide hasn't touched yet: <strong>how do you make an ordinary method call run through the executor, without editing the method's own body or every caller?</strong></p>
+<hr>
+<h2 id="43-phase-19-the-async-annotation-and-a-named-executor-registry">43. Phase 19 — The @Async Annotation and a Named-Executor Registry</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// async/Async.java
+@Retention(RetentionPolicy.RUNTIME) // MUST be RUNTIME — reflection needs to see it long after compilation, exactly
+@Target(ElementType.METHOD)          // like every annotation in the MiniSpring companion guide's §8
+public @interface Async {
+    String value() default &quot;default&quot;; // which registered executor should run this method — configurable per method
+}</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// async/AsyncExecutorRegistry.java
+public class AsyncExecutorRegistry {
+    private final Map&lt;String, MiniExecutorService&gt; executors = new ConcurrentHashMap&lt;&gt;();
+
+    public void register(String name, MiniExecutorService executor) { executors.put(name, executor); }
+
+    public MiniExecutorService get(String name) {
+        MiniExecutorService executor = executors.get(name);
+        if (executor == null) throw new IllegalStateException(&quot;No @Async executor registered under name: &quot; + name);
+        return executor;
+    }
+}</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// A developer configures this once, at startup, choosing pool shape PER named executor
+@Component
+public class AsyncConfig {
+    @PostConstruct
+    public void configureExecutors(AsyncExecutorRegistry registry) {
+        registry.register(&quot;default&quot;, new MiniThreadPoolExecutor(4, 8, 30, TimeUnit.SECONDS,
+            new MiniBlockingQueue&lt;&gt;(100), new NamedThreadFactory(&quot;async-default&quot;), new CallerRunsPolicy()));
+        registry.register(&quot;email-sender&quot;, new MiniThreadPoolExecutor(2, 4, 60, TimeUnit.SECONDS,
+            new MiniBlockingQueue&lt;&gt;(50), new NamedThreadFactory(&quot;async-email&quot;), new AbortPolicy()));
+    }
+}</code></pre></div>
+<p>This is the entire <em>configuration</em> half of the feature — a name maps to a fully-tunable <code>MiniThreadPoolExecutor</code> (§21), and <code>@Async("email-sender")</code> on a method will later mean "run this on that specific, independently-sized pool," isolating a slow downstream dependency (an SMTP server) from starving unrelated async work.</p>
+<hr>
+<h2 id="44-understanding-dynamic-proxies-how-javalangreflectproxy-actually-works">44. Understanding Dynamic Proxies: How java.lang.reflect.Proxy Actually Works</h2>
+<p>The remaining problem — making a call to <code>notificationService.sendEmail(...)</code> actually route through <code>AsyncExecutorRegistry</code> instead of running <code>sendEmail</code>'s body directly on the caller's thread — cannot be solved by annotation processing alone; annotations are just metadata, inert until something reads and acts on them. The mechanism that acts on them here is a <strong>dynamic proxy</strong>, and it's worth understanding in real detail before using it, since it looks close to magic otherwise.</p>
+<p><strong>What <code>Proxy.newProxyInstance</code> actually does:</strong> at <em>runtime</em> (not compile time), the JVM generates a brand-new class — one that doesn't exist anywhere in your source code or your compiled <code>.class</code> files — which implements whatever interface(s) you specify. Every method that interface declares is given a trivial implementation in this generated class: <strong>package up the method that was called and its arguments, and forward the whole thing to a single object you provide</strong>, called the <code>InvocationHandler</code>. Nothing about the interface's <em>real</em> implementation is touched, copied, or modified — the generated proxy class is a completely separate object that merely <em>also</em> implements the same interface, and stands in front of the real one.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Object proxy = Proxy.newProxyInstance(
+    classLoader,                    // which ClassLoader defines the generated proxy class
+    new Class&lt;?&gt;[]{ NotificationService.class }, // which interface(s) the generated class must implement
+    invocationHandler                // WHERE every single method call gets forwarded to
+);</code></pre></div>
+<p>The three arguments map directly onto the three questions a dynamic proxy has to answer: <em>where does the generated class live</em> (the class loader), <em>what does it pretend to be</em> (the interfaces), and <em>who actually decides what happens when one of its methods is called</em> (the handler). <code>NotificationService notificationService = (NotificationService) proxy;</code> then lets calling code use the proxy exactly as if it were a real <code>NotificationService</code> — Java's type system has no way to tell the difference from the caller's side, by design.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface InvocationHandler {
+    Object invoke(Object proxy, Method method, Object[] args) throws Throwable;
+}</code></pre></div>
+<p>Every single method call on the proxy — regardless of which interface method was invoked, with whatever arguments — funnels through this <strong>one</strong> <code>invoke</code> method. <code>method</code> (a <code>java.lang.reflect.Method</code> object) tells the handler exactly <em>which</em> method was called — this is precisely how §47's <code>AsyncInvocationHandler</code> can inspect <code>method</code> for an <code>@Async</code> annotation and decide, per call, whether to run it synchronously or hand it to an executor.</p>
+<hr>
+<h2 id="45-phase-20-generating-a-proxy-instance-and-routing-every-call-through-one-handler">45. Phase 20 — Generating a Proxy Instance and Routing Every Call Through One Handler</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class ProxyDemo {
+    public static void main(String[] args) {
+        NotificationService realService = new NotificationServiceImpl();
+
+        InvocationHandler handler = (proxy, method, methodArgs) -&gt; {
+            System.out.println(&quot;Intercepted call to: &quot; + method.getName());
+            return method.invoke(realService, methodArgs); // forward to the REAL object — pass-through, for now
+        };
+
+        NotificationService proxied = (NotificationService) Proxy.newProxyInstance(
+            NotificationService.class.getClassLoader(),
+            new Class&lt;?&gt;[]{ NotificationService.class },
+            handler
+        );
+
+        proxied.sendWelcomeEmail(&quot;alice@example.com&quot;); // prints &quot;Intercepted call to: sendWelcomeEmail&quot;, THEN runs the real method
+    }
+}</code></pre></div>
+<p>This is the entire mechanical foundation everything from §47 onward builds on: a proxy that does nothing more than log, then delegate — the exact same shape as an <code>@Async</code>-aware proxy, minus the actual asynchronous dispatch decision. Understanding that <code>invoke()</code> is a single, universal interception point for <em>every</em> method on the interface — not something wired up per method — is what makes it possible to support <code>@Async</code> on any number of methods, on any number of interfaces, with the exact same handful of lines of handler code.</p>
+<hr>
+<h2 id="46-jdk-dynamic-proxies-vs-subclassing-cglibbytebuddy-why-async-needs-an-interface">46. JDK Dynamic Proxies vs Subclassing (CGLIB/ByteBuddy): Why @Async Needs an Interface</h2>
+<p><code>java.lang.reflect.Proxy</code>'s generated class implements one or more <strong>interfaces</strong> — it fundamentally cannot proxy a plain class that implements no interface, because there is no interface contract for the generated class to implement instead. Real Spring works around this limitation for class-based beans using a <strong>different</strong> technique entirely: libraries like CGLIB or ByteBuddy generate a <strong>subclass</strong> of the target class at runtime, override its methods, and route those overrides through an interceptor — mechanically different (subclassing vs. interface implementation) but conceptually identical in purpose (get <em>some</em> generated object between the caller and the real one). This guide's <code>@Async</code> implementation (§47–§48) deliberately uses only <code>java.lang.reflect.Proxy</code>, which means <strong>it only works on beans that implement an interface</strong> — an honest, explicitly named limitation (§52), not a hidden gap, and precisely why the worked example in §51 defines <code>NotificationService</code> as an interface with a separate <code>NotificationServiceImpl</code>.</p>
+<hr>
+<h2 id="47-phase-21-an-asyncinvocationhandler-intercepting-the-method-call">47. Phase 21 — An AsyncInvocationHandler: Intercepting the Method Call</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// async/AsyncInvocationHandler.java
+public class AsyncInvocationHandler implements InvocationHandler {
+    private final Object target;                        // the REAL bean instance, e.g. a NotificationServiceImpl
+    private final AsyncExecutorRegistry executorRegistry;
+
+    public AsyncInvocationHandler(Object target, AsyncExecutorRegistry executorRegistry) {
+        this.target = target;
+        this.executorRegistry = executorRegistry;
+    }
+
+    @Override
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        Async async = method.getAnnotation(Async.class); // §44's `method` parameter, read for @Async metadata
+        if (async == null) {
+            return method.invoke(target, args); // NOT async — pass straight through, synchronous, unchanged behavior
+        }
+
+        MiniExecutorService executor = executorRegistry.get(async.value()); // §43 — named-pool lookup
+
+        if (method.getReturnType() == void.class) {
+            executor.execute(() -&gt; {
+                try { method.invoke(target, args); }
+                catch (Throwable t) { logUncaughtAsyncFailure(method, t); } // fire-and-forget — caller never sees this
+            });
+            return null; // the caller's call to the void async method returns immediately, unconditionally
+        }
+
+        if (MiniFuture.class.isAssignableFrom(method.getReturnType())) {
+            return executor.submit(() -&gt; method.invoke(target, args)); // §32 — returns a real MiniFuture to the caller
+        }
+
+        throw new IllegalStateException(&quot;@Async method must return void or a MiniFuture&lt;T&gt;: &quot; + method);
+    }
+}</code></pre></div>
+<p>Reading <code>method.getAnnotation(Async.class)</code> <strong>inside <code>invoke</code></strong>, on every call, rather than deciding once at proxy-creation time, is what lets a single proxy correctly handle a mix of <code>@Async</code> and ordinary synchronous methods on the same interface — the decision is made fresh, per call, based on exactly which method this particular invocation happens to be.</p>
+<hr>
+<h2 id="48-phase-22-wiring-the-proxy-into-bean-creation-a-beanpostprocessor">48. Phase 22 — Wiring the Proxy Into Bean Creation (a BeanPostProcessor)</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// async/AsyncAnnotationBeanPostProcessor.java
+public class AsyncAnnotationBeanPostProcessor implements BeanPostProcessor { // the MiniSpring companion guide's §36 extension point
+    private final AsyncExecutorRegistry executorRegistry;
+
+    @Override
+    public Object postProcessAfterInitialization(Object bean, String beanName) {
+        if (!hasAnyAsyncMethod(bean.getClass())) return bean; // no @Async anywhere -&gt; return the REAL bean, unproxied
+
+        Class&lt;?&gt;[] interfaces = bean.getClass().getInterfaces();
+        if (interfaces.length == 0) {
+            throw new IllegalStateException(
+                &quot;@Async on &quot; + beanName + &quot; requires it to implement an interface — see §46&quot;);
+        }
+        return Proxy.newProxyInstance(                                     // §44-§45, applied to a REAL MiniSpring bean
+            bean.getClass().getClassLoader(),
+            interfaces,
+            new AsyncInvocationHandler(bean, executorRegistry)
+        );
+    }
+
+    private boolean hasAnyAsyncMethod(Class&lt;?&gt; clazz) {
+        for (Method method : clazz.getMethods()) {
+            if (method.isAnnotationPresent(Async.class)) return true;
+        }
+        return false;
+    }
+}</code></pre></div>
+<p>This is the piece that makes <code>@Async</code> feel automatic rather than manual: <a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring's <code>ApplicationContext</code></a> already runs every registered <code>BeanPostProcessor</code> after a bean is constructed and wired, <strong>replacing</strong> the bean reference held in the container with whatever the processor returns (§36-area of that guide's bean-lifecycle phase). Once <code>postProcessAfterInitialization</code> returns a proxy instead of the real <code>NotificationServiceImpl</code>, <strong>every other bean that gets <code>NotificationService</code> injected via <code>@Autowired</code> receives the proxy</strong> — they call methods on it exactly as before, with no code of their own aware that anything changed.</p>
+<hr>
+<h2 id="49-handling-void-vs-future-returning-async-methods-differently">49. Handling void vs Future-Returning @Async Methods Differently</h2>
+<p>§47's <code>invoke</code> branches on the method's declared return type for a concrete reason tied directly back to §10's <code>MiniFuture</code> design: a <code>void @Async</code> method is inherently <strong>fire-and-forget</strong> — there is no return value for the caller to ever inspect, so the only sensible behavior is to submit the work and return control to the caller immediately, with any exception the task throws captured only in a log, never surfaced to a caller who has nothing to receive it. A method declared to return <code>MiniFuture&lt;T&gt;</code>, by contrast, is explicitly telling its callers "I intend to give you a handle to a result eventually" — <code>executor.submit(...)</code> (§32) is the exact mechanism that promise requires, and returning anything other than the <code>MiniFuture</code> <code>submit</code> produces would silently break that contract.</p>
+<hr>
+<h2 id="50-configuring-a-per-method-executor-asyncname">50. Configuring a Per-Method Executor: @Async("name")</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface NotificationService {
+    @Async(&quot;email-sender&quot;) // routes to the SMTP-isolated pool configured in §43 — never competes with other async work
+    MiniFuture&lt;Void&gt; sendWelcomeEmail(String to);
+
+    @Async // no argument -&gt; uses &quot;default&quot;, per @Async's default value (§43)
+    void logAnalyticsEvent(String eventName);
+}</code></pre></div>
+<p>Because §47 reads <code>async.value()</code> fresh on every call, two different <code>@Async</code>-annotated methods on the <strong>same</strong> interface can route to <strong>two entirely different, independently-sized thread pools</strong> — exactly the isolation <a href="Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide.md">the MiniTomcat guide's thread-pool tuning discussion</a> argues for at the transport layer, now available at the method-annotation level: a slow, rarely-called email pool never steals capacity from a hot, frequently-called analytics-logging pool, because they were never sharing one pool in the first place.</p>
+<hr>
+<h2 id="51-phase-23-a-full-worked-example-an-async-notification-service">51. Phase 23 — A Full Worked Example: An Async Notification Service</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface NotificationService {
+    @Async(&quot;email-sender&quot;)
+    MiniFuture&lt;Void&gt; sendWelcomeEmail(String to);
+
+    @Async
+    void logAnalyticsEvent(String eventName);
+}
+
+@Component
+public class NotificationServiceImpl implements NotificationService {
+    @Override
+    public MiniFuture&lt;Void&gt; sendWelcomeEmail(String to) {
+        smtpClient.send(to, &quot;Welcome!&quot;); // a genuinely slow call — exactly why this needed its own pool (§50)
+        return MiniFuture.completed(null);
+    }
+
+    @Override
+    public void logAnalyticsEvent(String eventName) {
+        analyticsClient.record(eventName);
+    }
+}
+
+// Elsewhere, injected normally — completely unaware a proxy is involved
+@Service
+public class SignupService {
+    private final NotificationService notificationService; // this is ACTUALLY the proxy from §48, injected transparently
+
+    @Autowired
+    public SignupService(NotificationService notificationService) { this.notificationService = notificationService; }
+
+    public void handleSignup(String email) {
+        createAccount(email);
+        notificationService.sendWelcomeEmail(email);   // returns INSTANTLY — the real send happens on &quot;email-sender&quot;
+        notificationService.logAnalyticsEvent(&quot;signup&quot;); // returns INSTANTLY — the real log happens on &quot;default&quot;
+        // handleSignup() itself returns to ITS caller without ever waiting on either background call
+    }
+}</code></pre></div>
+<p><code>SignupService</code> never imports <code>MiniThreadPoolExecutor</code>, never calls <code>submit()</code>, and never knows a proxy stands between it and <code>NotificationServiceImpl</code> — every piece of asynchrony this method exhibits was declared entirely on <code>NotificationService</code>'s own interface (§50), exactly the "declare it once, benefit everywhere" goal §42 set out to achieve.</p>
+<hr>
+<h2 id="52-limitations-of-this-design-self-invocation-interface-only-proxying-and-how-real-spring-handles-them">52. Limitations of This Design (Self-Invocation, Interface-Only Proxying) and How Real Spring Handles Them</h2>
+<p>Two real, worth-naming-honestly gaps, both inherent to the proxy-based approach itself, not bugs in this guide's specific code:</p>
+<ul>
+<li><strong>Self-invocation bypasses the proxy entirely.</strong> If <code>NotificationServiceImpl.sendWelcomeEmail</code> internally called <code>this.logAnalyticsEvent(...)</code> directly, that call goes straight to the real object's own method — <code>this</code> inside <code>NotificationServiceImpl</code> is never the proxy, only external callers holding the injected reference ever go through it. This is a well-documented real Spring <code>@Async</code> gotcha for exactly this reason, not something unique to this guide's simplified version.</li>
+<li><strong>Interface-only proxying (§46).</strong> Any bean that doesn't implement an interface simply cannot use this mechanism at all — real Spring's default configuration silently falls back to CGLIB subclassing specifically to avoid this restriction, at the cost of needing a non-<code>final</code> class with a non-<code>final</code> method and a byte-code-generation dependency this guide deliberately didn't take on.</li>
+</ul>
+<p>Naming both limitations explicitly, rather than letting a user discover them as confusing runtime surprises, is the same "honest gap" discipline the <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB guide's §58</a> already modeled for its own limitations relative to real Tomcat.</p>
+<hr>
+<h2 id="53-thread-pool-sizing-for-cpu-bound-work">53. Thread Pool Sizing for CPU-Bound Work</h2>
+<p>For work that spends nearly all its time actually computing (hashing, parsing, in-memory transformation), adding more threads than there are CPU cores to run them on adds pure context-switching overhead with no additional throughput — the <a href="Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide.md">MiniTomcat guide's §18</a> already derives this:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>corePoolSize ≈ number of CPU cores (Runtime.getRuntime().availableProcessors())</code></pre></div>
+<p><code>maximumPoolSize</code> for genuinely CPU-bound work is often set equal to <code>corePoolSize</code> — there is nothing to gain from letting the pool grow further when the bottleneck is compute, not availability of threads to run on.</p>
+<hr>
+<h2 id="54-thread-pool-sizing-for-io-bound-work">54. Thread Pool Sizing for I/O-Bound Work</h2>
+<p>For work that spends most of its time <strong>waiting</strong> — a database call, a downstream HTTP request — threads sit idle for the majority of their lifetime, so many more of them than there are cores can be usefully in flight at once:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>threads ≈ cores × (1 + waitTime / computeTime)</code></pre></div>
+<p>A pool handling requests that spend 90ms waiting on a database and 10ms doing real computation (<code>waitTime/computeTime = 9</code>) on an 8-core machine could reasonably support roughly <code>8 × (1 + 9) = 80</code> concurrent threads before CPU becomes the limiting factor — a dramatically different number from §53's CPU-bound sizing, for the same core count, purely because of what the threads spend their time doing.</p>
+<hr>
+<h2 id="55-monitoring-active-count-queue-size-completed-task-count">55. Monitoring: Active Count, Queue Size, Completed Task Count</h2>
+<p>A pool that only exposes "is it working or not" is nearly impossible to tune correctly under real, changing load — a few cheap, always-on counters make the difference:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public int getActiveCount() { return (int) workers.stream().filter(Worker::isRunningTask).count(); }
+public int getQueueSize() { return workQueue.size(); }
+public int getPoolSize() { return poolSize.get(); }
+public long getCompletedTaskCount() { return completedTaskCount.get(); } // an AtomicLong, incremented in Worker.runTask (§19)</code></pre></div>
+<p><code>getQueueSize()</code> trending upward over time, with <code>getPoolSize()</code> already at <code>maximumPoolSize</code>, is the single clearest real-time signal that a pool is genuinely under-provisioned for its current load — exactly the kind of metric §49's benchmarking-style reasoning (from the <a href="Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide.md">ConcurrentHashMap guide</a>) argues for measuring rather than guessing at.</p>
+<hr>
+<h2 id="56-phase-24-a-minimal-scheduledexecutorservice">56. Phase 24 — A Minimal ScheduledExecutorService</h2>
+<p>Some work isn't "run this as soon as possible" but "run this at a specific future time, or repeatedly on an interval" — a <code>ScheduledExecutorService</code>-shaped API needs a different kind of queue: one ordered by <strong>when a task becomes eligible to run</strong>, not by arrival order.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface MiniScheduledExecutorService extends MiniExecutorService {
+    MiniFuture&lt;?&gt; schedule(Runnable task, long delay, TimeUnit unit);
+    MiniFuture&lt;?&gt; scheduleAtFixedRate(Runnable task, long initialDelay, long period, TimeUnit unit);
+}</code></pre></div>
+<hr>
+<h2 id="57-implementing-a-delayqueue-from-scratch">57. Implementing a DelayQueue From Scratch</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// scheduled/DelayQueue.java
+public class DelayQueue&lt;E extends Delayed&gt; {
+    private final PriorityQueue&lt;E&gt; heap = new PriorityQueue&lt;&gt;(); // ordered by getDelay() ascending — a min-heap by deadline
+    private final ReentrantLock lock = new ReentrantLock();
+    private final Condition available = lock.newCondition();
+
+    public void offer(E item) {
+        lock.lock();
+        try {
+            heap.offer(item);
+            if (heap.peek() == item) available.signalAll(); // the new item is now the SOONEST — wake anyone waiting
+        } finally { lock.unlock(); }
+    }
+
+    public E take() throws InterruptedException {
+        lock.lock();
+        try {
+            while (true) {
+                E head = heap.peek();
+                if (head == null) {
+                    available.await(); // nothing scheduled at all — wait indefinitely for the first item
+                } else {
+                    long delayNanos = head.getDelay(TimeUnit.NANOSECONDS);
+                    if (delayNanos &lt;= 0) return heap.poll(); // it's due — take it now
+                    available.awaitNanos(delayNanos);          // wait exactly until it's due, or until something newer arrives
+                }
+            }
+        } finally { lock.unlock(); }
+    }
+}</code></pre></div>
+<p>A <code>PriorityQueue</code> ordered by deadline, plus <code>take()</code> computing <strong>exactly</strong> how long to wait for the soonest-due item (re-checking after every wake, per §13's "why <code>while</code> not <code>if</code>" discipline) is the entire mechanism — a <code>MiniScheduledExecutorService</code>'s workers (§16's <code>Worker</code>, unmodified) simply <code>take()</code> from this queue instead of §12's plain <code>MiniBlockingQueue</code>, and periodic tasks (<code>scheduleAtFixedRate</code>) re-<code>offer()</code> themselves with a new future deadline immediately after each run.</p>
+<hr>
+<h2 id="58-work-stealing-and-forkjoinpool-a-different-architecture-entirely">58. Work Stealing and ForkJoinPool: A Different Architecture Entirely</h2>
+<p>Everything built in this guide uses <strong>one shared queue</strong> every worker pulls from (§12–§18) — correct, but that single queue can itself become a contention point under very high submission rates, and it doesn't naturally handle a task that <em>spawns more tasks</em> (recursive divide-and-conquer work) efficiently. <code>ForkJoinPool</code> solves both with a genuinely different design: <strong>each worker has its own local deque</strong> of tasks, pushes and pops from its <strong>own</strong> end (<code>LIFO</code>, cheap, no contention with other workers), and only when a worker's own deque is empty does it <strong>steal</strong> a task from the <strong>far end</strong> of another worker's deque (<code>FIFO</code> from that worker's perspective, so the stealer takes the <em>oldest</em>, coarsest-grained task rather than colliding with the owner's own most-recent work). This is worth knowing exists — and <em>why</em> it exists (recursive task spawning wants each worker generating and consuming its own subtasks locally, only reaching across to another worker's queue when genuinely starved for work) — even though building it in full is a substantially larger undertaking than this guide's shared-queue design.</p>
+<hr>
+<h2 id="59-virtual-threads-as-an-alternative-to-pooling-platform-threads">59. Virtual Threads as an Alternative to Pooling Platform Threads</h2>
+<p>The <a href="Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide.md">MiniTomcat guide's §39–§40</a> already covers this in depth for the server-socket case, and the conclusion transfers directly here: <code>Executors.newVirtualThreadPerTaskExecutor()</code> sidesteps this entire guide's core/max/queue sizing model (§21–§26) by making thread creation so cheap that <strong>pooling threads stops being necessary at all</strong> — a new virtual thread per task, parked cheaply on blocking I/O rather than occupying a scarce platform thread. It doesn't make everything in this guide obsolete: <code>Future</code>/<code>FutureTask</code> (§30–§34), rejection-shaped backpressure concepts, and <code>@Async</code>-style declarative dispatch (§42–§52) are all still meaningful ideas regardless of what actually executes the work underneath — only the specific "how many platform threads, how do they grow and shrink" machinery in §21–§26 is what virtual threads let you stop hand-tuning.</p>
+<hr>
+<h2 id="60-common-mistakes">60. Common Mistakes</h2>
+<ul>
+<li><strong>Mistake 1 — An unbounded work queue.</strong> Exactly <a href="Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide.md">the MiniTomcat guide's §17</a> warning, repeated here because it's just as easy to get wrong in a hand-built pool: an unbounded queue means step 3 of §23's decision order never triggers, so <code>maximumPoolSize</code> is silently meaningless.</li>
+<li><strong>Mistake 2 — Swallowing exceptions inside a worker without a handler (§19).</strong> Left unhandled, an exception in <code>task.run()</code> kills that worker thread outright, silently shrinking the pool one failure at a time.</li>
+<li><strong>Mistake 3 — Forgetting <code>while</code>, using <code>if</code>, around a <code>Condition.await()</code> (§13-§14, §57).</strong> A single missed re-check after waking is enough to let a race corrupt the queue's invariants under real concurrent load.</li>
+<li><strong>Mistake 4 — Assuming <code>cancel(true)</code> always stops a running task (§33).</strong> It only requests interruption — a task with no interruption checks and no interruptible blocking calls keeps running to completion regardless.</li>
+<li><strong>Mistake 5 — Calling <code>shutdown()</code> and immediately assuming the pool has stopped.</strong> <code>shutdown()</code> is asynchronous with respect to in-flight work — <code>awaitTermination()</code> (§38) is what actually confirms termination.</li>
+<li><strong>Mistake 6 — Sharing one <code>@Async</code> executor for both fast, frequent work and slow, rare work (§50).</strong> A single shared pool means the slow work can starve the fast work of threads — named, independently-sized pools per workload exist specifically to prevent this.</li>
+<li><strong>Mistake 7 — Expecting self-invoked <code>@Async</code> methods to run asynchronously (§52).</strong> A call from inside the same class bypasses the proxy entirely and runs synchronously, silently.</li>
+<li><strong>Mistake 8 — Applying <code>@Async</code> to a class with no interface, expecting it to "just work" (§46, §52).</strong> This guide's JDK-dynamic-proxy-based implementation cannot proxy a class with no interface at all — it will fail loudly (§48's explicit check) rather than silently, but only if that check is actually in place.</li>
+</ul>
+<hr>
+<h2 id="61-testing-strategy">61. Testing Strategy</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>What to test</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MiniBlockingQueue</code> (§12-§15)</td>
+<td><code>put()</code> blocks when full, <code>take()</code> blocks when empty, both unblock correctly when the other happens</td>
+<td>Multi-threaded test: fill the queue, start a blocked <code>put()</code> on another thread, <code>take()</code> one item, assert the blocked <code>put()</code> completes</td>
+</tr>
+<tr>
+<td>Pool sizing decision order (§22-§26)</td>
+<td>Tasks fill core threads first, then the queue, then grow to max, then reject — in exactly that order</td>
+<td>Submit tasks one at a time with a controllable "how many are currently running" probe, asserting the pool's state after each submission matches §23's decision order</td>
+</tr>
+<tr>
+<td>Rejection policies (§29)</td>
+<td>Each policy does exactly what it claims once the pool and queue are both full</td>
+<td>Saturate the pool deliberately (long-running tasks), submit one more, assert the policy-specific behavior</td>
+</tr>
+<tr>
+<td><code>FutureTask</code> state machine (§30-§34)</td>
+<td><code>cancel()</code> before running succeeds; <code>cancel(false)</code> on a running task fails; <code>get()</code> correctly wraps a thrown exception in <code>ExecutionException</code></td>
+<td>Unit tests targeting each state transition directly</td>
+</tr>
+<tr>
+<td>Shutdown semantics (§35-§38)</td>
+<td><code>shutdown()</code> finishes queued work; <code>shutdownNow()</code> returns exactly the tasks that never ran</td>
+<td>Queue several tasks, call each shutdown variant, assert on what actually executed vs. what was returned</td>
+</tr>
+<tr>
+<td><code>@Async</code> proxy behavior (§42-§52)</td>
+<td>A void <code>@Async</code> method returns immediately and runs on the correct named pool; a <code>MiniFuture</code>-returning one is genuinely asynchronous; self-invocation is (correctly) synchronous</td>
+<td>Integration test using real bean wiring, asserting on which thread actually executed the method body</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="62-design-patterns-used">62. Design Patterns Used</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Applied to</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Producer-Consumer</strong></td>
+<td>Callers producing tasks, workers consuming them, <code>MiniBlockingQueue</code> as the buffer</td>
+<td>§11-§18</td>
+</tr>
+<tr>
+<td><strong>Strategy</strong></td>
+<td><code>RejectedExecutionHandler</code>, and the choice of named executor per <code>@Async</code> method</td>
+<td>§28-§29, §43, §50</td>
+</tr>
+<tr>
+<td><strong>State</strong></td>
+<td><code>MiniFutureTask</code>'s explicit <code>NEW/RUNNING/COMPLETED/FAILED/CANCELLED</code> state machine</td>
+<td>§30-§34</td>
+</tr>
+<tr>
+<td><strong>Proxy</strong></td>
+<td>The entire <code>@Async</code> mechanism — a generated stand-in object intercepting calls to a real one</td>
+<td>§44-§48</td>
+</tr>
+<tr>
+<td><strong>Template Method</strong> (implicit)</td>
+<td>Every <code>Worker</code>'s loop follows the identical get-task/run-task/repeat shape regardless of what the task does</td>
+<td>§16</td>
+</tr>
+<tr>
+<td><strong>Object Pool</strong> (the executor itself, at the meta level)</td>
+<td>Reusing a fixed set of worker threads instead of creating one per task</td>
+<td>§16-§26</td>
+</tr>
+</tbody>
+</table></div>
+<p>The <strong>Proxy</strong> pattern is worth calling out as this guide's most conceptually distinct addition — every other pattern here manages <em>threads and tasks</em>; Proxy is the one mechanism that makes <code>@Async</code> invisible to ordinary calling code, by inserting an entire extra layer of indirection at the object-reference level rather than at the concurrency level.</p>
+<hr>
+<h2 id="63-progressive-interview-question-set">63. Progressive Interview Question Set</h2>
+<p><strong>Level 1 — Why a pool at all</strong>
+1. Why is <code>new Thread(task).start()</code> per submission dangerous at scale, concretely — not just "it's not scalable"?
+2. What's the difference between <code>Runnable</code> and <code>Callable</code>, and why does <code>Future</code> need <code>Callable</code> specifically?</p>
+<p><strong>Level 2 — The blocking queue</strong>
+3. Why does a correct blocking queue need <code>while</code>, not <code>if</code>, around its <code>Condition.await()</code> calls?
+4. Why use two separate <code>Condition</code>s (<code>notEmpty</code>/<code>notFull</code>) instead of one shared wait-set?</p>
+<p><strong>Level 3 — Pool sizing</strong>
+5. State, precisely, the order <code>execute()</code> makes its four-step decision, and explain why growing the pool is checked <em>after</em> the queue, not before.
+6. Why don't core threads time out by default, while non-core ones do?</p>
+<p><strong>Level 4 — Futures and cancellation</strong>
+7. Walk through <code>FutureTask</code>'s state machine for a task that's cancelled while already running.
+8. Does <code>cancel(true)</code> guarantee a running task stops? Why or why not?</p>
+<p><strong>Level 5 — Shutdown</strong>
+9. What's the concrete difference between what <code>shutdown()</code> and <code>shutdownNow()</code> do to a task currently sitting in the queue?</p>
+<p><strong>Level 6 — @Async and dynamic proxies</strong>
+10. Explain, mechanically, what <code>Proxy.newProxyInstance</code> actually creates, and what role the <code>InvocationHandler</code> plays.
+11. Why can't a JDK dynamic proxy proxy a class with no interface, and what technique does real Spring use instead?
+12. Why does calling an <code>@Async</code> method from inside the same class (self-invocation) run synchronously instead of asynchronously?</p>
+<p><strong>Final challenge:</strong> Design a way to let a caller of an <code>@Async</code> method specify, per call (not per method declaration), which named executor should handle that specific invocation — without changing the method's own signature. What would you have to add to <code>AsyncInvocationHandler</code> (§47), and what new problem does making the executor choice dynamic-per-call introduce that a static <code>@Async("name")</code> annotation doesn't have?</p>
+<hr>
+<h2 id="64-suggested-v2-enhancements">64. Suggested V2 Enhancements</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Enhancement</th>
+<th>What it adds</th>
+<th>Where it plugs in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CGLIB/ByteBuddy-based proxying</td>
+<td><code>@Async</code> support for classes with no interface</td>
+<td>Replaces §44-§48's <code>java.lang.reflect.Proxy</code> call with a subclass-generation library, same <code>AsyncInvocationHandler</code> logic underneath</td>
+</tr>
+<tr>
+<td>Work-stealing pool</td>
+<td>Efficient handling of recursive, self-spawning tasks</td>
+<td>The architecture sketched in §58, built out in full</td>
+</tr>
+<tr>
+<td>Metrics/observability integration</td>
+<td>Real-time pool health visible in a dashboard, not just via <code>getActiveCount()</code>-style polling</td>
+<td>Wiring §55's counters into a metrics library, alongside per-task timing</td>
+</tr>
+<tr>
+<td>Configurable rejection-then-retry</td>
+<td>A hybrid rejection policy that retries with backoff before finally giving up</td>
+<td>A <code>RejectedExecutionHandler</code> (§28) implementation combining §29's ideas with the <a href="Optimistic vs Pessimistic Locking — A Practical, Step-by-Step Guide With a Custom Java Implementation.md">locking guide's retry-with-backoff pattern</a></td>
+</tr>
+<tr>
+<td>Per-task priority</td>
+<td>Some submitted tasks should run before others, not strictly FIFO</td>
+<td>Replacing §12's plain circular-buffer queue with a <code>PriorityBlockingQueue</code>-style structure ordered by a task priority field</td>
+</tr>
+<tr>
+<td>Virtual-thread-backed <code>@Async</code> executors</td>
+<td>Combine §42-§52's declarative API with §59's scaling model</td>
+<td><code>AsyncExecutorRegistry</code> (§43) registering a virtual-thread-per-task executor under a name, with zero change to <code>AsyncInvocationHandler</code> itself</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="65-final-takeaway">65. Final Takeaway</h2>
+<p>Every mechanism in this guide answers the same underlying question at a different layer: <strong>how do you let work happen without the caller waiting for it, while still bounding the resources that work consumes?</strong> A blocking queue answers it between producers and workers (§11–§15); core/max sizing with idle timeout answers it for how many threads exist at all (§21–§26); a rejection policy answers it for the moment even that bound is exceeded (§27–§29); <code>Future</code>/<code>FutureTask</code> answers it for how a caller eventually collects a result without blocking until it's ready (§30–§34); and <code>@Async</code>'s dynamic proxy answers it for how "this call should be asynchronous" can be declared once, centrally, instead of scattered across every call site (§42–§52). None of these are independent tricks — they compose into exactly the shape <code>java.util.concurrent.ThreadPoolExecutor</code> and Spring's <code>@Async</code> already have, and having built each layer yourself is what turns "I can configure a thread pool" into "I know exactly what happens, mechanically, when I do."</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also &quot;Build Your Own Executor Framework From Scratch &mdash; A Java Concurrency Step-by-Step Guide.md&quot; for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

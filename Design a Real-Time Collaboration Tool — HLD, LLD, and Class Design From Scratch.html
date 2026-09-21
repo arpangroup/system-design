@@ -1,0 +1,1276 @@
+<meta charset="utf-8">
+<title>Design a Real-Time Collaboration Tool — HLD, LLD, and Class Design From Scratch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; system design guide</div>
+      <h1>Design a Real-Time Collaboration Tool — HLD, LLD, and Class Design From Scratch</h1>
+      <p class="dek">A system-design-interview-style guide to designing a real-time collaborative editor like Google Docs or Figma &mdash; functional and non-functional requirements, a high-level architecture (WebSocket transport, session affinity, offline reconciliation, presence), and a low-level design of both major conflict-resolution algorithms, Operational Transformation and CRDTs, built and compared as real working code, plus undo/redo, version history, sharing permissions, and crash-durability guarantees.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-the-interview-framed">Why This Matters (The Interview, Framed)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-step-1-clarifying-requirements-before-designing-anything">Step 1 — Clarifying Requirements Before Designing Anything</a></li><li class="toc-lvl-2"><a href="#7-functional-requirements">Functional Requirements</a></li><li class="toc-lvl-2"><a href="#8-non-functional-requirements">Non-Functional Requirements</a></li><li class="toc-lvl-2"><a href="#9-follow-up-question-1-whats-the-core-challenge-here-fundamentally">Follow-up Question 1 — "What's the Core Challenge Here, Fundamentally?"</a></li><li class="toc-lvl-2"><a href="#10-the-core-challenge-concurrent-edits-to-shared-state">The Core Challenge: Concurrent Edits to Shared State</a></li><li class="toc-lvl-2"><a href="#11-high-level-architecture-overview">High-Level Architecture Overview</a></li><li class="toc-lvl-2"><a href="#12-follow-up-question-2-client-server-or-peer-to-peer">Follow-up Question 2 — "Client-Server or Peer-to-Peer?"</a></li><li class="toc-lvl-2"><a href="#13-why-a-central-server-even-though-its-real-time">Why a Central Server (Even Though It's "Real-Time")</a></li><li class="toc-lvl-2"><a href="#14-follow-up-question-3-how-does-a-client-know-what-changed">Follow-up Question 3 — "How Does a Client Know What Changed?"</a></li><li class="toc-lvl-2"><a href="#15-websockets-and-the-real-time-transport-layer">WebSockets and the Real-Time Transport Layer</a></li><li class="toc-lvl-2"><a href="#16-follow-up-question-4-two-users-type-at-the-same-position-at-the-same-time-what-happens">Follow-up Question 4 — "Two Users Type at the Same Position at the Same Time. What Happens?"</a></li><li class="toc-lvl-2"><a href="#17-two-approaches-operational-transformation-vs-crdts">Two Approaches: Operational Transformation vs CRDTs</a></li><li class="toc-lvl-2"><a href="#18-document-storage-and-persistence">Document Storage and Persistence</a></li><li class="toc-lvl-2"><a href="#19-follow-up-question-5-how-do-you-handle-a-user-going-offline-and-coming-back">Follow-up Question 5 — "How Do You Handle a User Going Offline and Coming Back?"</a></li><li class="toc-lvl-2"><a href="#20-offline-support-and-reconciliation">Offline Support and Reconciliation</a></li><li class="toc-lvl-2"><a href="#21-presence-cursors-selections-and-whos-online">Presence: Cursors, Selections, and Who's Online</a></li><li class="toc-lvl-2"><a href="#22-follow-up-question-6-how-do-you-scale-to-millions-of-documents-being-edited-concurrently">Follow-up Question 6 — "How Do You Scale to Millions of Documents Being Edited Concurrently?"</a></li><li class="toc-lvl-2"><a href="#23-session-affinity-routing-a-documents-edits-to-one-owning-server">Session Affinity: Routing a Document's Edits to One Owning Server</a></li><li class="toc-lvl-2"><a href="#24-high-level-architecture-diagram-assembled">High-Level Architecture Diagram, Assembled</a></li><li class="toc-lvl-2"><a href="#25-follow-up-question-7-lets-get-concrete-design-the-class-model-for-operational-transformation">Follow-up Question 7 — "Let's Get Concrete. Design the Class Model for Operational Transformation."</a></li><li class="toc-lvl-2"><a href="#26-representing-an-edit-as-an-operation">Representing an Edit as an Operation</a></li><li class="toc-lvl-2"><a href="#27-the-transform-function-reconciling-two-concurrent-operations">The Transform Function: Reconciling Two Concurrent Operations</a></li><li class="toc-lvl-2"><a href="#28-implementing-insert-insert-transformation">Implementing Insert-Insert Transformation</a></li><li class="toc-lvl-2"><a href="#29-implementing-insert-delete-and-delete-delete-transformation">Implementing Insert-Delete and Delete-Delete Transformation</a></li><li class="toc-lvl-2"><a href="#30-the-central-servers-role-sequencing-and-broadcasting-transformed-operations">The Central Server's Role: Sequencing and Broadcasting Transformed Operations</a></li><li class="toc-lvl-2"><a href="#31-class-diagram-the-ot-engine">Class Diagram: The OT Engine</a></li><li class="toc-lvl-2"><a href="#32-follow-up-question-8-ot-requires-a-central-server-to-sequence-operations-what-if-you-dont-want-that">Follow-up Question 8 — "OT Requires a Central Server to Sequence Operations. What If You Don't Want That?"</a></li><li class="toc-lvl-2"><a href="#33-crdt-fundamentals-convergence-without-coordination">CRDT Fundamentals: Convergence Without Coordination</a></li><li class="toc-lvl-2"><a href="#34-a-simple-crdt-for-text-the-rga-replicated-growable-array-idea">A Simple CRDT for Text: The RGA (Replicated Growable Array) Idea</a></li><li class="toc-lvl-2"><a href="#35-implementing-a-character-level-crdt">Implementing a Character-Level CRDT</a></li><li class="toc-lvl-2"><a href="#36-ot-vs-crdt-a-direct-comparison">OT vs CRDT: A Direct Comparison</a></li><li class="toc-lvl-2"><a href="#37-class-diagram-the-crdt-engine">Class Diagram: The CRDT Engine</a></li><li class="toc-lvl-2"><a href="#38-the-document-entity-and-version-history">The Document Entity and Version History</a></li><li class="toc-lvl-2"><a href="#39-the-sessionconnection-model">The Session/Connection Model</a></li><li class="toc-lvl-2"><a href="#40-follow-up-question-9-how-do-you-implement-live-cursors-and-selections">Follow-up Question 9 — "How Do You Implement Live Cursors and Selections?"</a></li><li class="toc-lvl-2"><a href="#41-presence-and-awareness">Presence and Awareness</a></li><li class="toc-lvl-2"><a href="#42-class-diagram-document-session-and-presence">Class Diagram: Document, Session, and Presence</a></li><li class="toc-lvl-2"><a href="#43-follow-up-question-10-how-do-you-handle-sharing-and-permissions-viewer-commenter-editor">Follow-up Question 10 — "How Do You Handle Sharing and Permissions (Viewer, Commenter, Editor)?"</a></li><li class="toc-lvl-2"><a href="#44-role-based-sharing-model">Role-Based Sharing Model</a></li><li class="toc-lvl-2"><a href="#45-class-diagram-sharing-and-access-control">Class Diagram: Sharing and Access Control</a></li><li class="toc-lvl-2"><a href="#46-follow-up-question-11-how-do-you-implement-undoredo-in-a-multi-user-environment">Follow-up Question 11 — "How Do You Implement Undo/Redo in a Multi-User Environment?"</a></li><li class="toc-lvl-2"><a href="#47-undoredo-in-a-collaborative-context">Undo/Redo in a Collaborative Context</a></li><li class="toc-lvl-2"><a href="#48-follow-up-question-12-how-do-you-show-document-history-version-snapshots">Follow-up Question 12 — "How Do You Show Document History / Version Snapshots?"</a></li><li class="toc-lvl-2"><a href="#49-snapshotting-and-version-history">Snapshotting and Version History</a></li><li class="toc-lvl-2"><a href="#50-follow-up-question-13-what-guarantees-does-your-system-actually-provide-is-it-strongly-consistent">Follow-up Question 13 — "What Guarantees Does Your System Actually Provide? Is It Strongly Consistent?"</a></li><li class="toc-lvl-2"><a href="#51-eventual-consistency-and-convergence-guarantees">Eventual Consistency and Convergence Guarantees</a></li><li class="toc-lvl-2"><a href="#52-follow-up-question-14-what-happens-if-the-server-crashes-mid-broadcast">Follow-up Question 14 — "What Happens If the Server Crashes Mid-Broadcast?"</a></li><li class="toc-lvl-2"><a href="#53-server-crash-recovery-and-operation-durability">Server Crash Recovery and Operation Durability</a></li><li class="toc-lvl-2"><a href="#54-follow-up-question-15-10-million-documents-500k-concurrent-editors-what-breaks-first">Follow-up Question 15 — "10 Million Documents, 500K Concurrent Editors. What Breaks First?"</a></li><li class="toc-lvl-2"><a href="#55-sharding-documents-across-servers">Sharding Documents Across Servers</a></li><li class="toc-lvl-2"><a href="#56-horizontal-scaling-of-the-real-time-layer-pubsub-backbone">Horizontal Scaling of the Real-Time Layer (Pub/Sub Backbone)</a></li><li class="toc-lvl-2"><a href="#57-rate-limiting-and-backpressure">Rate Limiting and Backpressure</a></li><li class="toc-lvl-2"><a href="#58-full-worked-example-two-users-editing-the-same-document">Full Worked Example: Two Users Editing the Same Document</a></li><li class="toc-lvl-2"><a href="#59-final-architecture">Final Architecture</a></li><li class="toc-lvl-2"><a href="#60-design-patterns-used">Design Patterns Used</a></li><li class="toc-lvl-2"><a href="#61-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#62-common-mistakes">Common Mistakes</a></li><li class="toc-lvl-2"><a href="#63-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#64-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#65-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#66-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>The interview question this guide answers:</strong></p>
+<p><em>"Design a real-time collaborative document editor — like Google Docs or Figma's multiplayer editing. Cover both high-level design (architecture, real-time transport, scaling) and low-level design (the actual algorithm that resolves concurrent edits, and its class model). Be ready to justify every design decision when I push back."</em></p>
+<p>This guide is structured exactly as that interview unfolds: requirements gathering, a high-level architecture built up decision by decision, a deep low-level dive into <strong>both</strong> major approaches to concurrent editing (Operational Transformation and CRDTs), and a sequence of escalating <strong>follow-up questions</strong> — each answered with real reasoning and working code, not a diagram presented as if no one ever questioned it.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<p>We are building <strong>MiniCollab</strong> — a real-time collaborative document editor covering:</p>
+<ul>
+<li><strong>Functional requirements</strong>: multiple users editing the same document simultaneously, live cursors and presence, sharing with view/comment/edit permissions, undo/redo, and version history.</li>
+<li><strong>High-level design</strong>: a client-server real-time architecture, the transport layer (WebSockets), session affinity for scaling, offline support and reconciliation, and horizontal scaling of the real-time layer.</li>
+<li><strong>Low-level design</strong>: two complete, contrasting engines for resolving concurrent edits — <strong>Operational Transformation</strong> (the algorithm behind Google Docs) and <strong>CRDTs</strong> (the algorithm behind Figma and many peer-to-peer-capable tools) — built as real, working class models, not just named.</li>
+<li><strong>Consistency and failure</strong>: exactly what guarantee the system provides when two edits collide, what happens when the server crashes mid-broadcast, and how the design scales to millions of concurrently-edited documents.</li>
+</ul>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                     User A's browser              User B's browser
+                     (local edit applied            (local edit applied
+                      IMMEDIATELY, optimistic)        IMMEDIATELY, optimistic)
+                            |                                |
+                            |     WebSocket (§15)            |
+                            v                                v
+                    +----------------------------------------------+
+                    |         Collaboration Server (owns this        |
+                    |         document's session, §23)               |
+                    |  Operational Transform OR CRDT engine (§25-§37)|
+                    +----------------------------------------------+
+                                        |
+                                        v
+                          Document store (source of truth, §38)
+                          + Operation log (durability, §53)</code></pre></div>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to:</p>
+<ul>
+<li>Explain, precisely, why concurrent editing of shared text is a fundamentally harder problem than concurrent editing of a database row, and why last-write-wins is the wrong answer.</li>
+<li>Implement a working <strong>Operational Transformation</strong> engine: representing edits as operations, and transforming one operation against another so both replicas converge on the same final document.</li>
+<li>Implement a working <strong>character-level CRDT</strong>: unique, order-preserving identifiers that let replicas converge without any central coordination at all.</li>
+<li>Justify choosing OT over CRDTs (or vice versa) for a given product's requirements, from real tradeoffs, not a memorized preference.</li>
+<li>Design live presence (cursors, selections, "who's online") as a genuinely separate concern from document content synchronization.</li>
+<li>Reason about what breaks first at scale (millions of documents, hundreds of thousands of concurrent editors) and name the specific technique that addresses each bottleneck.</li>
+</ul>
+<hr>
+<h2 id="3-why-this-matters-the-interview-framed">3. Why This Matters (The Interview, Framed)</h2>
+<p>Designing a real-time collaborative editor is a favorite <strong>senior/staff systems interview question</strong> specifically because "just use a database and lock the row" — the correct answer to many other system-design prompts — is actively wrong here, and recognizing <em>why</em> is the actual signal being tested:</p>
+<ul>
+<li><strong>The core problem is algorithmic, not just architectural.</strong> Unlike <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA-style guide's optimistic locking</a>, which resolves a conflict by rejecting the second writer, a collaborative editor <strong>must</strong> merge both users' concurrent keystrokes into one coherent document — rejecting either user's input is not an acceptable product experience.</li>
+<li><strong>Two, genuinely different, well-established solutions exist</strong> (Operational Transformation and CRDTs), each with real tradeoffs — a strong answer can build and compare both, not just name-drop one.</li>
+<li><strong>Real-time transport and presence are their own design problems</strong>, distinct from the conflict-resolution algorithm itself, and conflating them is a common, revealing mistake.</li>
+<li><strong>Consistency guarantees must be stated precisely</strong> — "eventually consistent, guaranteed convergence" is a specific, defensible claim; "it just syncs" is not.</li>
+</ul>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language</td>
+<td>Java 21</td>
+<td>Matches this guide's class diagrams and algorithm implementations.</td>
+</tr>
+<tr>
+<td>Real-time transport</td>
+<td>WebSockets</td>
+<td>A persistent, bidirectional connection — essential for low-latency operation broadcast (§15).</td>
+</tr>
+<tr>
+<td>Document storage</td>
+<td>A relational or document store for the durable document state</td>
+<td>The document's current content and metadata need durable, queryable storage (§38).</td>
+</tr>
+<tr>
+<td>Operation log</td>
+<td>A durable, ordered append log (Kafka-style, or <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's own WAL</a>)</td>
+<td>Every applied operation is logged before being acknowledged, exactly the durability discipline that guide already establishes (§53).</td>
+</tr>
+<tr>
+<td>Pub/Sub backbone</td>
+<td>A message broker supporting topic-based fan-out</td>
+<td>Broadcasts operations to every connected client editing the same document (§56).</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>minicollab/
+├── src/main/java/com/example/minicollab/
+│   ├── ot/
+│   │   ├── Operation.java, InsertOp.java, DeleteOp.java // §26
+│   │   ├── OperationTransformer.java     // §27-§29
+│   │   └── OtDocumentSession.java        // §30
+│   ├── crdt/
+│   │   ├── CrdtCharacter.java, CharacterId.java // §34-§35
+│   │   └── CrdtDocument.java              // §35
+│   ├── document/
+│   │   ├── Document.java, DocumentSnapshot.java // §38, §49
+│   │   └── VersionHistory.java            // §49
+│   ├── session/
+│   │   ├── EditSession.java               // §39
+│   │   ├── PresenceTracker.java           // §41
+│   │   └── CursorPosition.java
+│   ├── sharing/
+│   │   ├── ShareRole.java, DocumentAccess.java // §44
+│   │   └── AccessChecker.java
+│   └── undo/
+│       └── UndoManager.java              // §47
+└── src/test/java/com/example/minicollab/
+    ├── OperationalTransformTest.java
+    ├── CrdtConvergenceTest.java
+    └── ConcurrentEditStressTest.java</code></pre></div>
+<hr>
+<h2 id="6-step-1-clarifying-requirements-before-designing-anything">6. Step 1 — Clarifying Requirements Before Designing Anything</h2>
+<blockquote>
+<p><strong>Candidate's clarifying questions:</strong> <em>"What's actually being edited — plain text, rich text with formatting, or structured content like a spreadsheet or a design canvas? Do we need to support offline editing that later reconciles? Is this purely client-server, or does it need to work peer-to-peer? How many concurrent editors on one document is realistic — a handful, or thousands watching a live event doc?"</em></p>
+</blockquote>
+<p>Exactly as <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA guide's opening</a> and <a href="Design Your Own File Storage System — Block, File, Object Storage, and RAID From Scratch.md">the file storage guide's opening</a> both establish, narrowing the prompt before designing is the correct first move — the answers here directly determine whether Operational Transformation or CRDTs (§17, §32) is the better starting point, and whether offline support (§19-§20) is core or out of scope.</p>
+<p>For this guide, we settle on a concrete scope: <strong>plain/rich text documents</strong>, <strong>client-server</strong> (not peer-to-peer), supporting <strong>offline edits with reconciliation on reconnect</strong>, targeting <strong>dozens of concurrent editors per document</strong> (Google Docs' actual realistic range, not thousands).</p>
+<hr>
+<h2 id="7-functional-requirements">7. Functional Requirements</h2>
+<ul>
+<li>Multiple users edit the <strong>same document</strong> simultaneously, with each user's edits appearing live for everyone else within a short, bounded delay.</li>
+<li>Every connected user sees <strong>live cursors and selections</strong> from other active editors.</li>
+<li>Users can work <strong>offline</strong> and have their edits correctly merged in when they reconnect.</li>
+<li>Documents can be <strong>shared</strong> with specific permission levels: Viewer, Commenter, Editor.</li>
+<li><strong>Undo/redo</strong> works correctly even when other users have made changes in between.</li>
+<li>A document's <strong>version history</strong> is browsable and restorable.</li>
+<li>Comments can be attached to specific ranges of content.</li>
+</ul>
+<hr>
+<h2 id="8-non-functional-requirements">8. Non-Functional Requirements</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>What it means concretely</th>
+<th>Where this guide addresses it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Low latency</strong></td>
+<td>A keystroke should appear on other users' screens within roughly 100ms under normal conditions</td>
+<td>Optimistic local application (§13) + a lightweight WebSocket transport (§15)</td>
+</tr>
+<tr>
+<td><strong>Convergence</strong></td>
+<td>Every replica (every connected client, and the server) must eventually reach the <strong>exact same</strong> document content, regardless of the order operations arrive in</td>
+<td>The actual mathematical guarantee OT (§27) and CRDTs (§33) are each built to provide</td>
+</tr>
+<tr>
+<td><strong>Availability during network issues</strong></td>
+<td>A user shouldn't lose work or be blocked from typing just because their connection is briefly unstable</td>
+<td>Offline editing and reconciliation (§19-§20)</td>
+</tr>
+<tr>
+<td><strong>Durability</strong></td>
+<td>A confirmed edit must survive a server crash</td>
+<td>An operation log, exactly <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's WAL discipline</a> (§53)</td>
+</tr>
+<tr>
+<td><strong>Scalability</strong></td>
+<td>Millions of documents, each with its own small set of concurrent editors</td>
+<td>Session affinity (§23) and document sharding (§55) — scaling by <em>number of documents</em>, not by making one document's editor count unbounded</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="9-follow-up-question-1-whats-the-core-challenge-here-fundamentally">9. Follow-up Question 1 — "What's the Core Challenge Here, Fundamentally?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Forget architecture for a second. In one sentence: what makes this problem fundamentally different from, say, two people editing the same database row?"</em></p>
+</blockquote>
+<p>The honest answer: with a database row, <strong>rejecting</strong> the second concurrent writer (optimistic locking, <a href="Optimistic vs Pessimistic Locking — A Practical, Step-by-Step Guide With a Custom Java Implementation.md">as the locking guide builds in full</a>) is an acceptable outcome — the user retries. With collaborative text editing, <strong>rejecting a keystroke is not an acceptable product experience</strong> — if Alice and Bob type at the same time, both of their keystrokes must end up in the final document, correctly interleaved, with <strong>neither</strong> user ever seeing their own typing silently vanish or getting an error mid-sentence. The entire discipline of Operational Transformation and CRDTs exists to solve exactly this: <strong>merge</strong>, don't reject.</p>
+<hr>
+<h2 id="10-the-core-challenge-concurrent-edits-to-shared-state">10. The Core Challenge: Concurrent Edits to Shared State</h2>
+<p>Concretely: Alice and Bob both start with the document <code>"cat"</code>. Alice inserts <code>"h"</code> at position 0, producing <code>"hcat"</code> on her screen instantly (optimistic local application, §13). Bob, at the same instant, inserts <code>"s"</code> at position 3, producing <code>"cats"</code> on his screen instantly. Both edits must reach the other user and the server, and <strong>all three copies</strong> (Alice's, Bob's, and the server's) must converge on the same final string — <code>"hcats"</code> — even though Bob's insert position (3) was computed against the original <code>"cat"</code>, not against Alice's already-modified <code>"hcat"</code>. Naively applying Bob's <code>insert(3, "s")</code> against <code>"hcat"</code> would produce <code>"hcast"</code> — <strong>wrong</strong>, because position 3 in <code>"hcat"</code> is a different character than position 3 was in <code>"cat"</code>. This exact positional-drift problem is what §17 onward exists to solve.</p>
+<hr>
+<h2 id="11-high-level-architecture-overview">11. High-Level Architecture Overview</h2>
+<p>At the highest level: each client applies its own edits <strong>immediately and optimistically</strong> (never waiting for a server round trip to show the user their own keystroke), sends the edit to a <strong>Collaboration Server</strong> that owns that document's live session, which resolves it against any concurrently-arriving edits from other clients and broadcasts the resolved result to everyone connected — including, if needed, a correction back to the original author. §1's diagram is this section's answer, restated for reference; §12–§23 justify every piece of it.</p>
+<hr>
+<h2 id="12-follow-up-question-2-client-server-or-peer-to-peer">12. Follow-up Question 2 — "Client-Server or Peer-to-Peer?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Real-time collaboration sounds like it could be peer-to-peer — why route everything through a server at all?"</em></p>
+</blockquote>
+<p>Peer-to-peer is architecturally possible (and is exactly what CRDTs, §32-§37, are specifically designed to support without any central coordinator) — but a central server buys three things a pure peer-to-peer mesh doesn't get for free: a <strong>single source of truth</strong> for the document's durable state (§38) even when every client disconnects, a <strong>simple place to enforce permissions</strong> (§43-§44) before an edit is even accepted, and — critically for Operational Transformation specifically (§17) — a <strong>canonical ordering</strong> of operations, which OT's classic algorithm actually depends on (§30). This guide picks client-server as the default architecture (matching §6's scoping), while §32-§37 show that CRDTs, as an alternative <em>algorithm</em> choice within that same client-server architecture, could later support peer-to-peer without redesigning the whole system.</p>
+<hr>
+<h2 id="13-why-a-central-server-even-though-its-real-time">13. Why a Central Server (Even Though It's "Real-Time")</h2>
+<p>The word "real-time" doesn't mean "server-free" — it means <strong>low-latency</strong>, which the design achieves through <strong>optimistic local application</strong>: a keystroke updates the local editor's screen instantly, in parallel with (not waiting for) sending it to the server. The server's round trip only affects <em>other</em> users' screens and, in the rare event of a real conflict, a correction to the <em>originating</em> user's own document — the typing experience itself never waits on the network, which is what actually makes the system feel real-time despite a server sitting in the middle of every edit.</p>
+<hr>
+<h2 id="14-follow-up-question-3-how-does-a-client-know-what-changed">14. Follow-up Question 3 — "How Does a Client Know What Changed?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Bob is looking at the document. Alice types a sentence on the other side of the world. How does that text actually appear on Bob's screen?"</em></p>
+</blockquote>
+<p>Not by Bob's client polling the server on a timer (the same latency-vs-bandwidth tradeoff <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the file storage guide's real-time discussion</a> already rejects for board updates) — a <strong>persistent WebSocket connection</strong> per active editor, with the server pushing each resolved operation to every other connected client the instant it's ready.</p>
+<hr>
+<h2 id="15-websockets-and-the-real-time-transport-layer">15. WebSockets and the Real-Time Transport Layer</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Client A                    Collaboration Server                    Client B
+   |  1. WebSocket connect, join document &quot;doc-42&quot;'s session  ------------&gt;|
+   |                                                                        |
+   |  2. Alice types &quot;h&quot; -&gt; InsertOp(pos=0, char='h') sent over WebSocket   |
+   |-------------------------------------------------------------------&gt;  |
+   |                                    3. Server resolves/transforms (§27)|
+   |                                    4. Broadcasts resolved op to ALL   |
+   |                                       OTHER connected clients          |
+   |&lt;-------------------------------------------------------------------  |
+   |                                                        (Bob's screen updates)</code></pre></div>
+<p>Each document's session is a lightweight, in-memory broadcast group — every client connected to that document receives every other client's resolved operations over its own persistent connection, with no polling and no unnecessary round trips for clients not editing that specific document.</p>
+<hr>
+<h2 id="16-follow-up-question-4-two-users-type-at-the-same-position-at-the-same-time-what-happens">16. Follow-up Question 4 — "Two Users Type at the Same Position at the Same Time. What Happens?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Walk me through, mechanically, what the server actually does when it receives two operations that were both computed against the same starting document state."</em></p>
+</blockquote>
+<p>This is §10's exact scenario, now asked as a direct algorithmic question rather than a motivating example — and it's the pivot point into the two real solutions this guide builds in full: <strong>transform</strong> one operation against the other so it's still correct when applied to the <em>already-modified</em> document (Operational Transformation, §17), or design the data structure so that <strong>applying operations in any order produces the same result automatically</strong> (CRDTs, §33).</p>
+<hr>
+<h2 id="17-two-approaches-operational-transformation-vs-crdts">17. Two Approaches: Operational Transformation vs CRDTs</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Operational Transformation (§25-§31)</th>
+<th>CRDTs (§32-§37)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Core idea</td>
+<td>Transform a concurrent operation's position/content so it's correct when applied after another operation, rather than the state it was originally computed against</td>
+<td>Design the data itself (e.g. unique, order-preserving IDs per character) so that applying operations in <strong>any</strong> order converges to the same result — no transformation step needed</td>
+</tr>
+<tr>
+<td>Needs a central sequencer?</td>
+<td>Yes, in the classic algorithm — a server (or an agreed-upon order) is what makes transformation well-defined (§30)</td>
+<td>No — this is CRDTs' headline property, enabling true peer-to-peer (§32)</td>
+</tr>
+<tr>
+<td>Complexity of the core algorithm</td>
+<td>The transform functions (§28-§29) have many cases and are notoriously easy to get subtly wrong</td>
+<td>The data structure itself is simple; the complexity moves into memory overhead (tombstones, §35) instead of transform logic</td>
+</tr>
+<tr>
+<td>Real-world example</td>
+<td>Google Docs (its classic architecture)</td>
+<td>Figma, Yjs-based tools, many offline-first apps</td>
+</tr>
+</tbody>
+</table></div>
+<p>Both are correct, production-proven answers — building both, and being able to state exactly what each trades off, is a far stronger interview answer than picking one and treating the other as inferior.</p>
+<hr>
+<h2 id="18-document-storage-and-persistence">18. Document Storage and Persistence</h2>
+<p>The document's <strong>current, durable content</strong> lives in a standard data store (§38) — separate from the live, in-memory OT/CRDT session state that only exists while at least one client is actively connected. When the last client disconnects, the session's final resolved state is what gets persisted — the next time anyone opens the document, a fresh session is initialized <strong>from that durable state</strong>, not from an empty document, exactly the way <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's crash recovery</a> reconstructs state from durable storage rather than assuming it's always live in memory.</p>
+<hr>
+<h2 id="19-follow-up-question-5-how-do-you-handle-a-user-going-offline-and-coming-back">19. Follow-up Question 5 — "How Do You Handle a User Going Offline and Coming Back?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Alice's laptop loses wifi for two minutes. She keeps typing the whole time — her editor doesn't know she's offline. What happens when her connection comes back?"</em></p>
+</blockquote>
+<p>Her client must have kept a <strong>local queue of unacknowledged operations</strong> generated while disconnected — on reconnect, it replays that queue to the server, which resolves each one (via OT transformation against everything that happened while she was gone, or, for CRDTs, simply merges them in, since CRDT operations are commutative by design) exactly as if they'd arrived one at a time in real time, just delayed.</p>
+<hr>
+<h2 id="20-offline-support-and-reconciliation">20. Offline Support and Reconciliation</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class OfflineOperationQueue {
+    private final Deque&lt;Operation&gt; pendingOperations = new ArrayDeque&lt;&gt;();
+
+    public void recordLocalOperation(Operation op) {
+        pendingOperations.addLast(op); // applied locally immediately (§13), queued for later transmission
+    }
+
+    public void onReconnect(WebSocketSession session) {
+        while (!pendingOperations.isEmpty()) {
+            session.send(pendingOperations.pollFirst()); // replayed in the ORDER they were originally made — preserves Alice's intent
+        }
+    }
+}</code></pre></div>
+<p>Preserving the <strong>order</strong> Alice's own operations were originally made in is essential — replaying them out of order (or, worse, coalescing them incorrectly) could reconstruct a different edit than what she actually typed, even if the final character-by-character content happened to look similar.</p>
+<hr>
+<h2 id="21-presence-cursors-selections-and-whos-online">21. Presence: Cursors, Selections, and Who's Online</h2>
+<p>Presence — whose cursor is where, who has a range selected, who's currently viewing the document at all — is <strong>explicitly not</strong> part of the document's actual content, and must not flow through the same OT/CRDT conflict-resolution pipeline (§17) that content edits do: two cursors can occupy overlapping visual space with zero conflict to resolve, unlike two concurrent text insertions. Presence is a lighter-weight, ephemeral broadcast — "here's my current cursor position" — sent frequently, never persisted, and simply overwritten by each user's next update, architecturally simpler than content synchronization precisely because it doesn't need convergence guarantees at all.</p>
+<hr>
+<h2 id="22-follow-up-question-6-how-do-you-scale-to-millions-of-documents-being-edited-concurrently">22. Follow-up Question 6 — "How Do You Scale to Millions of Documents Being Edited Concurrently?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"You've designed this well for one document. Now there are 5 million documents, each with a handful of active editors. How does that change your architecture?"</em></p>
+</blockquote>
+<p>The key realization: this workload scales by <strong>document count</strong>, not by concurrent-editor count <em>per</em> document (§6's scoping already assumes a realistic, bounded number of simultaneous editors on any single document) — which means the right scaling lever is spreading <strong>documents</strong>, not individual editors, across many servers.</p>
+<hr>
+<h2 id="23-session-affinity-routing-a-documents-edits-to-one-owning-server">23. Session Affinity: Routing a Document's Edits to One Owning Server</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Client connects, requests document &quot;doc-42&quot;
+        |
+        v
+Routing layer: hash(&quot;doc-42&quot;) -&gt; Collaboration Server #7   (consistent hashing, same technique as
+        |                                                    the file storage guide's §50)
+        v
+Every client editing &quot;doc-42&quot; connects to Server #7 SPECIFICALLY
+        |
+        v
+Server #7 holds the ONE authoritative in-memory OT/CRDT session for &quot;doc-42&quot;
+   (no other server needs to know or care about this document at all)</code></pre></div>
+<p>Routing every client of a <strong>specific</strong> document to the <strong>same</strong> server (rather than load-balancing connections arbitrarily) is what lets the OT engine's central-sequencing requirement (§17) hold true without needing cross-server coordination for every single keystroke — a direct application of <a href="Design Your Own File Storage System — Block, File, Object Storage, and RAID From Scratch.md">the file storage guide's consistent-hashing technique</a>, here routing documents to owning servers instead of routing object keys to storage nodes.</p>
+<hr>
+<h2 id="24-high-level-architecture-diagram-assembled">24. High-Level Architecture Diagram, Assembled</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    Clients (browsers, each holding a local optimistic copy)
+                                        |
+                          Routing layer (consistent hashing by document ID, §23)
+                                        |
+        +---------------------+---------------------+---------------------+
+        v                     v                     v                     v
+  Collab Server #1      Collab Server #2      Collab Server #3      Collab Server #N
+  (owns docs hashed      (owns docs hashed      (owns docs hashed      (owns docs hashed
+   to this server)        to this server)        to this server)        to this server)
+        |                     |                     |
+        +---------------------+---------------------+
+                                        |
+                          Document store (durable content, §18, §38)
+                          + Operation log (durability, §53)</code></pre></div>
+<p>Every box here was justified by a specific follow-up question (§12, §14, §19, §22) rather than assumed — exactly the standard <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA guide's own architecture section</a> already holds itself to.</p>
+<hr>
+<h2 id="25-follow-up-question-7-lets-get-concrete-design-the-class-model-for-operational-transformation">25. Follow-up Question 7 — "Let's Get Concrete. Design the Class Model for Operational Transformation."</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"High-level architecture is fine, but I want to see the actual algorithm. Show me how you'd represent an edit as data, and how you'd resolve two concurrent edits so every replica ends up with the same document."</em></p>
+</blockquote>
+<p>This is the pivot from architecture to algorithm — exactly <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA guide's own equivalent moment</a> — and it's where OT's actual substance lives. §26–§30 build it in full, with one honest simplification stated upfront: real production OT systems (Google Wave's original protocol, ShareDB) represent an operation as a <strong>composable sequence</strong> of retain/insert/delete components, which handles every edge case generally; this guide uses single insert/delete operations with explicit position and length, which is simpler to reason about and correctly covers the common cases, at the cost of needing extra care for the rarer case of one operation's range fully overlapping another's (called out explicitly where it matters, §29).</p>
+<hr>
+<h2 id="26-representing-an-edit-as-an-operation">26. Representing an Edit as an Operation</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// ot/Operation.java
+public sealed interface Operation {
+    int getBaseRevision(); // the document revision this operation was computed against — critical for §27
+    String getClientId();  // used to break ties deterministically, §28
+
+    record InsertOp(int position, String content, int baseRevision, String clientId) implements Operation {
+        public int getBaseRevision() { return baseRevision; }
+        public String getClientId() { return clientId; }
+    }
+
+    record DeleteOp(int position, int length, int baseRevision, String clientId) implements Operation {
+        public int getBaseRevision() { return baseRevision; }
+        public String getClientId() { return clientId; }
+    }
+}</code></pre></div>
+<p><code>baseRevision</code> is what lets the server (§30) know exactly <em>which</em> other operations, if any, this operation needs to be transformed against — an operation computed against revision 5 that arrives after the document has already advanced to revision 7 must be transformed against whatever happened in revisions 6 and 7 before it can be safely applied.</p>
+<hr>
+<h2 id="27-the-transform-function-reconciling-two-concurrent-operations">27. The Transform Function: Reconciling Two Concurrent Operations</h2>
+<p>The core contract every transform function must satisfy: given two operations, <code>opA</code> and <code>opB</code>, <strong>both computed against the same starting document state</strong>, <code>transform(opA, opB)</code> produces a new version of <code>opA</code> — call it <code>opA'</code> — such that applying <code>opB</code> and then <code>opA'</code> produces the <strong>exact same final document</strong> as applying <code>opA</code> and then a correspondingly-transformed <code>opB'</code>. This is the property (Transformation Property 1, in the classic OT literature) that guarantees <strong>convergence</strong>: it doesn't matter which order the two concurrent operations actually reach a given replica, as long as each is correctly transformed against whatever already got applied first on that replica.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface OperationTransformer {
+    Operation transform(Operation opToTransform, Operation alreadyAppliedOp);
+}</code></pre></div>
+<hr>
+<h2 id="28-implementing-insert-insert-transformation">28. Implementing Insert-Insert Transformation</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public Operation.InsertOp transformInsertInsert(Operation.InsertOp a, Operation.InsertOp b) {
+    if (a.position() &lt; b.position()) {
+        return a; // A's insert point is before B's — unaffected by B, no change needed
+    }
+    if (a.position() &gt; b.position()) {
+        // B's insert happened before A's position — A's position shifts right by however much B inserted
+        return new Operation.InsertOp(a.position() + b.content().length(), a.content(), a.baseRevision(), a.clientId());
+    }
+    // EXACT same position — a genuine tie. Break it deterministically so EVERY replica resolves it
+    // identically, regardless of which operation that replica happened to see &quot;first.&quot;
+    if (a.clientId().compareTo(b.clientId()) &lt; 0) {
+        return a; // A's client ID sorts first -&gt; by convention, A's insert goes before B's -&gt; no shift
+    }
+    return new Operation.InsertOp(a.position() + b.content().length(), a.content(), a.baseRevision(), a.clientId());
+}</code></pre></div>
+<p>The tie-break on <code>clientId</code> is not an arbitrary detail — it's what makes the transform function <strong>deterministic across every replica</strong>. Without a consistent tie-break rule, two replicas could each "correctly" transform the same tied operations in opposite orders and diverge — a subtle bug that only manifests under exact-position concurrent edits, precisely the kind of edge case that makes OT implementations notoriously hard to get right without rigorous, systematic testing (§63).</p>
+<hr>
+<h2 id="29-implementing-insert-delete-and-delete-delete-transformation">29. Implementing Insert-Delete and Delete-Delete Transformation</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public Operation.InsertOp transformInsertAgainstDelete(Operation.InsertOp insert, Operation.DeleteOp delete) {
+    if (insert.position() &lt;= delete.position()) {
+        return insert; // nothing before the insert point was deleted — unaffected
+    }
+    int deleteEnd = delete.position() + delete.length();
+    if (insert.position() &gt;= deleteEnd) {
+        // the entire deleted range was before the insert point -&gt; shift left by however much was removed
+        return new Operation.InsertOp(insert.position() - delete.length(), insert.content(), insert.baseRevision(), insert.clientId());
+    }
+    // The insert point fell INSIDE the deleted range — clamp it to where the deletion happened.
+    // (A more general retain/insert/delete representation, per §25's note, would preserve finer intent here;
+    // clamping to the deletion point is the standard, defensible simplification most tutorials adopt.)
+    return new Operation.InsertOp(delete.position(), insert.content(), insert.baseRevision(), insert.clientId());
+}
+
+public Operation.DeleteOp transformDeleteAgainstDelete(Operation.DeleteOp a, Operation.DeleteOp b) {
+    int aEnd = a.position() + a.length();
+    int bEnd = b.position() + b.length();
+    if (aEnd &lt;= b.position()) return a;                                    // A's range entirely before B's — unaffected
+    if (a.position() &gt;= bEnd) {
+        return new Operation.DeleteOp(a.position() - b.length(), a.length(), a.baseRevision(), a.clientId()); // shift left
+    }
+    // Overlapping ranges: shrink A by whatever portion B already deleted, to avoid double-deleting
+    // characters that no longer exist. This is exactly the trickiest case §25 flagged.
+    int overlapStart = Math.max(a.position(), b.position());
+    int overlapEnd = Math.min(aEnd, bEnd);
+    int overlapLength = Math.max(0, overlapEnd - overlapStart);
+    int newPosition = a.position() &gt;= b.position() ? b.position() : a.position();
+    int newLength = a.length() - overlapLength;
+    return new Operation.DeleteOp(newPosition, Math.max(0, newLength), a.baseRevision(), a.clientId());
+}</code></pre></div>
+<p>The delete-delete overlap case is exactly where §25's simplification shows its seams — shrinking a single <code>(position, length)</code> range correctly handles the common cases (no overlap, one fully containing the other, partial overlap at one end) but a delete that's split into two disjoint remaining pieces by an already-applied delete in its <em>middle</em> genuinely cannot be represented by one <code>DeleteOp</code> anymore. A production system's retain/insert/delete component sequence (§25) sidesteps this entirely by representing the result as multiple components instead of forcing it back into one operation — worth stating explicitly as a real limitation of this guide's simplified model, not glossed over.</p>
+<hr>
+<h2 id="30-the-central-servers-role-sequencing-and-broadcasting-transformed-operations">30. The Central Server's Role: Sequencing and Broadcasting Transformed Operations</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// ot/OtDocumentSession.java
+public class OtDocumentSession {
+    private String documentContent;
+    private int currentRevision = 0;
+    private final List&lt;Operation&gt; appliedOperationsLog = new ArrayList&lt;&gt;(); // indexed by revision number
+    private final OperationTransformer transformer = new OperationTransformer();
+
+    public synchronized Operation receiveOperation(Operation incoming) {
+        Operation transformed = incoming;
+        // Transform the incoming op against every operation that was applied AFTER the client's baseRevision —
+        // i.e., everything this client didn't know about yet when it computed its own operation.
+        for (int rev = incoming.getBaseRevision(); rev &lt; currentRevision; rev++) {
+            transformed = transformer.transform(transformed, appliedOperationsLog.get(rev));
+        }
+        documentContent = applyToContent(documentContent, transformed);
+        appliedOperationsLog.add(transformed);
+        currentRevision++;
+        broadcastToOtherClients(transformed); // §15 — every other connected client receives this SAME transformed op
+        return transformed;
+    }
+    // applyToContent(...) omitted for brevity — a straightforward string splice based on the operation's type
+}</code></pre></div>
+<p>The <code>synchronized</code> keyword here is doing real, load-bearing work: operations for one document must be transformed and applied <strong>one at a time, in a single, agreed-upon order</strong> — this is precisely the "needs a central sequencer" property §17's comparison table names as OT's defining requirement, and it's exactly why §23's session-affinity routing (one server owns one document's session) exists — this method must never run concurrently for the same document across two different server instances.</p>
+<hr>
+<h2 id="31-class-diagram-the-ot-engine">31. Class Diagram: The OT Engine</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>┌──────────────────┐  receiveOperation()   ┌──────────────────────┐
+│  OtDocumentSession │──────────────────────&gt;│ OperationTransformer  │
+├──────────────────┤                        ├──────────────────────┤
+│ documentContent   │                        │ + transform(a, b)     │
+│ currentRevision   │                        └──────────┬───────────┘
+│ appliedOpsLog[]   │                                   │ operates on
+└──────────────────┘                                   v
+         ^                                    ┌──────────────────┐
+         │ appends to log,                    │    Operation      │ (sealed interface)
+         │ broadcasts result                  ├──────────────────┤
+         │                                     │ baseRevision      │
+┌──────────────────┐                          │ clientId          │
+│  Connected Client │ (one per active editor)  └────────┬─────────┘
+│  local optimistic  │                                   │ implements
+│  copy + pending    │                        ┌──────────┴──────────┐
+│  operation queue    │                        v                     v
+└──────────────────┘                 ┌──────────────────┐  ┌──────────────────┐
+                                      │    InsertOp       │  │    DeleteOp       │
+                                      ├──────────────────┤  ├──────────────────┤
+                                      │ position, content │  │ position, length  │
+                                      └──────────────────┘  └──────────────────┘</code></pre></div>
+<hr>
+<h2 id="32-follow-up-question-8-ot-requires-a-central-server-to-sequence-operations-what-if-you-dont-want-that">32. Follow-up Question 8 — "OT Requires a Central Server to Sequence Operations. What If You Don't Want That?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"You said OT needs one server to be the source of truth for ordering. What if I want this to work peer-to-peer, or I want any replica — including an offline one — to be able to apply operations in whatever order they happen to arrive, and still guarantee everyone converges?"</em></p>
+</blockquote>
+<p>This is the exact motivation for <strong>CRDTs</strong> (Conflict-free Replicated Data Types) — a fundamentally different strategy that sidesteps transformation entirely by making the underlying data structure itself immune to operation ordering.</p>
+<hr>
+<h2 id="33-crdt-fundamentals-convergence-without-coordination">33. CRDT Fundamentals: Convergence Without Coordination</h2>
+<p>A CRDT's defining property: applying a set of operations <strong>in any order</strong> (not just the order they were generated) produces the <strong>same final state</strong> — this is achieved by designing every operation to be <strong>commutative</strong> (order doesn't matter) and <strong>idempotent</strong> (applying the same operation twice has no additional effect beyond applying it once). Where OT achieves convergence by actively <em>transforming</em> operations to account for ordering, a CRDT achieves it by making ordering <strong>irrelevant</strong> to the result in the first place — a structurally different, not just implementationally different, solution to §10's original problem.</p>
+<hr>
+<h2 id="34-a-simple-crdt-for-text-the-rga-replicated-growable-array-idea">34. A Simple CRDT for Text: The RGA (Replicated Growable Array) Idea</h2>
+<p>The key trick: instead of positioning a character by a numeric index (which, as §10 showed, drifts as other edits land), give every character a <strong>globally unique, immutable identifier</strong>, and record what it was inserted <strong>immediately after</strong> — its "origin." The document's actual visible order is then always computed by <strong>walking this chain of origin references</strong>, never by trusting a raw numeric position at all.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Original: &quot;cat&quot;  with characters identified as  c(id=1) -&gt; a(id=2) -&gt; t(id=3)
+
+Alice inserts 'h' after nothing (at the start):        h(id=4, origin=START)
+Bob concurrently inserts 's' after t (id=3):            s(id=5, origin=3)
+
+Both operations reference STABLE ids (&quot;origin=3&quot;), never a numeric position that could drift —
+applying them in EITHER order reconstructs the same chain: START -&gt; h(4) -&gt; c(1) -&gt; a(2) -&gt; t(3) -&gt; s(5)
+                                                          = &quot;hcats&quot; -- exactly the correct converged result from §10</code></pre></div>
+<hr>
+<h2 id="35-implementing-a-character-level-crdt">35. Implementing a Character-Level CRDT</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// crdt/CharacterId.java — a globally unique, totally-ordered identifier for one character
+public record CharacterId(long counter, String siteId) implements Comparable&lt;CharacterId&gt; {
+    @Override
+    public int compareTo(CharacterId other) {
+        int byCounter = Long.compare(counter, other.counter);
+        return byCounter != 0 ? byCounter : siteId.compareTo(other.siteId); // deterministic tie-break, same idea as §28
+    }
+}
+
+// crdt/CrdtCharacter.java
+public class CrdtCharacter {
+    final CharacterId id;
+    final char value;
+    final CharacterId originLeft; // null = inserted at the very start of the document
+    boolean deleted = false;      // a TOMBSTONE, never physically removed — see the note below
+
+    CrdtCharacter(CharacterId id, char value, CharacterId originLeft) {
+        this.id = id; this.value = value; this.originLeft = originLeft;
+    }
+}
+
+// crdt/CrdtDocument.java
+public class CrdtDocument {
+    private final List&lt;CrdtCharacter&gt; characters = new ArrayList&lt;&gt;(); // kept in CONVERGED visible order
+
+    public CrdtCharacter insertAfter(CharacterId originLeft, char value, CharacterId newId) {
+        CrdtCharacter newChar = new CrdtCharacter(newId, value, originLeft);
+        int insertIndex = findInsertIndex(originLeft, newId);
+        characters.add(insertIndex, newChar);
+        return newChar; // this object IS the operation — broadcast it as-is to every other replica
+    }
+
+    private int findInsertIndex(CharacterId originLeft, CharacterId newId) {
+        int originIndex = (originLeft == null) ? -1 : indexOfId(originLeft);
+        int i = originIndex + 1;
+        // Skip past any characters ALREADY inserted at this same origin with a HIGHER id (§28's same tie-break
+        // idea, applied here structurally instead of via an explicit transform function) — this is what makes
+        // insertion order deterministic across replicas regardless of which operation arrives first.
+        while (i &lt; characters.size() &amp;&amp; characters.get(i).originLeft != null
+               &amp;&amp; characters.get(i).originLeft.equals(originLeft)
+               &amp;&amp; characters.get(i).id.compareTo(newId) &gt; 0) {
+            i++;
+        }
+        return i;
+    }
+
+    public void markDeleted(CharacterId targetId) {
+        indexOfCharacter(targetId).deleted = true; // NEVER physically removed — see §35's tombstone note
+    }
+
+    public String toVisibleString() {
+        StringBuilder sb = new StringBuilder();
+        for (CrdtCharacter c : characters) if (!c.deleted) sb.append(c.value);
+        return sb.toString();
+    }
+    // indexOfId(...) / indexOfCharacter(...) omitted for brevity — linear scans by CharacterId equality
+}</code></pre></div>
+<p><strong>Why tombstones instead of physically deleting a character?</strong> If character <code>t(id=3)</code> were physically removed the instant it's deleted, and another replica concurrently receives an insert with <code>origin=3</code> (an insert that happened <em>after</em> <code>t</code> before the deletion was known), that replica would have no way to resolve "insert after a character that no longer exists" — keeping the deleted character as an invisible tombstone (excluded only from <code>toVisibleString()</code>) preserves it as a stable anchor point for any concurrent operation that still refers to it, at the honest, accepted cost of the document's internal representation growing forever with every deletion, never shrinking (§66 names a real mitigation — periodic tombstone garbage collection once every replica has acknowledged an operation).</p>
+<hr>
+<h2 id="36-ot-vs-crdt-a-direct-comparison">36. OT vs CRDT: A Direct Comparison</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Operational Transformation</th>
+<th>CRDTs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Requires central sequencing</td>
+<td>Yes (§30)</td>
+<td>No — any replica can apply operations in any order</td>
+</tr>
+<tr>
+<td>Memory overhead</td>
+<td>Low — operations don't accumulate in the document itself</td>
+<td>Higher — tombstones (§35) accumulate permanently without periodic garbage collection</td>
+</tr>
+<tr>
+<td>Algorithm complexity</td>
+<td>Transform functions have many hand-derived cases, historically a rich source of subtle bugs (§29)</td>
+<td>The core structure (unique IDs + origin references) is conceptually simpler, though correctly implementing the ordering/tie-break logic still requires care</td>
+</tr>
+<tr>
+<td>Enables true peer-to-peer / offline-first</td>
+<td>Not naturally — needs a server or an agreed total order</td>
+<td>Yes — this is CRDTs' headline capability</td>
+</tr>
+<tr>
+<td>Best fit</td>
+<td>A product already built around a central server, prioritizing lower memory overhead</td>
+<td>A product needing offline-first or peer-to-peer collaboration without any always-available central authority</td>
+</tr>
+</tbody>
+</table></div>
+<p>Neither is a strictly better choice — Google Docs' long-standing OT-based architecture and Figma's/Yjs-based tools' CRDT architecture are both large-scale, successful, production systems built on genuinely different answers to the exact same underlying problem, chosen for reasons specific to each product's own constraints.</p>
+<hr>
+<h2 id="37-class-diagram-the-crdt-engine">37. Class Diagram: The CRDT Engine</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>┌──────────────────┐  1        *  ┌──────────────────┐
+│   CrdtDocument     │─────────────&gt;│  CrdtCharacter     │
+├──────────────────┤   holds, in   ├──────────────────┤
+│ characters[]       │   converged   │ id: CharacterId   │
+│                     │   visible     │ value: char       │
+│ + insertAfter(...)  │   order       │ originLeft: Id    │
+│ + markDeleted(...)  │               │ deleted: boolean  │ (tombstone, §35)
+│ + toVisibleString() │               └────────┬─────────┘
+└──────────────────┘                          │ identified by
+                                                v
+                                       ┌──────────────────┐
+                                       │   CharacterId      │
+                                       ├──────────────────┤
+                                       │ counter: long      │
+                                       │ siteId: String      │
+                                       │ (Comparable — total │
+                                       │  order tie-break)   │
+                                       └──────────────────┘</code></pre></div>
+<hr>
+<h2 id="38-the-document-entity-and-version-history">38. The Document Entity and Version History</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// document/Document.java
+public class Document {
+    private final String id;
+    private final String ownerId;
+    private String title;
+    private String currentContent;      // the durable, persisted content (§18) — kept in sync with the live session
+    private int currentRevision;         // matches OtDocumentSession.currentRevision (§30), or a CRDT equivalent
+    private final Instant createdAt;
+    private Instant lastModifiedAt;
+}</code></pre></div>
+<p><code>currentContent</code> and <code>currentRevision</code> are deliberately kept in the durable store <strong>in addition to</strong> the live in-memory session state (§30) — the in-memory session is fast but ephemeral (gone the instant the owning server restarts); the durable copy is what a fresh session initializes from (§18) and what a completely disconnected viewer's read request is served from without needing to spin up a live session at all.</p>
+<hr>
+<h2 id="39-the-sessionconnection-model">39. The Session/Connection Model</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// session/EditSession.java — one per document CURRENTLY being actively edited
+public class EditSession {
+    private final String documentId;
+    private final Map&lt;String, WebSocketConnection&gt; connectedClients = new ConcurrentHashMap&lt;&gt;(); // keyed by clientId
+    private final OtDocumentSession otSession; // or a CrdtDocument, depending on which engine this deployment uses
+
+    public void broadcast(Operation resolvedOp, String excludeClientId) {
+        for (var entry : connectedClients.entrySet()) {
+            if (!entry.getKey().equals(excludeClientId)) entry.getValue().send(resolvedOp); // §30's fan-out, concretely
+        }
+    }
+}</code></pre></div>
+<p>An <code>EditSession</code> exists only while <strong>at least one</strong> client is connected to that document — created lazily on the first connection, torn down (after persisting final state to <code>Document</code>, §38) once the last client disconnects, exactly the "session affinity" resource this guide's §23 routing layer is directing traffic toward.</p>
+<hr>
+<h2 id="40-follow-up-question-9-how-do-you-implement-live-cursors-and-selections">40. Follow-up Question 9 — "How Do You Implement Live Cursors and Selections?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Beyond the text itself, users need to see where everyone else's cursor is, live. How do you build that without it interfering with the actual document synchronization you just designed?"</em></p>
+</blockquote>
+<p>Exactly §21's point, now made concrete: cursor positions are broadcast through the <strong>same</strong> <code>EditSession</code>/WebSocket infrastructure (§39) as content operations, but as a <strong>completely separate message type</strong> that never touches the OT/CRDT engine (§30, §35) at all — a cursor "move" is not a document mutation, has no conflict to resolve, and simply overwrites whatever position was last known for that user.</p>
+<hr>
+<h2 id="41-presence-and-awareness">41. Presence and Awareness</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// session/PresenceTracker.java
+public class PresenceTracker {
+    private final Map&lt;String, CursorPosition&gt; currentPositions = new ConcurrentHashMap&lt;&gt;(); // clientId -&gt; latest position
+
+    public void updateCursor(String clientId, CursorPosition position) {
+        currentPositions.put(clientId, position); // last-write-wins — perfectly correct for ephemeral presence, unlike content!
+        broadcastPresenceUpdate(clientId, position);
+    }
+
+    public void onClientDisconnect(String clientId) {
+        currentPositions.remove(clientId);
+        broadcastPresenceUpdate(clientId, null); // null signals &quot;this user's cursor is no longer visible&quot;
+    }
+}</code></pre></div>
+<p>Note the comment: <strong>last-write-wins is completely correct here</strong>, in stark contrast to §10's insistence that last-write-wins is wrong for document content — because presence has no notion of "losing" information a user cares about (an overwritten cursor position was never something anyone needed to preserve), while a dropped keystroke absolutely is. The same technique that would be a serious bug for content (§9) is the exact right tool for presence — a clean illustration that "which conflict-resolution strategy is correct" depends entirely on what's actually at stake in the data being resolved.</p>
+<hr>
+<h2 id="42-class-diagram-document-session-and-presence">42. Class Diagram: Document, Session, and Presence</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>┌──────────────┐   1        1   ┌──────────────────┐   1        1   ┌──────────────────┐
+│   Document    │───────────────&gt;│   EditSession      │───────────────&gt;│  OtDocumentSession│
+├──────────────┤   backs (while  ├──────────────────┤   delegates to  │  or CrdtDocument   │
+│ id           │   active)       │ connectedClients{} │                 └──────────────────┘
+│ currentContent│                │ otSession/crdt      │
+│ currentRevision│               └────────┬───────────┘
+└──────────────┘                          │ 1
+                                            │
+                                            v *
+                                   ┌──────────────────┐
+                                   │ PresenceTracker    │
+                                   ├──────────────────┤
+                                   │ currentPositions{} │  (clientId -&gt; CursorPosition, last-write-wins, §41)
+                                   └──────────────────┘</code></pre></div>
+<hr>
+<h2 id="43-follow-up-question-10-how-do-you-handle-sharing-and-permissions-viewer-commenter-editor">43. Follow-up Question 10 — "How Do You Handle Sharing and Permissions (Viewer, Commenter, Editor)?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Not everyone who opens this document should be able to type in it. How does your design enforce Viewer vs. Commenter vs. Editor access?"</em></p>
+</blockquote>
+<p>Exactly <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA guide's own per-project RBAC design</a>, applied here at the per-document level instead of per-project — the same underlying pattern (a role, scoped to a specific resource, checked before any mutating action), because the requirement ("different users, different permission levels, on the same shared resource") is structurally identical.</p>
+<hr>
+<h2 id="44-role-based-sharing-model">44. Role-Based Sharing Model</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public enum ShareRole { VIEWER, COMMENTER, EDITOR }
+
+public class DocumentAccess {
+    private final String documentId;
+    private final String userId;
+    private ShareRole role;
+}
+
+public class AccessChecker {
+    public void requireEditAccess(String userId, String documentId) {
+        DocumentAccess access = accessRepository.find(userId, documentId);
+        if (access == null || access.getRole() != ShareRole.EDITOR) {
+            throw new AccessDeniedException(userId, documentId);
+        }
+    }
+}</code></pre></div>
+<p><code>AccessChecker.requireEditAccess</code> is called <strong>before</strong> an incoming <code>Operation</code> (§26) is ever handed to <code>OtDocumentSession.receiveOperation</code> (§30) — exactly the same "gate the write before the domain logic runs" ordering <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA guide's <code>PermissionChecker</code></a> already established, ensuring a Viewer's WebSocket connection can receive broadcasts (read-only) but can never successfully submit an operation that mutates the document.</p>
+<hr>
+<h2 id="45-class-diagram-sharing-and-access-control">45. Class Diagram: Sharing and Access Control</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>┌──────────┐   *        *   ┌────────────────────┐   *        1   ┌──────────┐
+│   User    │───────────────&gt;│  DocumentAccess      │&lt;───────────────│ Document │
+├──────────┤                 ├────────────────────┤                 ├──────────┤
+│ id       │                 │ userId              │                 │ id       │
+└──────────┘                 │ documentId           │                 │ ownerId  │
+                              │ role: ShareRole      │                 └──────────┘
+                              └────────────────────┘
+                                        |
+                                        v
+                              ┌────────────────────┐
+                              │     ShareRole        │ (enum: VIEWER, COMMENTER, EDITOR)
+                              └────────────────────┘</code></pre></div>
+<hr>
+<h2 id="46-follow-up-question-11-how-do-you-implement-undoredo-in-a-multi-user-environment">46. Follow-up Question 11 — "How Do You Implement Undo/Redo in a Multi-User Environment?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Alice types 'hello', then Bob inserts a word in the middle of it, then Alice hits undo. What should happen — and what would naively break if you just reverted Alice's last known document state?"</em></p>
+</blockquote>
+<p>Naively snapshotting "the document before Alice's last edit" and restoring it would <strong>silently discard Bob's edit</strong> — exactly the kind of lost-update problem this entire guide exists to prevent, now reappearing inside undo/redo specifically. The correct approach: undo isn't "restore an old snapshot," it's "generate and apply a <strong>new</strong> operation that reverses the effect of one specific past operation" — which composes correctly with everything that's happened since, including other users' edits.</p>
+<hr>
+<h2 id="47-undoredo-in-a-collaborative-context">47. Undo/Redo in a Collaborative Context</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// undo/UndoManager.java
+public class UndoManager {
+    private final Deque&lt;Operation&gt; localUndoStack = new ArrayDeque&lt;&gt;(); // only THIS client's own operations
+    private final Deque&lt;Operation&gt; localRedoStack = new ArrayDeque&lt;&gt;();
+
+    public void recordLocalOperation(Operation op) {
+        localUndoStack.push(op);
+        localRedoStack.clear(); // a new edit invalidates any pending redo, standard editor convention
+    }
+
+    public Operation undo() {
+        Operation lastOp = localUndoStack.pop();
+        Operation inverse = invert(lastOp); // e.g. InsertOp(pos, &quot;abc&quot;) -&gt; DeleteOp(pos, length=3)
+        localRedoStack.push(lastOp);
+        return inverse; // submitted through the SAME receiveOperation/transform pipeline (§30) as any other edit
+    }
+
+    private Operation invert(Operation op) {
+        return switch (op) {
+            case Operation.InsertOp i -&gt; new Operation.DeleteOp(i.position(), i.content().length(), i.baseRevision(), i.clientId());
+            case Operation.DeleteOp d -&gt; new Operation.InsertOp(d.position(), d.deletedContent(), d.baseRevision(), d.clientId());
+        };
+    }
+}</code></pre></div>
+<p>Submitting the inverse operation through the <strong>exact same</strong> <code>receiveOperation</code> pipeline (§30) as any ordinary edit is the key design decision: undo gets §27–§29's transformation logic <strong>for free</strong> — if Bob inserted text in the middle of what Alice is now undoing, the inverse delete operation is transformed against Bob's insert exactly like any other concurrent pair of operations, correctly adjusting <em>where</em> the undo applies rather than blindly reverting to stale positions. Each client's undo stack is also deliberately <strong>local, per-client</strong> — undoing only ever reverses <em>that specific user's own</em> past actions, never another user's, which matches how every real collaborative editor's undo behaves.</p>
+<hr>
+<h2 id="48-follow-up-question-12-how-do-you-show-document-history-version-snapshots">48. Follow-up Question 12 — "How Do You Show Document History / Version Snapshots?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A user wants to see what the document looked like an hour ago, and restore that version. You have a stream of individual operations — how do you turn that into browsable 'versions'?"</em></p>
+</blockquote>
+<p>Replaying every operation from the beginning of the document's history, every time someone wants to view an old version, works but grows more expensive the older the document gets — exactly <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's own crash-recovery cost problem</a>, and solved the same way: periodic <strong>snapshots</strong>.</p>
+<hr>
+<h2 id="49-snapshotting-and-version-history">49. Snapshotting and Version History</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// document/VersionHistory.java
+public class VersionHistory {
+    public record Snapshot(int revision, String content, Instant takenAt, String label) { }
+
+    private final List&lt;Snapshot&gt; snapshots = new ArrayList&lt;&gt;();
+    private final List&lt;Operation&gt; operationLogSinceLastSnapshot = new ArrayList&lt;&gt;();
+
+    public void maybeSnapshot(int currentRevision, String currentContent) {
+        if (currentRevision % 100 == 0) { // a snapshot every 100 operations — the same bound-replay-cost idea as TinyDB's §13
+            snapshots.add(new Snapshot(currentRevision, currentContent, Instant.now(), null));
+            operationLogSinceLastSnapshot.clear();
+        }
+    }
+
+    public String reconstructAsOf(int targetRevision) {
+        Snapshot nearestSnapshot = snapshots.stream()
+            .filter(s -&gt; s.revision() &lt;= targetRevision)
+            .max(Comparator.comparingInt(Snapshot::revision))
+            .orElseThrow();
+        // replay ONLY the operations between nearestSnapshot.revision() and targetRevision — never from the start
+        return replayFrom(nearestSnapshot.content(), nearestSnapshot.revision(), targetRevision);
+    }
+    // replayFrom(...) omitted for brevity — applies each logged operation in sequence, same mechanism as §30
+}</code></pre></div>
+<p>This is precisely the "snapshot plus replay only the remaining log" pattern <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's crash recovery</a> and <a href="Design Your Own File Storage System — Block, File, Object Storage, and RAID From Scratch.md">the file storage guide's GFS/HDFS NameNode checkpointing</a> both already use — the same idea, appearing a third time in this guide series, because "bound the cost of reconstructing history" is a genuinely recurring problem with one genuinely recurring solution.</p>
+<hr>
+<h2 id="50-follow-up-question-13-what-guarantees-does-your-system-actually-provide-is-it-strongly-consistent">50. Follow-up Question 13 — "What Guarantees Does Your System Actually Provide? Is It Strongly Consistent?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Be precise. Is this system strongly consistent? What exact guarantee can you state and defend?"</em></p>
+</blockquote>
+<p>No — and saying so plainly is the correct, stronger answer than overclaiming. The precise, defensible guarantee is <strong>eventual consistency with guaranteed convergence</strong>: at any given instant, different users' screens may show momentarily different content (Alice's screen already reflects her own just-typed keystroke; Bob's hasn't received it yet), but <strong>once all in-flight operations have been delivered and applied, every replica converges to the identical final document</strong> — the mathematical property §27 (OT) and §33 (CRDTs) are each specifically designed to guarantee. This is a different, weaker-sounding but entirely appropriate guarantee compared to a database transaction's strong consistency — and knowing the difference, and why the weaker guarantee is the <em>correct</em> choice for this specific problem, is exactly the signal this question is probing for.</p>
+<hr>
+<h2 id="51-eventual-consistency-and-convergence-guarantees">51. Eventual Consistency and Convergence Guarantees</h2>
+<p>Stating the guarantee even more precisely, in terms already built:</p>
+<ul>
+<li><strong>Convergence</strong>: for OT, guaranteed by Transformation Property 1 (§27) holding for every pair of operations the transform functions handle (§28–§29, with §29's honestly-named limitation). For CRDTs, guaranteed structurally by commutative, idempotent operations over unique, stable identifiers (§33–§35).</li>
+<li><strong>Intention preservation</strong>: a user's edit should have the <em>effect they intended</em>, not just <em>some</em> effect that happens to converge — this is a real, separate property from convergence alone (an operation could converge to a valid document while still landing somewhere the user never meant), and it's exactly why §29's insert-into-a-deleted-range clamping and §47's undo-via-inversion are designed the way they are, rather than any arbitrary convergent resolution being considered acceptable.</li>
+</ul>
+<hr>
+<h2 id="52-follow-up-question-14-what-happens-if-the-server-crashes-mid-broadcast">52. Follow-up Question 14 — "What Happens If the Server Crashes Mid-Broadcast?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"The Collaboration Server receives Alice's operation, applies it, and crashes before finishing broadcasting it to Bob and Carol. What state is everyone in now, and how do you recover?"</em></p>
+</blockquote>
+<p>This is the exact same class of problem <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's crash-recovery sections</a> solve for database writes, now applied to collaborative operations: the fix is <strong>durability before acknowledgment</strong> — an operation must be durably logged (§53) <em>before</em> the server tells the originating client it succeeded, so a crash can never lose an operation the client believes was accepted.</p>
+<hr>
+<h2 id="53-server-crash-recovery-and-operation-durability">53. Server Crash Recovery and Operation Durability</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public Operation receiveOperationDurably(Operation incoming) throws IOException {
+    Operation transformed = transformAgainstHistory(incoming); // §30
+    operationLog.append(transformed); // durable write-ahead log entry, BEFORE anything else — exactly TinyDB's §9 discipline
+    documentContent = applyToContent(documentContent, transformed);
+    broadcastToOtherClients(transformed); // only AFTER durability is confirmed
+    return transformed;
+}
+
+// On server restart, for any document that had an active session:
+public void recoverSession(String documentId) throws IOException {
+    Document durableDoc = documentRepository.find(documentId); // last confirmed snapshot (§49)
+    List&lt;Operation&gt; unappliedOps = operationLog.readSince(durableDoc.getCurrentRevision());
+    String reconstructed = durableDoc.getCurrentContent();
+    for (Operation op : unappliedOps) reconstructed = applyToContent(reconstructed, op);
+    // reconstructed is now EXACTLY the state the crashed server had right before it died — no operation lost
+}</code></pre></div>
+<p>If the server crashes <em>after</em> <code>operationLog.append</code> but <em>before</em> <code>broadcastToOtherClients</code>, recovery replays the logged operation and re-broadcasts it — Bob and Carol simply receive it a little late, with no data loss. If it crashes <em>before</em> the append call completes, the operation was never durably accepted in the first place, and the client's own local retry/reconnect logic (§20, reused directly here) resubmits it, exactly as if it had been offline. There is <strong>no window</strong> in this design where an operation is acknowledged to a client and then lost — the same non-negotiable durability property <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's WAL</a> provides for database writes.</p>
+<hr>
+<h2 id="54-follow-up-question-15-10-million-documents-500k-concurrent-editors-what-breaks-first">54. Follow-up Question 15 — "10 Million Documents, 500K Concurrent Editors. What Breaks First?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"The product is a hit. 10 million documents exist; 500,000 users are actively editing at any given moment, spread across maybe 200,000 concurrently-open documents. Walk me through, specifically, what breaks first and what you do about it."</em></p>
+</blockquote>
+<p>The same style of question <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA guide's own scaling follow-up</a> asks — testing sequencing and root-cause reasoning, not a generic checklist.</p>
+<hr>
+<h2 id="55-sharding-documents-across-servers">55. Sharding Documents Across Servers</h2>
+<p>§23's session-affinity routing already shards by document — at this scale, the question becomes whether <strong>one</strong> consistent-hash ring across a fixed server pool is enough, or whether a <strong>coordinator</strong> is needed to actively rebalance hot documents (a viral, thousand-viewer document, even within this guide's "dozens of concurrent editors" assumption, could still dominate one server's resources) onto dedicated capacity — the same "some keys are hotter than others" problem <a href="Design Your Own File Storage System — Block, File, Object Storage, and RAID From Scratch.md">the file storage guide's consistent hashing discussion</a> acknowledges rather than assumes away.</p>
+<hr>
+<h2 id="56-horizontal-scaling-of-the-real-time-layer-pubsub-backbone">56. Horizontal Scaling of the Real-Time Layer (Pub/Sub Backbone)</h2>
+<p>Each <code>EditSession</code> (§39) is currently assumed to live entirely within one server's memory — correct for §23's model, but it means that server's WebSocket connection count and CPU (running transform functions, §27–§29) both scale with how many <em>hot</em> documents happen to hash to it. Horizontally scaling this layer means running many stateless-at-the-routing-level Collaboration Server instances behind the consistent-hash router (§23), with the <strong>document store and operation log</strong> (§18, §53) — not any single server's memory — remaining the actual, durable source of truth every server instance can rebuild a session from after a restart or a rebalance.</p>
+<hr>
+<h2 id="57-rate-limiting-and-backpressure">57. Rate Limiting and Backpressure</h2>
+<p>A buggy client (or a malicious one) sending an unbounded stream of operations can overwhelm one document's session — a <strong>per-client rate limit</strong> on operations-per-second, enforced at the WebSocket connection level before an operation ever reaches <code>receiveOperationDurably</code> (§53), protects the shared session (and every other legitimate editor on that same document) from one misbehaving connection, the same "protect shared infrastructure from one bad actor" instinct <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA guide's own rate-limiting section</a> already establishes at the API-gateway level.</p>
+<hr>
+<h2 id="58-full-worked-example-two-users-editing-the-same-document">58. Full Worked Example: Two Users Editing the Same Document</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Alice and Bob both connected to &quot;doc-42&quot;, currentRevision = 5, content = &quot;cat&quot;
+
+Alice types 'h' at position 0    -&gt; InsertOp(pos=0, &quot;h&quot;, baseRevision=5, client=Alice)
+Bob types 's' at position 3      -&gt; InsertOp(pos=3, &quot;s&quot;, baseRevision=5, client=Bob)    (concurrent, same base revision)
+
+Both sent to the owning server (§23) at nearly the same instant:
+
+1. Server receives Alice's op FIRST:
+   -&gt; AccessChecker.requireEditAccess(alice, &quot;doc-42&quot;)                          (§44)
+   -&gt; transformAgainstHistory: no ops since revision 5 yet -&gt; unchanged
+   -&gt; operationLog.append(...)                                                   (§53, durable BEFORE anything else)
+   -&gt; apply -&gt; content becomes &quot;hcat&quot;, currentRevision = 6
+   -&gt; broadcast to Bob
+
+2. Server receives Bob's op SECOND (still based on revision 5, since Bob hasn't seen Alice's op yet):
+   -&gt; AccessChecker.requireEditAccess(bob, &quot;doc-42&quot;)                             (§44)
+   -&gt; transformAgainstHistory: transform against Alice's now-applied InsertOp    (§28)
+        Bob's position 3 &gt; Alice's position 0 -&gt; shift right by 1 -&gt; position becomes 4
+   -&gt; operationLog.append(...)                                                   (§53)
+   -&gt; apply transformed op -&gt; content becomes &quot;hcats&quot;, currentRevision = 7
+   -&gt; broadcast to Alice
+
+Final state, EVERYWHERE: &quot;hcats&quot; -- exactly §10's originally-stated correct answer, now actually derived.</code></pre></div>
+<p>Every mechanism this guide built — permission checks, durability-before-broadcast, and the transform function itself — appears in this one worked trace, resolving the exact scenario §10 posed as the guide's opening motivating problem.</p>
+<hr>
+<h2 id="59-final-architecture">59. Final Architecture</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    Clients (optimistic local edits, §13)
+                              |
+              Routing layer (consistent hashing by document ID, §23)
+                              |
+        +---------------------+---------------------+
+        v                     v                     v
+  Collab Server         Collab Server         Collab Server
+  EditSession (§39) --- OtDocumentSession/CrdtDocument (§30, §35)
+       |                     |
+  AccessChecker (§44) gates every incoming operation
+       |
+  operationLog.append() BEFORE broadcast (§53, durability)
+       |
+        +---------------------+---------------------+
+        v                                           v
+  Document store (§38)                    PresenceTracker (§41, separate from content)
+  + VersionHistory snapshots (§49)</code></pre></div>
+<hr>
+<h2 id="60-design-patterns-used">60. Design Patterns Used</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Applied to</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Command</strong></td>
+<td>Each <code>Operation</code> is a self-contained, serializable description of an action, invertible for undo (§47)</td>
+<td>§26, §47</td>
+</tr>
+<tr>
+<td><strong>Strategy</strong></td>
+<td>Swapping the conflict-resolution engine (OT vs CRDT) behind the same <code>EditSession</code> abstraction</td>
+<td>§17, §39</td>
+</tr>
+<tr>
+<td><strong>Memento</strong></td>
+<td>Version snapshots capturing document state for later restoration</td>
+<td>§49</td>
+</tr>
+<tr>
+<td><strong>Observer</strong> (implicit)</td>
+<td>Broadcasting a resolved operation to every connected client, decoupled from who's actually listening</td>
+<td>§30, §39</td>
+</tr>
+<tr>
+<td><strong>Consistent Hashing</strong></td>
+<td>Routing a document's editors to its one owning server</td>
+<td>§23, reused directly from <a href="Design Your Own File Storage System — Block, File, Object Storage, and RAID From Scratch.md">the file storage guide's §50</a></td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="61-solid-principles-applied">61. SOLID Principles Applied</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Principle</th>
+<th>Where it holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>S</strong>ingle Responsibility</td>
+<td><code>OperationTransformer</code> only transforms; <code>AccessChecker</code> only checks permissions; <code>PresenceTracker</code> only tracks cursors — none conflated</td>
+</tr>
+<tr>
+<td><strong>O</strong>pen/Closed</td>
+<td>Adding a new operation type (e.g. a <code>FormatOp</code> for rich-text styling) means implementing the <code>Operation</code> interface and its transform cases — existing operation handling is untouched</td>
+</tr>
+<tr>
+<td><strong>L</strong>iskov Substitution</td>
+<td>Any <code>Operation</code> subtype is interchangeable wherever the sealed interface is accepted (logging, broadcasting, transforming)</td>
+</tr>
+<tr>
+<td><strong>I</strong>nterface Segregation</td>
+<td><code>OperationTransformer</code> exposes exactly one method — no implementation is forced to support unrelated behavior</td>
+</tr>
+<tr>
+<td><strong>D</strong>ependency Inversion</td>
+<td><code>EditSession</code> depends on the <em>idea</em> of a conflict-resolution engine, not a hard-coded OT or CRDT implementation — §17's comparison is possible precisely because both sit behind the same seam</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="62-common-mistakes">62. Common Mistakes</h2>
+<ul>
+<li><strong>Mistake 1 — Using raw numeric positions without transformation (§10).</strong> The exact bug this entire guide exists to prevent — naive position-based application produces <code>"hcast"</code> instead of <code>"hcats"</code>.</li>
+<li><strong>Mistake 2 — No deterministic tie-break for same-position concurrent inserts (§28).</strong> Without one, different replicas can transform identically-positioned operations in different orders and diverge — a bug that only appears under exact-timing concurrent edits, making it notoriously hard to catch without dedicated testing (§63).</li>
+<li><strong>Mistake 3 — Physically deleting CRDT characters instead of tombstoning them (§35).</strong> Breaks any concurrent operation still referencing the deleted character as an anchor point.</li>
+<li><strong>Mistake 4 — Routing presence updates through the same conflict-resolution pipeline as content (§41).</strong> Unnecessary complexity and latency for data that never needed convergence guarantees in the first place.</li>
+<li><strong>Mistake 5 — Acknowledging an operation to the client before it's durably logged (§53).</strong> Reopens exactly the "acknowledged then lost" gap a WAL-style discipline exists to close.</li>
+<li><strong>Mistake 6 — Implementing undo as "restore an old document snapshot" instead of "apply an inverse operation" (§46-§47).</strong> Silently discards every other user's edits made since that snapshot.</li>
+</ul>
+<hr>
+<h2 id="63-testing-strategy">63. Testing Strategy</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>What to test</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OT transform functions (§28-§29)</td>
+<td>Applying <code>(opA then transform(opB,opA))</code> and <code>(opB then transform(opA,opB))</code> produce IDENTICAL final strings, for many random pairs of operations</td>
+<td>Property-based/randomized testing — this is the standard technique real OT libraries use, precisely because hand-picked example cases rarely find the subtle bugs (§62's Mistake 2)</td>
+</tr>
+<tr>
+<td>CRDT convergence (§34-§35)</td>
+<td>Applying the same set of operations in every possible order always converges to the same <code>toVisibleString()</code> result</td>
+<td>Generate random operation sets, apply in shuffled orders across simulated replicas, assert identical results</td>
+</tr>
+<tr>
+<td>Durability (§53)</td>
+<td>An operation is recoverable after a simulated crash between logging and broadcasting</td>
+<td>Kill the process (or simulate it) at each point in <code>receiveOperationDurably</code>, restart, assert no operation is lost</td>
+</tr>
+<tr>
+<td>Access control (§44)</td>
+<td>A Viewer's operation is rejected before ever reaching the transform engine</td>
+<td>Attempt an edit as a Viewer-role user, assert <code>AccessDeniedException</code> and assert the document content is unchanged</td>
+</tr>
+<tr>
+<td>Undo/redo (§47)</td>
+<td>Undoing one user's operation correctly transforms against another user's interleaved edit</td>
+<td>The exact scenario in §46's motivating question, as an automated test</td>
+</tr>
+</tbody>
+</table></div>
+<p>The property-based OT test is the single most valuable one in this list — hand-written example-based tests reliably miss the exact class of tie-break and boundary bugs (§62) that make OT implementations infamous for subtle, hard-to-reproduce divergence bugs in production.</p>
+<hr>
+<h2 id="64-suggested-future-enhancements">64. Suggested Future Enhancements</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Enhancement</th>
+<th>What it adds</th>
+<th>Where it plugs in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rich text / structured formatting</td>
+<td>Bold, italic, headings, embedded images/tables, not just plain character strings</td>
+<td>A richer <code>Operation</code> type set (§26) covering formatting spans, transformed with the same core principles but more cases</td>
+</tr>
+<tr>
+<td>Tombstone garbage collection</td>
+<td>Bounding the CRDT's unbounded memory growth (§35)</td>
+<td>Periodically compact tombstones once every active replica has acknowledged past a given revision — the same "safe once nobody still needs it" logic <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's compaction</a> already uses for superseded log entries</td>
+</tr>
+<tr>
+<td>Comment threads anchored to content</td>
+<td>Comments that "stick" to their original text even as the document is edited around them</td>
+<td>Anchoring a comment to a stable CRDT character ID (§34) or an OT position tracked through every subsequent transform, rather than a raw, driftable numeric offset</td>
+</tr>
+<tr>
+<td>Peer-to-peer sync (true offline-first, no server round trip needed between peers)</td>
+<td>Direct device-to-device collaboration without a central server in the loop</td>
+<td>Builds directly on the CRDT engine (§32-§37), which was specifically designed not to require central sequencing</td>
+</tr>
+<tr>
+<td>Fine-grained, field-level permissions on structured documents (e.g. a spreadsheet)</td>
+<td>"This user can edit column A but not column B"</td>
+<td>Extends §44's <code>ShareRole</code> to be range- or region-aware, checked per-operation rather than per-document</td>
+</tr>
+<tr>
+<td>AI-assisted conflict summarization</td>
+<td>Surfacing "here's what changed while you were away" in plain language, not just a raw diff</td>
+<td>A consumer of the same operation log (§53) already durably capturing every change</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="65-progressive-interview-question-set">65. Progressive Interview Question Set</h2>
+<p><strong>Level 1 — The core problem</strong>
+1. Why is rejecting a concurrent edit (as optimistic locking does for a database row) not an acceptable solution here?
+2. Walk through §10's <code>"cat"</code> example by hand and explain exactly why naive position-based application produces the wrong result.</p>
+<p><strong>Level 2 — Operational Transformation</strong>
+3. State Transformation Property 1 precisely, and explain what it guarantees.
+4. Why does the insert-insert transform need a deterministic tie-break, and what specifically goes wrong without one?
+5. Why does OT require a central sequencer, mechanically — what part of the algorithm actually depends on it?</p>
+<p><strong>Level 3 — CRDTs</strong>
+6. Explain why CRDT deletions use tombstones instead of physically removing data.
+7. Compare OT and CRDTs on memory overhead and coordination requirements, with concrete justification for each.</p>
+<p><strong>Level 4 — Architecture</strong>
+8. Why is presence (cursors) handled through a separate mechanism from content synchronization?
+9. Explain session affinity/consistent hashing's role in this design, and what would break without it.</p>
+<p><strong>Level 5 — Correctness under failure</strong>
+10. State the exact consistency guarantee this system provides, precisely, and justify why it's the right one for this problem.
+11. Walk through what happens if the server crashes between receiving an operation and broadcasting it.</p>
+<p><strong>Final challenge:</strong> Design collaborative editing for a <strong>spreadsheet</strong> rather than plain text — cells are addressed by (row, column), formulas can reference other cells, and a formula's displayed value depends on cells that might be concurrently edited by someone else. What has to change about the operation model (§26) and the transform/convergence logic (§27-§37), and what entirely new class of conflict (beyond position drift) does a formula dependency introduce that plain text editing never had to confront?</p>
+<hr>
+<h2 id="66-final-takeaway">66. Final Takeaway</h2>
+<p>Every mechanism in this guide traces back to one refusal stated in §9: <strong>a collaborative editor must never reject or silently discard a user's keystroke just because someone else typed at the same moment.</strong> Operational Transformation honors that refusal by actively recomputing an operation's meaning against whatever already happened (§27-§30); CRDTs honor the identical refusal by designing data that never needs recomputing in the first place, because its identity was never tied to a driftable position to begin with (§33-§35). Presence, undo, version history, sharing, and crash recovery are not separate features bolted onto this core — each one is the <em>same</em> underlying idea (merge, don't reject; converge, don't overwrite) applied to a different slice of the problem: presence chooses last-write-wins deliberately because nothing is actually at stake there (§41); undo submits an inverse operation through the identical transform pipeline rather than reverting a snapshot (§47); crash recovery guarantees durability before acknowledgment for the identical reason a database's WAL does (§53). Understanding <em>why</em> each of these choices follows necessarily from §9's opening refusal — not memorizing them as a checklist — is what turns "I know Google Docs uses something called Operational Transformation" into an actual system-design answer.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Design a Real-Time Collaboration Tool &mdash; HLD, LLD, and Class Design From Scratch.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

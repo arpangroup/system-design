@@ -1,0 +1,2334 @@
+<meta charset="utf-8">
+<title>Live Driver Tracking &amp; Real-Time Delivery Assignment</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  .math-block{
+    background:var(--code-bg); border:1px solid var(--border); border-radius:8px;
+    padding:14px 18px; margin:0 0 18px; text-align:center;
+  }
+  .math-block div{ font-family:'IBM Plex Mono',monospace; font-style:italic; color:var(--accent-strong); font-size:14px; line-height:1.7; }
+  .math{ font-family:'IBM Plex Mono',monospace; font-style:italic; color:var(--accent-strong); }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  .fig{ margin:0 0 22px; text-align:center; }
+  .fig img{ max-width:100%; border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow); }
+  .fig figcaption{ margin-top:8px; font-size:12.5px; color:var(--ink-faint); font-style:italic; }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h2{ break-after:avoid; break-before:auto; }
+    main.article h3, main.article h4{ break-after:avoid; }
+    pre.code-block, .math-block, table, .fig, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-geo-service &nbsp;/&nbsp; reference guide</div>
+      <h1>Live Driver Tracking &amp; Real-Time Delivery Assignment</h1>
+      <p class="dek">A step-by-step guide to tracking driver locations live and assigning deliveries in real time, from WebSocket events to assignment algorithms.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-are-we-building">1. What Are We Building?</a></li><li class="toc-lvl-2"><a href="#2-core-concepts">2. Core Concepts</a></li><li class="toc-lvl-2"><a href="#3-high-level-system-architecture">3. High-Level System Architecture</a></li><li class="toc-lvl-2"><a href="#4-complete-delivery-lifecycle">4. Complete Delivery Lifecycle</a></li><li class="toc-lvl-2"><a href="#5-map-layers">5. Map Layers</a></li><li class="toc-lvl-2"><a href="#6-driver-movement-path">6. Driver Movement Path</a></li><li class="toc-lvl-2"><a href="#7-actual-driver-path-vs-expected-delivery-route">7. Actual Driver Path vs Expected Delivery Route</a></li><li class="toc-lvl-2"><a href="#8-store-locations">8. Store Locations</a></li><li class="toc-lvl-2"><a href="#9-customer-locations">9. Customer Locations</a></li><li class="toc-lvl-2"><a href="#10-real-time-driver-tracking">10. Real-Time Driver Tracking</a></li><li class="toc-lvl-2"><a href="#11-websocket-backend">11. WebSocket Backend</a></li><li class="toc-lvl-2"><a href="#12-define-websocket-topics">12. WebSocket Topics</a></li><li class="toc-lvl-2"><a href="#13-driver-location-event-dto">13. Driver Location Event</a></li><li class="toc-lvl-2"><a href="#14-driver-stream-service">14. Driver Stream Service</a></li><li class="toc-lvl-2"><a href="#15-redis-geo-current-driver-location">15. Redis GEO — Current Driver Location</a></li><li class="toc-lvl-2"><a href="#16-complete-driver-location-update">16. Complete Driver Location Update</a></li><li class="toc-lvl-2"><a href="#17-driver-location-history">17. Driver Location History</a></li><li class="toc-lvl-2"><a href="#18-driver-path-websocket-event-publish-driver-path-updates">18. Driver Path WebSocket Event</a></li><li class="toc-lvl-2"><a href="#19-initial-dashboard-load">19. Initial Dashboard Load</a></li><li class="toc-lvl-2"><a href="#20-delivery-assignment-flow">20. Delivery Assignment Flow</a></li><li class="toc-lvl-2"><a href="#21-find-store">21. Find Store</a></li><li class="toc-lvl-2"><a href="#22-find-nearest-driver-using-redis-geo">22. Find Nearest Driver Using Redis GEO</a></li><li class="toc-lvl-2"><a href="#23-production-driver-matching">23. Production Driver Matching</a></li><li class="toc-lvl-2"><a href="#24-why-distance-alone-is-not-enough">24. Why Distance Alone Is Not Enough</a></li><li class="toc-lvl-2"><a href="#25-ml-based-eta-prediction">25. ML-Based ETA Prediction</a></li><li class="toc-lvl-2"><a href="#26-eta-feature-engineering">26. ETA Feature Engineering</a></li><li class="toc-lvl-2"><a href="#27-feature-vector">27. Feature Vector</a></li><li class="toc-lvl-2"><a href="#28-model-options">28. Model Options</a></li><li class="toc-lvl-2"><a href="#29-simple-working-java-eta-model">29. Simple Working Java ETA Model</a></li><li class="toc-lvl-2"><a href="#30-eta-prediction-api">30. ETA Prediction API</a></li><li class="toc-lvl-2"><a href="#31-production-ml-architecture">31. Production ML Architecture</a></li><li class="toc-lvl-2"><a href="#32-real-eta-call-flow">32. Real ETA Call Flow</a></li><li class="toc-lvl-2"><a href="#33-eta-driver-matching">33. ETA + Driver Matching</a></li><li class="toc-lvl-2"><a href="#34-assignment-model">34. Assignment Model</a></li><li class="toc-lvl-2"><a href="#35-assignment-state-machine">35. Assignment State Machine</a></li><li class="toc-lvl-2"><a href="#36-assignment-events">36. Assignment Events</a></li><li class="toc-lvl-2"><a href="#37-start-tracking-after-assignment">37. Start Tracking After Assignment</a></li><li class="toc-lvl-2"><a href="#38-delivery-route">38. Delivery Route</a></li><li class="toc-lvl-2"><a href="#39-route-visualization">39. Route Visualization</a></li><li class="toc-lvl-2"><a href="#40-dynamic-route-update">40. Dynamic Route Update</a></li><li class="toc-lvl-2"><a href="#41-surge-demand-heatmap">41. Surge / Demand Heatmap</a></li><li class="toc-lvl-2"><a href="#42-geographic-grid">42. Geographic Grid</a></li><li class="toc-lvl-2"><a href="#43-surge-event">43. Surge Event</a></li><li class="toc-lvl-2"><a href="#44-display-surge-zone">44. Display Surge Zone</a></li><li class="toc-lvl-2"><a href="#45-frontend-map-state">45. Frontend Map State</a></li><li class="toc-lvl-2"><a href="#46-render-driver-marker">46. Render Driver Marker</a></li><li class="toc-lvl-2"><a href="#47-render-driver-movement-path">47. Render Driver Movement Path</a></li><li class="toc-lvl-2"><a href="#48-limit-path-memory-do-not-keep-unlimited-path-points-in-browser">48. Limit Path Memory</a></li><li class="toc-lvl-2"><a href="#49-live-assignments-panel">49. Live Assignments Panel</a></li><li class="toc-lvl-2"><a href="#50-live-assignment-websocket">50. Live Assignment WebSocket</a></li><li class="toc-lvl-2"><a href="#51-complete-frontend-websocket">51. Complete Frontend WebSocket</a></li><li class="toc-lvl-2"><a href="#52-driver-online-offline-detection">52. Driver Online / Offline Detection</a></li><li class="toc-lvl-2"><a href="#53-business-status-vs-connectivity-status">53. Business Status vs Connectivity Status</a></li><li class="toc-lvl-2"><a href="#54-recommended-dashboard-apis">54. Recommended Dashboard APIs</a></li><li class="toc-lvl-2"><a href="#55-complete-gps-flow">55. Complete GPS Flow</a></li><li class="toc-lvl-2"><a href="#56-complete-assignment-flow">56. Complete Assignment Flow</a></li><li class="toc-lvl-2"><a href="#57-complete-real-time-flow">57. Complete Real-Time Flow</a></li><li class="toc-lvl-2"><a href="#58-complete-surge-flow">58. Complete Surge Flow</a></li><li class="toc-lvl-2"><a href="#59-complete-eta-flow">59. Complete ETA Flow</a></li><li class="toc-lvl-2"><a href="#60-real-time-eta-after-assignment">60. Real-Time ETA After Assignment</a></li><li class="toc-lvl-2"><a href="#61-driver-route-deviation">61. Driver Route Deviation</a></li><li class="toc-lvl-2"><a href="#62-implementation-phases">62. Implementation Phases</a></li><li class="toc-lvl-2"><a href="#63-production-considerations">63. Production Considerations</a></li><li class="toc-lvl-2"><a href="#64-redis-geo-responsibility">64. Redis GEO Responsibility</a></li><li class="toc-lvl-2"><a href="#65-database-responsibility">65. Database Responsibility</a></li><li class="toc-lvl-2"><a href="#66-websocket-responsibility">66. WebSocket Responsibility</a></li><li class="toc-lvl-2"><a href="#67-kafka-responsibility">67. Kafka Responsibility</a></li><li class="toc-lvl-2"><a href="#68-event-driven-architecture">68. Event-Driven Architecture</a></li><li class="toc-lvl-2"><a href="#69-final-map-composition">69. Final Map Composition</a></li><li class="toc-lvl-2"><a href="#70-final-architecture">70. Final Architecture</a></li><li class="toc-lvl-2"><a href="#71-final-end-to-end-example">71. Final End-to-End Example</a></li><li class="toc-lvl-2"><a href="#72-final-success-criteria">72. Final Success Criteria</a></li><li class="toc-lvl-2"><a href="#73-the-key-architectural-principle">73. The Key Architectural Principle</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+      <h4 id="overview">Overview</h4>
+<p>This project builds a <strong>real-time delivery operations dashboard</strong> similar to the map-based systems used by food-delivery and ride-hailing platforms.</p>
+<p>The dashboard will display, in real time:</p>
+<ul><li>Driver current locations</li><li>Drivers moving on the map in real time</li><li>Driver movement paths / trails</li><li>Active delivery routes</li><li>Stores</li><li>Customers / delivery locations</li><li>Active delivery assignments</li><li>Assignment status changes</li><li>Available / busy / offline drivers</li><li>ETA</li><li>Surge / demand heatmap</li><li>Driver-to-order assignment information</li><li>Live GPS updates through WebSocket</li><li>Historical movement path for active drivers</li></ul>
+<hr>
+<h2 id="1-what-are-we-building">1. WHAT ARE WE BUILDING?</h2>
+<p>We are building a <strong>real-time delivery operations dashboard</strong> that allows an operations team to see the complete delivery network on a map.</p>
+<p>The final dashboard should look conceptually like:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>                         LIVE DELIVERY DASHBOARD
+
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │                                                                        │
+ │       High Demand Zone / SURGE ZONE                                    │
+ │      ╔══════════════╗                                                  │
+ │      ║   Surge      ║       🟢 Driver 101                              │
+ │      ║    Zone      ║          ╲                                       │
+ │      ╚══════════════╝           ╲                                      │         
+ │                                  ╲  Driver Path                        │
+ │                    🏪 Store       ╲───────────●                        │
+ │                       │             ╲                                  │
+ │                       │              🚗 Driver 101                     │
+ │                       │                                                │
+ │                       └───────────────● Customer                       │
+ │                                                                        │
+ │          🟢 Driver 102                                                 │
+ │             │                                                          │
+ │             │                                                          │
+ │             └────── Driver Movement Path                               │
+ │                                                                        │
+ └────────────────────────────────────────────────────────────────────────┘
+
+                    LIVE ASSIGNMENTS
+ ┌───────────────────────────────────────────────────────────────────┐
+ │ Order #501 │ Driver 101 │ PICKUP   │ 2.1 km │ ETA 8 min           │
+ │ Order #502 │ Driver 102 │ ASSIGNED │ 4.3 km │ ETA 12 min          │
+ │ Order #503 │ Searching  │ PENDING  │   -    │ --                  │
+ └───────────────────────────────────────────────────────────────────┘</code></pre></div>
+<hr>
+<h2 id="2-core-concepts">2. CORE CONCEPTS</h2>
+<p>The system contains several independent but connected components.</p>
+<ol><li>Driver Tracking</li><li>Driver Movement Path</li><li>Driver Matching</li><li>Delivery Assignment</li><li>ETA Prediction</li><li>Delivery Routing</li><li>Surge / Demand Detection</li><li>Real-Time Assignment Updates</li><li>Real-Time Dashboard</li></ol>
+<p>These should be treated as separate modules rather than one large service.</p>
+<hr>
+<h2 id="3-high-level-system-architecture">3. HIGH-LEVEL SYSTEM ARCHITECTURE</h2>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>                         DRIVER MOBILE APP
+                                │
+                                │ GPS
+                                ▼
+                       ┌─────────────────┐
+                       │  Location API   │
+                       └────────┬────────┘
+                                │
+                ┌───────────────┼────────────────┐
+                │               │                │
+                ▼               ▼                ▼
+          ┌──────────┐   ┌─────────────┐   ┌─────────────┐
+          │ Redis    │   │ PostgreSQL  │   │ Event/Kafka │
+          │ GEO      │   │             │   │             │
+          │          │   │ GPS History │   │ Events      │
+          │ Current  │   │ Assignments │   │             │
+          │ Location │   │ Orders      │   │             │
+          └────┬─────┘   └─────────────┘   └───────┬─────┘
+               │                                   │
+               │                                   ▼
+               │                           ┌───────────────┐
+               │                           │ ETA / ML      │
+               │                           │ Services      │
+               │                           └───────┬───────┘
+               │                                   │
+               ▼                                   ▼
+        ┌──────────────────────────────────────────────┐
+        │             ASSIGNMENT ENGINE                │
+        │                                              │
+        │ Nearby Drivers → Filter → ETA → Ranking      │
+        └──────────────────────┬───────────────────────┘
+                               │
+                               ▼
+                      Driver Assignment
+                               │
+                               ▼
+                     WebSocket Publisher
+                               │
+                               ▼
+                  ┌────────────────────────┐
+                  │   LIVE DASHBOARD       │
+                  │                        │
+                  │ Drivers                │
+                  │ Driver Paths           │
+                  │ Stores                 │
+                  │ Customers              │
+                  │ Routes                 │
+                  │ Assignments            │
+                  │ Surge Heatmap          │
+                  └────────────────────────┘</code></pre></div>
+<hr>
+<p>The dashboard should not depend on polling every few seconds.</p>
+<p>Instead:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Driver GPS
+    ↓
+Backend
+    ↓
+Redis GEO + location history
+    ↓
+WebSocket event
+    ↓
+Frontend
+    ↓
+Map updates immediately</code></pre></div>
+<hr>
+<h2 id="4-complete-delivery-lifecycle">4. COMPLETE DELIVERY LIFECYCLE</h2>
+<p>The complete delivery lifecycle is:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Order Created
+      ↓
+Find Store
+      ↓
+Find Nearby Drivers
+      ↓
+Filter Eligible Drivers
+      ↓
+Build ETA Features
+      ↓
+Predict ETA
+      ↓
+Rank Drivers
+      ↓
+Assign Driver
+      ↓
+Driver Accepts
+      ↓
+Start Tracking
+      ↓
+Driver Travels to Store
+      ↓
+Order Picked Up
+      ↓
+Driver Travels to Customer
+      ↓
+Dynamic ETA / Route Updates
+      ↓
+Order Delivered</code></pre></div>
+<p>This is the central business flow around which the rest of the system is built.</p>
+<hr>
+<h2 id="5-map-layers">5. MAP LAYERS</h2>
+<p>The dashboard should not treat the map as a single collection of markers.</p>
+<p>It should contain multiple independent layers.</p>
+<h4 id="layer-1-drivers">Layer 1 — Drivers</h4>
+<p>Shows the driver&#39;s current location.</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>🚗 Driver 101
+🚗 Driver 102
+🚗 Driver 103</code></pre></div>
+<p>Each driver should have:</p>
+<ul><li>Driver ID</li><li>Current latitude</li><li>Current longitude</li><li>Status</li><li>Current assignment</li><li>Last GPS update</li><li>Online/offline state</li></ul>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">JSON</span><pre class="code-block"><code>{
+  &quot;driverId&quot;: 101,
+  &quot;lat&quot;: 17.385,
+  &quot;lon&quot;: 78.486,
+  &quot;status&quot;: &quot;AVAILABLE&quot;,
+  &quot;connectivityStatus&quot;: &quot;ONLINE&quot;,
+  &quot;lastUpdated&quot;: &quot;2026-09-08T19:30:20&quot;
+}</code></pre></div>
+<hr>
+<h2 id="6-driver-movement-path">6. DRIVER MOVEMENT PATH</h2>
+<p>This is different from the driver&#39;s current marker.</p>
+<p>The marker represents:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Where is the driver NOW?</code></pre></div>
+<p>The path represents:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Where has the driver BEEN?</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>        ●
+       /
+      ●
+     /
+    ●
+   /
+  ●
+ /
+🚗</code></pre></div>
+<p>The movement path is created from GPS history.</p>
+<p>Every GPS update can be stored as a location point.</p>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Point 1 → 17.3850, 78.4860
+Point 2 → 17.3855, 78.4865
+Point 3 → 17.3860, 78.4870
+Point 4 → 17.3865, 78.4878</code></pre></div>
+<p>The frontend converts these points into a polyline.</p>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>const path = [
+    [17.3850, 78.4860],
+    [17.3855, 78.4865],
+    [17.3860, 78.4870],
+    [17.3865, 78.4878]
+];
+
+L.polyline(path).addTo(map);</code></pre></div>
+<p>The path should move forward as new GPS points arrive.</p>
+<hr>
+<h3 id="layer-3-active-delivery-route">Layer 3 — ACTIVE DELIVERY ROUTE</h3>
+<p>The driver&#39;s movement path and delivery route are NOT the same thing.</p>
+<h2 id="7-actual-driver-path-vs-expected-delivery-route">7. ACTUAL DRIVER PATH VS EXPECTED DELIVERY ROUTE</h2>
+<p>The GPS trail shows what the driver actually did.</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Driver
+  ●
+ / \
+●   ●
+     \
+      ●</code></pre></div>
+<h4 id="expected-delivery-route">Expected Delivery Route</h4>
+<p>The navigation route shows where the driver should travel.</p>
+<p>Expected route between locations:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Store
+ 🏪
+  │
+  │
+  └───────────────┐
+                  │
+                  ▼
+              Customer
+                 ●</code></pre></div>
+<p>Therefore the dashboard can display both:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Actual Driver Path
+        ───────
+
+Expected Delivery Route
+        ═══════</code></pre></div>
+<p>This allows the operations team to see:</p>
+<ul><li>Where the driver actually travelled</li><li>Where the driver is supposed to go</li><li>Whether the driver is deviating from the route</li><li>Route deviation</li><li>Wrong turns</li><li>Delays</li><li>Unexpected stops</li></ul>
+<hr>
+<h2 id="8-store-locations">8. STORE LOCATIONS</h2>
+<p>Stores should be displayed as fixed map markers.</p>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>L.marker([17.390, 78.480])
+    .addTo(map)
+    .bindPopup(&quot;Store #20&quot;);</code></pre></div>
+<p>Store information can include:</p>
+<div class="code-wrap"><span class="code-lang">JSON</span><pre class="code-block"><code>{
+  &quot;storeId&quot;: 20,
+  &quot;name&quot;: &quot;Restaurant ABC&quot;,
+  &quot;lat&quot;: 17.390,
+  &quot;lon&quot;: 78.480
+}</code></pre></div>
+<hr>
+<h2 id="9-customer-locations">9. CUSTOMER LOCATIONS</h2>
+<p>Customer delivery locations should also be displayed.</p>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>L.marker([17.400, 78.490])
+    .addTo(map)
+    .bindPopup(&quot;Order #501&quot;);</code></pre></div>
+<p>The dashboard can therefore show:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>🏪 Store
+   │
+   │ Delivery Route
+   │
+   ▼
+📍 Customer</code></pre></div>
+<hr>
+<h2 id="10-real-time-driver-tracking">10. REAL-TIME DRIVER TRACKING</h2>
+<h4 id="architecture">Architecture</h4>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Driver GPS
+    ↓
+Location API
+    ↓
+Redis GEO
+    ↓
+Location History
+    ↓
+WebSocket Event
+    ↓
+Dashboard</code></pre></div>
+<hr>
+<h2 id="11-websocket-backend">11. WEBSOCKET BACKEND</h2>
+<p>Create the WebSocket configuration.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Configuration
+@EnableWebSocketMessageBroker
+public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    @Override
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint(&quot;/ws&quot;).setAllowedOriginPatterns(&quot;*&quot;).withSockJS();
+    }
+
+    @Override
+    public void configureMessageBroker(MessageBrokerRegistry registry) {
+        registry.enableSimpleBroker(&quot;/topic&quot;);
+        registry.setApplicationDestinationPrefixes(&quot;/app&quot;);
+    }
+}</code></pre></div>
+<p>This creates:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>/ws</code></pre></div>
+<p>as the WebSocket endpoint.</p>
+<hr>
+<h2 id="12-define-websocket-topics">12. DEFINE WEBSOCKET TOPICS</h2>
+<p>Do not put every event into one topic.</p>
+<p>Create separate topics.</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>/topic/drivers          : Current driver location.
+/topic/driver-paths     : Driver movement points.
+/topic/assignments      : Assignment lifecycle.
+/topic/orders           : Order state changes.
+/topic/surge            : Demand / surge changes.
+/topic/eta              : ETA changes.</code></pre></div>
+<p>This makes the frontend easier to maintain.</p>
+<hr>
+<h2 id="13-driver-location-event-dto">13. DRIVER LOCATION EVENT DTO</h2>
+<p>Create a reusable DTO.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record DriverLocationEvent(
+        Long driverId,
+        double lat,
+        double lon,
+        String status,
+        long timestamp
+) {
+}</code></pre></div>
+<p>Example event:</p>
+<div class="code-wrap"><span class="code-lang">JSON</span><pre class="code-block"><code>{
+  &quot;driverId&quot;: 101,
+  &quot;lat&quot;: 17.385,
+  &quot;lon&quot;: 78.486,
+  &quot;status&quot;: &quot;AVAILABLE&quot;,
+  &quot;timestamp&quot;: 1757336400000
+}</code></pre></div>
+<hr>
+<h2 id="14-driver-stream-service">14. DRIVER STREAM SERVICE</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class DriverStreamService {
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
+
+    public void publishDriverLocation(Long driverId, double lat, double lon, String status) {
+        var event = new DriverLocationEvent(driverId, lat, lon, status);
+
+        messagingTemplate.convertAndSend(
+                &quot;/topic/drivers&quot;,
+                event
+        );
+    }
+}</code></pre></div>
+<hr>
+<h2 id="15-redis-geo-current-driver-location">15. REDIS GEO — CURRENT DRIVER LOCATION</h2>
+<p>Redis GEO is used to store the driver&#39;s latest geographic position.</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Redis GEO answers:
+
+&quot;Which drivers are near this location?&quot;</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class DriverTrackingService {
+
+    @Autowired
+    private StringRedisTemplate redis;
+
+    private static final String KEY = &quot;drivers_geo&quot;;
+
+    public void updateLocation(
+            Long driverId,
+            double lat,
+            double lon) {
+
+        redis.opsForGeo()
+                .add(
+                    KEY,
+                    new Point(lon, lat),
+                    driverId.toString()
+                );
+    }
+}</code></pre></div>
+<p>Important:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Redis GEO
+    =
+Current geographic state</code></pre></div>
+<p>It should not be treated as the long-term GPS history database.</p>
+<hr>
+<h2 id="16-complete-driver-location-update">16. COMPLETE DRIVER LOCATION UPDATE</h2>
+<p>When the driver sends a GPS update:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public void updateDriverLocation(Long driverId, double lat, double lon) {
+    // 1. Validate coordinates
+    validateCoordinates(lat, lon);
+
+    // 2. Update current location
+    redisGeo.update(driverId, lat, lon);
+
+    // 3. Save location history
+    locationHistoryService.save(driverId, lat, lon);
+
+    // 4. Publish current location
+    driverStreamService.publishDriverLocation(driverId, lat, lon, &quot;AVAILABLE&quot;);
+
+    // 5. Publish movement path point
+    driverPathStreamService.publish( driverId, lat, lon );
+}</code></pre></div>
+<p>Complete flow:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>GPS
+ ↓
+Backend
+ ↓
+Validate
+ ↓
+Redis GEO
+ ↓
+Location History
+ ↓
+WebSocket</code></pre></div>
+<hr>
+<h2 id="17-driver-location-history">17. DRIVER LOCATION HISTORY</h2>
+<p>Current location and history have different purposes.</p>
+<h4 id="redis-geo">Redis GEO</h4>
+<p>Use Redis for:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Where is the driver now?</code></pre></div>
+<h4 id="database-postgresql-location-store">Database (PostgreSQL / Location Store)</h4>
+<p>Use the database for:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Where has the driver been? or Where has the driver travelled?</code></pre></div>
+<p>Example entity:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Entity
+public class DriverLocationHistory {
+    @Id
+    @GeneratedValue
+    private Long id;
+
+    private Long driverId;
+    private double latitude;
+    private double longitude;
+    private Instant recordedAt;
+}</code></pre></div>
+<p>For high-frequency GPS systems, location-history storage should eventually be optimized using </p>
+<ul><li>batching</li><li>partitioning</li><li>retention policies</li><li>path simplification</li><li>time-series storage where appropriate</li></ul>
+<hr>
+<h2 id="18-driver-path-websocket-event-publish-driver-path-updates">18. DRIVER PATH WEBSOCKET EVENT (Publish Driver Path Updates)</h2>
+<p>When a new GPS point arrives, publish it.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public void publishDriverPath(Long driverId, double lat, double lon) {
+
+    Map&lt;String, Object&gt; event = Map.of(
+            &quot;driverId&quot;, driverId,
+            &quot;lat&quot;, lat,
+            &quot;lon&quot;, lon,
+            &quot;timestamp&quot;, System.currentTimeMillis()
+    );
+
+    messagingTemplate.convertAndSend(
+            &quot;/topic/driver-paths&quot;,
+            event
+    );
+}</code></pre></div>
+<p>The frontend will append the point to that driver&#39;s path.</p>
+<hr>
+<h2 id="19-initial-dashboard-load">19. INITIAL DASHBOARD LOAD</h2>
+<p>WebSocket only provides future events.</p>
+<p>When the dashboard first opens, it needs the current state.</p>
+<p>Use APIs such as:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>GET /api/dashboard/drivers
+GET /api/dashboard/stores
+GET /api/dashboard/orders/active
+GET /api/dashboard/assignments/active
+GET /api/dashboard/surge</code></pre></div>
+<p>Flow:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Dashboard Opens
+      ↓
+Load Current State
+      ↓
+Render Map
+      ↓
+Connect WebSocket
+      ↓
+Receive Future Events
+      ↓
+LIVE MODE</code></pre></div>
+<p>Do not rely exclusively on WebSocket.</p>
+<hr>
+<h2 id="20-delivery-assignment-flow">20. DELIVERY ASSIGNMENT FLOW</h2>
+<p>The basic delivery assignment flow is:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Order Created
+      ↓
+Find Store
+      ↓
+Find Nearby Drivers
+      ↓
+Filter Eligible Drivers
+      ↓
+Predict ETA
+      ↓
+Rank Drivers
+      ↓
+Assign Driver
+      ↓
+Driver Accepts
+      ↓
+Start Tracking
+      ↓
+Update Route Dynamically</code></pre></div>
+<hr>
+<h2 id="21-find-store">21. FIND STORE</h2>
+<p>When an order is created:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Order --&gt; Store ID --&gt; Store Location</code></pre></div>
+<h2 id="22-find-nearest-driver-using-redis-geo">22. FIND NEAREST DRIVER USING REDIS GEO</h2>
+<p>Redis GEO can search for drivers within a radius.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public String assignDriver( double lat, double lon) { 
+    Circle circle = new Circle(
+            new Point(lon, lat), 
+            new Distance( 5, Metrics.KILOMETERS ) 
+    ); 
+    GeoResults&lt;RedisGeoCommands.GeoLocation&lt;String&gt; &gt; results = 
+            redis.opsForGeo() .radius(KEY, circle); 
+    return results.getContent() .get(0) .getContent() .getName(); 
+}</code></pre></div>
+<p>Conceptually:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Store
+  │
+  ▼
+Redis GEO
+  │
+  ├── Driver 101 → 1.2 km
+  ├── Driver 102 → 2.4 km
+  ├── Driver 103 → 3.1 km
+  └── Driver 104 → 4.7 km</code></pre></div>
+<p>However, selecting:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>results.getContent().get(0)</code></pre></div>
+<hr>
+<p>is only a basic demonstration.</p>
+<p>A production assignment engine should not blindly choose the first result.</p>
+<hr>
+<h2 id="23-production-driver-matching">23. PRODUCTION DRIVER MATCHING</h2>
+<p>The production-style matching process should be:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Nearby Drivers
+      ↓
+Filter Drivers
+      │
+      ├── Online?
+      ├── Available?
+      ├── Correct vehicle?
+      ├── Active assignment limit?
+      ├── Driver eligible?
+      └── Inside service area?
+      ↓
+Candidate Drivers
+      ↓
+Calculate ETA
+      ↓
+Rank Candidates
+      ↓
+Select Best Driver</code></pre></div>
+<p>This is where ETA prediction becomes important.</p>
+<hr>
+<h2 id="24-why-distance-alone-is-not-enough">24. WHY DISTANCE ALONE IS NOT ENOUGH</h2>
+<p>Suppose:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Driver A → 2 km away
+Driver B → 3 km away</code></pre></div>
+<p>It is tempting to select Driver A.</p>
+<p>But Driver A could be slower because of:</p>
+<ul><li>traffic</li><li>road conditions</li><li>many turns</li><li>road type</li><li>driver behavior</li><li>peak hour</li><li>weather</li></ul>
+<p>Therefore:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Nearest Driver
+        ≠
+Fastest Driver</code></pre></div>
+<p>The assignment engine should eventually optimize for <strong>predicted arrival time</strong>, not merely geographic distance.</p>
+<hr>
+<h2 id="25-ml-based-eta-prediction">25. ML-BASED ETA PREDICTION</h2>
+<h4 id="why-rule-based-eta-fails">Why Rule-Based ETA Fails</h4>
+<p>A simple ETA formula is:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>ETA = distance / speed</code></pre></div>
+<p>Problems:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>❌ Ignores traffic
+❌ Ignores time of day
+❌ Ignores road type
+❌ Ignores weather
+❌ Ignores driver behavior
+❌ Ignores road complexity</code></pre></div>
+<p>A production-style ETA model can instead learn:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>ETA = f(
+    distance,
+    traffic,
+    road,
+    driver,
+    time,
+    region,
+    weather
+)</code></pre></div>
+<hr>
+<h2 id="26-eta-feature-engineering">26. ETA FEATURE ENGINEERING</h2>
+<p>The most important part of an ML system is often not the model itself but the quality of the features.</p>
+<p>We convert the delivery request into numerical features.</p>
+<hr>
+<h4 id="spatial-features">Spatial Features</h4>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>distance_km
+route_curvature
+number_of_turns
+road_complexity</code></pre></div>
+<hr>
+<h4 id="temporal-features">Temporal Features</h4>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>hour_of_day
+day_of_week
+peak_hour_flag</code></pre></div>
+<hr>
+<h4 id="traffic-features">Traffic Features</h4>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>congestion_level
+avg_speed_zone
+traffic_density</code></pre></div>
+<hr>
+<h4 id="driver-features">Driver Features</h4>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>driver_speed_avg
+driver_history_delay
+driver_experience</code></pre></div>
+<hr>
+<h4 id="context-features">Context Features</h4>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>rain
+weather
+event_zone
+region</code></pre></div>
+<hr>
+<h2 id="27-feature-vector">27. FEATURE VECTOR</h2>
+<p>The model receives a feature vector.</p>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>X = [
+    distance,
+    hour,
+    traffic,
+    driver_speed,
+    road_complexity
+]</code></pre></div>
+<p>A more complete production vector could look like:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>X = [
+    distance_km,
+    route_curvature,
+    number_of_turns,
+    hour_of_day,
+    day_of_week,
+    peak_hour_flag,
+    congestion_level,
+    avg_speed_zone,
+    driver_speed_avg,
+    driver_history_delay,
+    rain,
+    event_zone
+]</code></pre></div>
+<hr>
+<h2 id="28-model-options">28. MODEL OPTIONS</h2>
+<p>Possible models include:</p>
+<h4 id="gradient-boosting">Gradient Boosting</h4>
+<p>Examples:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>XGBoost
+LightGBM
+CatBoost</code></pre></div>
+<p>Excellent choice for structured/tabular data.</p>
+<h4 id="random-forest">Random Forest</h4>
+<p>Simple and useful as a baseline.</p>
+<h4 id="neural-networks">Neural Networks</h4>
+<p>Useful when there is a large amount of training data and more complex relationships.</p>
+<h4 id="deep-spatio-temporal-models">Deep Spatio-Temporal Models</h4>
+<p>Advanced systems can model:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Location
++
+Time
++
+Traffic
++
+Historical patterns</code></pre></div>
+<p>These are appropriate for large-scale optimization but are not necessary for the first implementation.</p>
+<hr>
+<h2 id="29-simple-working-java-eta-model">29. SIMPLE WORKING JAVA ETA MODEL</h2>
+<p>Before integrating a real ML model, we can simulate the inference layer.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class EtaPredictionService {
+
+    public double predictETA(
+            double distanceKm,
+            int hourOfDay,
+            double trafficLevel,
+            double driverSpeed,
+            double roadComplexity) {
+
+        // Simulated ML weights
+        double eta =
+                (distanceKm * 2.5)
+                + (trafficLevel * 8)
+                + (roadComplexity * 3)
+                - (driverSpeed * 1.2)
+                + (isPeakHour(hourOfDay)
+                    ? 5
+                    : 0);
+
+        return Math.max(1, eta);
+    }
+
+    private boolean isPeakHour(int hour) {
+
+        return (hour &gt;= 8 &amp;&amp; hour &lt;= 11)
+                || (hour &gt;= 17 &amp;&amp; hour &lt;= 21);
+    }
+}</code></pre></div>
+<p>This is NOT a trained ML model.</p>
+<p>It is a simulation of what the prediction service interface could look like.</p>
+<hr>
+<h2 id="30-eta-prediction-api">30. ETA PREDICTION API</h2>
+<p>A clean service interface can be:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface EtaPredictionService {
+
+    Duration predict(
+            EtaPredictionRequest request
+    );
+}</code></pre></div>
+<p>Request:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record EtaPredictionRequest(
+        double distanceKm,
+        int hourOfDay,
+        double trafficLevel,
+        double driverSpeed,
+        double roadComplexity
+) {
+}</code></pre></div>
+<p>This allows the implementation to later change from:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Java simulation</code></pre></div>
+<p>to:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Python XGBoost</code></pre></div>
+<p>without changing the assignment engine&#39;s overall design.</p>
+<hr>
+<h2 id="31-production-ml-architecture">31. PRODUCTION ML ARCHITECTURE</h2>
+<p>A production architecture could look like:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Spring Boot
+     ↓
+Kafka
+     ↓
+Feature Builder
+     ↓
+Feature Store
+     ↓
+ML Model Server
+     ↓
+ETA Prediction
+     ↓
+Assignment Engine</code></pre></div>
+<p>The ML model can be implemented using:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Python
+    +
+XGBoost / PyTorch / LightGBM</code></pre></div>
+<p>and served through:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>REST
+or
+gRPC</code></pre></div>
+<hr>
+<h2 id="32-real-eta-call-flow">32. REAL ETA CALL FLOW</h2>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Order Request
+      ↓
+Feature Builder
+      ↓
+Generate Candidate Features
+      ↓
+ML Model Server
+      ↓
+ETA Prediction
+      ↓
+Driver Ranking
+      ↓
+Assignment</code></pre></div>
+<p>For multiple candidates:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Driver 101
+   ↓
+ETA = 8 min
+
+Driver 102
+   ↓
+ETA = 6 min
+
+Driver 103
+   ↓
+ETA = 11 min
+
+        ↓
+
+Select Driver 102</code></pre></div>
+<hr>
+<h2 id="33-eta-driver-matching">33. ETA + DRIVER MATCHING</h2>
+<p>The complete assignment engine becomes:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Order
+  ↓
+Store Location
+  ↓
+Redis GEO
+  ↓
+Nearby Drivers
+  ↓
+Eligibility Filter
+  ↓
+Feature Builder
+  ↓
+ETA Model
+  ↓
+ETA for Every Candidate
+  ↓
+Driver Ranking
+  ↓
+Best Driver
+  ↓
+Assignment</code></pre></div>
+<p>This is significantly better than:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Nearest Driver
+      ↓
+Assign</code></pre></div>
+<hr>
+<h2 id="34-assignment-model">34. ASSIGNMENT MODEL</h2>
+<p>An assignment should contain:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>assignmentId
+orderId
+driverId
+storeId
+customerId
+status
+assignedAt
+acceptedAt
+pickedUpAt
+deliveredAt</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">JSON</span><pre class="code-block"><code>{
+  &quot;assignmentId&quot;: 9001,
+  &quot;orderId&quot;: 501,
+  &quot;driverId&quot;: 101,
+  &quot;storeId&quot;: 20,
+  &quot;customerId&quot;: 3001,
+  &quot;status&quot;: &quot;DRIVER_ACCEPTED&quot;
+}</code></pre></div>
+<hr>
+<h2 id="35-assignment-state-machine">35. ASSIGNMENT STATE MACHINE</h2>
+<p>Use explicit assignment states.</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>PENDING
+   ↓
+SEARCHING_DRIVER
+   ↓
+DRIVER_ASSIGNED
+   ↓
+DRIVER_ACCEPTED
+   ↓
+ARRIVING_AT_STORE
+   ↓
+ORDER_PICKED_UP
+   ↓
+DELIVERING
+   ↓
+DELIVERED</code></pre></div>
+<p>Failure paths:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>DRIVER_ASSIGNED
+      │
+      ├── DRIVER_REJECTED
+      │        ↓
+      │   SEARCHING_DRIVER
+      │
+      └── DRIVER_TIMEOUT
+               ↓
+          SEARCHING_DRIVER</code></pre></div>
+<hr>
+<h2 id="36-assignment-events">36. ASSIGNMENT EVENTS</h2>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record AssignmentEvent(
+        Long assignmentId,
+        Long orderId,
+        Long driverId,
+        String status,
+        long timestamp
+) {
+}</code></pre></div>
+<p>Publish:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>messagingTemplate.convertAndSend(
+        &quot;/topic/assignments&quot;,
+        event
+);</code></pre></div>
+<p>Now the dashboard can immediately update when:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>DRIVER_ASSIGNED
+DRIVER_ACCEPTED
+DRIVER_REJECTED
+ORDER_PICKED_UP
+DELIVERING
+DELIVERED</code></pre></div>
+<hr>
+<h2 id="37-start-tracking-after-assignment">37. START TRACKING AFTER ASSIGNMENT</h2>
+<p>Once a driver accepts the order:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Driver Accepted
+      ↓
+Assignment Active
+      ↓
+Start Tracking
+      ↓
+GPS Updates
+      ↓
+Driver Path
+      ↓
+ETA Updates
+      ↓
+Route Updates</code></pre></div>
+<p>This creates the connection between:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Assignment
+     +
+Tracking
+     +
+ETA
+     +
+Route</code></pre></div>
+<hr>
+<h2 id="38-delivery-route">38. DELIVERY ROUTE</h2>
+<p>The active delivery normally contains:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Driver
+   ↓
+Store
+   ↓
+Customer</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">JSON</span><pre class="code-block"><code>{
+  &quot;assignmentId&quot;: 9001,
+  &quot;driver&quot;: {
+    &quot;lat&quot;: 17.385,
+    &quot;lon&quot;: 78.486
+  },
+  &quot;store&quot;: {
+    &quot;lat&quot;: 17.390,
+    &quot;lon&quot;: 78.480
+  },
+  &quot;customer&quot;: {
+    &quot;lat&quot;: 17.400,
+    &quot;lon&quot;: 78.490
+  }
+}</code></pre></div>
+<hr>
+<h2 id="39-route-visualization">39. ROUTE VISUALIZATION</h2>
+<p>A basic implementation:</p>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>const route = [
+    [driverLat, driverLon],
+    [storeLat, storeLon],
+    [customerLat, customerLon]
+];
+
+assignmentRoutes[assignmentId] =
+    L.polyline(route)
+        .addTo(map);</code></pre></div>
+<p>Important:</p>
+<p>A simple polyline is only a visualization.</p>
+<p>It is not a real road route.</p>
+<p>For actual navigation routing, use a routing engine such as:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>OSRM
+GraphHopper
+Google Maps Routes API</code></pre></div>
+<p>The routing engine should return the actual road geometry.</p>
+<hr>
+<h2 id="40-dynamic-route-update">40. DYNAMIC ROUTE UPDATE</h2>
+<p>The route should not be treated as static.</p>
+<p>Driver movement can cause:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Traffic changes
+Road closures
+Route deviation
+Unexpected delay</code></pre></div>
+<p>Therefore:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>GPS Update
+    ↓
+Current Position
+    ↓
+Traffic / Route Check
+    ↓
+ETA Recalculation
+    ↓
+Route Recalculation if required
+    ↓
+WebSocket
+    ↓
+Dashboard</code></pre></div>
+<hr>
+<h2 id="41-surge-demand-heatmap">41. SURGE / DEMAND HEATMAP</h2>
+<p>The heatmap represents <strong>demand pressure</strong>.</p>
+<p>It should not simply display random red circles.</p>
+<p>A basic demand calculation can use:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Pending Orders
++
+Active Orders
++
+Recent Order Velocity</code></pre></div>
+<p>and compare demand with available drivers.</p>
+<p>Conceptually:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Surge Score =
+Demand / Available Drivers</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Demand = 50
+Available Drivers = 10
+
+Ratio = 5.0
+
+HIGH DEMAND</code></pre></div>
+<hr>
+<h2 id="42-geographic-grid">42. GEOGRAPHIC GRID</h2>
+<p>Divide the city into geographic cells.</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>┌────┬────┬────┬────┐
+│    │    │ 🔥 │    │
+├────┼────┼────┼────┤
+│    │ 🔥 │ 🔥 │    │
+├────┼────┼────┼────┤
+│    │    │    │    │
+├────┼────┼────┼────┤
+│    │    │    │    │
+└────┴────┴────┴────┘</code></pre></div>
+<p>Each cell can contain:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>cellId
+orderCount
+availableDriverCount
+activeDriverCount
+demandScore
+surgeLevel</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">JSON</span><pre class="code-block"><code>{
+  &quot;cellId&quot;: &quot;17.39:78.48&quot;,
+  &quot;orderCount&quot;: 35,
+  &quot;availableDrivers&quot;: 4,
+  &quot;demandScore&quot;: 8.75,
+  &quot;surgeLevel&quot;: &quot;HIGH&quot;
+}</code></pre></div>
+<hr>
+<h2 id="43-surge-event">43. SURGE EVENT</h2>
+<p>Publish:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>/topic/surge</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">JSON</span><pre class="code-block"><code>{
+  &quot;cellId&quot;: &quot;17.39:78.48&quot;,
+  &quot;lat&quot;: 17.39,
+  &quot;lon&quot;: 78.48,
+  &quot;radius&quot;: 500,
+  &quot;demandScore&quot;: 8.75,
+  &quot;surgeLevel&quot;: &quot;HIGH&quot;
+}</code></pre></div>
+<hr>
+<h2 id="44-display-surge-zone">44. DISPLAY SURGE ZONE</h2>
+<p>Basic implementation:</p>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>function renderSurgeZone(zone) {
+
+    L.circle(
+        [zone.lat, zone.lon],
+        {
+            radius: zone.radius,
+            fillOpacity: 0.25
+        }
+    ).addTo(map);
+}</code></pre></div>
+<p>Production implementation can use:</p>
+<ul><li>grid polygons</li><li>Leaflet heatmap</li><li>GeoJSON</li><li>H3 cells</li></ul>
+<p>The important concept is:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Demand
+   ↓
+Geographic aggregation
+   ↓
+Demand score
+   ↓
+Surge level
+   ↓
+Map visualization</code></pre></div>
+<hr>
+<h2 id="45-frontend-map-state">45. FRONTEND MAP STATE</h2>
+<h4 id="step-1-create-the-map">STEP 1 — Create the Map</h4>
+<div class="code-wrap"><span class="code-lang">html</span><pre class="code-block"><code>&lt;div id=&quot;map&quot;&gt;&lt;/div&gt;</code></pre></div>
+<div class="code-wrap"><span class="code-lang">html</span><pre class="code-block"><code>&lt;html&gt;
+&lt;head&gt;
+  &lt;title&gt;Uber Control Panel&lt;/title&gt;
+  &lt;link rel=&quot;stylesheet&quot;
+        href=&quot;https://unpkg.com/leaflet/dist/leaflet.css&quot;/&gt;
+
+  &lt;script src=&quot;https://unpkg.com/leaflet/dist/leaflet.js&quot;&gt;&lt;/script&gt;
+  &lt;script src=&quot;https://cdn.jsdelivr.net/npm/sockjs-client/dist/sockjs.min.js&quot;&gt;&lt;/script&gt;
+  &lt;script src=&quot;https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js&quot;&gt;&lt;/script&gt;
+
+  &lt;style&gt;
+    #map { height: 100vh; }
+  &lt;/style&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+
+&lt;div id=&quot;map&quot;&gt;&lt;/div&gt;
+
+&lt;script&gt;</code></pre></div>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>const map = L.map(&#39;map&#39;).setView([17.385, 78.486], 13);
+
+L.tileLayer(&#39;https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png&#39;, {
+        maxZoom: 19
+}).addTo(map);</code></pre></div>
+<hr>
+<h3 id="step-2-maintain-frontend-state">STEP 2 — Maintain Frontend State</h3>
+<p>Instead of only storing markers, maintain separate objects.</p>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>const driverMarkers = {};
+const driverPaths = {};
+const driverPathPoints = {};
+const storeMarkers = {};
+const customerMarkers = {};
+const assignmentRoutes = {};
+const surgeZones = {}; 
+const assignments = {};</code></pre></div>
+<p>This is important because each map concept has a different lifecycle.</p>
+<p>A simple visualization can use a polyline:</p>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>const route = [
+    [driverLat, driverLon],
+    [storeLat, storeLon],
+    [customerLat, customerLon]
+];
+
+assignmentRoutes[assignmentId] =
+    L.polyline(route)
+     .addTo(map);</code></pre></div>
+<p>For production navigation, replace this with a routing engine such as OSRM, GraphHopper, Google Maps Routes API, or another routing provider.</p>
+<p>A straight line between two GPS points is NOT a real road route.</p>
+<hr>
+<h2 id="46-render-driver-marker">46. RENDER DRIVER MARKER</h2>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>function updateDriverMarker(driver) {
+    const {driverId, lat, lon} = driver;
+
+    if (driverMarkers[driverId]) {
+        driverMarkers[driverId].setLatLng([lat, lon]);
+        return;
+    }
+
+    // Create a new marker at the driver&#39;s latest location
+    // display their ID when the marker is selected.
+    driverMarkers[driverId] = L.circleMarker([lat, lon], {
+                radius: 6,
+                color: &quot;blue&quot;
+    }).addTo(map)
+    .bindPopup(`Driver ${driverId}`);
+}</code></pre></div>
+<p>Now the marker moves instead of being destroyed and recreated.</p>
+<hr>
+<h2 id="47-render-driver-movement-path">47. RENDER DRIVER MOVEMENT PATH</h2>
+<p>When a new GPS point arrives:</p>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>function updateDriverPath(driver) {
+    const {driverId, lat, lon} = driver;
+
+    if (!driverPathPoints[driverId]) {
+        driverPathPoints[driverId] = [];
+    }
+
+    driverPathPoints[driverId].push([lat, lon]);
+
+    if (driverPaths[driverId]) {
+        driverPaths[driverId]
+            .setLatLngs(driverPathPoints[driverId]);
+    } else {
+        driverPaths[driverId] =
+            L.polyline(driverPathPoints[driverId])
+                .addTo(map);
+    }
+}</code></pre></div>
+<p>The result becomes:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>START
+  ●
+   \
+    ●
+     \
+      ●
+       \
+        ● CURRENT DRIVER</code></pre></div>
+<hr>
+<h2 id="48-limit-path-memory-do-not-keep-unlimited-path-points-in-browser">48. LIMIT PATH MEMORY — Do Not Keep Unlimited Path Points in Browser</h2>
+<p>A driver can generate thousands of GPS points. Do not keep unlimited GPS points in the browser.</p>
+<p>Therefore use a limit.</p>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>const MAX_PATH_POINTS = 500;</code></pre></div>
+<p>Then:</p>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>if (
+    driverPathPoints[driverId].length &gt;
+    MAX_PATH_POINTS
+) {
+    driverPathPoints[driverId].shift();
+}</code></pre></div>
+<p>For historical routes, request older points from the backend instead of keeping everything in browser memory.</p>
+<hr>
+<p>For historical routes:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Frontend
+   ↓
+GET /api/dashboard/drivers/{id}/path
+   ↓
+Backend
+   ↓
+Historical Location Store</code></pre></div>
+<h2 id="49-live-assignments-panel">49. LIVE ASSIGNMENTS PANEL</h2>
+<p>The dashboard should have a live assignment panel.</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>LIVE ASSIGNMENTS
+
+┌────────────────────────────────────┐
+│ Order #501                         │
+│ Driver #101                        │
+│ Status: PICKING UP                 │
+│ ETA: 8 minutes                     │
+└────────────────────────────────────┘
+
+┌────────────────────────────────────┐
+│ Order #502                         │
+│ Driver #102                        │
+│ Status: DELIVERING                 │
+│ ETA: 12 minutes                    │
+└────────────────────────────────────┘
+
+┌────────────────────────────────────┐
+│ Order #503                         │
+│ Driver: SEARCHING                  │
+│ Status: PENDING                    │
+└────────────────────────────────────┘</code></pre></div>
+<h2 id="50-live-assignment-websocket">50. LIVE ASSIGNMENT WEBSOCKET</h2>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>stomp.subscribe(
+    &#39;/topic/assignments&#39;,
+    function(message) {
+
+        const assignment =
+            JSON.parse(message.body);
+
+        updateAssignmentPanel(
+            assignment
+        );
+
+        updateAssignmentRoute(
+            assignment
+        );
+    }
+);</code></pre></div>
+<p>No page refresh should be required.</p>
+<hr>
+<h2 id="51-complete-frontend-websocket">51. COMPLETE FRONTEND WEBSOCKET</h2>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>const map = L.map(&#39;map&#39;).setView([17.385, 78.486], 13);
+
+L.tileLayer(&#39;https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png&#39;, {
+    maxZoom: 19
+}).addTo(map);
+
+const markers = {};
+
+// WebSocket connect
+const socket = new SockJS(&#39;/ws&#39;);
+const stomp = Stomp.over(socket);
+
+stomp.connect({}, function() {
+    // Driver current location
+    stomp.subscribe(&#39;/topic/drivers&#39;, function(message) {
+        const driver = JSON.parse(message.body);
+        updateDriverMarker(driver);        
+    });
+
+    // Driver path
+    stomp.subscribe(&#39;/topic/driver-paths&#39;, function(message) {
+        const point = JSON.parse(message.body);
+        updateDriverPath(point);
+    });
+
+    // Assignment
+    stomp.subscribe(&#39;/topic/assignments&#39;, function(message) {
+        const assignment = JSON.parse(message.body);
+        updateAssignmentPanel(assignment);
+        updateAssignmentRoute(assignment);
+    });
+
+    // Surge
+    stomp.subscribe(&#39;/topic/surge&#39;, function(message) {
+        const zone = JSON.parse(message.body);
+        updateSurgeZone(zone);
+    });
+
+    // ETA
+    stomp.subscribe(&#39;/topic/eta&#39;, function(message) {
+            const eta = JSON.parse(message.body);
+            updateEta(eta);
+    });
+});
+
+function updateDriverMarker(driver) {
+    if (markers[driver.id]) {
+        map.removeLayer(markers[driver.id]);
+    }
+
+    // Create a new marker at the driver&#39;s latest location
+    // display their ID when the marker is selected.
+    markers[id] = L.circleMarker([data.lat, data.lon], {
+        radius: 6,
+        color: &quot;blue&quot;
+    }).addTo(map)
+        .bindPopup(&quot;Driver &quot; + id);
+}</code></pre></div>
+<hr>
+<h3 id="51-complete-websocket-frontend">51. COMPLETE WEBSOCKET FRONTEND</h3>
+<p>The dashboard should subscribe to all required streams.</p>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>stomp.connect({}, function() {
+    // Driver current location
+    stomp.subscribe(&#39;/topic/drivers&#39;, function(message) {
+            const driver = JSON.parse(message.body);
+            updateDriverMarker(driver);
+            updateDriverPath(driver);
+    });
+
+    // Driver movement path
+    stomp.subscribe(&#39;/topic/driver-paths&#39;, function(message) {
+            const point = JSON.parse(message.body);
+            updateDriverPath(point);
+    });
+
+    // Assignment changes
+    stomp.subscribe(&#39;/topic/assignments&#39;, function(message) {
+            const assignment = JSON.parse(message.body);
+            updateAssignmentPanel(assignment);
+            updateAssignmentRoute(assignment);
+    });
+
+    // Surge / demand
+    stomp.subscribe(&#39;/topic/surge&#39;, function(message) {
+            const zone = JSON.parse(message.body);
+            updateSurgeZone(zone);
+    });
+});</code></pre></div>
+<hr>
+<h2 id="52-driver-online-offline-detection">52. DRIVER ONLINE / OFFLINE DETECTION</h2>
+<p>A driver should not remain &quot;online&quot; forever.</p>
+<p>Every GPS event should contain:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>timestamp</code></pre></div>
+<p>Example rules:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>&lt; 30 seconds → ONLINE
+
+30–120 seconds → STALE
+
+&gt; 120 seconds → OFFLINE</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">javascript</span><pre class="code-block"><code>const age = Date.now() - driver.lastUpdated;
+
+if (age &lt; 30000) {
+    status = &quot;ONLINE&quot;;
+} else if (age &lt; 120000) {
+    status = &quot;STALE&quot;;
+} else {
+    status = &quot;OFFLINE&quot;;
+}</code></pre></div>
+<hr>
+<h2 id="53-business-status-vs-connectivity-status">53. BUSINESS STATUS VS CONNECTIVITY STATUS</h2>
+<p>These are different concepts.</p>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Driver #101
+
+Business Status:
+ON_DELIVERY
+
+GPS Status:
+ONLINE</code></pre></div>
+<p>Another driver:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Driver #102
+
+Business Status:
+AVAILABLE
+
+GPS Status:
+OFFLINE</code></pre></div>
+<p>Therefore maintain:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Business Status
++
+Connectivity Status</code></pre></div>
+<p>separately.</p>
+<hr>
+<h2 id="54-recommended-dashboard-apis">54. RECOMMENDED DASHBOARD APIs</h2>
+<p>Initial state:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>GET /api/dashboard/drivers
+GET /api/dashboard/drivers/{driverId}/path
+GET /api/dashboard/stores
+GET /api/dashboard/orders/active
+GET /api/dashboard/assignments/active
+GET /api/dashboard/surge</code></pre></div>
+<p>Driver application:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>POST /api/drivers/location</code></pre></div>
+<p>Assignments:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>POST /api/assignments
+
+POST /api/assignments/{id}/accept
+
+POST /api/assignments/{id}/reject
+
+POST /api/assignments/{id}/pickup
+
+POST /api/assignments/{id}/deliver</code></pre></div>
+<p>ETA:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>GET /api/assignments/{id}/eta</code></pre></div>
+<hr>
+<h2 id="55-complete-gps-flow">55. COMPLETE GPS FLOW</h2>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Driver Mobile App
+        │
+        │ GPS
+        ▼
+POST /api/drivers/location
+        │
+        ▼
+Location Service
+        │
+        ├───────────────┐
+        │               │
+        ▼               ▼
+    Redis GEO       Location History
+        │               │
+        │               │
+        └───────┬───────┘
+                ▼
+        WebSocket Event
+                │
+                ▼
+        /topic/drivers
+                │
+                ▼
+           Dashboard
+                │
+          ┌─────┴─────┐
+          ▼           ▼
+       Marker       Path</code></pre></div>
+<hr>
+<h2 id="56-complete-assignment-flow">56. COMPLETE ASSIGNMENT FLOW</h2>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Order Created
+      │
+      ▼
+Find Store
+      │
+      ▼
+Get Store Coordinates
+      │
+      ▼
+Redis GEO
+      │
+      ▼
+Nearby Drivers
+      │
+      ▼
+Eligibility Filter
+      │
+      ▼
+Feature Builder
+      │
+      ▼
+ETA Prediction
+      │
+      ▼
+Driver Ranking
+      │
+      ▼
+Assign Driver
+      │
+      ▼
+Driver Accepts
+      │
+      ▼
+Start Tracking
+      │
+      ▼
+Dynamic ETA / Route
+      │
+      ▼
+Delivery Complete</code></pre></div>
+<hr>
+<h2 id="57-complete-real-time-flow">57. COMPLETE REAL-TIME FLOW</h2>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>                     DRIVER APP
+                         │
+                         │ GPS
+                         ▼
+                  LOCATION SERVICE
+                         │
+              ┌──────────┼──────────┐
+              ▼          ▼          ▼
+           Redis       History     Events
+            GEO           DB        │
+              │             │       │
+              │             │       ▼
+              │             │    WebSocket
+              │             │       │
+              ▼             │       ▼
+       Nearby Search        │   Dashboard
+              │             │
+              ▼             │
+       Assignment Engine    │
+              │             │
+              ▼             │
+        ETA Prediction      │
+              │             │
+              ▼             │
+        Driver Ranking      │
+              │             │
+              ▼             │
+        Assignment          │
+              │             │
+              └─────────────┘</code></pre></div>
+<hr>
+<h2 id="58-complete-surge-flow">58. COMPLETE SURGE FLOW</h2>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Orders
+   │
+   ▼
+Geographic Grid
+   │
+   ├── Order Count
+   ├── Active Orders
+   └── Recent Order Velocity
+   │
+   ▼
+Demand Score
+   │
+   +
+Available Drivers
+   │
+   ▼
+Surge Calculator
+   │
+   ▼
+Surge Zones
+   │
+   ▼
+WebSocket
+   │
+   ▼
+/topic/surge
+   │
+   ▼
+Dashboard Heatmap</code></pre></div>
+<hr>
+<h2 id="59-complete-eta-flow">59. COMPLETE ETA FLOW</h2>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Order
+   │
+   ▼
+Nearby Drivers
+   │
+   ▼
+Candidate Drivers
+   │
+   ▼
+Feature Builder
+   │
+   ├── Distance
+   ├── Traffic
+   ├── Time
+   ├── Road
+   ├── Driver
+   └── Weather
+   │
+   ▼
+ML Model
+   │
+   ▼
+ETA
+   │
+   ▼
+Driver Ranking
+   │
+   ▼
+Assignment</code></pre></div>
+<hr>
+<h2 id="60-real-time-eta-after-assignment">60. REAL-TIME ETA AFTER ASSIGNMENT</h2>
+<p>ETA does not stop after assignment.</p>
+<p>During delivery:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>GPS Update
+    ↓
+Current Position
+    ↓
+Remaining Distance
+    ↓
+Traffic
+    ↓
+ETA Model
+    ↓
+New ETA
+    ↓
+WebSocket
+    ↓
+Dashboard</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Before:
+
+Driver #101
+ETA = 12 min
+
+
+After traffic increase:
+
+Driver #101
+ETA = 18 min</code></pre></div>
+<p>The dashboard updates immediately.</p>
+<hr>
+<h2 id="61-driver-route-deviation">61. DRIVER ROUTE DEVIATION</h2>
+<p>Because we have:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Actual Driver Path
++
+Expected Route</code></pre></div>
+<p>we can detect route deviation.</p>
+<p>Conceptually:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Expected Route
+══════════════════════════════
+
+Actual Driver
+●────●
+      \
+       \
+        ●
+         \
+          🚗</code></pre></div>
+<p>If the driver moves sufficiently far away from the expected route:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Route Deviation Detected</code></pre></div>
+<p>The system can:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Recalculate Route
++
+Recalculate ETA
++
+Notify Dashboard</code></pre></div>
+<hr>
+<h2 id="62-implementation-phases">62. IMPLEMENTATION PHASES</h2>
+<p>Do not implement the complete platform simultaneously.</p>
+<p>Build it incrementally.</p>
+<hr>
+<h4 id="phase-1-basic-map">PHASE 1 — BASIC MAP</h4>
+<p>Implement:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>1. Leaflet
+2. OpenStreetMap
+3. Map initialization
+4. Store markers
+5. Customer markers</code></pre></div>
+<p>Success criteria:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Map loads
++
+Stores appear
++
+Customers appear</code></pre></div>
+<hr>
+<h4 id="phase-2-driver-tracking">PHASE 2 — DRIVER TRACKING</h4>
+<p>Implement:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>6. Driver GPS API
+7. Redis GEO
+8. Current driver location
+9. Driver marker</code></pre></div>
+<p>Success criteria:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Driver
+    ↓
+Backend
+    ↓
+Redis
+    ↓
+Map</code></pre></div>
+<hr>
+<h4 id="phase-3-websocket">PHASE 3 — WEBSOCKET</h4>
+<p>Implement:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>10. WebSocket configuration
+11. STOMP
+12. Driver location events
+13. /topic/drivers
+14. Real-time marker movement</code></pre></div>
+<p>Success criteria:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Driver moves
+    ↓
+Map marker moves</code></pre></div>
+<p>without refreshing the page.</p>
+<hr>
+<h4 id="phase-4-driver-path">PHASE 4 — DRIVER PATH</h4>
+<p>Implement:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>15. Location history
+16. Driver path event
+17. /topic/driver-paths
+18. Frontend path state
+19. Polyline
+20. Path retention</code></pre></div>
+<p>Success criteria:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Driver
+  ●
+   \
+    ●
+     \
+      ●
+       \
+        🚗</code></pre></div>
+<hr>
+<h4 id="phase-5-driver-matching">PHASE 5 — DRIVER MATCHING</h4>
+<p>Implement:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>21. Redis GEO radius search
+22. Nearby driver filtering
+23. Driver eligibility
+24. Basic nearest-driver assignment</code></pre></div>
+<p>Success criteria:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Order
+  ↓
+Store
+  ↓
+Nearby drivers
+  ↓
+Eligible driver
+  ↓
+Assignment</code></pre></div>
+<hr>
+<h4 id="phase-6-assignment-engine">PHASE 6 — ASSIGNMENT ENGINE</h4>
+<p>Implement:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>25. Assignment entity
+26. Assignment state machine
+27. Assignment APIs
+28. Assignment WebSocket
+29. Driver accept
+30. Driver reject
+31. Reassignment</code></pre></div>
+<hr>
+<h4 id="phase-7-delivery-route">PHASE 7 — DELIVERY ROUTE</h4>
+<p>Implement:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>32. Store → Customer route
+33. Driver → Store route
+34. Route visualization
+35. Actual path vs expected route
+36. Route deviation</code></pre></div>
+<hr>
+<h4 id="phase-8-eta">PHASE 8 — ETA</h4>
+<p>Start with:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>37. Java ETA simulation
+38. ETA service interface
+39. ETA calculation
+40. ETA in assignment ranking</code></pre></div>
+<p>Then evolve to:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>41. Feature engineering
+42. Training data
+43. XGBoost model
+44. Python model server
+45. REST/gRPC inference
+46. Production ETA</code></pre></div>
+<hr>
+<h4 id="phase-9-surge">PHASE 9 — SURGE</h4>
+<p>Implement:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>47. Geographic grid
+48. Order aggregation
+49. Driver aggregation
+50. Demand score
+51. Surge calculation
+52. Surge WebSocket
+53. Heatmap rendering</code></pre></div>
+<hr>
+<h4 id="phase-10-production-hardening">PHASE 10 — PRODUCTION HARDENING</h4>
+<p>Implement:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>54. Driver offline detection
+55. GPS validation
+56. Location throttling
+57. Path simplification
+58. Redis TTL
+59. Historical path API
+60. WebSocket authentication
+61. WebSocket authorization
+62. Monitoring
+63. Metrics
+64. Error handling
+65. Horizontal scaling</code></pre></div>
+<hr>
+<h2 id="63-production-considerations">63. PRODUCTION CONSIDERATIONS</h2>
+<h4 id="631-gps-frequency">63.1 GPS Frequency</h4>
+<p>Do not blindly save every GPS update.</p>
+<p>Suppose:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>1,000 drivers
+×
+1 GPS update / second
+=
+1,000 updates / second</code></pre></div>
+<p>This can become expensive.</p>
+<p>Use:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Distance threshold
++
+Time threshold
++
+Batching</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Save if:
+
+moved &gt; 10 meters
+
+OR
+
+5 seconds elapsed</code></pre></div>
+<p>The exact values should be tuned based on business requirements.</p>
+<hr>
+<h2 id="64-redis-geo-responsibility">64. REDIS GEO RESPONSIBILITY</h2>
+<p>Redis GEO should primarily answer:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Which drivers are near this location?</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Customer
+    ↓
+Redis GEO
+    ↓
+Drivers within 5 km</code></pre></div>
+<p>It provides the fast geographic candidate lookup.</p>
+<p>It should not be the source of truth for:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Orders
+Assignments
+Payments
+Historical GPS</code></pre></div>
+<hr>
+<h2 id="65-database-responsibility">65. DATABASE RESPONSIBILITY</h2>
+<p>The database remains the source of truth for:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Orders
+Drivers
+Stores
+Customers
+Assignments
+Assignment status
+Historical location
+Delivery state</code></pre></div>
+<p>Redis is an optimization / real-time state layer.</p>
+<hr>
+<h2 id="66-websocket-responsibility">66. WEBSOCKET RESPONSIBILITY</h2>
+<p>WebSocket communicates:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Something changed.</code></pre></div>
+<p>It should not become the database.</p>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Assignment DB
+      ↓
+Assignment changed
+      ↓
+Event published
+      ↓
+WebSocket
+      ↓
+Dashboard</code></pre></div>
+<p>The dashboard should always be able to recover its state through REST APIs.</p>
+<hr>
+<h2 id="67-kafka-responsibility">67. KAFKA RESPONSIBILITY</h2>
+<p>For a larger production architecture:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Driver GPS
+    ↓
+Location Event
+    ↓
+Kafka
+    ↓
+Multiple Consumers</code></pre></div>
+<p>Consumers can include:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Location Service
+Analytics
+ETA Feature Builder
+Surge Engine
+Monitoring
+Audit</code></pre></div>
+<p>This prevents every component from being tightly coupled.</p>
+<hr>
+<h2 id="68-event-driven-architecture">68. EVENT-DRIVEN ARCHITECTURE</h2>
+<p>Important events could include:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>DriverLocationUpdated
+OrderCreated
+DriverSearchStarted
+DriverAssigned
+DriverAccepted
+DriverRejected
+OrderPickedUp
+RouteUpdated
+EtaUpdated
+OrderDelivered
+SurgeZoneUpdated</code></pre></div>
+<p>Conceptually:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>                EVENT BUS
+                    │
+       ┌────────────┼────────────┐
+       ▼            ▼            ▼
+ Tracking        ETA          Surge
+ Service        Service       Engine
+       │            │            │
+       └────────────┼────────────┘
+                    ▼
+                 Dashboard</code></pre></div>
+<hr>
+<h2 id="69-final-map-composition">69. FINAL MAP COMPOSITION</h2>
+<p>The final dashboard should combine all layers:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>┌──────────────────────────────────────────────────────────────┐
+│                       LIVE MAP                               │
+│                                                              │
+│        🔥 HIGH DEMAND                                        │
+│       ╔══════════════╗                                       │
+│       ║  SURGE ZONE  ║                                       │
+│       ╚══════════════╝                                       │
+│                                                              │
+│                   🏪 Store                                   │
+│                      │                                       │
+│                      │ Expected Route                        │
+│                      ═════════════════════╗                  │
+│                                           ║                  │
+│                 ●──●──●──●──🚗             ║                  │
+│                 Actual Driver Path         ║                  │
+│                                           ║                  │
+│                                           ● Customer           │
+│                                                              │
+│       🚗 Driver #102                                       │
+│          │                                                   │
+│          ●──●──●──●                                        │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────┐
+│                    LIVE ASSIGNMENTS                          │
+│                                                              │
+│ #501 │ Driver #101 │ PICKING UP │ ETA 8 min                 │
+│ #502 │ Driver #102 │ DELIVERING │ ETA 12 min                │
+│ #503 │ Searching   │ ASSIGNING  │ --                        │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘</code></pre></div>
+<hr>
+<h2 id="70-final-architecture">70. FINAL ARCHITECTURE</h2>
+<p>The complete platform can be summarized as:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>                         ┌──────────────────────┐
+                         │     DRIVER APP       │
+                         │                      │
+                         │ GPS                  │
+                         └──────────┬───────────┘
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │   LOCATION SERVICE   │
+                         └──────────┬───────────┘
+                                    │
+                   ┌────────────────┼────────────────┐
+                   │                │                │
+                   ▼                ▼                ▼
+              ┌─────────┐    ┌────────────┐    ┌──────────┐
+              │ Redis   │    │ PostgreSQL │    │  Kafka   │
+              │ GEO     │    │            │    │          │
+              └────┬────┘    └─────┬──────┘    └────┬─────┘
+                   │               │                │
+                   │               │                │
+                   ▼               ▼                ▼
+             Nearby Drivers    Source of Truth   Event Bus
+                   │
+                   ▼
+            ┌───────────────┐
+            │ Assignment    │
+            │ Engine        │
+            └───────┬───────┘
+                    │
+                    ▼
+             Candidate Drivers
+                    │
+                    ▼
+             Feature Builder
+                    │
+                    ▼
+              ETA Prediction
+                    │
+                    ▼
+              Driver Ranking
+                    │
+                    ▼
+               Assignment
+                    │
+                    ▼
+              Live Tracking
+                    │
+          ┌─────────┼─────────┐
+          ▼         ▼         ▼
+        GPS       ETA       Route
+        Path    Updates    Updates
+          │         │         │
+          └─────────┼─────────┘
+                    ▼
+             WebSocket Layer
+                    │
+                    ▼
+       ┌─────────────────────────────┐
+       │       LIVE DASHBOARD        │
+       │                             │
+       │ Drivers                     │
+       │ Driver Paths                │
+       │ Stores                      │
+       │ Customers                   │
+       │ Delivery Routes             │
+       │ Assignments                 │
+       │ ETA                         │
+       │ Surge Heatmap               │
+       └─────────────────────────────┘</code></pre></div>
+<hr>
+<h2 id="71-final-end-to-end-example">71. FINAL END-TO-END EXAMPLE</h2>
+<p>Suppose a customer creates:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Order #501</code></pre></div>
+<p>The system performs:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>1. Order created
+       ↓
+
+2. Find Store #20
+       ↓
+
+3. Get Store coordinates
+       ↓
+
+4. Search Redis GEO
+       ↓
+
+5. Find:
+       Driver #101
+       Driver #102
+       Driver #103
+       ↓
+
+6. Filter unavailable drivers
+       ↓
+
+7. Build ETA features
+       ↓
+
+8. Predict:
+       Driver #101 → 8 min
+       Driver #102 → 6 min
+       Driver #103 → 11 min
+       ↓
+
+9. Select Driver #102
+       ↓
+
+10. Create assignment
+       ↓
+
+11. Notify Driver #102
+       ↓
+
+12. Driver accepts
+       ↓
+
+13. Start GPS tracking
+       ↓
+
+14. Dashboard receives location events
+       ↓
+
+15. Driver path is drawn
+       ↓
+
+16. Store → Customer route is displayed
+       ↓
+
+17. Driver reaches store
+       ↓
+
+18. Order picked up
+       ↓
+
+19. Driver moves toward customer
+       ↓
+
+20. ETA continuously recalculated
+       ↓
+
+21. Route updated if required
+       ↓
+
+22. Dashboard receives live updates
+       ↓
+
+23. Driver reaches customer
+       ↓
+
+24. Order delivered</code></pre></div>
+<p>At the same time, the surge engine independently monitors:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>Orders
++
+Available Drivers
++
+Geographic Demand</code></pre></div>
+<p>and updates the heatmap.</p>
+<hr>
+<h2 id="72-final-success-criteria">72. FINAL SUCCESS CRITERIA</h2>
+<p>The project is considered complete when the dashboard can perform all of the following <strong>without a page refresh</strong>.</p>
+<h4 id="driver-tracking">Driver Tracking</h4>
+<ul><li>Show active drivers</li><li>Update driver position in real time</li><li>Display driver status</li><li>Detect stale drivers</li><li>Detect offline drivers</li></ul>
+<h4 id="driver-path">Driver Path</h4>
+<ul><li>Display historical movement</li><li>Extend path as GPS updates arrive</li><li>Keep actual path separate from expected route</li><li>Limit browser path memory</li><li>Load historical paths on demand</li></ul>
+<h4 id="driver-matching">Driver Matching</h4>
+<ul><li>Search nearby drivers using Redis GEO</li><li>Filter unavailable drivers</li><li>Find eligible candidates</li><li>Calculate ETA</li><li>Rank candidates</li><li>Assign best candidate</li></ul>
+<h4 id="delivery-assignment">Delivery Assignment</h4>
+<ul><li>Create assignment</li><li>Assign driver</li><li>Accept assignment</li><li>Reject assignment</li><li>Reassign driver</li><li>Track assignment lifecycle</li><li>Complete delivery</li></ul>
+<h4 id="delivery-route">Delivery Route</h4>
+<ul><li>Show store</li><li>Show customer</li><li>Show expected route</li><li>Show actual driver path</li><li>Detect route deviation</li><li>Recalculate route where required</li></ul>
+<h4 id="eta">ETA</h4>
+<ul><li>Calculate basic ETA</li><li>Support feature engineering</li><li>Support simulated ML model</li><li>Support production ML model</li><li>Recalculate ETA during delivery</li></ul>
+<h4 id="surge">Surge</h4>
+<ul><li>Divide area into geographic cells</li><li>Count orders</li><li>Count available drivers</li><li>Calculate demand score</li><li>Calculate surge level</li><li>Display surge heatmap</li><li>Update surge zones in real time</li></ul>
+<h4 id="real-time-dashboard">Real-Time Dashboard</h4>
+<ul><li>WebSocket connection</li><li>Driver events</li><li>Assignment events</li><li>ETA events</li><li>Surge events</li><li>Route updates</li><li>Automatic UI updates</li></ul>
+<hr>
+<h2 id="73-the-key-architectural-principle">73. THE KEY ARCHITECTURAL PRINCIPLE</h2>
+<p>The system is not simply a:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>LIVE MAP</code></pre></div>
+<p>It is a:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>REAL-TIME DELIVERY DISPATCH PLATFORM</code></pre></div>
+<p>The complete relationship is:</p>
+<div class="code-wrap"><span class="code-lang">diagram</span><pre class="code-block"><code>                  DELIVERY NETWORK
+                         │
+       ┌─────────────────┼──────────────────┐
+       │                 │                  │
+       ▼                 ▼                  ▼
+ Driver Tracking   Assignment Engine   Surge Engine
+       │                 │                  │
+       ▼                 ▼                  ▼
+   Redis GEO          ETA Model        Demand Grid
+       │                 │                  │
+       └─────────────────┼──────────────────┘
+                         ▼
+                  EVENT / WEBSOCKET
+                         │
+                         ▼
+                  LIVE DASHBOARD
+                         │
+       ┌─────────────────┼──────────────────┐
+       ▼                 ▼                  ▼
+ Driver Position    Driver Path       Assignment
+       │                 │                  │
+       ▼                 ▼                  ▼
+    Store           Route/ETA          Customer
+                         │
+                         ▼
+                    DELIVERY</code></pre></div>
+<p>The key idea is:</p>
+<blockquote><strong>Redis GEO finds nearby candidates, ETA predicts how quickly they can serve the order, the assignment engine selects the best driver, GPS tracking shows what the driver is actually doing, routing shows where the driver should go, and WebSocket keeps the entire dashboard synchronized in real time.</strong></blockquote>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-geo-service &middot; see also Live Driver Tracking + Real-Time Delivery Assignment.md for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h2, main.article h3, main.article h4'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

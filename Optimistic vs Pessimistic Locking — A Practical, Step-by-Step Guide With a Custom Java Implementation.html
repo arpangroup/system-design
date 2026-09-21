@@ -1,0 +1,1117 @@
+<meta charset="utf-8">
+<title>Optimistic vs Pessimistic Locking — A Practical, Step-by-Step Guide With a Custom Java Implementation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; concurrency internals guide</div>
+      <h1>Optimistic vs Pessimistic Locking — A Practical, Step-by-Step Guide With a Custom Java Implementation</h1>
+      <p class="dek">A practical, use-case-driven guide to optimistic vs pessimistic locking &mdash; tracing a real lost-update bug in a flash-sale inventory system, fixing it both ways, and building a reusable optimistic-locking retry mechanism from scratch in Java.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-interview-motivation">Why This Matters (Interview Motivation)</a></li><li class="toc-lvl-2"><a href="#4-the-real-practical-use-case-an-e-commerce-flash-sale-inventory-system">The Real Practical Use Case: An E-Commerce Flash-Sale Inventory System</a></li><li class="toc-lvl-2"><a href="#5-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#6-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#7-phase-1-modeling-the-product-and-stock">Phase 1 — Modeling the Product and Stock</a></li><li class="toc-lvl-2"><a href="#8-the-naive-read-check-write-purchase-flow">The Naive "Read, Check, Write" Purchase Flow</a></li><li class="toc-lvl-2"><a href="#9-tracing-two-concurrent-purchases-with-no-locking-at-all">Tracing Two Concurrent Purchases With No Locking at All</a></li><li class="toc-lvl-2"><a href="#10-the-lost-update-anomaly-made-concrete">The Lost Update Anomaly, Made Concrete</a></li><li class="toc-lvl-2"><a href="#11-why-this-isnt-a-rare-edge-case-real-world-contention-flash-sales-ticket-drops">Why This Isn't a Rare Edge Case: Real-World Contention (Flash Sales, Ticket Drops)</a></li><li class="toc-lvl-2"><a href="#12-what-a-database-lock-actually-is-row-lock-vs-table-lock">What a Database Lock Actually Is (Row Lock vs Table Lock)</a></li><li class="toc-lvl-2"><a href="#13-two-fundamentally-different-strategies-pessimistic-vs-optimistic">Two Fundamentally Different Strategies: Pessimistic vs Optimistic</a></li><li class="toc-lvl-2"><a href="#14-the-core-idea-lock-first-then-read">The Core Idea: Lock First, Then Read</a></li><li class="toc-lvl-2"><a href="#15-select-for-update-mechanically">SELECT ... FOR UPDATE, Mechanically</a></li><li class="toc-lvl-2"><a href="#16-phase-2-implementing-pessimistic-locking-with-plain-jdbc">Phase 2 — Implementing Pessimistic Locking With Plain JDBC</a></li><li class="toc-lvl-2"><a href="#17-tracing-the-fixed-flow-with-pessimistic-locking">Tracing the Fixed Flow With Pessimistic Locking</a></li><li class="toc-lvl-2"><a href="#18-pessimistic-locking-in-jpahibernate-lockpessimistic_write">Pessimistic Locking in JPA/Hibernate (@Lock(PESSIMISTIC_WRITE))</a></li><li class="toc-lvl-2"><a href="#19-the-cost-of-pessimistic-locking-blocking-and-throughput">The Cost of Pessimistic Locking: Blocking and Throughput</a></li><li class="toc-lvl-2"><a href="#20-deadlocks-under-pessimistic-locking-and-how-to-avoid-them">Deadlocks Under Pessimistic Locking and How to Avoid Them</a></li><li class="toc-lvl-2"><a href="#21-lock-timeouts-failing-fast-instead-of-waiting-forever">Lock Timeouts: Failing Fast Instead of Waiting Forever</a></li><li class="toc-lvl-2"><a href="#22-the-core-idea-assume-no-conflict-verify-before-committing">The Core Idea: Assume No Conflict, Verify Before Committing</a></li><li class="toc-lvl-2"><a href="#23-the-version-column-how-optimistic-locking-detects-a-conflict">The Version Column: How Optimistic Locking Detects a Conflict</a></li><li class="toc-lvl-2"><a href="#24-phase-3-implementing-optimistic-locking-with-plain-jdbc">Phase 3 — Implementing Optimistic Locking With Plain JDBC</a></li><li class="toc-lvl-2"><a href="#25-tracing-the-fixed-flow-with-optimistic-locking">Tracing the Fixed Flow With Optimistic Locking</a></li><li class="toc-lvl-2"><a href="#26-optimistic-locking-in-jpahibernate-version">Optimistic Locking in JPA/Hibernate (@Version)</a></li><li class="toc-lvl-2"><a href="#27-handling-a-detected-conflict-retry-not-just-fail">Handling a Detected Conflict: Retry, Not Just Fail</a></li><li class="toc-lvl-2"><a href="#28-phase-4-a-retry-loop-with-exponential-backoff">Phase 4 — A Retry Loop With Exponential Backoff</a></li><li class="toc-lvl-2"><a href="#29-the-cost-of-optimistic-locking-wasted-work-under-high-contention">The Cost of Optimistic Locking: Wasted Work Under High Contention</a></li><li class="toc-lvl-2"><a href="#30-designing-a-reusable-optimisticlock-abstraction">Designing a Reusable OptimisticLock Abstraction</a></li><li class="toc-lvl-2"><a href="#31-phase-5-the-versioned-entity-base-class">Phase 5 — The Versioned Entity Base Class</a></li><li class="toc-lvl-2"><a href="#32-phase-6-a-generic-compareandupdate-using-raw-jdbc">Phase 6 — A Generic compareAndUpdate() Using Raw JDBC</a></li><li class="toc-lvl-2"><a href="#33-phase-7-wrapping-it-in-a-reusable-optimisticlocktemplate-the-retry-loop-generalized">Phase 7 — Wrapping It in a Reusable OptimisticLockTemplate (The Retry Loop, Generalized)</a></li><li class="toc-lvl-2"><a href="#34-phase-8-an-in-memory-optimistic-lock-no-database-at-all">Phase 8 — An In-Memory Optimistic Lock (No Database At All)</a></li><li class="toc-lvl-2"><a href="#35-why-the-in-memory-version-is-structurally-the-same-as-atomicstampedreference">Why the In-Memory Version Is Structurally the Same as AtomicStampedReference</a></li><li class="toc-lvl-2"><a href="#36-phase-9-putting-it-together-the-flash-sale-purchase-service">Phase 9 — Putting It Together: The Flash-Sale Purchase Service</a></li><li class="toc-lvl-2"><a href="#37-pessimistic-vs-optimistic-a-direct-comparison-table">Pessimistic vs Optimistic — A Direct Comparison Table</a></li><li class="toc-lvl-2"><a href="#38-a-decision-framework-contention-level-readwrite-ratio-criticality">A Decision Framework: Contention Level, Read/Write Ratio, Criticality</a></li><li class="toc-lvl-2"><a href="#39-hybrid-strategies-optimistic-first-pessimistic-fallback">Hybrid Strategies: Optimistic First, Pessimistic Fallback</a></li><li class="toc-lvl-2"><a href="#40-optimization-1-reducing-lock-scope-row-level-instead-of-table-level">Optimization 1 — Reducing Lock Scope (Row-Level Instead of Table-Level)</a></li><li class="toc-lvl-2"><a href="#41-optimization-2-reducing-contention-by-sharding-the-hot-row">Optimization 2 — Reducing Contention by Sharding the Hot Row</a></li><li class="toc-lvl-2"><a href="#42-optimization-3-a-single-writer-queue-per-resource-serialization-without-locks">Optimization 3 — A Single-Writer Queue Per Resource (Serialization Without Locks)</a></li><li class="toc-lvl-2"><a href="#43-optimization-4-caching-reads-to-reduce-load-on-the-locked-path">Optimization 4 — Caching Reads to Reduce Load on the Locked Path</a></li><li class="toc-lvl-2"><a href="#44-optimization-5-database-specific-advisory-locks">Optimization 5 — Database-Specific Advisory Locks</a></li><li class="toc-lvl-2"><a href="#45-optimization-6-distributed-locking-beyond-one-database-rediszookeeper">Optimization 6 — Distributed Locking Beyond One Database (Redis/Zookeeper)</a></li><li class="toc-lvl-2"><a href="#46-optimization-7-batching-updates-to-reduce-lock-acquisitions">Optimization 7 — Batching Updates to Reduce Lock Acquisitions</a></li><li class="toc-lvl-2"><a href="#47-common-mistakes">Common Mistakes</a></li><li class="toc-lvl-2"><a href="#48-testing-strategy-proving-the-fix-with-concurrent-load">Testing Strategy: Proving the Fix With Concurrent Load</a></li><li class="toc-lvl-2"><a href="#49-benchmarking-pessimistic-vs-optimistic-under-different-contention-levels">Benchmarking Pessimistic vs Optimistic Under Different Contention Levels</a></li><li class="toc-lvl-2"><a href="#50-design-patterns-used">Design Patterns Used</a></li><li class="toc-lvl-2"><a href="#51-full-worked-example-end-to-end">Full Worked Example End to End</a></li><li class="toc-lvl-2"><a href="#52-final-architecture">Final Architecture</a></li><li class="toc-lvl-2"><a href="#53-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#54-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>Goal:</strong> Understand <em>why</em> concurrent database updates need locking at all — not as an abstract rule, but by watching a real bug happen — then fix it two different ways (pessimistic and optimistic locking), understand the real tradeoffs between them using an actual production-shaped use case (a flash-sale inventory system), and finally <strong>build a working optimistic lock completely from scratch in Java</strong>, without relying on JPA/Hibernate's <code>@Version</code> to do it for you.</p>
+<p>This guide is deliberately use-case-first: every concept is introduced because a concrete bug demands it, not as a definition to memorize before you've seen the problem it solves.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<p>Using one running example — <strong>QuickCart</strong>, an e-commerce flash-sale flow where a limited quantity of a product goes on sale and thousands of users try to buy it in the same few seconds — we will:</p>
+<ul>
+<li>Reproduce a real, concrete <strong>lost-update bug</strong>: overselling stock because two purchases race each other.</li>
+<li>Fix it with <strong>pessimistic locking</strong> (<code>SELECT ... FOR UPDATE</code>) — understand exactly what it locks, why that's correct, and what it costs in throughput.</li>
+<li>Fix the <em>same</em> bug a second way with <strong>optimistic locking</strong> (a version column) — understand why it's correct without ever blocking a reader, and what it costs when conflicts are frequent.</li>
+<li><strong>Build our own optimistic lock from scratch</strong> — a reusable <code>OptimisticLockTemplate</code> in plain Java/JDBC, with a proper retry-with-backoff loop, with no framework annotation doing the work invisibly.</li>
+<li>Walk through <strong>real future optimizations</strong> a team would reach for once either approach hits its own limits at scale: reducing lock scope, sharding a hot row, a single-writer queue, caching, advisory locks, and distributed locking.</li>
+</ul>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Two users, same product, last unit in stock, same second:
+  User A: GET stock -&gt; 1        User B: GET stock -&gt; 1
+  User A: stock - 1 = 0         User B: stock - 1 = 0
+  User A: SAVE stock = 0        User B: SAVE stock = 0     &lt;- BOTH think they succeeded. Stock is now -1 sold, 0 left.
+                                                                Overselling. This guide exists to stop this, twice over.
+</code></pre></div>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to:</p>
+<ul>
+<li>Reproduce, explain, and fix a lost-update race condition on a shared database row — not just recite "use locking."</li>
+<li>Explain precisely what a <code>SELECT ... FOR UPDATE</code> row lock does, what it blocks, and for how long.</li>
+<li>Explain precisely how a version column detects a conflict <em>after the fact</em>, without ever taking a database lock.</li>
+<li>Choose correctly between pessimistic and optimistic locking for a given workload's contention level and read/write ratio — with a concrete argument, not a rule of thumb.</li>
+<li>Implement a working, reusable optimistic-locking retry loop in plain Java, understanding exactly why each part of it exists.</li>
+<li>Name the next three or four things a team would actually do once either approach becomes the bottleneck at real scale.</li>
+</ul>
+<hr>
+<h2 id="3-why-this-matters-interview-motivation">3. Why This Matters (Interview Motivation)</h2>
+<blockquote>
+<p><strong>"A flash sale has 500 units of a product and 50,000 users trying to buy it in the same 10 seconds. Design the purchase flow so stock is never oversold. Compare a pessimistic-locking and an optimistic-locking implementation, explain the tradeoffs, and explain what you'd do differently if contention got 100x worse."</strong></p>
+</blockquote>
+<p>This is one of the most common <strong>e-commerce/backend system design interview questions</strong> because it's a compact way to test several things that are individually common but rarely combined into one clean scenario:</p>
+<ul>
+<li>Whether you actually understand <em>why</em> a race condition happens at the row level, not just that "concurrency is hard."</li>
+<li>Whether you know the real mechanics of database locking (<code>FOR UPDATE</code>, isolation levels) rather than only the word "lock."</li>
+<li>Whether you can reason about a genuine tradeoff (blocking vs. retrying) instead of treating one approach as universally "the modern one."</li>
+<li>Whether you can talk credibly about what happens <em>after</em> the interview's toy scale — sharding, queues, distributed locks — which is exactly what separates "I can implement a pattern" from "I understand when a pattern stops working."</li>
+</ul>
+<hr>
+<h2 id="4-the-real-practical-use-case-an-e-commerce-flash-sale-inventory-system">4. The Real Practical Use Case: An E-Commerce Flash-Sale Inventory System</h2>
+<p><strong>QuickCart</strong> sells a limited-edition product: 500 units, on sale at exactly 12:00:00. Every purchase must:</p>
+<ol>
+<li>Check that stock remains (<code>stock &gt; 0</code>).</li>
+<li>Decrement stock by the quantity purchased.</li>
+<li>Record the order.</li>
+</ol>
+<p>The correctness requirement is absolute: <strong>the number of successful purchases must never exceed 500</strong>, regardless of how many requests arrive in the same instant. This is the concrete, non-negotiable constraint every section of this guide is in service of — not an abstract "make it thread-safe," but "never let the 501st purchase succeed."</p>
+<hr>
+<h2 id="5-recommended-technology-stack">5. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language / JDK</td>
+<td>Java 21</td>
+<td>Matches this guide's plain-JDBC and <code>java.util.concurrent</code> code.</td>
+</tr>
+<tr>
+<td>Persistence</td>
+<td>Plain JDBC first (§16, §24, §31–§32), then the JPA/Hibernate equivalents shown for context (§18, §26)</td>
+<td>Seeing the raw SQL a lock strategy issues is the point — an ORM annotation should be understood as a shorthand for exactly this SQL, not a separate mechanism.</td>
+</tr>
+<tr>
+<td>Database</td>
+<td>Any standard relational database supporting row-level locking and <code>SELECT ... FOR UPDATE</code> (Postgres, MySQL/InnoDB, or <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB</a> from the companion guide, which already implements row-level locking, §35 there)</td>
+<td>The mechanics in this guide are standard SQL, not vendor-specific.</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>JUnit 5 + a concurrent stress harness (the same shape as the <a href="Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide.md">ConcurrentHashMap guide's</a> §59)</td>
+<td>A locking bug is probabilistic — only a genuinely concurrent test can catch it.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="6-project-structure">6. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>quickcart-locking/
+├── src/main/java/com/example/quickcart/
+│   ├── model/
+│   │   └── Product.java
+│   ├── naive/
+│   │   └── NaivePurchaseService.java          // §8 — deliberately broken, to reproduce the bug
+│   ├── pessimistic/
+│   │   ├── PessimisticPurchaseService.java     // §16
+│   │   └── PessimisticJpaPurchaseService.java  // §18
+│   ├── optimistic/
+│   │   ├── OptimisticPurchaseService.java      // §24
+│   │   ├── OptimisticJpaPurchaseService.java   // §26
+│   │   └── OptimisticLockTemplate.java         // §33 — the reusable, hand-built retry loop
+│   ├── lock/
+│   │   ├── VersionedEntity.java                // §31
+│   │   ├── OptimisticLockException.java
+│   │   └── InMemoryOptimisticLock.java         // §34
+│   └── QuickCartApplication.java
+└── src/test/java/com/example/quickcart/
+    ├── NaivePurchaseRaceConditionTest.java      // §48 — proves the bug exists
+    ├── PessimisticPurchaseConcurrencyTest.java
+    └── OptimisticPurchaseConcurrencyTest.java
+</code></pre></div>
+<hr>
+<h2 id="7-phase-1-modeling-the-product-and-stock">7. Phase 1 — Modeling the Product and Stock</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// model/Product.java
+public class Product {
+    private final String id;
+    private String name;
+    private int stock;
+    private long version; // unused until §23 — present now so later sections don't need to change this class
+
+    // constructor / getters / setters omitted for brevity
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">SQL</span><pre class="code-block"><code>CREATE TABLE product (
+    id VARCHAR PRIMARY KEY,
+    name VARCHAR,
+    stock INT,
+    version BIGINT DEFAULT 0
+);
+INSERT INTO product (id, name, stock) VALUES ('sku-42', 'Limited Sneaker', 500);
+</code></pre></div>
+<hr>
+<h2 id="8-the-naive-read-check-write-purchase-flow">8. The Naive "Read, Check, Write" Purchase Flow</h2>
+<p>The obviously-correct-looking, single-threaded-correct implementation:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// naive/NaivePurchaseService.java
+public class NaivePurchaseService {
+    private final DataSource dataSource;
+
+    public boolean purchase(String productId, int quantity) throws SQLException {
+        try (Connection conn = dataSource.getConnection()) {
+            int currentStock = readStock(conn, productId);              // 1. READ
+            if (currentStock &lt; quantity) return false;                  // 2. CHECK
+            writeStock(conn, productId, currentStock - quantity);       // 3. WRITE
+            recordOrder(conn, productId, quantity);
+            return true;
+        }
+    }
+
+    private int readStock(Connection conn, String productId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(&quot;SELECT stock FROM product WHERE id = ?&quot;)) {
+            ps.setString(1, productId);
+            try (ResultSet rs = ps.executeQuery()) { rs.next(); return rs.getInt(&quot;stock&quot;); }
+        }
+    }
+
+    private void writeStock(Connection conn, String productId, int newStock) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(&quot;UPDATE product SET stock = ? WHERE id = ?&quot;)) {
+            ps.setInt(1, newStock);
+            ps.setString(2, productId);
+            ps.executeUpdate();
+        }
+    }
+    // recordOrder(...) omitted for brevity
+}
+</code></pre></div>
+<p>Read this code in isolation, on one thread, and it is completely correct. The bug it contains only exists in the gap <strong>between</strong> the read and the write — invisible to any single-threaded test, and invisible to code review unless you're specifically looking for it.</p>
+<hr>
+<h2 id="9-tracing-two-concurrent-purchases-with-no-locking-at-all">9. Tracing Two Concurrent Purchases With No Locking at All</h2>
+<p>Two users, User A and User B, both attempt to buy the <strong>last unit</strong> of a product (<code>stock = 1</code>) in the same instant:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Time  User A (buying 1 unit)              User B (buying 1 unit)
+----  -----------------------------       -----------------------------
+t0    readStock() -&gt; 1
+t1                                        readStock() -&gt; 1        &lt;- both read the SAME stale value: 1
+t2    check: 1 &gt;= 1, proceed
+t3                                        check: 1 &gt;= 1, proceed  &lt;- both pass the check
+t4    writeStock(1 - 1 = 0)
+t5                                        writeStock(1 - 1 = 0)   &lt;- both write 0, both think they succeeded
+t6    recordOrder() -- SUCCESS
+t7                                        recordOrder() -- SUCCESS
+</code></pre></div>
+<p>Both purchases report success. Both orders are recorded. <strong>The database ends the sequence with <code>stock = 0</code></strong> — correct-looking on its own — but <strong>two units were sold from a stock of one.</strong> Nothing in this trace threw an exception, logged an error, or behaved in any way that looks obviously wrong from either request's own point of view — that's precisely what makes this class of bug dangerous: it fails silently, at the business level, not at the code level.</p>
+<hr>
+<h2 id="10-the-lost-update-anomaly-made-concrete">10. The Lost Update Anomaly, Made Concrete</h2>
+<p>What just happened has a name — a <strong>lost update</strong>: two transactions each read the same value, each compute a new value based on that read, and the second write silently overwrites the first's <em>intent</em> even though it doesn't literally overwrite the same bytes with the same value here (both happened to compute the same new stock, <code>0</code>, which is what makes this variant especially sneaky — even inspecting the final row shows nothing anomalous). The actual lost information isn't a database value at all — it's the fact that <strong>two decrements should have happened, and the database's final state is only consistent with one.</strong></p>
+<hr>
+<h2 id="11-why-this-isnt-a-rare-edge-case-real-world-contention-flash-sales-ticket-drops">11. Why This Isn't a Rare Edge Case: Real-World Contention (Flash Sales, Ticket Drops)</h2>
+<p>This isn't a contrived timing coincidence — it's the <em>expected</em>, common case under real contention:</p>
+<ul>
+<li>A flash sale drives thousands of requests at the <strong>exact same product row</strong> within a few hundred milliseconds of each other by design (that's what "flash sale" means).</li>
+<li>Concert ticket drops, limited sneaker releases, and cryptocurrency/NFT mints all share this exact shape: many concurrent writers, one contended row, a hard business constraint on the total.</li>
+<li>Under real load, §9's race isn't a once-in-a-million interleaving — with a popular flash sale and a database read/write round trip taking even a few milliseconds, <strong>dozens or hundreds</strong> of requests can land inside that same read-to-write gap simultaneously.</li>
+</ul>
+<hr>
+<h2 id="12-what-a-database-lock-actually-is-row-lock-vs-table-lock">12. What a Database Lock Actually Is (Row Lock vs Table Lock)</h2>
+<p>A <strong>lock</strong>, at the database level, is a mechanism that makes a second transaction <strong>wait</strong> (or, for optimistic locking, <strong>fail after the fact</strong>) before it can read or write something a first transaction is already working with — closing exactly the gap §9 traced. Two granularities matter here:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>What it blocks</th>
+<th>Cost</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Table lock</strong></td>
+<td>Every row in the table, for every other transaction</td>
+<td>Simple, but serializes unrelated purchases of <em>different</em> products — vastly more blocking than the problem requires</td>
+</tr>
+<tr>
+<td><strong>Row lock</strong></td>
+<td>Only the specific row(s) a transaction has touched</td>
+<td>Two purchases of <em>different</em> products never block each other at all — exactly the granularity §13 onward uses</td>
+</tr>
+</tbody>
+</table></div>
+<p>Every design in this guide operates at <strong>row-level</strong> granularity — locking (or version-checking) only the single <code>product</code> row being purchased, never the whole table — for the same reason the <a href="Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide.md">ConcurrentHashMap guide</a> moved from table-wide locking to per-bucket locking: the smallest correct unit of contention is the one worth paying for.</p>
+<hr>
+<h2 id="13-two-fundamentally-different-strategies-pessimistic-vs-optimistic">13. Two Fundamentally Different Strategies: Pessimistic vs Optimistic</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Pessimistic locking</th>
+<th>Optimistic locking</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Core assumption</td>
+<td>Conflicts are common enough that preventing them upfront is worth the cost</td>
+<td>Conflicts are rare enough that it's cheaper to detect them after the fact than to prevent them</td>
+</tr>
+<tr>
+<td>Mechanism</td>
+<td>Take a real database lock <strong>before</strong> reading, so no other transaction can read-for-write the same row until you're done</td>
+<td>Read freely, no lock taken; <strong>on write</strong>, verify nothing else changed the row since you read it (§23's version check)</td>
+</tr>
+<tr>
+<td>What a conflicting second transaction experiences</td>
+<td><strong>Blocks</strong> (waits) until the first transaction finishes</td>
+<td><strong>Fails</strong> with a detectable conflict, immediately, and must retry</td>
+</tr>
+<tr>
+<td>Best suited for</td>
+<td>High contention, or operations expensive enough that wasted retry work would be worse than waiting</td>
+<td>Low-to-moderate contention, where blocking would waste more time than an occasional retry costs</td>
+</tr>
+</tbody>
+</table></div>
+<p>Both strategies fix §9's exact bug — they simply move the fix to a different point in the timeline: pessimistic locking prevents the second read from ever seeing stale data; optimistic locking lets the second read happen, but refuses to let its stale-based write actually commit.</p>
+<hr>
+<h2 id="14-the-core-idea-lock-first-then-read">14. The Core Idea: Lock First, Then Read</h2>
+<p>Pessimistic locking's entire idea in one sentence: <strong>acquire an exclusive lock on the row as part of the read itself</strong>, so that no other transaction can even <em>read</em> that row (for the purpose of writing it) until the lock is released. "Pessimistic" names the assumption driving this: you're pessimistic that a conflict is likely enough that it's worth paying an upfront cost (making everyone else wait) to prevent it outright, rather than gambling on a rare conflict and cleaning up after the fact.</p>
+<hr>
+<h2 id="15-select-for-update-mechanically">15. SELECT ... FOR UPDATE, Mechanically</h2>
+<div class="code-wrap"><span class="code-lang">SQL</span><pre class="code-block"><code>SELECT stock FROM product WHERE id = 'sku-42' FOR UPDATE;
+</code></pre></div>
+<p>This single clause changes everything about what happens next: the database takes an <strong>exclusive row lock</strong> on the matching row(s) for the remainder of the current transaction. Any <em>other</em> transaction that also tries to <code>SELECT ... FOR UPDATE</code> (or, on most databases, to <code>UPDATE</code>) that same row <strong>blocks</strong> — it doesn't error, it doesn't see stale data, it simply <strong>waits</strong> until the first transaction commits or rolls back and releases the lock. A plain <code>SELECT</code> (without <code>FOR UPDATE</code>) from another transaction is typically still allowed to proceed unblocked (it just sees a pre-commit or post-commit snapshot depending on isolation level) — it's specifically the "I intend to write based on this read" declaration that <code>FOR UPDATE</code> makes explicit, and that's exactly what earns the lock.</p>
+<hr>
+<h2 id="16-phase-2-implementing-pessimistic-locking-with-plain-jdbc">16. Phase 2 — Implementing Pessimistic Locking With Plain JDBC</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// pessimistic/PessimisticPurchaseService.java
+public class PessimisticPurchaseService {
+    private final DataSource dataSource;
+
+    public boolean purchase(String productId, int quantity) throws SQLException {
+        try (Connection conn = dataSource.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                int currentStock = readStockForUpdate(conn, productId); // acquires the row lock HERE
+                if (currentStock &lt; quantity) {
+                    conn.rollback();
+                    return false;
+                }
+                writeStock(conn, productId, currentStock - quantity);
+                recordOrder(conn, productId, quantity);
+                conn.commit();                                           // releases the row lock
+                return true;
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        }
+    }
+
+    private int readStockForUpdate(Connection conn, String productId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(&quot;SELECT stock FROM product WHERE id = ? FOR UPDATE&quot;)) {
+            ps.setString(1, productId);
+            try (ResultSet rs = ps.executeQuery()) { rs.next(); return rs.getInt(&quot;stock&quot;); }
+        }
+    }
+    // writeStock(...) / recordOrder(...) — same as §8, now running INSIDE the locked transaction
+}
+</code></pre></div>
+<p>The only structural change from §8's broken version: the read is now <code>FOR UPDATE</code>, and the whole read-check-write sequence runs inside one transaction that holds the lock until <code>commit()</code>/<code>rollback()</code>. That's the entire fix — no retry logic, no version field, because the lock makes the race in §9 <strong>impossible to enter in the first place</strong>, not merely detectable after the fact.</p>
+<hr>
+<h2 id="17-tracing-the-fixed-flow-with-pessimistic-locking">17. Tracing the Fixed Flow With Pessimistic Locking</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Time  User A (buying 1 unit)                    User B (buying 1 unit)
+----  -----------------------------------       -----------------------------------
+t0    SELECT ... FOR UPDATE -&gt; 1, LOCK ACQUIRED
+t1                                               SELECT ... FOR UPDATE -&gt; BLOCKS (waits for A's lock)
+t2    check: 1 &gt;= 1, proceed
+t3    UPDATE stock = 0
+t4    COMMIT -- lock released
+t5                                               (unblocks) SELECT ... FOR UPDATE -&gt; 0
+t6                                               check: 0 &gt;= 1 -&gt; FALSE
+t7                                               ROLLBACK, return &quot;out of stock&quot;
+</code></pre></div>
+<p>User B's request isn't wrong or racy anymore — it's simply <strong>delayed</strong> until it can see the true, post-A stock value, at which point the check correctly and honestly rejects it. Exactly one purchase succeeds, exactly as the business rule in §4 requires.</p>
+<hr>
+<h2 id="18-pessimistic-locking-in-jpahibernate-lockpessimistic_write">18. Pessimistic Locking in JPA/Hibernate (@Lock(PESSIMISTIC_WRITE))</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// pessimistic/PessimisticJpaPurchaseService.java
+@Service
+public class PessimisticJpaPurchaseService {
+    @PersistenceContext
+    private EntityManager em;
+
+    @Transactional
+    public boolean purchase(String productId, int quantity) {
+        Product product = em.find(Product.class, productId, LockModeType.PESSIMISTIC_WRITE); // issues SELECT ... FOR UPDATE
+        if (product.getStock() &lt; quantity) return false;
+        product.setStock(product.getStock() - quantity);
+        // no explicit save() needed — JPA's dirty-checking flushes the UPDATE at transaction commit
+        return true;
+    }
+}
+</code></pre></div>
+<p><code>LockModeType.PESSIMISTIC_WRITE</code> is Hibernate's name for exactly §15's <code>FOR UPDATE</code> clause — this annotation-driven version and §16's raw-JDBC version issue the <strong>same SQL</strong> and provide the <strong>same guarantee</strong>; the ORM is a convenience layer over the mechanism, not a different mechanism.</p>
+<hr>
+<h2 id="19-the-cost-of-pessimistic-locking-blocking-and-throughput">19. The Cost of Pessimistic Locking: Blocking and Throughput</h2>
+<p>§17's trace shows the correctness win directly, and its cost just as directly: <strong>User B's request takes measurably longer</strong> than it would have without locking — it spent real wall-clock time blocked, waiting for User A's entire transaction (read, check, write, commit) to finish. Under the flash-sale scenario from §4/§11, with potentially hundreds of concurrent requests for the same row, this queues <strong>every</strong> request behind whichever one currently holds the lock — throughput on that specific row is capped at "how fast one transaction at a time can complete," no matter how many CPU cores or database connections are available. This is the exact same throughput ceiling the <a href="Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide.md">ConcurrentHashMap guide's §17</a> describes for a single coarse-grained lock — here it's just scoped to one contended row instead of an entire in-memory structure.</p>
+<hr>
+<h2 id="20-deadlocks-under-pessimistic-locking-and-how-to-avoid-them">20. Deadlocks Under Pessimistic Locking and How to Avoid Them</h2>
+<p>If a single purchase ever needs to lock <strong>more than one row</strong> (e.g., decrementing stock for two different products in one order), a new failure mode appears: transaction A locks product 1 then waits for product 2, while transaction B locks product 2 then waits for product 1 — <strong>deadlock</strong>, exactly the shape <a href="Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide.md">the ConcurrentHashMap guide's §24</a> describes for in-memory locks, now at the database level. Real databases detect this automatically and abort one transaction with a deadlock error rather than hanging forever — but the <em>application</em> fix is the same one that guide already established: <strong>always acquire multi-row locks in a fixed, consistent order</strong> (e.g., always lock the lower product ID first) across every code path that might lock more than one row, so the "opposite order" deadlock shape can never occur in the first place.</p>
+<hr>
+<h2 id="21-lock-timeouts-failing-fast-instead-of-waiting-forever">21. Lock Timeouts: Failing Fast Instead of Waiting Forever</h2>
+<p>Left unbounded, a blocked transaction under heavy contention (§19) can wait an unacceptably long time — or, if the lock-holding transaction itself hangs (a slow downstream call, a stuck connection), indefinitely. A <strong>lock timeout</strong> — <code>SET LOCAL lock_timeout = '3s'</code> on Postgres, or an equivalent setting per database — bounds how long a transaction will wait for a row lock before giving up and raising an error, which the application then surfaces as a clear, fast "try again" response instead of leaving a user's request hanging with no feedback. Choosing this timeout is a genuine tradeoff: too short, and legitimate requests fail under ordinary contention; too long, and a stuck request can tie up a database connection (and everything queued behind it) for an unacceptable duration.</p>
+<hr>
+<h2 id="22-the-core-idea-assume-no-conflict-verify-before-committing">22. The Core Idea: Assume No Conflict, Verify Before Committing</h2>
+<p>Optimistic locking flips §14's assumption entirely: <strong>read without taking any lock at all</strong>, do the work, and only at the moment of writing, check whether anything else changed the row since it was read. "Optimistic" names this assumption directly — you're betting that, most of the time, nothing else touched this row in the meantime, so paying an upfront locking cost on every read would be wasted effort; you only pay a cost (a retry) on the comparatively rare occasions the bet is wrong.</p>
+<hr>
+<h2 id="23-the-version-column-how-optimistic-locking-detects-a-conflict">23. The Version Column: How Optimistic Locking Detects a Conflict</h2>
+<p>The mechanism needs some way to answer "has this row changed since I read it?" without a lock — a <strong>version column</strong>, incremented on every successful update, is the standard answer:</p>
+<div class="code-wrap"><span class="code-lang">SQL</span><pre class="code-block"><code>ALTER TABLE product ADD COLUMN version BIGINT DEFAULT 0; -- already present in §7's schema
+</code></pre></div>
+<p>The write is then made <strong>conditional on the version being unchanged</strong>:</p>
+<div class="code-wrap"><span class="code-lang">SQL</span><pre class="code-block"><code>UPDATE product SET stock = ?, version = version + 1 WHERE id = ? AND version = ?;
+</code></pre></div>
+<p>If another transaction updated the row (and bumped its version) between this transaction's read and its write, this <code>UPDATE</code> matches <strong>zero rows</strong> — the <code>version = ?</code> predicate no longer matches anything — and the driver reports "0 rows affected." That single fact, checked by the application immediately after the update, is the entire conflict-detection mechanism: no lock, no blocking, just a conditional write that silently fails to match when the assumption behind it turns out to be wrong.</p>
+<hr>
+<h2 id="24-phase-3-implementing-optimistic-locking-with-plain-jdbc">24. Phase 3 — Implementing Optimistic Locking With Plain JDBC</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// optimistic/OptimisticPurchaseService.java
+public class OptimisticPurchaseService {
+    private final DataSource dataSource;
+
+    /** Returns true on success, false if stock was insufficient, throws OptimisticLockException on a detected conflict. */
+    public boolean purchase(String productId, int quantity) throws SQLException {
+        try (Connection conn = dataSource.getConnection()) {
+            ProductSnapshot snapshot = readProduct(conn, productId); // plain SELECT — no lock, no FOR UPDATE
+            if (snapshot.stock() &lt; quantity) return false;
+
+            int rowsUpdated = tryUpdate(conn, productId, snapshot.stock() - quantity, snapshot.version());
+            if (rowsUpdated == 0) {
+                throw new OptimisticLockException(productId); // §27 — the caller decides whether/how to retry
+            }
+            recordOrder(conn, productId, quantity);
+            return true;
+        }
+    }
+
+    private ProductSnapshot readProduct(Connection conn, String productId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(&quot;SELECT stock, version FROM product WHERE id = ?&quot;)) {
+            ps.setString(1, productId);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return new ProductSnapshot(rs.getInt(&quot;stock&quot;), rs.getLong(&quot;version&quot;));
+            }
+        }
+    }
+
+    private int tryUpdate(Connection conn, String productId, int newStock, long expectedVersion) throws SQLException {
+        String sql = &quot;UPDATE product SET stock = ?, version = version + 1 WHERE id = ? AND version = ?&quot;;
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, newStock);
+            ps.setString(2, productId);
+            ps.setLong(3, expectedVersion);
+            return ps.executeUpdate(); // returns the number of rows matched/updated — THE conflict signal
+        }
+    }
+    // record ProductSnapshot(int stock, long version) {}
+}
+</code></pre></div>
+<p><code>tryUpdate</code>'s return value — the JDBC-reported row count — is doing all the work §15's <code>FOR UPDATE</code> clause did, just at a completely different point in the sequence: <strong>after</strong> the write attempt, not <strong>before</strong> the read.</p>
+<hr>
+<h2 id="25-tracing-the-fixed-flow-with-optimistic-locking">25. Tracing the Fixed Flow With Optimistic Locking</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Time  User A (buying 1 unit)                          User B (buying 1 unit)
+----  ---------------------------------------          ---------------------------------------
+t0    SELECT stock, version -&gt; (1, v5)      &lt;- no lock
+t1                                                       SELECT stock, version -&gt; (1, v5)  &lt;- same snapshot, still no lock
+t2    check: 1 &gt;= 1, proceed
+t3                                                       check: 1 &gt;= 1, proceed
+t4    UPDATE ... WHERE version = 5 -&gt; 1 row updated (v6)
+t5                                                       UPDATE ... WHERE version = 5 -&gt; 0 ROWS updated (version is now 6, not 5!)
+t6    recordOrder() -- SUCCESS
+t7                                                       throw OptimisticLockException -- caller retries (§27-§28)
+</code></pre></div>
+<p>Both users read the identical stale snapshot, exactly as in §9's original bug — the difference is entirely in what happens next: User B's write is <strong>conditionally rejected by the database itself</strong>, not silently accepted, because the version it's conditioned on no longer matches reality. No blocking occurred anywhere in this trace — User B's request ran at full speed right up until the exact instant its assumption was proven wrong.</p>
+<hr>
+<h2 id="26-optimistic-locking-in-jpahibernate-version">26. Optimistic Locking in JPA/Hibernate (@Version)</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// model/Product.java (JPA-annotated variant)
+@Entity
+public class Product {
+    @Id private String id;
+    private int stock;
+
+    @Version                    // Hibernate automatically includes this in every UPDATE's WHERE clause, and increments it
+    private long version;
+}
+
+@Service
+public class OptimisticJpaPurchaseService {
+    @PersistenceContext
+    private EntityManager em;
+
+    @Transactional
+    public boolean purchase(String productId, int quantity) {
+        Product product = em.find(Product.class, productId); // a PLAIN find — no lock hint at all
+        if (product.getStock() &lt; quantity) return false;
+        product.setStock(product.getStock() - quantity);
+        // at flush/commit time, Hibernate issues exactly §23's conditional UPDATE, and throws
+        // jakarta.persistence.OptimisticLockException if it matches zero rows
+        return true;
+    }
+}
+</code></pre></div>
+<p><code>@Version</code> is Hibernate doing, automatically, exactly what §24 wrote by hand: reading the version alongside the entity, and including <code>AND version = ?</code> (plus <code>version = version + 1</code>) on every generated <code>UPDATE</code> for that entity — the annotation is a code-generation convenience over the identical SQL-level mechanism.</p>
+<hr>
+<h2 id="27-handling-a-detected-conflict-retry-not-just-fail">27. Handling a Detected Conflict: Retry, Not Just Fail</h2>
+<p>Throwing <code>OptimisticLockException</code> (§24, §26) the moment a conflict is detected is <strong>correct but incomplete</strong> — from the <em>business</em> perspective, User B might well still have succeeded if their purchase had simply re-read the current stock and tried again (the item might not have sold out at all; they just happened to compute their update against a now-stale snapshot). Treating every optimistic-lock conflict as a hard failure throws away legitimate business outcomes that a <strong>retry</strong> would have correctly captured — which is exactly why real optimistic-locking code is almost never "catch the exception, fail the request" in isolation; it's "catch the exception, retry the whole read-check-write sequence against the now-current data."</p>
+<hr>
+<h2 id="28-phase-4-a-retry-loop-with-exponential-backoff">28. Phase 4 — A Retry Loop With Exponential Backoff</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public boolean purchaseWithRetry(String productId, int quantity, int maxAttempts) throws SQLException {
+    long backoffMillis = 10;
+    for (int attempt = 1; attempt &lt;= maxAttempts; attempt++) {
+        try {
+            return purchase(productId, quantity); // §24 — may throw OptimisticLockException
+        } catch (OptimisticLockException conflict) {
+            if (attempt == maxAttempts) throw conflict; // give up after enough genuine attempts — see §29
+            sleepWithJitter(backoffMillis);
+            backoffMillis = Math.min(backoffMillis * 2, 500); // exponential backoff, capped
+        }
+    }
+    throw new IllegalStateException(&quot;unreachable&quot;);
+}
+
+private void sleepWithJitter(long baseMillis) {
+    long jitter = ThreadLocalRandom.current().nextLong(baseMillis / 2);
+    try { Thread.sleep(baseMillis + jitter); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+}
+</code></pre></div>
+<p><strong>Exponential backoff</strong> (doubling the wait between attempts, up to a cap) exists to prevent a specific failure mode: if many concurrent requests all conflict and all retry <em>immediately and simultaneously</em>, they simply collide again on the next attempt, and the next — a self-inflicted contention storm. Backing off, with <strong>jitter</strong> (a small random component) added specifically so that requests which started retrying at the same moment don't stay synchronized retry-for-retry, spreads retries out over time and gives the contention a real chance to actually dissipate between attempts.</p>
+<hr>
+<h2 id="29-the-cost-of-optimistic-locking-wasted-work-under-high-contention">29. The Cost of Optimistic Locking: Wasted Work Under High Contention</h2>
+<p>§25's trace shows the win: User B never blocked. But User B's entire read-check-compute sequence, up to the failed <code>UPDATE</code>, was <strong>wasted work</strong> — CPU cycles and a database round trip spent computing a result the database then discarded. Under <em>low</em> contention, this cost is negligible (conflicts, and therefore wasted attempts, are rare by definition). Under <strong>very high</strong> contention — exactly the flash-sale scenario from §4, where hundreds of requests target the identical row in the identical instant — optimistic locking can, counterintuitively, perform <strong>worse</strong> than pessimistic locking: many requests repeatedly read, compute, fail, retry, read again, and fail again, burning far more total database work than a queue of waiting-but-eventually-succeeding pessimistic transactions would have. This exact tension — "optimistic locking assumes low contention, but a flash sale is the highest-contention scenario imaginable" — is precisely what §37–§39 confront directly, and part of why the single-writer-queue optimization in Part 6 exists at all.</p>
+<hr>
+<h2 id="30-designing-a-reusable-optimisticlock-abstraction">30. Designing a Reusable OptimisticLock Abstraction</h2>
+<p>§24 and §28 hard-code the retry loop and the version-check logic specifically to <code>Product</code>/stock. A <strong>reusable</strong> optimistic-locking mechanism — the actual goal of this part of the guide — needs to separate three concerns that are currently tangled together: <strong>what a versioned entity looks like</strong> (§31), <strong>how to attempt a conditional update generically, for any such entity</strong> (§32), and <strong>how to retry on conflict, generically, regardless of what business operation is being retried</strong> (§33).</p>
+<hr>
+<h2 id="31-phase-5-the-versioned-entity-base-class">31. Phase 5 — The Versioned Entity Base Class</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// lock/VersionedEntity.java
+public abstract class VersionedEntity {
+    private final String id;
+    private long version;
+
+    protected VersionedEntity(String id, long version) {
+        this.id = id;
+        this.version = version;
+    }
+
+    public String getId() { return id; }
+    public long getVersion() { return version; }
+    void setVersion(long version) { this.version = version; } // package-private — only OptimisticLockTemplate advances this
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// model/Product.java, updated to extend it
+public class Product extends VersionedEntity {
+    private int stock;
+    public Product(String id, int stock, long version) { super(id, version); this.stock = stock; }
+    public int getStock() { return stock; }
+    public void setStock(int stock) { this.stock = stock; }
+}
+</code></pre></div>
+<p>Any entity that needs optimistic locking — not just <code>Product</code> — extends <code>VersionedEntity</code> and immediately gets access to the generic machinery §32–§33 build against this one shared shape, instead of every entity type needing its own hand-written version-check <code>UPDATE</code> statement.</p>
+<hr>
+<h2 id="32-phase-6-a-generic-compareandupdate-using-raw-jdbc">32. Phase 6 — A Generic compareAndUpdate() Using Raw JDBC</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// lock/OptimisticLockDao.java
+public class OptimisticLockDao&lt;T extends VersionedEntity&gt; {
+    private final DataSource dataSource;
+    private final String tableName;
+    private final RowMapper&lt;T&gt; rowMapper;               // reads a ResultSet row into a T
+    private final BiConsumer&lt;PreparedStatement, T&gt; columnBinder; // binds T's mutable fields, in column order, for the UPDATE
+
+    public T load(String id) throws SQLException {
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(&quot;SELECT * FROM &quot; + tableName + &quot; WHERE id = ?&quot;)) {
+            ps.setString(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                return rowMapper.map(rs);
+            }
+        }
+    }
+
+    /** The one generic method every entity's optimistic update goes through — mirrors §23's UPDATE ... WHERE version = ? */
+    public boolean compareAndUpdate(T entity, String updateColumnsSql) throws SQLException {
+        String sql = &quot;UPDATE &quot; + tableName + &quot; SET &quot; + updateColumnsSql + &quot;, version = version + 1 &quot;
+                   + &quot;WHERE id = ? AND version = ?&quot;;
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            columnBinder.accept(ps, entity);              // binds the business columns (e.g. stock = ?)
+            int paramCount = countPlaceholders(updateColumnsSql);
+            ps.setString(paramCount + 1, entity.getId());
+            ps.setLong(paramCount + 2, entity.getVersion());
+            int updated = ps.executeUpdate();
+            if (updated == 1) entity.setVersion(entity.getVersion() + 1); // keep the in-memory object consistent, too
+            return updated == 1;
+        }
+    }
+    // countPlaceholders(...) omitted for brevity — counts '?' occurrences in the caller-supplied SQL fragment
+}
+</code></pre></div>
+<p>This is the direct Java analogue of <code>AtomicReference.compareAndSet(expected, newValue)</code> (or the CAS primitive from <a href="Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide.md">the ConcurrentHashMap guide's §21</a>), operating against a database row instead of an in-memory field: "update this row <strong>only if</strong> its version still matches what I last read," reporting success or failure rather than blocking either way.</p>
+<hr>
+<h2 id="33-phase-7-wrapping-it-in-a-reusable-optimisticlocktemplate-the-retry-loop-generalized">33. Phase 7 — Wrapping It in a Reusable OptimisticLockTemplate (The Retry Loop, Generalized)</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// lock/OptimisticLockTemplate.java
+public class OptimisticLockTemplate {
+    private final int maxAttempts;
+    private final long initialBackoffMillis;
+    private final long maxBackoffMillis;
+
+    public OptimisticLockTemplate(int maxAttempts, long initialBackoffMillis, long maxBackoffMillis) {
+        this.maxAttempts = maxAttempts;
+        this.initialBackoffMillis = initialBackoffMillis;
+        this.maxBackoffMillis = maxBackoffMillis;
+    }
+
+    /**
+     * Runs `operation` up to maxAttempts times. `operation` should load the current entity itself EACH TIME
+     * it's called (never reuse a stale read across attempts) and return true if its compareAndUpdate succeeded.
+     */
+    public boolean executeWithRetry(BooleanSupplier operation) throws InterruptedException {
+        long backoff = initialBackoffMillis;
+        for (int attempt = 1; attempt &lt;= maxAttempts; attempt++) {
+            if (operation.getAsBoolean()) return true;               // the business operation's own compareAndUpdate succeeded
+            if (attempt == maxAttempts) return false;                // exhausted retries — caller decides what &quot;false&quot; means
+            long jitter = ThreadLocalRandom.current().nextLong(backoff / 2 + 1);
+            Thread.sleep(backoff + jitter);
+            backoff = Math.min(backoff * 2, maxBackoffMillis);
+        }
+        return false;
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// Using the template for the flash-sale purchase, with NO purchase-specific retry logic written by hand
+OptimisticLockTemplate template = new OptimisticLockTemplate(5, 10, 500);
+boolean success = template.executeWithRetry(() -&gt; {
+    try {
+        Product product = dao.load(productId);                        // fresh read EVERY attempt — critical, see below
+        if (product.getStock() &lt; quantity) return true;                // &quot;succeeded&quot; at correctly rejecting — not a conflict
+        product.setStock(product.getStock() - quantity);
+        return dao.compareAndUpdate(product, &quot;stock = ?&quot;);
+    } catch (SQLException e) { throw new UncheckedIOException(new IOException(e)); }
+});
+</code></pre></div>
+<p>The comment "fresh read EVERY attempt" is load-bearing, not a style note: retrying with the <strong>same</strong> stale <code>Product</code> object read before the first attempt would just fail identically forever — a retry is only meaningful if it re-reads current data before recomputing, exactly mirroring why the DDA-style "re-check under lock" pattern in earlier guides re-reads rather than trusting a value captured before a wait.</p>
+<hr>
+<h2 id="34-phase-8-an-in-memory-optimistic-lock-no-database-at-all">34. Phase 8 — An In-Memory Optimistic Lock (No Database At All)</h2>
+<p>The same idea, entirely in memory, useful for protecting a cached or in-process shared object without a database round trip at all:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// lock/InMemoryOptimisticLock.java
+public class InMemoryOptimisticLock&lt;T&gt; {
+    private final AtomicReference&lt;Versioned&lt;T&gt;&gt; ref;
+
+    public record Versioned&lt;T&gt;(T value, long version) { }
+
+    public InMemoryOptimisticLock(T initial) { this.ref = new AtomicReference&lt;&gt;(new Versioned&lt;&gt;(initial, 0)); }
+
+    public Versioned&lt;T&gt; read() { return ref.get(); }
+
+    /** Returns true if the update was applied; false if `expected`'s version was stale (someone else updated first). */
+    public boolean compareAndUpdate(Versioned&lt;T&gt; expected, T newValue) {
+        Versioned&lt;T&gt; updated = new Versioned&lt;&gt;(newValue, expected.version() + 1);
+        return ref.compareAndSet(expected, updated); // an object-identity CAS on the WRAPPER, not the raw value
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>InMemoryOptimisticLock&lt;Integer&gt; stockLock = new InMemoryOptimisticLock&lt;&gt;(500);
+boolean success = template.executeWithRetry(() -&gt; {
+    var current = stockLock.read();
+    if (current.value() &lt; quantity) return true;
+    return stockLock.compareAndUpdate(current, current.value() - quantity);
+});
+</code></pre></div>
+<hr>
+<h2 id="35-why-the-in-memory-version-is-structurally-the-same-as-atomicstampedreference">35. Why the In-Memory Version Is Structurally the Same as AtomicStampedReference</h2>
+<p>§34's <code>InMemoryOptimisticLock</code> is, functionally, a hand-rolled version of <code>java.util.concurrent.atomic.AtomicStampedReference</code> — a reference plus a version "stamp," updated together atomically via CAS, specifically to solve the <strong>ABA problem</strong> a plain <code>AtomicReference&lt;T&gt;</code> can't: if a value changes from A to B and back to A between a thread's read and its CAS attempt, a bare reference-based CAS would incorrectly succeed (the reference looks unchanged), while a stamped/versioned CAS correctly fails, because the version number kept climbing even though the value returned to its starting point. This is the exact same guarantee §23's database version column provides over a hypothetical "just compare the stock value" check — a value coincidentally returning to what you last saw is not the same as nothing having happened in between, and only a monotonically advancing version can tell the two apart.</p>
+<hr>
+<h2 id="36-phase-9-putting-it-together-the-flash-sale-purchase-service">36. Phase 9 — Putting It Together: The Flash-Sale Purchase Service</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class FlashSalePurchaseService {
+    private final OptimisticLockDao&lt;Product&gt; productDao;
+    private final OptimisticLockTemplate lockTemplate;
+
+    public PurchaseResult purchase(String productId, int quantity) {
+        try {
+            boolean succeeded = lockTemplate.executeWithRetry(() -&gt; {
+                try {
+                    Product product = productDao.load(productId);
+                    if (product == null || product.getStock() &lt; quantity) return true; // not a conflict — a real &quot;no stock&quot; outcome
+                    product.setStock(product.getStock() - quantity);
+                    return productDao.compareAndUpdate(product, &quot;stock = ?&quot;);
+                } catch (SQLException e) { throw new RuntimeException(e); }
+            });
+            if (!succeeded) return PurchaseResult.CONFLICT_EXHAUSTED_RETRIES; // §29's worst case, surfaced honestly
+            Product finalState = productDao.load(productId);
+            return finalState.getStock() &gt;= 0 ? PurchaseResult.SUCCESS : PurchaseResult.OUT_OF_STOCK;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return PurchaseResult.INTERRUPTED;
+        }
+    }
+}
+</code></pre></div>
+<p>Every piece built in §30–§35 appears here: <code>VersionedEntity</code> (§31) gives <code>Product</code> its version field for free, <code>OptimisticLockDao</code> (§32) issues the version-conditioned <code>UPDATE</code>, and <code>OptimisticLockTemplate</code> (§33) supplies the retry-with-backoff loop — none of it purchase-specific, all of it reusable for the next entity that needs the same guarantee.</p>
+<hr>
+<h2 id="37-pessimistic-vs-optimistic-a-direct-comparison-table">37. Pessimistic vs Optimistic — A Direct Comparison Table</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Pessimistic locking</th>
+<th>Optimistic locking</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When a conflict is detected</td>
+<td>Never happens — the second transaction simply waits its turn</td>
+<td>After the fact, at write time — the conditional <code>UPDATE</code> matches zero rows</td>
+</tr>
+<tr>
+<td>Cost under low contention</td>
+<td>Pays lock-acquisition overhead even when no conflict would have occurred</td>
+<td>Near-zero overhead — no lock ever taken</td>
+</tr>
+<tr>
+<td>Cost under high contention</td>
+<td>Requests queue and wait, but each one that gets through succeeds on its first real attempt</td>
+<td>Many requests read, compute, and fail repeatedly — real, measurable wasted work (§29)</td>
+</tr>
+<tr>
+<td>Failure mode under extreme load</td>
+<td>Long queues, possible timeouts (§21), possible deadlocks if multiple rows are involved (§20)</td>
+<td>Retry storms unless backoff/jitter (§28) is implemented correctly</td>
+</tr>
+<tr>
+<td>Implementation complexity</td>
+<td>Simpler application code — no retry loop needed, the database does the waiting</td>
+<td>Requires a retry loop, and a decision about what to do when retries are exhausted (§36)</td>
+</tr>
+<tr>
+<td>Read-heavy workloads</td>
+<td>Reads that don't use <code>FOR UPDATE</code> are unaffected — pessimistic locking only impacts the write path</td>
+<td>No impact on reads either way — an even better fit here, since reads never risk a false conflict</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="38-a-decision-framework-contention-level-readwrite-ratio-criticality">38. A Decision Framework: Contention Level, Read/Write Ratio, Criticality</h2>
+<p>Three questions, asked in this order, cover the large majority of real cases:</p>
+<ol>
+<li><strong>How contended is this specific row/resource, realistically?</strong> A user's own profile row is touched by essentially one writer (that user) — vanishingly low contention, and optimistic locking's near-zero overhead wins easily. A flash-sale product row during the sale's opening seconds is about as contended as a single row can get — pessimistic locking's "queue and succeed" behavior may genuinely outperform optimistic locking's "fail and retry, repeatedly" behavior here, exactly per §29.</li>
+<li><strong>How expensive is the work between read and write?</strong> If the computation between reading and writing is slow (an external API call, a complex calculation), pessimistic locking holds the lock for that entire duration, blocking everyone else for longer — optimistic locking's "only pay a cost on an actual conflict" model tolerates a slow read-compute-write path far better, since nothing else is forced to wait on it.</li>
+<li><strong>What does a failure actually cost the business?</strong> An optimistic-locking conflict that exhausts its retries (§29, §36) has to resolve to <em>something</em> user-visible — a failure, a queue position, a "please try again." If that outcome is unacceptable for the operation (a bank transfer that must eventually succeed, not just retry-then-give-up), pessimistic locking's "everyone eventually gets their turn" guarantee is often the safer default, even at some throughput cost.</li>
+</ol>
+<hr>
+<h2 id="39-hybrid-strategies-optimistic-first-pessimistic-fallback">39. Hybrid Strategies: Optimistic First, Pessimistic Fallback</h2>
+<p>A workload can't always be cleanly classified as "always high contention" or "always low contention" — a product's contention level is near-zero for 99% of its life and spikes enormously for the ten minutes it's on flash sale. One practical hybrid: use optimistic locking by default (§24, §33), but <strong>detect</strong> sustained high conflict rates for a specific row (e.g., via the retry count metrics a well-instrumented <code>OptimisticLockTemplate</code> would emit) and <strong>switch that specific row</strong> to pessimistic locking for the duration of the spike — getting optimistic locking's low overhead during normal operation and pessimistic locking's queue-and-succeed behavior exactly when contention would otherwise cause the retry-storm cost §29 describes. This is a genuinely more complex system to build and operate than either pure strategy, and is worth reaching for only once measurement (§49) shows it's actually needed — not as a default starting design.</p>
+<hr>
+<h2 id="40-optimization-1-reducing-lock-scope-row-level-instead-of-table-level">40. Optimization 1 — Reducing Lock Scope (Row-Level Instead of Table-Level)</h2>
+<p>Already the default throughout this guide (§12) — worth restating as the first thing to verify before reaching for anything more exotic: confirm that whatever ORM or raw SQL is in use is genuinely taking a <strong>row</strong>-level lock (or a row-level version check) and not, through a misconfigured query or a missing index on the <code>WHERE</code> clause's column, silently escalating to a broader lock. A <code>SELECT ... FOR UPDATE</code> without an index on the filtered column can force a full table scan under a lock in some databases — the single most common accidental cause of "pessimistic locking is blocking way more than I expected."</p>
+<hr>
+<h2 id="41-optimization-2-reducing-contention-by-sharding-the-hot-row">41. Optimization 2 — Reducing Contention by Sharding the Hot Row</h2>
+<p>If one product row is fundamentally too hot for either strategy to handle well at some scale (the flash sale's true worst case), the next lever is to stop treating it as <strong>one</strong> row at all: split the 500-unit stock count across, say, 10 <strong>shard rows</strong> of 50 units each, route each incoming purchase to a shard (randomly, or round-robin), and only fall back to checking a different shard if the chosen one is exhausted. This turns one heavily-contended row into ten moderately-contended ones — directly analogous to <a href="Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide.md">lock striping in the ConcurrentHashMap guide's §25</a>, applied to database rows instead of in-memory segments, at the cost of slightly more complex logic to reconcile "which shard has stock left."</p>
+<hr>
+<h2 id="42-optimization-3-a-single-writer-queue-per-resource-serialization-without-locks">42. Optimization 3 — A Single-Writer Queue Per Resource (Serialization Without Locks)</h2>
+<p>An entirely different strategy sidesteps database-level locking altogether: route every write for a given hot resource through a <strong>single, dedicated in-process queue/worker</strong> (or a Kafka partition keyed by product ID, processed by one consumer), so that writes for that resource are <strong>naturally serialized</strong> by construction — never actually concurrent in the first place, so there's no race to detect or prevent. This trades "handle concurrency at write time" for "eliminate concurrency by design," at the cost of the queue itself becoming the new bottleneck and a more complex operational model (monitoring queue depth/lag becomes as important as monitoring lock wait times used to be) — a legitimate and common answer for the highest-contention resources in a system, and the shape of solution real large-scale flash-sale systems (ticketing platforms, sneaker-drop platforms) often reach for once neither locking strategy alone is enough.</p>
+<hr>
+<h2 id="43-optimization-4-caching-reads-to-reduce-load-on-the-locked-path">43. Optimization 4 — Caching Reads to Reduce Load on the Locked Path</h2>
+<p>Neither locking strategy helps with a different, related cost: if every purchase attempt first checks "is this even still in stock" via a full database read, that read traffic alone can overwhelm the database during a spike, independent of the locking strategy protecting the actual write. Caching a <strong>coarse, slightly-stale</strong> "is stock likely available" signal (an in-memory or Redis-backed approximate counter, refreshed frequently but not on every single request) lets the vast majority of "sorry, sold out" responses be served without ever touching the row that pessimistic/optimistic locking is protecting — reserving the actual locked/versioned path only for requests that pass this cheap, approximate pre-check.</p>
+<hr>
+<h2 id="44-optimization-5-database-specific-advisory-locks">44. Optimization 5 — Database-Specific Advisory Locks</h2>
+<p>Postgres's <code>pg_advisory_lock(key)</code> (and equivalents on other databases) provides an <strong>application-defined</strong> lock, keyed by an arbitrary integer/string, that has no connection to any actual table row at all. This is useful precisely when the thing needing serialization <strong>isn't</strong> a single database row — e.g., "only one instance of this scheduled job should run at a time across a fleet of servers," a coordination problem locking a specific table row doesn't naturally model, but which an advisory lock keyed by <code>"nightly-report-job"</code> handles directly, with the same acquire/block/release semantics as §15's row lock, applied to an arbitrary logical resource instead.</p>
+<hr>
+<h2 id="45-optimization-6-distributed-locking-beyond-one-database-rediszookeeper">45. Optimization 6 — Distributed Locking Beyond One Database (Redis/Zookeeper)</h2>
+<p>Once a system scales beyond a single database instance being the sole source of truth for a resource (a multi-region deployment, a resource coordinated across several independent services), locking mechanisms tied to one database's row-lock implementation stop being sufficient — a <strong>distributed lock</strong>, implemented against a shared coordination service (Redis with the Redlock algorithm, or ZooKeeper/etcd's native lock primitives), extends the same "acquire, hold, release" idea from §14–§21 across process and machine boundaries. This is a substantially harder problem than single-database locking — network partitions mean a lock holder can be presumed dead when it isn't, or vice versa — and is worth reaching for only once the architecture has genuinely outgrown "one database can serialize this," not as a default replacement for §16's <code>FOR UPDATE</code>.</p>
+<hr>
+<h2 id="46-optimization-7-batching-updates-to-reduce-lock-acquisitions">46. Optimization 7 — Batching Updates to Reduce Lock Acquisitions</h2>
+<p>If many small updates to the same row arrive close together (many 1-unit purchases, rather than one large one), a further optimization is to <strong>batch</strong> them: accumulate a short window of pending decrements in memory (or in a queue, per §42), and apply them to the database as one combined <code>UPDATE ... SET stock = stock - ?</code> per batch instead of one lock-acquire-and-release cycle per individual purchase. This trades a small amount of added latency (waiting briefly to accumulate a batch) for a large reduction in the <em>number</em> of lock acquisitions or version-check round trips against the contended row — the same "batch to reduce contention on shared state" idea as <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">group commit in the TinyDB guide's §31</a>, applied to application-level writes instead of WAL <code>fsync</code> calls.</p>
+<hr>
+<h2 id="47-common-mistakes">47. Common Mistakes</h2>
+<ul>
+<li><strong>Mistake 1 — "Thread-safe" application code with no database-level protection.</strong> A <code>synchronized</code> block or an in-memory lock around the <em>application's</em> call to the database does nothing to prevent two different application server instances (or two separate connections from the same instance) from racing at the database level — the lock has to exist where the contention actually is.</li>
+<li><strong>Mistake 2 — Retrying with a stale, previously-read object (§33's warning).</strong> A retry that recomputes against the same data it already failed with will simply fail identically forever; every retry attempt must re-read current state first.</li>
+<li><strong>Mistake 3 — No backoff/jitter on optimistic retries (§28).</strong> Synchronized, immediate retries under contention just recreate the same collision on the next attempt, for every conflicting request, simultaneously.</li>
+<li><strong>Mistake 4 — Holding a pessimistic lock across a slow external call.</strong> Calling a third-party payment API <em>while</em> holding <code>SELECT ... FOR UPDATE</code>'s row lock blocks every other purchase attempt for the entire duration of that external call — a classic, severe throughput bug; validate/reserve first, call external services outside the lock's scope wherever the business logic allows it.</li>
+<li><strong>Mistake 5 — Choosing optimistic locking by default without checking the actual contention level (§38).</strong> Optimistic locking's "usually better" reputation only holds under low-to-moderate contention — applying it unexamined to a genuinely hot, flash-sale-shaped row can perform worse than the pessimistic alternative it was chosen to avoid.</li>
+<li><strong>Mistake 6 — Forgetting the <code>version</code> column update in a hand-written <code>UPDATE</code>.</strong> An <code>UPDATE</code> that changes business columns but forgets <code>version = version + 1</code> silently defeats optimistic locking for every subsequent writer — the version stops advancing, so future conflicts go undetected instead of correctly failing.</li>
+<li><strong>Mistake 7 — No maximum retry limit.</strong> An optimistic retry loop with no cap (§28's <code>maxAttempts</code>) can, under sustained extreme contention, retry indefinitely rather than surfacing a clear, bounded failure back to the caller.</li>
+</ul>
+<hr>
+<h2 id="48-testing-strategy-proving-the-fix-with-concurrent-load">48. Testing Strategy: Proving the Fix With Concurrent Load</h2>
+<p>A single-threaded unit test <strong>cannot</strong> catch §9's bug, or prove §16/§24 fixed it — only genuine concurrent load can, matching the exact testing philosophy the <a href="Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide.md">ConcurrentHashMap guide's §59</a> already establishes:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Test
+void naiveServiceOversellsUnderConcurrentLoad() throws Exception {
+    setupProductWithStock(1); // exactly one unit available
+    int concurrentBuyers = 50;
+    ExecutorService pool = Executors.newFixedThreadPool(concurrentBuyers);
+    CountDownLatch startGate = new CountDownLatch(1); // forces every thread to fire at the SAME instant
+    AtomicInteger successCount = new AtomicInteger();
+
+    for (int i = 0; i &lt; concurrentBuyers; i++) {
+        pool.submit(() -&gt; {
+            try {
+                startGate.await();
+                if (naivePurchaseService.purchase(&quot;sku-42&quot;, 1)) successCount.incrementAndGet();
+            } catch (Exception ignored) { }
+        });
+    }
+    startGate.countDown(); // release all 50 threads simultaneously
+    pool.shutdown();
+    pool.awaitTermination(10, TimeUnit.SECONDS);
+
+    // With NaivePurchaseService: this FAILS, repeatedly, with successCount &gt; 1 — proving the bug from §9-10
+    // With PessimisticPurchaseService or OptimisticPurchaseService (with retry): this reliably PASSES
+    assertEquals(1, successCount.get());
+}
+</code></pre></div>
+<p>A <code>CountDownLatch</code> used as a <strong>starting gate</strong> — every thread waits at <code>startGate.await()</code> and is released simultaneously by one <code>countDown()</code> call — is the standard technique for maximizing the odds of exercising the exact race window §9 traced, rather than hoping thread scheduling happens to create the collision on its own.</p>
+<hr>
+<h2 id="49-benchmarking-pessimistic-vs-optimistic-under-different-contention-levels">49. Benchmarking Pessimistic vs Optimistic Under Different Contention Levels</h2>
+<p>Running §48's harness at increasing <code>concurrentBuyers</code> counts, against both <code>PessimisticPurchaseService</code> and <code>OptimisticPurchaseService</code>, and measuring total wall-clock time to complete all attempts, produces the concrete curve behind §37–§38's comparison table:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concurrent buyers</th>
+<th>Pessimistic (queue-and-succeed)</th>
+<th>Optimistic (retry-on-conflict)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Low (e.g. 5)</td>
+<td>Slight overhead from lock acquisition on every request</td>
+<td>Fastest — near-zero conflicts, near-zero retries</td>
+</tr>
+<tr>
+<td>Moderate (e.g. 50)</td>
+<td>Predictable, linear queueing delay</td>
+<td>Still generally fast — occasional conflicts, occasional cheap retries</td>
+</tr>
+<tr>
+<td>Very high (e.g. 5,000, all targeting one row)</td>
+<td>Long queue, but still monotonic progress — every request eventually resolves</td>
+<td>Retry storms possible without proper backoff (§28) — total work done can exceed the pessimistic case</td>
+</tr>
+</tbody>
+</table></div>
+<p>Measuring this yourself, rather than trusting the table, is the point — the actual crossover point where optimistic locking's retry cost starts to exceed pessimistic locking's queueing cost depends on your specific database, network latency, and transaction duration, and is exactly the kind of number §39's hybrid-strategy decision should be based on, not guessed at.</p>
+<hr>
+<h2 id="50-design-patterns-used">50. Design Patterns Used</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Applied to</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Template Method</strong></td>
+<td><code>OptimisticLockTemplate.executeWithRetry</code> — a fixed retry/backoff skeleton, with the actual business operation supplied as a callback</td>
+<td>§33</td>
+</tr>
+<tr>
+<td><strong>Strategy</strong></td>
+<td>Choosing pessimistic vs optimistic (or a hybrid, §39) per resource/operation, behind a common <code>purchase(...)</code>-shaped interface</td>
+<td>§37-§39</td>
+</tr>
+<tr>
+<td><strong>Optimistic Concurrency Control</strong> (a named pattern in its own right)</td>
+<td>The version-column compare-and-swap mechanism itself</td>
+<td>§23-§24, §32</td>
+</tr>
+<tr>
+<td><strong>Compare-And-Swap / Atomic Reference</strong></td>
+<td><code>InMemoryOptimisticLock</code>, structurally identical to <code>AtomicStampedReference</code></td>
+<td>§34-§35</td>
+</tr>
+<tr>
+<td><strong>Sharding/Partitioning</strong></td>
+<td>Splitting one hot row into several less-contended shard rows</td>
+<td>§41</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="51-full-worked-example-end-to-end">51. Full Worked Example End to End</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>FlashSalePurchaseService service = new FlashSalePurchaseService(
+    new OptimisticLockDao&lt;&gt;(dataSource, &quot;product&quot;, Product::fromRow, Product::bindStock),
+    new OptimisticLockTemplate(5, 10, 500)
+);
+
+// 500 concurrent requests, only 500 units of stock — the exact scenario from §4
+List&lt;Future&lt;PurchaseResult&gt;&gt; results = IntStream.range(0, 5000)
+    .mapToObj(i -&gt; executor.submit(() -&gt; service.purchase(&quot;sku-42&quot;, 1)))
+    .toList();
+
+long successCount = results.stream().map(Future::get).filter(r -&gt; r == PurchaseResult.SUCCESS).count();
+assert successCount == 500; // exactly the business constraint from §4 — never more, never fewer than available stock allows
+</code></pre></div>
+<p>5,000 requests, 500 units of stock, zero overselling — the version-column mechanism from §23, the generic DAO from §32, and the retry template from §33 combine to enforce exactly the constraint this entire guide set out to satisfy in §4, under real concurrent load, without a single explicit database lock ever being taken.</p>
+<hr>
+<h2 id="52-final-architecture">52. Final Architecture</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                       Purchase Request
+                              |
+                              v
+                  FlashSalePurchaseService (§36)
+                              |
+              +---------------+---------------+
+              v                               v
+    Pessimistic path (§14-21)        Optimistic path (§22-29, §30-36)
+    SELECT ... FOR UPDATE             OptimisticLockTemplate (§33)
+    -&gt; blocks conflicting readers       -&gt; executeWithRetry(...)
+    -&gt; commit releases the lock              |
+                                              v
+                                    OptimisticLockDao (§32)
+                                    compareAndUpdate(entity, ...)
+                                    UPDATE ... WHERE version = ?
+                                              |
+                                    0 rows updated? -&gt; conflict -&gt; backoff (§28) -&gt; retry
+                                    1 row updated?  -&gt; success, version incremented
+              |                               |
+              +---------------+---------------+
+                              v
+                    Database row (§7, §23)
+                    id | stock | version
+
+    Future optimizations layered on top, as contention grows (Part 6):
+    sharding (§41) -&gt; single-writer queue (§42) -&gt; read caching (§43)
+    -&gt; advisory locks (§44) -&gt; distributed locks (§45) -&gt; batching (§46)
+</code></pre></div>
+<hr>
+<h2 id="53-progressive-interview-question-set">53. Progressive Interview Question Set</h2>
+<p><strong>Level 1 — The core bug</strong>
+1. Walk through, step by step, exactly how two concurrent purchases can both succeed against a stock of 1, with no code throwing an exception anywhere.
+2. Why does this bug not show up in a single-threaded test, or even most manual testing?</p>
+<p><strong>Level 2 — Pessimistic locking</strong>
+3. What exactly does <code>SELECT ... FOR UPDATE</code> do, and what does it <em>not</em> block?
+4. How can pessimistic locking introduce a deadlock, and how do you prevent it?</p>
+<p><strong>Level 3 — Optimistic locking</strong>
+5. How does a version column detect a conflict without ever taking a lock?
+6. Why is "catch the conflict exception and fail the request" usually the wrong way to handle an optimistic-locking conflict?</p>
+<p><strong>Level 4 — Choosing between them</strong>
+7. Give a concrete scenario where pessimistic locking would outperform optimistic locking, and explain why in terms of contention and wasted work.
+8. Why might exponential backoff with jitter matter more under optimistic locking than under pessimistic locking?</p>
+<p><strong>Level 5 — Building it yourself</strong>
+9. Explain why an optimistic retry loop must re-read the entity on every attempt, not reuse the object from the first attempt.
+10. How is a version-based database CAS the same underlying idea as <code>AtomicStampedReference</code>, and what specific bug (ABA) does the version number prevent that a bare value comparison wouldn't?</p>
+<p><strong>Final challenge:</strong> A flash sale's traffic is 100x higher than this guide's worked example, targeting a single product row, for a ten-second window. Design the actual production system you'd deploy for that ten-second window specifically — which of Part 6's optimizations would you combine, in what order would you reach for them, and what would you monitor in real time to know if your chosen combination is actually working?</p>
+<hr>
+<h2 id="54-final-takeaway">54. Final Takeaway</h2>
+<p>Both locking strategies exist to answer the exact same question — "did anything else touch this data between when I read it and when I write it?" — but they answer it at opposite ends of the timeline: pessimistic locking makes the question <strong>unaskable</strong> by preventing anyone else from touching the data in the first place (§14); optimistic locking lets the question get asked, honestly, at write time, and simply refuses to commit a write built on a wrong answer (§22). Neither is a strictly better default — the flash-sale example this guide traced from a real bug (§9) through two independent, provably correct fixes (§17, §25) and finally into a reusable, hand-built implementation (§30–§36) is exactly the kind of concrete scenario that should drive the choice, not an abstract preference for one paradigm. And neither is the end of the story: real systems at real scale layer sharding, queues, caching, and distributed coordination on top of whichever base strategy they start with (Part 6) — locking is the correctness foundation these optimizations get to safely build on, not a competitor to them.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Optimistic vs Pessimistic Locking — A Practical, Step-by-Step Guide With a Custom Java Implementation.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

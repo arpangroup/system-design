@@ -1,0 +1,3476 @@
+<meta charset="utf-8">
+<title>Build Your Own Dependency Injection Framework — MiniSpring</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; minispring step-by-step guide (full, 108 sections)</div>
+      <h1>Build Your Own Dependency Injection Framework — MiniSpring</h1>
+      <p class="dek">The fuller, 108-section step-by-step walkthrough of building MiniSpring — a hand-rolled IoC container and MVC layer — covering annotations, reflection-based bean wiring, lifecycle callbacks, qualifiers, converters, testing, and an embedded HTTP server end to end.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#4-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#5-phase-1-create-the-base-maven-project">Phase 1 — Create the Base Maven Project</a></li><li class="toc-lvl-2"><a href="#6-phase-2-design-the-annotation-system">Phase 2 — Design the Annotation System</a><ul><li class="toc-lvl-3"><a href="#61-component">6.1 @Component</a></li></ul></li><li class="toc-lvl-2"><a href="#7-stereotype-annotations">Stereotype Annotations</a></li><li class="toc-lvl-2"><a href="#8-phase-3-autowired">Phase 3 — @Autowired</a></li><li class="toc-lvl-2"><a href="#9-phase-4-component-scanning">Phase 4 — Component Scanning</a></li><li class="toc-lvl-2"><a href="#10-understanding-java-classpath-scanning">Understanding Java Classpath Scanning</a></li><li class="toc-lvl-2"><a href="#11-getting-the-package-location">Getting the Package Location</a></li><li class="toc-lvl-2"><a href="#12-scanning-directory-classes">Scanning Directory Classes</a></li><li class="toc-lvl-2"><a href="#13-exclude-non-instantiable-types">Exclude Non-Instantiable Types</a></li><li class="toc-lvl-2"><a href="#14-jar-scanning">Jar Scanning</a></li><li class="toc-lvl-2"><a href="#15-phase-5-beandefinition">Phase 5 — BeanDefinition</a></li><li class="toc-lvl-2"><a href="#16-bean-naming">Bean Naming</a></li><li class="toc-lvl-2"><a href="#17-custom-bean-name">Custom Bean Name</a></li><li class="toc-lvl-2"><a href="#18-phase-6-beanfactory">Phase 6 — BeanFactory</a></li><li class="toc-lvl-2"><a href="#19-singleton-behavior">Singleton Behavior</a></li><li class="toc-lvl-2"><a href="#20-phase-7-constructor-injection">Phase 7 — Constructor Injection</a></li><li class="toc-lvl-2"><a href="#21-constructor-selection-rules">Constructor Selection Rules</a></li><li class="toc-lvl-2"><a href="#22-phase-8-field-injection">Phase 8 — Field Injection</a></li><li class="toc-lvl-2"><a href="#23-why-constructor-injection-should-be-preferred">Why Constructor Injection Should Be Preferred</a></li><li class="toc-lvl-2"><a href="#24-phase-9-dependency-resolution">Phase 9 — Dependency Resolution</a></li><li class="toc-lvl-2"><a href="#25-phase-10-circular-dependency-detection">Phase 10 — Circular Dependency Detection</a></li><li class="toc-lvl-2"><a href="#26-improve-circular-dependency-reporting">Improve Circular Dependency Reporting</a></li><li class="toc-lvl-2"><a href="#27-constructor-circular-dependency-vs-field-circular-dependency">Constructor Circular Dependency vs Field Circular Dependency</a></li><li class="toc-lvl-2"><a href="#28-phase-11-applicationcontext">Phase 11 — ApplicationContext</a></li><li class="toc-lvl-2"><a href="#29-context-startup-flow">Context Startup Flow</a></li><li class="toc-lvl-2"><a href="#30-determining-the-base-package">Determining the Base Package</a></li><li class="toc-lvl-2"><a href="#31-phase-12-miniapplication">Phase 12 — @MiniApplication</a></li><li class="toc-lvl-2"><a href="#32-naming-conflict">Naming Conflict</a></li><li class="toc-lvl-2"><a href="#33-phase-13-bean-lifecycle">Phase 13 — Bean Lifecycle</a></li><li class="toc-lvl-2"><a href="#34-add-postconstruct">Add @PostConstruct</a></li><li class="toc-lvl-2"><a href="#35-lifecycle-ordering">Lifecycle Ordering</a></li><li class="toc-lvl-2"><a href="#36-phase-14-beanpostprocessor">Phase 14 — BeanPostProcessor</a></li><li class="toc-lvl-2"><a href="#37-phase-15-interface-based-injection">Phase 15 — Interface-Based Injection</a></li><li class="toc-lvl-2"><a href="#38-type-index">Type Index</a></li><li class="toc-lvl-2"><a href="#39-ambiguous-dependencies">Ambiguous Dependencies</a></li><li class="toc-lvl-2"><a href="#40-add-primary">Add @Primary</a></li><li class="toc-lvl-2"><a href="#41-add-qualifier">Add @Qualifier</a></li><li class="toc-lvl-2"><a href="#42-phase-16-bean-scopes">Phase 16 — Bean Scopes</a></li><li class="toc-lvl-2"><a href="#43-phase-17-application-context-api">Phase 17 — Application Context API</a></li><li class="toc-lvl-2"><a href="#44-phase-18-configuration-properties">Phase 18 — Configuration Properties</a></li><li class="toc-lvl-2"><a href="#45-phase-19-tiny-mvc-layer">Phase 19 — Tiny MVC Layer</a></li><li class="toc-lvl-2"><a href="#46-requestmapping">@RequestMapping</a></li><li class="toc-lvl-2"><a href="#47-getmapping">@GetMapping</a></li><li class="toc-lvl-2"><a href="#48-controller-example">Controller Example</a></li><li class="toc-lvl-2"><a href="#49-phase-20-handlermethod">Phase 20 — HandlerMethod</a></li><li class="toc-lvl-2"><a href="#50-phase-21-handlermapping">Phase 21 — HandlerMapping</a></li><li class="toc-lvl-2"><a href="#51-discover-controller-methods">Discover Controller Methods</a></li><li class="toc-lvl-2"><a href="#52-controller-level-mapping">Controller-Level Mapping</a></li><li class="toc-lvl-2"><a href="#53-phase-22-path-matching">Phase 22 — Path Matching</a></li><li class="toc-lvl-2"><a href="#54-better-route-representation">Better Route Representation</a></li><li class="toc-lvl-2"><a href="#55-phase-23-pathvariable">Phase 23 — @PathVariable</a></li><li class="toc-lvl-2"><a href="#56-type-conversion">Type Conversion</a></li><li class="toc-lvl-2"><a href="#57-phase-24-requestparam">Phase 24 — @RequestParam</a></li><li class="toc-lvl-2"><a href="#58-optional-request-parameters">Optional Request Parameters</a></li><li class="toc-lvl-2"><a href="#59-phase-25-http-request-abstraction">Phase 25 — HTTP Request Abstraction</a></li><li class="toc-lvl-2"><a href="#60-phase-26-embedded-http-server">Phase 26 — Embedded HTTP Server</a></li><li class="toc-lvl-2"><a href="#61-dispatcherservlet">DispatcherServlet</a></li><li class="toc-lvl-2"><a href="#62-complete-request-flow">Complete Request Flow</a></li><li class="toc-lvl-2"><a href="#63-phase-27-argumentresolver">Phase 27 — ArgumentResolver</a></li><li class="toc-lvl-2"><a href="#64-phase-28-return-value-handling">Phase 28 — Return Value Handling</a></li><li class="toc-lvl-2"><a href="#65-simple-json-support">Simple JSON Support</a></li><li class="toc-lvl-2"><a href="#66-phase-29-exception-handling">Phase 29 — Exception Handling</a></li><li class="toc-lvl-2"><a href="#67-phase-30-http-status-codes">Phase 30 — HTTP Status Codes</a></li><li class="toc-lvl-2"><a href="#68-phase-31-responseentity">Phase 31 — ResponseEntity</a></li><li class="toc-lvl-2"><a href="#69-phase-32-dependency-injection-mvc-integration">Phase 32 — Dependency Injection + MVC Integration</a></li><li class="toc-lvl-2"><a href="#70-phase-33-miniapplicationrun">Phase 33 — MiniApplication.run</a></li><li class="toc-lvl-2"><a href="#71-startup-timeline">Startup Timeline</a></li><li class="toc-lvl-2"><a href="#72-full-demo-application">Full Demo Application</a><ul><li class="toc-lvl-3"><a href="#repository">Repository</a></li><li class="toc-lvl-3"><a href="#service">Service</a></li><li class="toc-lvl-3"><a href="#controller">Controller</a></li></ul></li><li class="toc-lvl-2"><a href="#73-start-the-application">Start the Application</a></li><li class="toc-lvl-2"><a href="#74-complete-minispring-architecture">Complete MiniSpring Architecture</a></li><li class="toc-lvl-2"><a href="#75-recommended-package-structure">Recommended Package Structure</a></li><li class="toc-lvl-2"><a href="#76-important-design-principle-separate-responsibilities">Important Design Principle — Separate Responsibilities</a></li><li class="toc-lvl-2"><a href="#77-solid-mapping">SOLID Mapping</a><ul><li class="toc-lvl-3"><a href="#single-responsibility">Single Responsibility</a></li><li class="toc-lvl-3"><a href="#openclosed">Open/Closed</a></li><li class="toc-lvl-3"><a href="#liskov-substitution">Liskov Substitution</a></li><li class="toc-lvl-3"><a href="#interface-segregation">Interface Segregation</a></li><li class="toc-lvl-3"><a href="#dependency-inversion">Dependency Inversion</a></li></ul></li><li class="toc-lvl-2"><a href="#78-dependency-graph">Dependency Graph</a></li><li class="toc-lvl-2"><a href="#79-explicit-graph-based-circular-dependency-detection">Explicit Graph-Based Circular Dependency Detection</a></li><li class="toc-lvl-2"><a href="#80-improve-startup-performance">Improve Startup Performance</a></li><li class="toc-lvl-2"><a href="#81-reflection-metadata-cache">Reflection Metadata Cache</a></li><li class="toc-lvl-2"><a href="#82-thread-safety">Thread Safety</a></li><li class="toc-lvl-2"><a href="#83-application-startup-thread-safety">Application Startup Thread Safety</a></li><li class="toc-lvl-2"><a href="#84-phase-34-events">Phase 34 — Events</a></li><li class="toc-lvl-2"><a href="#85-phase-35-profiles">Phase 35 — Profiles</a></li><li class="toc-lvl-2"><a href="#86-phase-36-conditional-beans">Phase 36 — Conditional Beans</a></li><li class="toc-lvl-2"><a href="#87-phase-37-auto-configuration">Phase 37 — Auto Configuration</a></li><li class="toc-lvl-2"><a href="#88-phase-38-bean">Phase 38 — @Bean</a></li><li class="toc-lvl-2"><a href="#89-configuration-method-processing">Configuration Method Processing</a></li><li class="toc-lvl-2"><a href="#90-phase-39-factorybean-concept">Phase 39 — FactoryBean Concept</a></li><li class="toc-lvl-2"><a href="#91-phase-40-proxy-support">Phase 40 — Proxy Support</a></li><li class="toc-lvl-2"><a href="#92-aop-like-interceptor">AOP-Like Interceptor</a></li><li class="toc-lvl-2"><a href="#93-transactional-as-a-future-feature">@Transactional as a Future Feature</a></li><li class="toc-lvl-2"><a href="#94-testing-strategy">Testing Strategy</a><ul><li class="toc-lvl-3"><a href="#scanner-tests">Scanner Tests</a></li><li class="toc-lvl-3"><a href="#beanfactory-tests">BeanFactory Tests</a></li><li class="toc-lvl-3"><a href="#context-tests">Context Tests</a></li><li class="toc-lvl-3"><a href="#mvc-tests">MVC Tests</a></li></ul></li><li class="toc-lvl-2"><a href="#95-example-unit-test-singleton">Example Unit Test — Singleton</a></li><li class="toc-lvl-2"><a href="#96-example-unit-test-constructor-injection">Example Unit Test — Constructor Injection</a></li><li class="toc-lvl-2"><a href="#97-example-circular-dependency-test">Example Circular Dependency Test</a></li><li class="toc-lvl-2"><a href="#98-mvc-integration-test">MVC Integration Test</a></li><li class="toc-lvl-2"><a href="#99-test-matrix">Test Matrix</a></li><li class="toc-lvl-2"><a href="#100-common-failure-scenarios">Common Failure Scenarios</a><ul><li class="toc-lvl-3"><a href="#bean-not-found">Bean Not Found</a></li><li class="toc-lvl-3"><a href="#multiple-beans">Multiple Beans</a></li><li class="toc-lvl-3"><a href="#circular-dependency">Circular Dependency</a></li><li class="toc-lvl-3"><a href="#invalid-controller">Invalid Controller</a></li></ul></li><li class="toc-lvl-2"><a href="#101-recommended-implementation-order">Recommended Implementation Order</a></li><li class="toc-lvl-2"><a href="#102-suggested-git-commit-strategy">Suggested Git Commit Strategy</a></li><li class="toc-lvl-2"><a href="#103-interview-questions-you-should-be-able-to-answer">Interview Questions You Should Be Able to Answer</a><ul><li class="toc-lvl-3"><a href="#dependency-injection">Dependency Injection</a></li><li class="toc-lvl-3"><a href="#reflection">Reflection</a></li><li class="toc-lvl-3"><a href="#classpath-scanning">Classpath Scanning</a></li><li class="toc-lvl-3"><a href="#bean-lifecycle">Bean Lifecycle</a></li><li class="toc-lvl-3"><a href="#circular-dependency_1">Circular Dependency</a></li><li class="toc-lvl-3"><a href="#spring-mvc">Spring MVC</a></li><li class="toc-lvl-3"><a href="#spring-boot">Spring Boot</a></li></ul></li><li class="toc-lvl-2"><a href="#104-final-architecture">Final Architecture</a></li><li class="toc-lvl-2"><a href="#105-definition-of-done">Definition of Done</a></li><li class="toc-lvl-2"><a href="#106-suggested-v2-enhancements">Suggested V2 Enhancements</a><ul><li class="toc-lvl-3"><a href="#container">Container</a></li><li class="toc-lvl-3"><a href="#dependency-injection_1">Dependency Injection</a></li><li class="toc-lvl-3"><a href="#lifecycle">Lifecycle</a></li><li class="toc-lvl-3"><a href="#web">Web</a></li><li class="toc-lvl-3"><a href="#infrastructure">Infrastructure</a></li><li class="toc-lvl-3"><a href="#aop">AOP</a></li></ul></li><li class="toc-lvl-2"><a href="#107-suggested-v3-minispring-boot">Suggested V3 — MiniSpring Boot</a></li><li class="toc-lvl-2"><a href="#108-final-learning-path">Final Learning Path</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<p>A step-by-step guide to building <strong>MiniSpring</strong>, a small dependency-injection and web framework inspired by the core ideas behind Spring Framework.</p>
+<p>The goal is <strong>not</strong> to reproduce Spring internally. The goal is to understand the mechanisms that make a framework such as Spring Boot possible:</p>
+<ul>
+<li>Component scanning</li>
+<li>Bean definitions</li>
+<li>Dependency injection</li>
+<li>Reflection</li>
+<li>Constructor and field injection</li>
+<li>Bean lifecycle</li>
+<li>Application context</li>
+<li>Configuration</li>
+<li>Circular-dependency detection</li>
+<li>MVC routing</li>
+<li>Embedded HTTP server</li>
+<li>A single <code>MiniApplication.run(...)</code> entry point</li>
+</ul>
+<p>By the end, you will have a small but extensible framework with an API similar to:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@MiniApplication
+public class AppConfig {
+    public static void main(String[] args) {
+        MiniApplication.run(AppConfig.class, args);
+    }
+}</code></pre></div>
+<p>And application classes such as:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class UserService {
+
+    private final UserRepository userRepository;
+
+    @Autowired
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+}</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Repository
+public class UserRepository {
+
+    public String findUser() {
+        return &quot;Arpan&quot;;
+    }
+}</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Controller
+@RequestMapping(&quot;/users&quot;)
+public class UserController {
+
+    private final UserService userService;
+
+    @Autowired
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
+
+    @GetMapping(&quot;/{id}&quot;)
+    public String getUser(@PathVariable(&quot;id&quot;) String id) {
+        return &quot;User: &quot; + id;
+    }
+}</code></pre></div>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<p>MiniSpring will contain four major layers:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                         +--------------------------+
+                         |       Application        |
+                         | @Service @Controller ... |
+                         +------------+-------------+
+                                      |
+                                      v
+                         +--------------------------+
+                         |    MiniApplication       |
+                         |      run(...)            |
+                         +------------+-------------+
+                                      |
+                                      v
+                         +--------------------------+
+                         |    ApplicationContext    |
+                         |                          |
+                         |  scan -&gt; register -&gt;    |
+                         |  instantiate -&gt; inject  |
+                         +------------+-------------+
+                                      |
+                                      v
+                         +--------------------------+
+                         |       BeanFactory        |
+                         |                          |
+                         | create / cache / resolve |
+                         +------------+-------------+
+                                      |
+                                      v
+                         +--------------------------+
+                         |      Reflection          |
+                         |                          |
+                         | constructors / fields    |
+                         | methods / annotations    |
+                         +--------------------------+</code></pre></div>
+<p>For the web layer:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>HTTP Request
+     |
+     v
++-------------------+
+| Embedded HTTP     |
+| Server            |
++---------+---------+
+          |
+          v
++-------------------+
+| DispatcherServlet |
++---------+---------+
+          |
+          v
++-------------------+
+| HandlerMapping    |
++---------+---------+
+          |
+          v
+@Controller method
+          |
+          v
+HTTP Response</code></pre></div>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>After completing this project, you should understand:</p>
+<ol>
+<li>How Java annotations work.</li>
+<li>How runtime annotations can be discovered using reflection.</li>
+<li>How classpath scanning works.</li>
+<li>How dependency injection containers work.</li>
+<li>Why a BeanFactory is different from an ApplicationContext.</li>
+<li>How Spring-style stereotypes can be implemented.</li>
+<li>How constructor injection works.</li>
+<li>How field injection works.</li>
+<li>How bean scopes can be implemented.</li>
+<li>How singleton caching works.</li>
+<li>How circular dependencies can be detected.</li>
+<li>How bean lifecycle callbacks work.</li>
+<li>How an HTTP request can be mapped to a controller method.</li>
+<li>How <code>@PathVariable</code> and <code>@RequestParam</code> can be resolved.</li>
+<li>How an embedded HTTP server can expose controllers.</li>
+<li>How a framework bootstrapping API can be designed.</li>
+<li>How to evolve a simple implementation toward a scalable architecture.</li>
+</ol>
+<hr>
+<h2 id="3-recommended-technology-stack">3. Recommended Technology Stack</h2>
+<p>Use:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Java             21+
+Build Tool       Maven
+Testing          JUnit 5
+HTTP Server      JDK HttpServer initially
+Logging          SLF4J + Logback (optional)</code></pre></div>
+<p>Do not use Spring for the framework implementation.</p>
+<p>The entire point is to understand how the framework works underneath.</p>
+<hr>
+<h2 id="4-project-structure">4. Project Structure</h2>
+<p>Start with a multi-module Maven project.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>mini-spring/
+│
+├── pom.xml
+│
+├── minispring-core/
+│   ├── pom.xml
+│   └── src/main/java/
+│       └── com/minispring/
+│           ├── annotation/
+│           ├── bean/
+│           ├── context/
+│           ├── exception/
+│           ├── scanner/
+│           ├── factory/
+│           └── lifecycle/
+│
+├── minispring-web/
+│   ├── pom.xml
+│   └── src/main/java/
+│       └── com/minispring/web/
+│           ├── annotation/
+│           ├── dispatcher/
+│           ├── mapping/
+│           ├── handler/
+│           ├── argument/
+│           └── server/
+│
+├── minispring-boot/
+│   ├── pom.xml
+│   └── src/main/java/
+│       └── com/minispring/boot/
+│
+└── mini-spring-demo/
+    ├── pom.xml
+    └── src/main/java/
+        └── com/example/app/
+            ├── AppConfig.java
+            ├── controller/
+            ├── service/
+            └── repository/</code></pre></div>
+<p>Conceptually:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>minispring-core
+       |
+       +---- DI container
+       |
+       +---- Component scanning
+       |
+       +---- Bean lifecycle
+
+minispring-web
+       |
+       +---- MVC
+       |
+       +---- HTTP server
+
+minispring-boot
+       |
+       +---- Application bootstrap
+
+mini-spring-demo
+       |
+       +---- User application</code></pre></div>
+<hr>
+<h2 id="5-phase-1-create-the-base-maven-project">5. Phase 1 — Create the Base Maven Project</h2>
+<p>Root <code>pom.xml</code>:</p>
+<div class="code-wrap"><span class="code-lang">XML</span><pre class="code-block"><code>&lt;project&gt;
+    &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+
+    &lt;groupId&gt;com.minispring&lt;/groupId&gt;
+    &lt;artifactId&gt;mini-spring&lt;/artifactId&gt;
+    &lt;version&gt;1.0.0&lt;/version&gt;
+    &lt;packaging&gt;pom&lt;/packaging&gt;
+
+    &lt;modules&gt;
+        &lt;module&gt;minispring-core&lt;/module&gt;
+        &lt;module&gt;minispring-web&lt;/module&gt;
+        &lt;module&gt;minispring-boot&lt;/module&gt;
+        &lt;module&gt;mini-spring-demo&lt;/module&gt;
+    &lt;/modules&gt;
+
+    &lt;properties&gt;
+        &lt;java.version&gt;21&lt;/java.version&gt;
+        &lt;maven.compiler.source&gt;21&lt;/maven.compiler.source&gt;
+        &lt;maven.compiler.target&gt;21&lt;/maven.compiler.target&gt;
+    &lt;/properties&gt;
+&lt;/project&gt;</code></pre></div>
+<p>Build:</p>
+<div class="code-wrap"><span class="code-lang">Bash</span><pre class="code-block"><code>mvn clean install</code></pre></div>
+<hr>
+<h2 id="6-phase-2-design-the-annotation-system">6. Phase 2 — Design the Annotation System</h2>
+<p>We want:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Component
+@Service
+@Repository
+@Controller</code></pre></div>
+<p>The first version can make all stereotypes directly discoverable.</p>
+<h3 id="61-component">6.1 <code>@Component</code></h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Component {
+}</code></pre></div>
+<p>Important:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>@Target(TYPE)</code></pre></div>
+<p>means it can be placed on classes.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>@Retention(RUNTIME)</code></pre></div>
+<p>means reflection can discover it while the application is running.</p>
+<hr>
+<h2 id="7-stereotype-annotations">7. Stereotype Annotations</h2>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Component
+public @interface Service {
+}</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Component
+public @interface Repository {
+}</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Component
+public @interface Controller {
+}</code></pre></div>
+<p>This demonstrates a very important framework concept:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>@Controller
+@Service
+@Repository
+       |
+       v
+   @Component
+       |
+       v
+Component Scanner</code></pre></div>
+<p>A more advanced implementation should not rely on annotation-to-annotation behavior directly because Java reflection does not automatically treat a custom annotation as if it were annotated with another annotation in every lookup scenario.</p>
+<p>Instead, MiniSpring can explicitly recognize stereotypes:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public boolean isComponent(Class&lt;?&gt; type) {
+
+    return type.isAnnotationPresent(Component.class)
+        || type.isAnnotationPresent(Service.class)
+        || type.isAnnotationPresent(Repository.class)
+        || type.isAnnotationPresent(Controller.class);
+}</code></pre></div>
+<p>Later, create a generic stereotype/meta-annotation mechanism.</p>
+<hr>
+<h2 id="8-phase-3-autowired">8. Phase 3 — <code>@Autowired</code></h2>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Target({
+        ElementType.CONSTRUCTOR,
+        ElementType.FIELD
+})
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Autowired {
+}</code></pre></div>
+<p>This gives us two injection styles:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Autowired
+public UserService(UserRepository repository) {
+    this.repository = repository;
+}</code></pre></div>
+<p>and:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Autowired
+private UserRepository repository;</code></pre></div>
+<p>Constructor injection should be the preferred approach.</p>
+<hr>
+<h2 id="9-phase-4-component-scanning">9. Phase 4 — Component Scanning</h2>
+<p>This is one of the most important parts of the project.</p>
+<p>Spring-like frameworks need to answer:</p>
+<blockquote>
+<p>"Given package <code>com.example.app</code>, which classes are components?"</p>
+</blockquote>
+<p>We need a:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>ClassPathScanner</code></pre></div>
+<p>API:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface ClassPathScanner {
+
+    Set&lt;Class&lt;?&gt;&gt; scan(String basePackage);
+}</code></pre></div>
+<p>Implementation:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class DefaultClassPathScanner
+        implements ClassPathScanner {
+
+    @Override
+    public Set&lt;Class&lt;?&gt;&gt; scan(String basePackage) {
+        // discover .class files
+        // convert to class names
+        // load classes
+        // inspect annotations
+        return ...;
+    }
+}</code></pre></div>
+<hr>
+<h2 id="10-understanding-java-classpath-scanning">10. Understanding Java Classpath Scanning</h2>
+<p>Suppose:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>com.example.app</code></pre></div>
+<p>contains:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>com/example/app/AppConfig.class
+com/example/app/UserService.class
+com/example/app/UserRepository.class
+com/example/app/UserController.class</code></pre></div>
+<p>We need to discover:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>com.example.app.UserService
+com.example.app.UserRepository
+com.example.app.UserController</code></pre></div>
+<p>The process:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Base Package
+     |
+     v
+ClassLoader
+     |
+     v
+Classpath resources
+     |
+     v
+Directory / JAR
+     |
+     v
+.class files
+     |
+     v
+Class.forName(...)
+     |
+     v
+Class&lt;?&gt;
+     |
+     v
+Annotation inspection</code></pre></div>
+<hr>
+<h2 id="11-getting-the-package-location">11. Getting the Package Location</h2>
+<p>Use:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>String path = basePackage.replace('.', '/');
+
+ClassLoader classLoader =
+        Thread.currentThread().getContextClassLoader();
+
+Enumeration&lt;URL&gt; resources =
+        classLoader.getResources(path);</code></pre></div>
+<p>For every URL:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>while (resources.hasMoreElements()) {
+
+    URL resource = resources.nextElement();
+
+    System.out.println(resource);
+}</code></pre></div>
+<p>Initially support:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>file:</code></pre></div>
+<p>resources.</p>
+<p>Later add:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>jar:</code></pre></div>
+<p>resources.</p>
+<hr>
+<h2 id="12-scanning-directory-classes">12. Scanning Directory Classes</h2>
+<p>For a file-system resource:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>File directory =
+        new File(resource.toURI());</code></pre></div>
+<p>Recursively scan:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private void scanDirectory(
+        File directory,
+        String packageName,
+        Set&lt;Class&lt;?&gt;&gt; classes) {
+
+    for (File file : directory.listFiles()) {
+
+        if (file.isDirectory()) {
+
+            scanDirectory(
+                file,
+                packageName + &quot;.&quot; + file.getName(),
+                classes
+            );
+
+        } else if (file.getName().endsWith(&quot;.class&quot;)) {
+
+            String className =
+                    packageName + &quot;.&quot; +
+                    file.getName()
+                        .replace(&quot;.class&quot;, &quot;&quot;);
+
+            loadClass(className, classes);
+        }
+    }
+}</code></pre></div>
+<p>Load:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private void loadClass(
+        String className,
+        Set&lt;Class&lt;?&gt;&gt; classes) {
+
+    try {
+
+        Class&lt;?&gt; clazz =
+                Class.forName(className);
+
+        if (isComponent(clazz)) {
+            classes.add(clazz);
+        }
+
+    } catch (ClassNotFoundException e) {
+        throw new MiniSpringException(e);
+    }
+}</code></pre></div>
+<hr>
+<h2 id="13-exclude-non-instantiable-types">13. Exclude Non-Instantiable Types</h2>
+<p>Do not register:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>interfaces
+abstract classes
+annotations
+enums</code></pre></div>
+<p>Use:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>if (clazz.isInterface()) {
+    return;
+}
+
+if (Modifier.isAbstract(clazz.getModifiers())) {
+    return;
+}
+
+if (clazz.isAnnotation()) {
+    return;
+}</code></pre></div>
+<p>Eventually you should also decide how to handle:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>inner classes
+records
+synthetic classes
+anonymous classes</code></pre></div>
+<hr>
+<h2 id="14-jar-scanning">14. Jar Scanning</h2>
+<p>Production frameworks cannot assume classes exist only as directories.</p>
+<p>When packaged:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>app.jar
+ ├── com/example/App.class
+ ├── com/example/UserService.class
+ └── ...</code></pre></div>
+<p>The scanner must support:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>file:
+jar:</code></pre></div>
+<p>Use:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>JarURLConnection</code></pre></div>
+<p>or:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>JarFile</code></pre></div>
+<p>to enumerate entries.</p>
+<p>The scanner architecture should therefore separate:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>ResourceResolver</code></pre></div>
+<p>from:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>ClassPathScanner</code></pre></div>
+<p>For example:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>ClassPathScanner
+       |
+       v
+ResourceResolver
+       |
+       +---- FileResourceResolver
+       |
+       +---- JarResourceResolver</code></pre></div>
+<p>This follows the Open/Closed Principle.</p>
+<hr>
+<h2 id="15-phase-5-beandefinition">15. Phase 5 — BeanDefinition</h2>
+<p>Do not immediately create objects when scanning.</p>
+<p>First create metadata.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class BeanDefinition {
+
+    private Class&lt;?&gt; beanClass;
+
+    private String beanName;
+
+    private Scope scope;
+
+    private boolean lazy;
+
+    // getters/setters
+}</code></pre></div>
+<p>Enum:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public enum Scope {
+    SINGLETON,
+    PROTOTYPE
+}</code></pre></div>
+<p>This gives us:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Class
+ |
+ v
+BeanDefinition
+ |
+ v
+BeanFactory
+ |
+ v
+Object</code></pre></div>
+<p>This separation becomes extremely important later.</p>
+<hr>
+<h2 id="16-bean-naming">16. Bean Naming</h2>
+<p>Default bean name:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>UserService</code></pre></div>
+<p>becomes:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>userService</code></pre></div>
+<p>Implement:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public String generateBeanName(Class&lt;?&gt; type) {
+
+    String simpleName = type.getSimpleName();
+
+    return Character.toLowerCase(simpleName.charAt(0))
+            + simpleName.substring(1);
+}</code></pre></div>
+<p>For:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>UserService</code></pre></div>
+<p>result:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>userService</code></pre></div>
+<p>For:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>OrderRepository</code></pre></div>
+<p>result:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>orderRepository</code></pre></div>
+<hr>
+<h2 id="17-custom-bean-name">17. Custom Bean Name</h2>
+<p>Extend annotations:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public @interface Component {
+
+    String value() default &quot;&quot;;
+}</code></pre></div>
+<p>Then:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Component(&quot;primaryUserService&quot;)
+public class UserService {
+}</code></pre></div>
+<p>If <code>value()</code> is empty:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>userService</code></pre></div>
+<p>Otherwise:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>primaryUserService</code></pre></div>
+<hr>
+<h2 id="18-phase-6-beanfactory">18. Phase 6 — BeanFactory</h2>
+<p>Create the main abstraction:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface BeanFactory {
+
+    Object getBean(String name);
+
+    &lt;T&gt; T getBean(Class&lt;T&gt; type);
+
+    boolean containsBean(String name);
+}</code></pre></div>
+<p>Implementation:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class DefaultBeanFactory
+        implements BeanFactory {
+}</code></pre></div>
+<p>Internal state:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private final Map&lt;String, BeanDefinition&gt; definitions;
+
+private final Map&lt;String, Object&gt; singletonObjects;</code></pre></div>
+<p>Conceptually:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>BeanDefinition Map
+
+&quot;userService&quot;
+      |
+      v
+UserService.class
+
+
+Singleton Map
+
+&quot;userService&quot;
+      |
+      v
+UserService@12345</code></pre></div>
+<hr>
+<h2 id="19-singleton-behavior">19. Singleton Behavior</h2>
+<p>Calling:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>context.getBean(UserService.class);</code></pre></div>
+<p>twice should return the same object:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>UserService a =
+    context.getBean(UserService.class);
+
+UserService b =
+    context.getBean(UserService.class);
+
+System.out.println(a == b);</code></pre></div>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>true</code></pre></div>
+<p>Implementation:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>if (singletonObjects.containsKey(beanName)) {
+    return singletonObjects.get(beanName);
+}</code></pre></div>
+<p>Otherwise create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Object bean = createBean(beanName);
+singletonObjects.put(beanName, bean);
+
+return bean;</code></pre></div>
+<hr>
+<h2 id="20-phase-7-constructor-injection">20. Phase 7 — Constructor Injection</h2>
+<p>Suppose:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class UserService {
+
+    private final UserRepository repository;
+
+    @Autowired
+    public UserService(UserRepository repository) {
+        this.repository = repository;
+    }
+}</code></pre></div>
+<p>Reflection:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Constructor&lt;?&gt;[] constructors =
+        beanClass.getDeclaredConstructors();</code></pre></div>
+<p>Find the constructor:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Constructor&lt;?&gt; autowiredConstructor = null;
+
+for (Constructor&lt;?&gt; constructor : constructors) {
+
+    if (constructor.isAnnotationPresent(
+            Autowired.class)) {
+
+        autowiredConstructor = constructor;
+        break;
+    }
+}</code></pre></div>
+<p>Resolve parameters:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Class&lt;?&gt;[] parameterTypes =
+        constructor.getParameterTypes();</code></pre></div>
+<p>Then:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Object dependency =
+        getBean(parameterType);</code></pre></div>
+<p>Finally:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>constructor.setAccessible(true);
+
+Object bean =
+        constructor.newInstance(dependencies);</code></pre></div>
+<hr>
+<h2 id="21-constructor-selection-rules">21. Constructor Selection Rules</h2>
+<p>Define deterministic rules.</p>
+<p>Recommended MiniSpring rules:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. Exactly one @Autowired constructor
+      -&gt; use it
+
+2. Multiple @Autowired constructors
+      -&gt; throw error
+
+3. No @Autowired constructor
+      + exactly one constructor
+      -&gt; use it
+
+4. No @Autowired constructor
+      + multiple constructors
+      -&gt; use no-arg constructor
+
+5. No usable constructor
+      -&gt; throw error</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class PaymentService {
+
+    public PaymentService() {
+    }
+
+    public PaymentService(PaymentRepository repository) {
+    }
+}</code></pre></div>
+<p>If there are multiple constructors and none is annotated, MiniSpring should either use the no-arg constructor or report an ambiguity error. Pick one behavior and document it.</p>
+<hr>
+<h2 id="22-phase-8-field-injection">22. Phase 8 — Field Injection</h2>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class UserService {
+
+    @Autowired
+    private UserRepository repository;
+}</code></pre></div>
+<p>After constructing the object:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>for (Field field : beanClass.getDeclaredFields()) {
+
+    if (!field.isAnnotationPresent(Autowired.class)) {
+        continue;
+    }
+
+    Object dependency =
+            getBean(field.getType());
+
+    field.setAccessible(true);
+    field.set(bean, dependency);
+}</code></pre></div>
+<p>This works because Java reflection allows access to private fields when explicitly enabled.</p>
+<hr>
+<h2 id="23-why-constructor-injection-should-be-preferred">23. Why Constructor Injection Should Be Preferred</h2>
+<p>Constructor injection provides:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Required dependencies
+       |
+       v
+Constructor
+       |
+       v
+Fully initialized object</code></pre></div>
+<p>Benefits:</p>
+<ul>
+<li>Immutable dependencies</li>
+<li>Easier unit testing</li>
+<li>Dependencies are explicit</li>
+<li>Object cannot be constructed incorrectly as easily</li>
+<li>Circular dependencies become easier to detect</li>
+</ul>
+<p>Field injection is useful for learning because it demonstrates reflection-based property injection.</p>
+<hr>
+<h2 id="24-phase-9-dependency-resolution">24. Phase 9 — Dependency Resolution</h2>
+<p>Suppose:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>UserController
+       |
+       v
+UserService
+       |
+       v
+UserRepository</code></pre></div>
+<p>Calling:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>getBean(UserController.class)</code></pre></div>
+<p>should cause:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>UserController
+     |
+     +--&gt; UserService
+              |
+              +--&gt; UserRepository</code></pre></div>
+<p>Algorithm:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>getBean(UserController)
+        |
+        v
+create UserController
+        |
+        v
+resolve UserService
+        |
+        v
+create UserService
+        |
+        v
+resolve UserRepository
+        |
+        v
+create UserRepository
+        |
+        v
+return UserRepository
+        |
+        v
+return UserService
+        |
+        v
+return UserController</code></pre></div>
+<p>This is the heart of dependency injection.</p>
+<hr>
+<h2 id="25-phase-10-circular-dependency-detection">25. Phase 10 — Circular Dependency Detection</h2>
+<p>Consider:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class A {
+
+    private final B b;
+
+    @Autowired
+    public A(B b) {
+        this.b = b;
+    }
+}</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class B {
+
+    private final A a;
+
+    @Autowired
+    public B(A a) {
+        this.a = a;
+    }
+}</code></pre></div>
+<p>Request:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>getBean(A.class);</code></pre></div>
+<p>Flow:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>A
+ |
+ v
+B
+ |
+ v
+A
+ |
+ v
+B
+ |
+ v
+...</code></pre></div>
+<p>We need a creation stack.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private final ThreadLocal&lt;Deque&lt;String&gt;&gt;
+        creationStack =
+        ThreadLocal.withInitial(ArrayDeque::new);</code></pre></div>
+<p>Before creation:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>if (creationStack.get().contains(beanName)) {
+    throw new CircularDependencyException(
+        &quot;Circular dependency detected: &quot;
+        + creationStack.get()
+    );
+}</code></pre></div>
+<p>Then:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>creationStack.get().push(beanName);
+
+try {
+
+    return createBean(beanName);
+
+} finally {
+
+    creationStack.get().pop();
+}</code></pre></div>
+<hr>
+<h2 id="26-improve-circular-dependency-reporting">26. Improve Circular Dependency Reporting</h2>
+<p>Instead of:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Circular dependency detected</code></pre></div>
+<p>report:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Circular dependency detected:
+
+userController
+ -&gt; userService
+ -&gt; paymentService
+ -&gt; userService</code></pre></div>
+<p>Maintain:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Deque&lt;String&gt;</code></pre></div>
+<p>and format it into an understandable dependency path.</p>
+<p>This is an important framework-quality improvement.</p>
+<hr>
+<h2 id="27-constructor-circular-dependency-vs-field-circular-dependency">27. Constructor Circular Dependency vs Field Circular Dependency</h2>
+<p>Constructor cycle:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>A -&gt; B -&gt; A</code></pre></div>
+<p>cannot be resolved by simply creating partially initialized objects.</p>
+<p>Field injection theoretically allows:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>create A
+create B
+inject A into B
+inject B into A</code></pre></div>
+<p>This is one reason real DI containers have sophisticated singleton creation and early-reference mechanisms.</p>
+<p>For MiniSpring V1:</p>
+<blockquote>
+<p>Detect circular dependencies and fail fast.</p>
+</blockquote>
+<p>Later:</p>
+<blockquote>
+<p>Implement three-level singleton caches to explore how Spring handles certain circular-reference scenarios.</p>
+</blockquote>
+<hr>
+<h2 id="28-phase-11-applicationcontext">28. Phase 11 — ApplicationContext</h2>
+<p>Now introduce:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface ApplicationContext
+        extends BeanFactory {
+
+}</code></pre></div>
+<p>Implementation:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class AnnotationConfigApplicationContext
+        implements ApplicationContext {
+
+    private final DefaultBeanFactory beanFactory;
+
+    public AnnotationConfigApplicationContext(
+            Class&lt;?&gt; configClass) {
+
+        // scan
+        // register definitions
+        // initialize beans
+    }
+}</code></pre></div>
+<p>Responsibilities:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>ApplicationContext
+    |
+    +---- configuration
+    |
+    +---- component scanning
+    |
+    +---- BeanDefinition registration
+    |
+    +---- BeanFactory
+    |
+    +---- lifecycle
+    |
+    +---- application events</code></pre></div>
+<hr>
+<h2 id="29-context-startup-flow">29. Context Startup Flow</h2>
+<p>When:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>new AnnotationConfigApplicationContext(AppConfig.class);</code></pre></div>
+<p>execute:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. Determine base package
+2. Scan classes
+3. Detect components
+4. Create BeanDefinitions
+5. Register definitions
+6. Instantiate eager singleton beans
+7. Perform dependency injection
+8. Execute lifecycle callbacks
+9. Start application</code></pre></div>
+<hr>
+<h2 id="30-determining-the-base-package">30. Determining the Base Package</h2>
+<p>Suppose:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>package com.example.app;
+
+@MiniApplication
+public class AppConfig {
+}</code></pre></div>
+<p>Use:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>String packageName =
+        AppConfig.class.getPackageName();</code></pre></div>
+<p>Result:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>com.example.app</code></pre></div>
+<p>Scan from there.</p>
+<p>This makes:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>MiniApplication.run(AppConfig.class, args);</code></pre></div>
+<p>the equivalent of:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>&quot;Start scanning from the package containing AppConfig.&quot;</code></pre></div>
+<hr>
+<h2 id="31-phase-12-miniapplication">31. Phase 12 — <code>@MiniApplication</code></h2>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface MiniApplication {
+}</code></pre></div>
+<p>Application:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@MiniApplication
+public class AppConfig {
+
+    public static void main(String[] args) {
+        MiniApplication.run(
+            AppConfig.class,
+            args
+        );
+    }
+}</code></pre></div>
+<hr>
+<h2 id="32-naming-conflict">32. Naming Conflict</h2>
+<p>Java cannot have:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@MiniApplication
+public class MiniApplication</code></pre></div>
+<p>and also:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>MiniApplication.run(...)</code></pre></div>
+<p>unless the annotation and bootstrap class are separated.</p>
+<p>Recommended:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>com.minispring.boot.annotation.MiniApplication</code></pre></div>
+<p>and:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>com.minispring.boot.MiniApplication</code></pre></div>
+<p>Then:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>import com.minispring.boot.MiniApplication;
+import com.minispring.boot.annotation.MiniApplication;</code></pre></div>
+<p>creates a naming conflict.</p>
+<p>Better use:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@MiniBootApplication</code></pre></div>
+<p>for the annotation.</p>
+<p>Then:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>MiniApplication.run(...)</code></pre></div>
+<p>for the bootstrap API.</p>
+<p>This is cleaner:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@MiniBootApplication
+public class AppConfig {
+
+    public static void main(String[] args) {
+        MiniApplication.run(AppConfig.class, args);
+    }
+}</code></pre></div>
+<hr>
+<h2 id="33-phase-13-bean-lifecycle">33. Phase 13 — Bean Lifecycle</h2>
+<p>Introduce:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface InitializingBean {
+
+    void afterPropertiesSet();
+}</code></pre></div>
+<p>After dependency injection:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>if (bean instanceof InitializingBean initializingBean) {
+    initializingBean.afterPropertiesSet();
+}</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class UserService
+        implements InitializingBean {
+
+    @Override
+    public void afterPropertiesSet() {
+        System.out.println(
+            &quot;UserService initialized&quot;
+        );
+    }
+}</code></pre></div>
+<p>Lifecycle:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Constructor
+    |
+    v
+Dependency Injection
+    |
+    v
+afterPropertiesSet()
+    |
+    v
+Ready</code></pre></div>
+<hr>
+<h2 id="34-add-postconstruct">34. Add <code>@PostConstruct</code></h2>
+<p>For a more Spring-like API:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface PostConstruct {
+}</code></pre></div>
+<p>Then:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>for (Method method : beanClass.getDeclaredMethods()) {
+
+    if (method.isAnnotationPresent(PostConstruct.class)) {
+
+        method.setAccessible(true);
+        method.invoke(bean);
+    }
+}</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class CacheService {
+
+    @PostConstruct
+    public void initialize() {
+        System.out.println(&quot;Cache initialized&quot;);
+    }
+}</code></pre></div>
+<hr>
+<h2 id="35-lifecycle-ordering">35. Lifecycle Ordering</h2>
+<p>Define and document:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. Constructor
+2. Dependency injection
+3. @PostConstruct
+4. InitializingBean.afterPropertiesSet()
+5. Bean becomes ready</code></pre></div>
+<p>Later add:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>BeanPostProcessor</code></pre></div>
+<p>which gives:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Before initialization
+        |
+        v
+@PostConstruct
+        |
+        v
+afterPropertiesSet
+        |
+        v
+After initialization</code></pre></div>
+<hr>
+<h2 id="36-phase-14-beanpostprocessor">36. Phase 14 — BeanPostProcessor</h2>
+<p>This is an important extensibility mechanism.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface BeanPostProcessor {
+
+    Object postProcessBeforeInitialization(
+            Object bean,
+            String beanName);
+
+    Object postProcessAfterInitialization(
+            Object bean,
+            String beanName);
+}</code></pre></div>
+<p>Bean creation becomes:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Instantiate
+    |
+    v
+Inject dependencies
+    |
+    v
+BeforeInitialization
+    |
+    v
+@PostConstruct
+    |
+    v
+InitializingBean
+    |
+    v
+AfterInitialization
+    |
+    v
+Store singleton</code></pre></div>
+<p>This opens the door to:</p>
+<ul>
+<li>Proxies</li>
+<li>Transactions</li>
+<li>Validation</li>
+<li>Logging</li>
+<li>Security</li>
+<li>AOP</li>
+</ul>
+<hr>
+<h2 id="37-phase-15-interface-based-injection">37. Phase 15 — Interface-Based Injection</h2>
+<p>Consider:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface PaymentService {
+}</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class StripePaymentService
+        implements PaymentService {
+}</code></pre></div>
+<p>Controller:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Autowired
+private PaymentService paymentService;</code></pre></div>
+<p>Calling:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>getBean(PaymentService.class)</code></pre></div>
+<p>cannot simply search:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Map&lt;Class&lt;?&gt;, Object&gt;</code></pre></div>
+<p>because the registered class is:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>StripePaymentService</code></pre></div>
+<p>while requested type is:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>PaymentService</code></pre></div>
+<hr>
+<h2 id="38-type-index">38. Type Index</h2>
+<p>Maintain:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Map&lt;Class&lt;?&gt;, List&lt;String&gt;&gt; typeIndex;</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>PaymentService
+    |
+    +--&gt; stripePaymentService
+
+UserRepository
+    |
+    +--&gt; userRepository</code></pre></div>
+<p>During registration:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>typeIndex
+    .computeIfAbsent(interfaceType,
+        key -&gt; new ArrayList&lt;&gt;())
+    .add(beanName);</code></pre></div>
+<p>When resolving:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>List&lt;String&gt; candidates =
+        typeIndex.get(requiredType);</code></pre></div>
+<hr>
+<h2 id="39-ambiguous-dependencies">39. Ambiguous Dependencies</h2>
+<p>Suppose:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class StripePaymentService
+        implements PaymentService {
+}</code></pre></div>
+<p>and:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class PaypalPaymentService
+        implements PaymentService {
+}</code></pre></div>
+<p>Then:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Autowired
+PaymentService paymentService;</code></pre></div>
+<p>has two candidates.</p>
+<p>MiniSpring should throw:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>NoUniqueBeanDefinitionException
+
+Expected one bean of type PaymentService
+but found:
+
+- stripePaymentService
+- paypalPaymentService</code></pre></div>
+<p>Do not silently pick one.</p>
+<hr>
+<h2 id="40-add-primary">40. Add <code>@Primary</code></h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Primary {
+}</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+@Primary
+public class StripePaymentService
+        implements PaymentService {
+}</code></pre></div>
+<p>Resolution:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Candidates
+   |
+   +--&gt; StripePaymentService @Primary
+   |
+   +--&gt; PaypalPaymentService</code></pre></div>
+<p>Choose the primary candidate.</p>
+<hr>
+<h2 id="41-add-qualifier">41. Add <code>@Qualifier</code></h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Target({
+    ElementType.FIELD,
+    ElementType.PARAMETER
+})
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Qualifier {
+
+    String value();
+}</code></pre></div>
+<p>Usage:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Autowired
+@Qualifier(&quot;paypalPaymentService&quot;)
+private PaymentService paymentService;</code></pre></div>
+<p>For constructor:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public OrderService(
+    @Qualifier(&quot;paypalPaymentService&quot;)
+    PaymentService paymentService) {
+}</code></pre></div>
+<p>Now dependency resolution becomes:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Type
+ +
+Qualifier
+ +
+Primary</code></pre></div>
+<hr>
+<h2 id="42-phase-16-bean-scopes">42. Phase 16 — Bean Scopes</h2>
+<p>Support:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Scope(&quot;singleton&quot;)
+@Scope(&quot;prototype&quot;)</code></pre></div>
+<p>Annotation:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Scope {
+
+    String value() default &quot;singleton&quot;;
+}</code></pre></div>
+<p>Behavior:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Singleton
+---------
+one instance per ApplicationContext
+
+
+Prototype
+---------
+new instance for every getBean()</code></pre></div>
+<p>Implementation:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>if (definition.getScope()
+        .equals(&quot;singleton&quot;)) {
+
+    return singletonObjects.computeIfAbsent(
+        beanName,
+        this::createBean
+    );
+}
+
+return createBean(beanName);</code></pre></div>
+<hr>
+<h2 id="43-phase-17-application-context-api">43. Phase 17 — Application Context API</h2>
+<p>Expose:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface ApplicationContext
+        extends BeanFactory {
+
+    &lt;T&gt; List&lt;T&gt; getBeansOfType(Class&lt;T&gt; type);
+
+    boolean containsBean(Class&lt;?&gt; type);
+
+    void close();
+}</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>ApplicationContext context =
+    MiniApplication.run(
+        AppConfig.class,
+        args
+    );
+
+UserService service =
+    context.getBean(UserService.class);</code></pre></div>
+<hr>
+<h2 id="44-phase-18-configuration-properties">44. Phase 18 — Configuration Properties</h2>
+<p>A framework becomes more useful when behavior is configurable.</p>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class MiniSpringProperties {
+
+    private String serverHost = &quot;localhost&quot;;
+
+    private int serverPort = 8080;
+
+    private boolean webEnabled = true;
+
+    private boolean lazyInitialization = false;
+}</code></pre></div>
+<p>Configuration:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>minispring.properties</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Properties</span><pre class="code-block"><code>server.host=localhost
+server.port=8080
+web.enabled=true
+lazy.initialization=false</code></pre></div>
+<p>Later support:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>application.properties
+application.yml
+environment variables
+system properties</code></pre></div>
+<hr>
+<h2 id="45-phase-19-tiny-mvc-layer">45. Phase 19 — Tiny MVC Layer</h2>
+<p>Now build a very small Spring MVC-like layer.</p>
+<p>Annotations:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Controller
+@RequestMapping
+@GetMapping
+@PostMapping
+@PathVariable
+@RequestParam</code></pre></div>
+<p>The flow:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Browser
+   |
+   v
+HTTP Server
+   |
+   v
+DispatcherServlet
+   |
+   v
+HandlerMapping
+   |
+   v
+Controller Method
+   |
+   v
+Response</code></pre></div>
+<hr>
+<h2 id="46-requestmapping">46. <code>@RequestMapping</code></h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Target({
+    ElementType.TYPE,
+    ElementType.METHOD
+})
+@Retention(RetentionPolicy.RUNTIME)
+public @interface RequestMapping {
+
+    String value() default &quot;&quot;;
+
+    HttpMethod method() default HttpMethod.ANY;
+}</code></pre></div>
+<p>Enum:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public enum HttpMethod {
+    GET,
+    POST,
+    PUT,
+    DELETE,
+    PATCH,
+    ANY
+}</code></pre></div>
+<hr>
+<h2 id="47-getmapping">47. <code>@GetMapping</code></h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+@RequestMapping
+public @interface GetMapping {
+
+    String value() default &quot;&quot;;
+}</code></pre></div>
+<p>Similarly:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@PostMapping
+@PutMapping
+@DeleteMapping</code></pre></div>
+<p>You can implement these as specialized mapping annotations.</p>
+<hr>
+<h2 id="48-controller-example">48. Controller Example</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Controller
+@RequestMapping(&quot;/users&quot;)
+public class UserController {
+
+    @GetMapping
+    public String users() {
+        return &quot;all users&quot;;
+    }
+
+    @GetMapping(&quot;/{id}&quot;)
+    public String user(
+            @PathVariable(&quot;id&quot;) String id) {
+
+        return &quot;user = &quot; + id;
+    }
+}</code></pre></div>
+<p>Routes:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>GET /users
+GET /users/10
+GET /users/25</code></pre></div>
+<hr>
+<h2 id="49-phase-20-handlermethod">49. Phase 20 — HandlerMethod</h2>
+<p>Represent a controller endpoint as:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class HandlerMethod {
+
+    private final Object bean;
+
+    private final Method method;
+
+    public HandlerMethod(
+            Object bean,
+            Method method) {
+
+        this.bean = bean;
+        this.method = method;
+    }
+}</code></pre></div>
+<p>It represents:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Controller Object
+        +
+Java Method</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>UserController@1234
+        +
+getUser(String)</code></pre></div>
+<hr>
+<h2 id="50-phase-21-handlermapping">50. Phase 21 — HandlerMapping</h2>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface HandlerMapping {
+
+    HandlerMethod getHandler(
+            HttpRequest request);
+}</code></pre></div>
+<p>Implementation:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class AnnotationHandlerMapping
+        implements HandlerMapping {
+
+    private final Map&lt;String, HandlerMethod&gt;
+            handlers;
+}</code></pre></div>
+<p>Simple key:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>GET:/users
+GET:/users/{id}
+POST:/users</code></pre></div>
+<hr>
+<h2 id="51-discover-controller-methods">51. Discover Controller Methods</h2>
+<p>After all beans are initialized:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>List&lt;Object&gt; controllers =
+        context.getBeansWithAnnotation(
+            Controller.class
+        );</code></pre></div>
+<p>For each controller:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Class&lt;?&gt; controllerClass =
+        controller.getClass();
+
+for (Method method :
+        controllerClass.getDeclaredMethods()) {
+
+    if (method.isAnnotationPresent(
+            GetMapping.class)) {
+
+        registerHandler(...);
+    }
+}</code></pre></div>
+<hr>
+<h2 id="52-controller-level-mapping">52. Controller-Level Mapping</h2>
+<p>If:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Controller
+@RequestMapping(&quot;/users&quot;)
+public class UserController {</code></pre></div>
+<p>and:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@GetMapping(&quot;/{id}&quot;)
+public String getUser(...) {</code></pre></div>
+<p>combine:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>/users
++
+/{id}
+=
+/users/{id}</code></pre></div>
+<p>Normalize:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>//
+/</code></pre></div>
+<p>and trailing slashes consistently.</p>
+<hr>
+<h2 id="53-phase-22-path-matching">53. Phase 22 — Path Matching</h2>
+<p>Request:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>GET /users/123</code></pre></div>
+<p>Mapping:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>/users/{id}</code></pre></div>
+<p>Need to extract:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>id = 123</code></pre></div>
+<p>Convert:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>/users/{id}</code></pre></div>
+<p>to a regex:</p>
+<div class="code-wrap"><span class="code-lang">Regex</span><pre class="code-block"><code>^/users/([^/]+)$</code></pre></div>
+<p>Capture:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>123</code></pre></div>
+<p>Then:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@PathVariable(&quot;id&quot;)</code></pre></div>
+<p>receives:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>123</code></pre></div>
+<hr>
+<h2 id="54-better-route-representation">54. Better Route Representation</h2>
+<p>Do not store routes as raw strings forever.</p>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class Route {
+
+    private HttpMethod method;
+
+    private String pattern;
+
+    private Pattern compiledPattern;
+
+    private List&lt;String&gt; pathVariables;
+
+    private HandlerMethod handler;
+}</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Pattern:
+^/users/([^/]+)$
+
+Variables:
+[id]
+
+Handler:
+UserController.getUser(...)</code></pre></div>
+<p>This makes dispatching cleaner.</p>
+<hr>
+<h2 id="55-phase-23-pathvariable">55. Phase 23 — <code>@PathVariable</code></h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Target(ElementType.PARAMETER)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface PathVariable {
+
+    String value();
+}</code></pre></div>
+<p>During invocation:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Parameter[] parameters =
+        method.getParameters();</code></pre></div>
+<p>For each parameter:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>PathVariable annotation =
+    parameter.getAnnotation(
+        PathVariable.class
+    );</code></pre></div>
+<p>Then:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>String value =
+    pathVariables.get(
+        annotation.value()
+    );</code></pre></div>
+<hr>
+<h2 id="56-type-conversion">56. Type Conversion</h2>
+<p>A path variable might be:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@GetMapping(&quot;/{id}&quot;)
+public String getUser(
+        @PathVariable(&quot;id&quot;) Long id) {
+}</code></pre></div>
+<p>HTTP gives:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>&quot;123&quot;</code></pre></div>
+<p>But method expects:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Long</code></pre></div>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>ConversionService</code></pre></div>
+<p>Interface:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface ConversionService {
+
+    &lt;T&gt; T convert(
+        String value,
+        Class&lt;T&gt; targetType
+    );
+}</code></pre></div>
+<p>Support initially:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>String
+Integer
+Long
+Boolean
+Double
+Float</code></pre></div>
+<hr>
+<h2 id="57-phase-24-requestparam">57. Phase 24 — <code>@RequestParam</code></h2>
+<p>Annotation:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Target(ElementType.PARAMETER)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface RequestParam {
+
+    String value();
+
+    boolean required() default true;
+
+    String defaultValue() default &quot;&quot;;
+}</code></pre></div>
+<p>Controller:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@GetMapping(&quot;/search&quot;)
+public String search(
+        @RequestParam(&quot;name&quot;) String name) {
+
+    return &quot;search = &quot; + name;
+}</code></pre></div>
+<p>Request:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>GET /users/search?name=Arpan</code></pre></div>
+<p>Result:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>name = Arpan</code></pre></div>
+<hr>
+<h2 id="58-optional-request-parameters">58. Optional Request Parameters</h2>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@GetMapping(&quot;/search&quot;)
+public String search(
+        @RequestParam(
+            value = &quot;page&quot;,
+            required = false,
+            defaultValue = &quot;0&quot;
+        )
+        int page) {
+
+    return &quot;page = &quot; + page;
+}</code></pre></div>
+<p>Request:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>/users/search</code></pre></div>
+<p>Result:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>page = 0</code></pre></div>
+<hr>
+<h2 id="59-phase-25-http-request-abstraction">59. Phase 25 — HTTP Request Abstraction</h2>
+<p>Do not make controllers depend directly on the JDK HTTP server.</p>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class HttpRequest {
+
+    private HttpMethod method;
+
+    private String path;
+
+    private Map&lt;String, String&gt; queryParameters;
+
+    private Map&lt;String, String&gt; headers;
+
+    private String body;
+}</code></pre></div>
+<p>Response:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class HttpResponse {
+
+    private int status;
+
+    private Map&lt;String, String&gt; headers;
+
+    private byte[] body;
+}</code></pre></div>
+<p>This abstraction lets you replace the HTTP server later.</p>
+<hr>
+<h2 id="60-phase-26-embedded-http-server">60. Phase 26 — Embedded HTTP Server</h2>
+<p>Initially use:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>com.sun.net.httpserver.HttpServer</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>HttpServer server =
+        HttpServer.create(
+            new InetSocketAddress(
+                &quot;localhost&quot;,
+                8080
+            ),
+            0
+        );</code></pre></div>
+<p>Register:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>server.createContext(
+    &quot;/&quot;,
+    exchange -&gt; {
+        // dispatch
+    }
+);</code></pre></div>
+<p>Start:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>server.start();</code></pre></div>
+<hr>
+<h2 id="61-dispatcherservlet">61. DispatcherServlet</h2>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class DispatcherServlet {
+
+    private final HandlerMapping handlerMapping;
+
+    private final ArgumentResolverComposite
+            argumentResolvers;
+
+    public void service(
+            HttpRequest request,
+            HttpResponse response) {
+
+        HandlerMethod handler =
+                handlerMapping.getHandler(request);
+
+        // resolve arguments
+        // invoke method
+        // create response
+    }
+}</code></pre></div>
+<p>This becomes the center of the MVC framework.</p>
+<hr>
+<h2 id="62-complete-request-flow">62. Complete Request Flow</h2>
+<p>Example request:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>GET /users/123?verbose=true</code></pre></div>
+<p>Flow:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>HTTP Server
+    |
+    v
+HttpRequest
+    |
+    v
+DispatcherServlet
+    |
+    v
+HandlerMapping
+    |
+    v
+/users/{id}
+    |
+    v
+UserController.getUser(...)
+    |
+    +---- PathVariable id = 123
+    |
+    +---- RequestParam verbose = true
+    |
+    v
+Method Invocation
+    |
+    v
+&quot;User 123&quot;
+    |
+    v
+HttpResponse</code></pre></div>
+<hr>
+<h2 id="63-phase-27-argumentresolver">63. Phase 27 — ArgumentResolver</h2>
+<p>Avoid putting all argument resolution logic inside <code>DispatcherServlet</code>.</p>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface HandlerMethodArgumentResolver {
+
+    boolean supportsParameter(
+            Parameter parameter);
+
+    Object resolveArgument(
+            Parameter parameter,
+            HttpRequest request,
+            Map&lt;String, String&gt; pathVariables);
+}</code></pre></div>
+<p>Implement:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>PathVariableArgumentResolver
+RequestParamArgumentResolver
+RequestBodyArgumentResolver</code></pre></div>
+<p>Architecture:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>DispatcherServlet
+      |
+      v
+ArgumentResolverComposite
+      |
+      +--&gt; PathVariableResolver
+      |
+      +--&gt; RequestParamResolver
+      |
+      +--&gt; RequestBodyResolver</code></pre></div>
+<p>This is much more extensible.</p>
+<hr>
+<h2 id="64-phase-28-return-value-handling">64. Phase 28 — Return Value Handling</h2>
+<p>A controller may return:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>String</code></pre></div>
+<p>or:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>User</code></pre></div>
+<p>or:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>ResponseEntity&lt;User&gt;</code></pre></div>
+<p>Start with:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>String -&gt; text/plain</code></pre></div>
+<p>Then add:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Object -&gt; JSON</code></pre></div>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface HandlerMethodReturnValueHandler {
+
+    boolean supportsReturnType(
+            Class&lt;?&gt; returnType);
+
+    void handle(
+            Object value,
+            HttpResponse response);
+}</code></pre></div>
+<hr>
+<h2 id="65-simple-json-support">65. Simple JSON Support</h2>
+<p>Do not initially build a full JSON serializer.</p>
+<p>You can either:</p>
+<ol>
+<li>Add Jackson as a dependency.</li>
+<li>Build a deliberately tiny serializer for learning.</li>
+</ol>
+<p>Recommended:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>MiniSpring core
+    -&gt; no Jackson dependency
+
+MiniSpring web
+    -&gt; optional Jackson module</code></pre></div>
+<p>Then:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>User user = ...;</code></pre></div>
+<p>becomes:</p>
+<div class="code-wrap"><span class="code-lang">JSON</span><pre class="code-block"><code>{
+  &quot;id&quot;: 10,
+  &quot;name&quot;: &quot;Arpan&quot;
+}</code></pre></div>
+<hr>
+<h2 id="66-phase-29-exception-handling">66. Phase 29 — Exception Handling</h2>
+<p>Controller can throw:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>throw new UserNotFoundException();</code></pre></div>
+<p>Dispatcher should not leak stack traces to clients.</p>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class HandlerExceptionResolver {
+
+    public HttpResponse resolve(
+            Exception exception) {
+
+        ...
+    }
+}</code></pre></div>
+<p>Later support:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@ExceptionHandler</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@ExceptionHandler(UserNotFoundException.class)
+public ResponseEntity&lt;?&gt; handle(...) {
+}</code></pre></div>
+<hr>
+<h2 id="67-phase-30-http-status-codes">67. Phase 30 — HTTP Status Codes</h2>
+<p>Support:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>200 OK
+201 CREATED
+204 NO_CONTENT
+400 BAD_REQUEST
+404 NOT_FOUND
+405 METHOD_NOT_ALLOWED
+500 INTERNAL_SERVER_ERROR</code></pre></div>
+<p>For example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>return ResponseEntity.status(201)
+        .body(user);</code></pre></div>
+<hr>
+<h2 id="68-phase-31-responseentity">68. Phase 31 — <code>ResponseEntity</code></h2>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class ResponseEntity&lt;T&gt; {
+
+    private final int status;
+
+    private final Map&lt;String, String&gt; headers;
+
+    private final T body;
+
+    public static &lt;T&gt; ResponseEntity&lt;T&gt; ok(T body) {
+        return new ResponseEntity&lt;&gt;(
+            200,
+            Map.of(),
+            body
+        );
+    }
+}</code></pre></div>
+<p>Later:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>ResponseEntity.created(...)
+ResponseEntity.badRequest(...)
+ResponseEntity.notFound(...)</code></pre></div>
+<hr>
+<h2 id="69-phase-32-dependency-injection-mvc-integration">69. Phase 32 — Dependency Injection + MVC Integration</h2>
+<p>At startup:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>MiniApplication.run()
+        |
+        v
+ApplicationContext
+        |
+        +---- scan components
+        |
+        +---- create beans
+        |
+        +---- inject dependencies
+        |
+        +---- initialize lifecycle
+        |
+        v
+Find @Controller beans
+        |
+        v
+Build HandlerMapping
+        |
+        v
+Start Embedded Server</code></pre></div>
+<p>This is the point where MiniSpring starts feeling like a real framework.</p>
+<hr>
+<h2 id="70-phase-33-miniapplicationrun">70. Phase 33 — <code>MiniApplication.run</code></h2>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class MiniApplication {
+
+    public static ApplicationContext run(
+            Class&lt;?&gt; primarySource,
+            String[] args) {
+
+        ApplicationContext context =
+            new AnnotationConfigApplicationContext(
+                primarySource
+            );
+
+        WebApplicationContext webContext =
+            new WebApplicationContext(context);
+
+        webContext.start();
+
+        return context;
+    }
+}</code></pre></div>
+<p>Application:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@MiniBootApplication
+public class AppConfig {
+
+    public static void main(String[] args) {
+
+        MiniApplication.run(
+            AppConfig.class,
+            args
+        );
+    }
+}</code></pre></div>
+<hr>
+<h2 id="71-startup-timeline">71. Startup Timeline</h2>
+<p>Expected console output:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>=====================================
+ MiniSpring
+=====================================
+
+Starting application...
+
+Base package:
+com.example.app
+
+Scanning components...
+
+Found:
+ - UserController
+ - UserService
+ - UserRepository
+
+Registering bean definitions...
+
+Creating singleton beans...
+
+Created:
+ - userRepository
+ - userService
+ - userController
+
+Building MVC mappings...
+
+GET  /users
+GET  /users/{id}
+POST /users
+
+Starting HTTP server...
+
+MiniSpring started on:
+http://localhost:8080</code></pre></div>
+<hr>
+<h2 id="72-full-demo-application">72. Full Demo Application</h2>
+<h3 id="repository">Repository</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Repository
+public class UserRepository {
+
+    public String findById(Long id) {
+        return &quot;User-&quot; + id;
+    }
+}</code></pre></div>
+<h3 id="service">Service</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class UserService {
+
+    private final UserRepository repository;
+
+    @Autowired
+    public UserService(
+            UserRepository repository) {
+
+        this.repository = repository;
+    }
+
+    public String getUser(Long id) {
+        return repository.findById(id);
+    }
+}</code></pre></div>
+<h3 id="controller">Controller</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Controller
+@RequestMapping(&quot;/users&quot;)
+public class UserController {
+
+    private final UserService service;
+
+    @Autowired
+    public UserController(
+            UserService service) {
+
+        this.service = service;
+    }
+
+    @GetMapping(&quot;/{id}&quot;)
+    public String getUser(
+            @PathVariable(&quot;id&quot;) Long id) {
+
+        return service.getUser(id);
+    }
+}</code></pre></div>
+<hr>
+<h2 id="73-start-the-application">73. Start the Application</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@MiniBootApplication
+public class AppConfig {
+
+    public static void main(String[] args) {
+
+        MiniApplication.run(
+            AppConfig.class,
+            args
+        );
+    }
+}</code></pre></div>
+<p>Then:</p>
+<div class="code-wrap"><span class="code-lang">Bash</span><pre class="code-block"><code>curl http://localhost:8080/users/10</code></pre></div>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>User-10</code></pre></div>
+<hr>
+<h2 id="74-complete-minispring-architecture">74. Complete MiniSpring Architecture</h2>
+<p>At this point the project should look like:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                         MiniApplication.run()
+                                  |
+                                  v
+                       +----------------------+
+                       | ApplicationContext   |
+                       +----------+-----------+
+                                  |
+             +--------------------+--------------------+
+             |                    |                    |
+             v                    v                    v
+      ComponentScanner      BeanDefinitionRegistry  Lifecycle
+             |                    |                    |
+             +--------------------+--------------------+
+                                  |
+                                  v
+                           BeanFactory
+                                  |
+                 +----------------+----------------+
+                 |                |                |
+                 v                v                v
+           Constructor       Field Injection   Bean Lifecycle
+           Injection
+                 |
+                 v
+              Beans
+                 |
+                 v
+            @Controller
+                 |
+                 v
+          HandlerMapping
+                 |
+                 v
+         DispatcherServlet
+                 |
+                 v
+         ArgumentResolvers
+                 |
+                 v
+          Return Handlers
+                 |
+                 v
+          Embedded Server</code></pre></div>
+<hr>
+<h2 id="75-recommended-package-structure">75. Recommended Package Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>com.minispring
+│
+├── core
+│   │
+│   ├── annotation
+│   │   ├── Component.java
+│   │   ├── Service.java
+│   │   ├── Repository.java
+│   │   ├── Autowired.java
+│   │   ├── Scope.java
+│   │   ├── Primary.java
+│   │   └── Qualifier.java
+│   │
+│   ├── bean
+│   │   ├── BeanDefinition.java
+│   │   ├── BeanDefinitionRegistry.java
+│   │   └── Scope.java
+│   │
+│   ├── factory
+│   │   ├── BeanFactory.java
+│   │   └── DefaultBeanFactory.java
+│   │
+│   ├── context
+│   │   ├── ApplicationContext.java
+│   │   └── AnnotationConfigApplicationContext.java
+│   │
+│   ├── scanner
+│   │   ├── ClassPathScanner.java
+│   │   ├── DefaultClassPathScanner.java
+│   │   ├── ResourceResolver.java
+│   │   ├── FileResourceResolver.java
+│   │   └── JarResourceResolver.java
+│   │
+│   ├── lifecycle
+│   │   ├── InitializingBean.java
+│   │   ├── BeanPostProcessor.java
+│   │   └── LifecycleProcessor.java
+│   │
+│   └── exception
+│       ├── MiniSpringException.java
+│       ├── NoSuchBeanDefinitionException.java
+│       ├── NoUniqueBeanDefinitionException.java
+│       └── CircularDependencyException.java
+│
+├── web
+│   │
+│   ├── annotation
+│   │   ├── Controller.java
+│   │   ├── RequestMapping.java
+│   │   ├── GetMapping.java
+│   │   ├── PostMapping.java
+│   │   ├── PathVariable.java
+│   │   └── RequestParam.java
+│   │
+│   ├── handler
+│   │   ├── HandlerMethod.java
+│   │   ├── HandlerMapping.java
+│   │   └── AnnotationHandlerMapping.java
+│   │
+│   ├── argument
+│   │   ├── HandlerMethodArgumentResolver.java
+│   │   ├── ArgumentResolverComposite.java
+│   │   ├── PathVariableArgumentResolver.java
+│   │   └── RequestParamArgumentResolver.java
+│   │
+│   ├── converter
+│   │   └── ConversionService.java
+│   │
+│   ├── dispatcher
+│   │   └── DispatcherServlet.java
+│   │
+│   └── server
+│       └── MiniHttpServer.java
+│
+└── boot
+    ├── MiniApplication.java
+    └── MiniBootApplication.java</code></pre></div>
+<hr>
+<h2 id="76-important-design-principle-separate-responsibilities">76. Important Design Principle — Separate Responsibilities</h2>
+<p>Avoid creating one giant class such as:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>MiniSpringApplication.java</code></pre></div>
+<p>containing:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>scan classes
+create objects
+inject dependencies
+resolve routes
+start server
+parse HTTP
+serialize JSON</code></pre></div>
+<p>That becomes impossible to extend.</p>
+<p>Instead:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>ClassPathScanner
+       |
+BeanDefinitionRegistry
+       |
+BeanFactory
+       |
+ApplicationContext
+       |
+HandlerMapping
+       |
+DispatcherServlet
+       |
+HttpServer</code></pre></div>
+<p>Each component should have one primary responsibility.</p>
+<hr>
+<h2 id="77-solid-mapping">77. SOLID Mapping</h2>
+<h3 id="single-responsibility">Single Responsibility</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Scanner
+ -&gt; scanning
+
+BeanFactory
+ -&gt; object creation
+
+ApplicationContext
+ -&gt; application lifecycle
+
+HandlerMapping
+ -&gt; route mapping
+
+DispatcherServlet
+ -&gt; request dispatch</code></pre></div>
+<h3 id="openclosed">Open/Closed</h3>
+<p>Adding:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>@PutMapping</code></pre></div>
+<p>should not require rewriting the entire dispatcher.</p>
+<p>Adding:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>@RequestBody</code></pre></div>
+<p>should mean adding:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>RequestBodyArgumentResolver</code></pre></div>
+<h3 id="liskov-substitution">Liskov Substitution</h3>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>ClassPathScanner scanner;</code></pre></div>
+<p>can use:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>DefaultClassPathScanner
+JarClassPathScanner
+TestClassPathScanner</code></pre></div>
+<h3 id="interface-segregation">Interface Segregation</h3>
+<p>Prefer:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>BeanFactory
+ApplicationContext
+HandlerMapping
+ArgumentResolver</code></pre></div>
+<p>rather than one enormous framework interface.</p>
+<h3 id="dependency-inversion">Dependency Inversion</h3>
+<p>The dispatcher should depend on:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>HandlerMapping</code></pre></div>
+<p>not:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>AnnotationHandlerMapping</code></pre></div>
+<hr>
+<h2 id="78-dependency-graph">78. Dependency Graph</h2>
+<p>Represent dependencies internally as a graph.</p>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>UserController
+       |
+       v
+UserService
+       |
+       v
+UserRepository</code></pre></div>
+<p>Graph:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>UserController -&gt; UserService
+UserService    -&gt; UserRepository</code></pre></div>
+<p>Circular:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>A -&gt; B
+B -&gt; C
+C -&gt; A</code></pre></div>
+<p>This can be detected using DFS.</p>
+<hr>
+<h2 id="79-explicit-graph-based-circular-dependency-detection">79. Explicit Graph-Based Circular Dependency Detection</h2>
+<p>DFS state:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>WHITE = not visited
+GRAY  = currently visiting
+BLACK = completed</code></pre></div>
+<p>Algorithm:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>visit(node):
+
+    if node == GRAY:
+        cycle detected
+
+    if node == BLACK:
+        return
+
+    mark node GRAY
+
+    for dependency:
+        visit(dependency)
+
+    mark node BLACK</code></pre></div>
+<p>This can be useful before actual bean creation.</p>
+<hr>
+<h2 id="80-improve-startup-performance">80. Improve Startup Performance</h2>
+<p>Initial implementation:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Every getBean()
+    -&gt; reflection
+    -&gt; annotation lookup
+    -&gt; constructor lookup
+    -&gt; field lookup</code></pre></div>
+<p>Better:</p>
+<p>At startup calculate metadata:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>BeanMetadata</code></pre></div>
+<p>containing:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>selected constructor
+injection fields
+injection parameters
+@PostConstruct methods
+scope
+qualifiers</code></pre></div>
+<p>Then runtime creation becomes much faster.</p>
+<hr>
+<h2 id="81-reflection-metadata-cache">81. Reflection Metadata Cache</h2>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Map&lt;Class&lt;?&gt;, BeanMetadata&gt;
+        metadataCache;</code></pre></div>
+<p>Store:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class BeanMetadata {
+
+    private Constructor&lt;?&gt; constructor;
+
+    private List&lt;Field&gt; autowiredFields;
+
+    private List&lt;Method&gt; postConstructMethods;
+}</code></pre></div>
+<p>Now:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Reflection
+    |
+    v
+Metadata
+    |
+    v
+Cache
+    |
+    v
+Fast bean creation</code></pre></div>
+<hr>
+<h2 id="82-thread-safety">82. Thread Safety</h2>
+<p>A web framework is concurrent.</p>
+<p>Multiple HTTP requests may call:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>getBean(...)</code></pre></div>
+<p>simultaneously.</p>
+<p>Singleton creation must be safe.</p>
+<p>Avoid:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>if (!map.containsKey(name)) {
+    map.put(name, createBean());
+}</code></pre></div>
+<p>because two threads can create two instances.</p>
+<p>Use:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>ConcurrentHashMap</code></pre></div>
+<p>and controlled creation.</p>
+<p>However, be careful with:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>computeIfAbsent()</code></pre></div>
+<p>when bean creation recursively requests another bean. A dedicated creation mechanism is often easier to reason about.</p>
+<hr>
+<h2 id="83-application-startup-thread-safety">83. Application Startup Thread Safety</h2>
+<p>Application startup should normally happen once:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>ApplicationContext
+       |
+       v
+refresh()
+       |
+       v
+initialize
+       |
+       v
+RUNNING</code></pre></div>
+<p>Use lifecycle state:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>enum ContextState {
+    NEW,
+    STARTING,
+    RUNNING,
+    STOPPING,
+    STOPPED
+}</code></pre></div>
+<p>This gives better lifecycle control.</p>
+<hr>
+<h2 id="84-phase-34-events">84. Phase 34 — Events</h2>
+<p>Add:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>ApplicationEvent</code></pre></div>
+<p>and:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>ApplicationEventPublisher</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>context.publishEvent(
+    new UserCreatedEvent(user)
+);</code></pre></div>
+<p>Listener:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@EventListener
+public void handleUserCreated(
+        UserCreatedEvent event) {
+}</code></pre></div>
+<p>Architecture:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>ApplicationContext
+        |
+        v
+EventPublisher
+        |
+        v
+ListenerRegistry
+        |
+        v
+@EventListener methods</code></pre></div>
+<p>This introduces another important framework concept.</p>
+<hr>
+<h2 id="85-phase-35-profiles">85. Phase 35 — Profiles</h2>
+<p>Eventually support:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Profile(&quot;dev&quot;)</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Profile(&quot;prod&quot;)</code></pre></div>
+<p>Configuration:</p>
+<div class="code-wrap"><span class="code-lang">Properties</span><pre class="code-block"><code>minispring.profile=dev</code></pre></div>
+<p>Scanner:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>@Service
+@Profile(&quot;prod&quot;)</code></pre></div>
+<p>should only register the component when:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>activeProfile == prod</code></pre></div>
+<hr>
+<h2 id="86-phase-36-conditional-beans">86. Phase 36 — Conditional Beans</h2>
+<p>Introduce:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Conditional</code></pre></div>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Conditional(OnDatabaseAvailable.class)
+@Repository
+public class DatabaseUserRepository {
+}</code></pre></div>
+<p>The condition can inspect:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>environment
+class path
+properties
+existing beans</code></pre></div>
+<p>This is a major step toward auto-configuration.</p>
+<hr>
+<h2 id="87-phase-37-auto-configuration">87. Phase 37 — Auto Configuration</h2>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>META-INF/minispring.factories</code></pre></div>
+<p>or a custom metadata file.</p>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Properties</span><pre class="code-block"><code>com.example.config.DatabaseAutoConfiguration
+com.example.config.WebAutoConfiguration</code></pre></div>
+<p>Startup:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>MiniApplication
+      |
+      v
+Load AutoConfigurations
+      |
+      v
+Evaluate Conditions
+      |
+      v
+Register Beans</code></pre></div>
+<p>This is conceptually similar to how Spring Boot turns a collection of framework libraries into an opinionated application platform.</p>
+<hr>
+<h2 id="88-phase-38-bean">88. Phase 38 — <code>@Bean</code></h2>
+<p>Support configuration classes:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Configuration
+public class AppConfig {
+
+    @Bean
+    public UserService userService(
+            UserRepository repository) {
+
+        return new UserService(repository);
+    }
+}</code></pre></div>
+<p>Now MiniSpring has two ways to create beans:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>@Component
+@Service
+@Repository
+@Controller</code></pre></div>
+<p>and:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>@Bean</code></pre></div>
+<hr>
+<h2 id="89-configuration-method-processing">89. Configuration Method Processing</h2>
+<p>Scan:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Configuration</code></pre></div>
+<p>Then find:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Bean</code></pre></div>
+<p>methods.</p>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>BeanDefinition</code></pre></div>
+<p>for each method.</p>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>@Bean
+DataSource dataSource()</code></pre></div>
+<p>becomes:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>BeanDefinition
+name = dataSource
+factoryMethod = dataSource()
+returnType = DataSource</code></pre></div>
+<p>This is a significant extension because bean creation is no longer always:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Class -&gt; Constructor</code></pre></div>
+<p>It can also be:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Configuration object -&gt; Factory method</code></pre></div>
+<hr>
+<h2 id="90-phase-39-factorybean-concept">90. Phase 39 — FactoryBean Concept</h2>
+<p>A more advanced concept:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>FactoryBean&lt;T&gt;</code></pre></div>
+<p>allows a bean to produce another object.</p>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>RepositoryFactoryBean
+       |
+       v
+UserRepository proxy</code></pre></div>
+<p>This is a useful stepping stone toward Spring Data-style functionality.</p>
+<hr>
+<h2 id="91-phase-40-proxy-support">91. Phase 40 — Proxy Support</h2>
+<p>Eventually implement:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>java.lang.reflect.Proxy</code></pre></div>
+<p>for interface-based proxies.</p>
+<p>Example:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface UserService {
+    String getUser(Long id);
+}</code></pre></div>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Proxy.newProxyInstance(...)</code></pre></div>
+<p>to intercept:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>before method
+    |
+actual method
+    |
+after method</code></pre></div>
+<hr>
+<h2 id="92-aop-like-interceptor">92. AOP-Like Interceptor</h2>
+<p>Create:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface MethodInterceptor {
+
+    Object invoke(
+        Object target,
+        Method method,
+        Object[] args
+    ) throws Throwable;
+}</code></pre></div>
+<p>Then:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Controller
+   |
+   v
+Proxy
+   |
+   +--&gt; LoggingInterceptor
+   |
+   +--&gt; SecurityInterceptor
+   |
+   +--&gt; Target Method</code></pre></div>
+<p>This demonstrates the core idea behind many framework proxy mechanisms.</p>
+<hr>
+<h2 id="93-transactional-as-a-future-feature">93. <code>@Transactional</code> as a Future Feature</h2>
+<p>Eventually:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Transactional
+public void transferMoney(...) {
+}</code></pre></div>
+<p>could be intercepted:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>BEGIN TRANSACTION
+        |
+        v
+method()
+        |
+        +--&gt; success -&gt; COMMIT
+        |
+        +--&gt; exception -&gt; ROLLBACK</code></pre></div>
+<p>This is a good advanced MiniSpring exercise.</p>
+<hr>
+<h2 id="94-testing-strategy">94. Testing Strategy</h2>
+<p>Do not only test the final web application.</p>
+<p>Test each layer independently.</p>
+<h3 id="scanner-tests">Scanner Tests</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Find @Component
+Find @Service
+Find @Repository
+Find @Controller
+Ignore interfaces
+Ignore abstract classes</code></pre></div>
+<h3 id="beanfactory-tests">BeanFactory Tests</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Create bean
+Singleton behavior
+Prototype behavior
+Constructor injection
+Field injection
+Missing dependency
+Circular dependency
+Multiple candidates
+Qualifier
+Primary</code></pre></div>
+<h3 id="context-tests">Context Tests</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Startup
+Bean registration
+Lifecycle
+PostConstruct
+Context close</code></pre></div>
+<h3 id="mvc-tests">MVC Tests</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>GET mapping
+POST mapping
+Path variable
+Request parameter
+Type conversion
+404
+405
+Controller invocation</code></pre></div>
+<hr>
+<h2 id="95-example-unit-test-singleton">95. Example Unit Test — Singleton</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Test
+void shouldReturnSameSingleton() {
+
+    UserService first =
+        context.getBean(UserService.class);
+
+    UserService second =
+        context.getBean(UserService.class);
+
+    assertSame(first, second);
+}</code></pre></div>
+<hr>
+<h2 id="96-example-unit-test-constructor-injection">96. Example Unit Test — Constructor Injection</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Test
+void shouldInjectRepository() {
+
+    UserService service =
+        context.getBean(UserService.class);
+
+    assertNotNull(service);
+}</code></pre></div>
+<p>Prefer testing behavior rather than private implementation details.</p>
+<hr>
+<h2 id="97-example-circular-dependency-test">97. Example Circular Dependency Test</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Test
+void shouldDetectCircularDependency() {
+
+    assertThrows(
+        CircularDependencyException.class,
+        () -&gt; context.getBean(A.class)
+    );
+}</code></pre></div>
+<hr>
+<h2 id="98-mvc-integration-test">98. MVC Integration Test</h2>
+<p>Start server on a random port:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>int port = findFreePort();</code></pre></div>
+<p>Call:</p>
+<div class="code-wrap"><span class="code-lang">Bash</span><pre class="code-block"><code>curl http://localhost:&lt;port&gt;/users/10</code></pre></div>
+<p>Assert:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>HTTP 200
+
+Body:
+User-10</code></pre></div>
+<p>Also test:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>/users/abc</code></pre></div>
+<p>if the controller expects <code>Long</code>.</p>
+<p>Expected:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>400 BAD_REQUEST</code></pre></div>
+<hr>
+<h2 id="99-test-matrix">99. Test Matrix</h2>
+<p>Create a table like:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th style="text-align: right;">Unit Test</th>
+<th style="text-align: right;">Integration Test</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Component scan</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">Yes</td>
+</tr>
+<tr>
+<td>Constructor injection</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">Yes</td>
+</tr>
+<tr>
+<td>Field injection</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">Yes</td>
+</tr>
+<tr>
+<td>Singleton</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">Yes</td>
+</tr>
+<tr>
+<td>Prototype</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">Yes</td>
+</tr>
+<tr>
+<td>Circular dependency</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">Yes</td>
+</tr>
+<tr>
+<td>Qualifier</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">Yes</td>
+</tr>
+<tr>
+<td>Primary</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">Yes</td>
+</tr>
+<tr>
+<td>GET mapping</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">Yes</td>
+</tr>
+<tr>
+<td>POST mapping</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">Yes</td>
+</tr>
+<tr>
+<td>PathVariable</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">Yes</td>
+</tr>
+<tr>
+<td>RequestParam</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">Yes</td>
+</tr>
+<tr>
+<td>Type conversion</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">Yes</td>
+</tr>
+<tr>
+<td>404</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">Yes</td>
+</tr>
+<tr>
+<td>JSON</td>
+<td style="text-align: right;">Yes</td>
+<td style="text-align: right;">Yes</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="100-common-failure-scenarios">100. Common Failure Scenarios</h2>
+<p>MiniSpring should provide clear errors.</p>
+<h3 id="bean-not-found">Bean Not Found</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>NoSuchBeanDefinitionException:
+
+No bean of type:
+com.example.UserService
+
+Available beans:
+userRepository
+orderService</code></pre></div>
+<h3 id="multiple-beans">Multiple Beans</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>NoUniqueBeanDefinitionException:
+
+Required:
+PaymentService
+
+Candidates:
+stripePaymentService
+paypalPaymentService
+
+Use @Primary or @Qualifier.</code></pre></div>
+<h3 id="circular-dependency">Circular Dependency</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>CircularDependencyException:
+
+userService
+ -&gt; orderService
+ -&gt; paymentService
+ -&gt; userService</code></pre></div>
+<h3 id="invalid-controller">Invalid Controller</h3>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>InvalidHandlerMethodException:
+
+GET /users/{id}
+
+Method:
+getUser()
+
+requires @PathVariable(&quot;id&quot;)</code></pre></div>
+<p>Good errors dramatically improve framework usability.</p>
+<hr>
+<h2 id="101-recommended-implementation-order">101. Recommended Implementation Order</h2>
+<p>Do not attempt everything at once.</p>
+<p>Implement in this exact progression:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>STEP 1
+Create Maven project
+        |
+STEP 2
+Create annotations
+        |
+STEP 3
+Build component scanner
+        |
+STEP 4
+Build BeanDefinition
+        |
+STEP 5
+Build BeanDefinitionRegistry
+        |
+STEP 6
+Build BeanFactory
+        |
+STEP 7
+Implement constructor injection
+        |
+STEP 8
+Implement field injection
+        |
+STEP 9
+Implement singleton cache
+        |
+STEP 10
+Implement circular dependency detection
+        |
+STEP 11
+Build ApplicationContext
+        |
+STEP 12
+Add lifecycle callbacks
+        |
+STEP 13
+Add qualifiers / primary
+        |
+STEP 14
+Add scopes
+        |
+STEP 15
+Build @Controller
+        |
+STEP 16
+Build @RequestMapping
+        |
+STEP 17
+Build HandlerMapping
+        |
+STEP 18
+Build DispatcherServlet
+        |
+STEP 19
+Build argument resolvers
+        |
+STEP 20
+Add embedded HTTP server
+        |
+STEP 21
+Implement MiniApplication.run()
+        |
+STEP 22
+Add JSON
+        |
+STEP 23
+Add exception handling
+        |
+STEP 24
+Add events
+        |
+STEP 25
+Add @Bean
+        |
+STEP 26
+Add configuration properties
+        |
+STEP 27
+Add profiles / conditions
+        |
+STEP 28
+Add proxies / AOP</code></pre></div>
+<hr>
+<h2 id="102-suggested-git-commit-strategy">102. Suggested Git Commit Strategy</h2>
+<p>Build the project incrementally.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>commit 01:
+Initialize MiniSpring Maven project
+
+commit 02:
+Add component annotations
+
+commit 03:
+Implement classpath scanner
+
+commit 04:
+Add BeanDefinition
+
+commit 05:
+Implement BeanDefinitionRegistry
+
+commit 06:
+Implement BeanFactory
+
+commit 07:
+Implement constructor injection
+
+commit 08:
+Implement field injection
+
+commit 09:
+Add singleton scope
+
+commit 10:
+Add circular dependency detection
+
+commit 11:
+Implement ApplicationContext
+
+commit 12:
+Add bean lifecycle
+
+commit 13:
+Add qualifiers and primary
+
+commit 14:
+Add prototype scope
+
+commit 15:
+Add controller annotations
+
+commit 16:
+Implement HandlerMapping
+
+commit 17:
+Implement DispatcherServlet
+
+commit 18:
+Implement PathVariable
+
+commit 19:
+Implement RequestParam
+
+commit 20:
+Add embedded HTTP server
+
+commit 21:
+Implement MiniApplication.run
+
+commit 22:
+Add JSON response support
+
+commit 23:
+Add exception handling
+
+commit 24:
+Add integration tests</code></pre></div>
+<p>This makes the project useful as an interview-learning repository because every commit represents one framework concept.</p>
+<hr>
+<h2 id="103-interview-questions-you-should-be-able-to-answer">103. Interview Questions You Should Be Able to Answer</h2>
+<p>After completing MiniSpring, you should be able to explain:</p>
+<h4 id="dependency-injection">Dependency Injection</h4>
+<ul>
+<li>What is dependency injection?</li>
+<li>Why use constructor injection?</li>
+<li>How does a DI container instantiate a class?</li>
+<li>How does it discover dependencies?</li>
+<li>How does it resolve interface dependencies?</li>
+<li>What happens when two beans implement the same interface?</li>
+</ul>
+<h4 id="reflection">Reflection</h4>
+<ul>
+<li>What is <code>Class&lt;?&gt;</code>?</li>
+<li>How do you inspect annotations?</li>
+<li>How do you invoke a constructor dynamically?</li>
+<li>How do you set a private field?</li>
+<li>What are the costs and limitations of reflection?</li>
+</ul>
+<h4 id="classpath-scanning">Classpath Scanning</h4>
+<ul>
+<li>How does Spring find components?</li>
+<li>What is the classpath?</li>
+<li>What is the difference between directory and JAR scanning?</li>
+<li>How would you scan nested packages?</li>
+</ul>
+<h4 id="bean-lifecycle">Bean Lifecycle</h4>
+<ul>
+<li>What is a BeanDefinition?</li>
+<li>What is a singleton bean?</li>
+<li>When should an object be instantiated?</li>
+<li>What is a BeanPostProcessor?</li>
+<li>Why is lifecycle processing separate from construction?</li>
+</ul>
+<h4 id="circular-dependency_1">Circular Dependency</h4>
+<ul>
+<li>How can a DI container detect cycles?</li>
+<li>Why are constructor cycles difficult?</li>
+<li>How can a graph algorithm detect dependency cycles?</li>
+<li>Why can some containers support certain field-injection cycles?</li>
+</ul>
+<h4 id="spring-mvc">Spring MVC</h4>
+<ul>
+<li>What is DispatcherServlet?</li>
+<li>What is HandlerMapping?</li>
+<li>How does <code>/users/{id}</code> match <code>/users/10</code>?</li>
+<li>How are controller method arguments resolved?</li>
+<li>How does the framework convert <code>"10"</code> into <code>Long 10</code>?</li>
+</ul>
+<h4 id="spring-boot">Spring Boot</h4>
+<ul>
+<li>What does <code>SpringApplication.run()</code> conceptually do?</li>
+<li>How does component scanning begin?</li>
+<li>How does auto-configuration work conceptually?</li>
+<li>Why are configuration properties useful?</li>
+</ul>
+<hr>
+<h2 id="104-final-architecture">104. Final Architecture</h2>
+<p>The finished project should conceptually look like this:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                        ┌─────────────────────────┐
+                        │     Application         │
+                        │                         │
+                        │ @Service                │
+                        │ @Repository             │
+                        │ @Controller             │
+                        └────────────┬────────────┘
+                                     │
+                                     v
+                        ┌─────────────────────────┐
+                        │ MiniApplication.run()   │
+                        └────────────┬────────────┘
+                                     │
+                                     v
+                        ┌─────────────────────────┐
+                        │ ApplicationContext      │
+                        └────────────┬────────────┘
+                                     │
+                 ┌───────────────────┼───────────────────┐
+                 │                   │                   │
+                 v                   v                   v
+        ┌────────────────┐  ┌─────────────────┐  ┌───────────────┐
+        │ Classpath      │  │ BeanDefinition  │  │ Lifecycle     │
+        │ Scanner        │  │ Registry        │  │ Processor     │
+        └───────┬────────┘  └────────┬────────┘  └───────────────┘
+                │                    │
+                └──────────┬─────────┘
+                           v
+                 ┌─────────────────────┐
+                 │     BeanFactory     │
+                 └──────────┬──────────┘
+                            │
+          ┌─────────────────┼──────────────────┐
+          │                 │                  │
+          v                 v                  v
+   Constructor DI      Field DI          Bean Scopes
+          │                 │                  │
+          └─────────────────┼──────────────────┘
+                            v
+                       Application
+                          Beans
+                            │
+                            v
+                     ┌──────────────┐
+                     │ Controllers  │
+                     └──────┬───────┘
+                            │
+                            v
+                     HandlerMapping
+                            │
+                            v
+                    DispatcherServlet
+                            │
+                ┌───────────┼────────────┐
+                │           │            │
+                v           v            v
+          PathVariable  RequestParam  RequestBody
+                │           │            │
+                └───────────┼────────────┘
+                            v
+                    Controller Method
+                            │
+                            v
+                    Return Value Handler
+                            │
+                            v
+                     HTTP Response</code></pre></div>
+<hr>
+<h2 id="105-definition-of-done">105. Definition of Done</h2>
+<p>MiniSpring V1 is complete when the following application works without Spring:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@MiniBootApplication
+public class AppConfig {
+
+    public static void main(String[] args) {
+
+        MiniApplication.run(
+            AppConfig.class,
+            args
+        );
+    }
+}</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Repository
+public class UserRepository {
+
+    public User findById(Long id) {
+        return new User(id, &quot;Arpan&quot;);
+    }
+}</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Service
+public class UserService {
+
+    private final UserRepository repository;
+
+    public UserService(
+            UserRepository repository) {
+
+        this.repository = repository;
+    }
+
+    public User find(Long id) {
+        return repository.findById(id);
+    }
+}</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Controller
+@RequestMapping(&quot;/users&quot;)
+public class UserController {
+
+    private final UserService service;
+
+    public UserController(
+            UserService service) {
+
+        this.service = service;
+    }
+
+    @GetMapping(&quot;/{id}&quot;)
+    public User getUser(
+            @PathVariable(&quot;id&quot;) Long id) {
+
+        return service.find(id);
+    }
+}</code></pre></div>
+<p>And:</p>
+<div class="code-wrap"><span class="code-lang">Bash</span><pre class="code-block"><code>curl http://localhost:8080/users/10</code></pre></div>
+<p>returns:</p>
+<div class="code-wrap"><span class="code-lang">JSON</span><pre class="code-block"><code>{
+  &quot;id&quot;: 10,
+  &quot;name&quot;: &quot;Arpan&quot;
+}</code></pre></div>
+<p>At that point you have implemented the essential concepts behind:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Spring Core
+       +
+Spring Context
+       +
+a small part of Spring MVC
+       +
+a small part of Spring Boot</code></pre></div>
+<hr>
+<h2 id="106-suggested-v2-enhancements">106. Suggested V2 Enhancements</h2>
+<p>After V1, evolve MiniSpring toward a more realistic framework.</p>
+<h3 id="container">Container</h3>
+<ul>
+<li><code>@Bean</code></li>
+<li><code>@Configuration</code></li>
+<li>Factory methods</li>
+<li>Prototype scope</li>
+<li>Request scope</li>
+<li>Lazy beans</li>
+<li>Bean aliases</li>
+<li><code>ObjectProvider</code></li>
+<li>Provider-style lazy lookup</li>
+<li>Conditional beans</li>
+<li>Profiles</li>
+<li>Environment abstraction</li>
+<li>Property sources</li>
+<li>Configuration binding</li>
+</ul>
+<h3 id="dependency-injection_1">Dependency Injection</h3>
+<ul>
+<li><code>@Qualifier</code></li>
+<li><code>@Primary</code></li>
+<li>Generic type resolution</li>
+<li>Collection injection</li>
+<li><code>List&lt;T&gt;</code></li>
+<li><code>Set&lt;T&gt;</code></li>
+<li><code>Map&lt;String, T&gt;</code></li>
+<li>Optional dependencies</li>
+<li><code>Optional&lt;T&gt;</code></li>
+</ul>
+<h3 id="lifecycle">Lifecycle</h3>
+<ul>
+<li><code>BeanPostProcessor</code></li>
+<li><code>BeanFactoryPostProcessor</code></li>
+<li><code>SmartInitializingSingleton</code></li>
+<li>Destroy callbacks</li>
+<li><code>@PreDestroy</code></li>
+</ul>
+<h3 id="web">Web</h3>
+<ul>
+<li><code>@RequestBody</code></li>
+<li><code>@ResponseBody</code></li>
+<li><code>@ResponseStatus</code></li>
+<li><code>@ExceptionHandler</code></li>
+<li><code>@ControllerAdvice</code></li>
+<li>JSON serialization</li>
+<li>Content negotiation</li>
+<li>Headers</li>
+<li>Cookies</li>
+<li>Multipart upload</li>
+<li>Interceptors</li>
+<li>Filters</li>
+</ul>
+<h3 id="infrastructure">Infrastructure</h3>
+<ul>
+<li>Logging</li>
+<li>Metrics</li>
+<li>Health endpoint</li>
+<li>Graceful shutdown</li>
+<li>Thread pools</li>
+<li>Async execution</li>
+<li>Configuration refresh</li>
+</ul>
+<h3 id="aop">AOP</h3>
+<ul>
+<li>JDK proxies</li>
+<li>CGLIB-like subclass proxies</li>
+<li>Method interceptors</li>
+<li>Pointcuts</li>
+<li>Advice</li>
+<li><code>@Transactional</code></li>
+<li><code>@Cacheable</code></li>
+<li><code>@Async</code></li>
+</ul>
+<hr>
+<h2 id="107-suggested-v3-minispring-boot">107. Suggested V3 — MiniSpring Boot</h2>
+<p>Once the core framework is stable, create a separate module:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>minispring-boot</code></pre></div>
+<p>Its responsibility should be:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>configuration
++
+auto configuration
++
+embedded server
++
+startup lifecycle
++
+application defaults</code></pre></div>
+<p>Then the user application should need only:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@MiniBootApplication
+public class Application {
+
+    public static void main(String[] args) {
+        MiniApplication.run(
+            Application.class,
+            args
+        );
+    }
+}</code></pre></div>
+<p>This gives you the architectural distinction:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>MiniSpring Core
+    =
+Framework infrastructure
+
+
+MiniSpring Boot
+    =
+Opinionated application bootstrap</code></pre></div>
+<hr>
+<h2 id="108-final-learning-path">108. Final Learning Path</h2>
+<p>The most important thing is to build the framework in layers rather than trying to copy Spring all at once.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                 ┌─────────────────────┐
+                 │  MiniSpring Boot    │
+                 │  run()              │
+                 └──────────┬──────────┘
+                            │
+                 ┌──────────▼──────────┐
+                 │ MiniSpring Web      │
+                 │ MVC / HTTP          │
+                 └──────────┬──────────┘
+                            │
+                 ┌──────────▼──────────┐
+                 │ ApplicationContext  │
+                 └──────────┬──────────┘
+                            │
+                 ┌──────────▼──────────┐
+                 │ BeanFactory         │
+                 └──────────┬──────────┘
+                            │
+                 ┌──────────▼──────────┐
+                 │ Dependency Injection│
+                 └──────────┬──────────┘
+                            │
+                 ┌──────────▼──────────┐
+                 │ BeanDefinition      │
+                 └──────────┬──────────┘
+                            │
+                 ┌──────────▼──────────┐
+                 │ Component Scanner   │
+                 └──────────┬──────────┘
+                            │
+                 ┌──────────▼──────────┐
+                 │ Java Reflection     │
+                 └─────────────────────┘</code></pre></div>
+<p>The core lesson is:</p>
+<blockquote>
+<p>A framework is primarily a collection of abstractions, metadata, lifecycle rules, registries, and extension points built around reflection and runtime orchestration.</p>
+</blockquote>
+<p>Once MiniSpring V1 works, the next step is not to add random features. Instead, identify where the current implementation violates separation of concerns and introduce the abstractions that make the next feature possible without rewriting existing code.</p>
+<p>That iterative process is the most valuable part of the exercise.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; generated in full from "MiniSpring-Step-by-Step-Guide.md" (108 sections) &mdash; see also "Build Your Own Dependency Injection Framework.html" for the condensed, 41-section version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

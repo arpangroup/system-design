@@ -1,0 +1,2037 @@
+<meta charset="utf-8">
+<title>TinyDB Storage Engine — Build a Database Storage Layer from Scratch in Java</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; database internals guide</div>
+      <h1>TinyDB Storage Engine — Pages, Buffer Pool, WAL, and Crash Recovery from Scratch</h1>
+      <p class="dek">The physical, on-disk storage layer of a database built from scratch in Java, as a standalone companion to the TinyDB query-engine guide: fixed-size slotted pages, a binary row codec with a null bitmap, an LRU buffer pool with pin counts, a write-ahead log with a real byte-level record format, ARIES-style crash recovery (redo committed work, undo incomplete work), quiescent checkpoints, CRC32 page checksums, a StorageEngine facade, and the concurrency guarantees a real multi-client server needs &mdash; with real, compilable code for every piece.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-interview-motivation">Why This Matters (Interview Motivation)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-high-level-architecture-the-durability-chain">High-Level Architecture: The Durability Chain</a></li><li class="toc-lvl-2"><a href="#7-phase-1-the-page-size-and-physical-addressing">Phase 1 — The Page Size and Physical Addressing</a></li><li class="toc-lvl-2"><a href="#8-phase-2-pageid-and-rowid">Phase 2 — PageId and RowId</a></li><li class="toc-lvl-2"><a href="#9-the-slotted-page-layout">The Slotted Page Layout</a></li><li class="toc-lvl-2"><a href="#10-phase-3-the-page-header-format">Phase 3 — The Page Header Format</a></li><li class="toc-lvl-2"><a href="#11-phase-4-the-page-class-real-byte-level-implementation">Phase 4 — The Page Class: Real Byte-Level Implementation</a></li><li class="toc-lvl-2"><a href="#12-phase-5-reading-and-writing-pages-via-filechannel">Phase 5 — Reading and Writing Pages via FileChannel</a></li><li class="toc-lvl-2"><a href="#13-why-fsync-alone-isnt-enough-the-wal-before-data-page-rule">Why fsync Alone Isn't Enough: The WAL-Before-Data-Page Rule</a></li><li class="toc-lvl-2"><a href="#14-phase-6-the-binary-row-format">Phase 6 — The Binary Row Format</a></li><li class="toc-lvl-2"><a href="#15-phase-7-handling-nulls-with-a-bitmap">Phase 7 — Handling NULLs With a Bitmap</a></li><li class="toc-lvl-2"><a href="#16-phase-8-a-real-binaryrowcodec-implementation">Phase 8 — A Real BinaryRowCodec Implementation</a></li><li class="toc-lvl-2"><a href="#17-phase-9-the-slot-directory-revisited-insert-and-read-end-to-end">Phase 9 — The Slot Directory, Revisited: Insert and Read, End to End</a></li><li class="toc-lvl-2"><a href="#18-reading-a-row-from-disk-traced-end-to-end">Reading a Row From Disk, Traced End to End</a></li><li class="toc-lvl-2"><a href="#19-phase-10-databasedirectory-and-tablefile">Phase 10 — DatabaseDirectory and TableFile</a></li><li class="toc-lvl-2"><a href="#20-phase-11-tablefilemanager-owning-the-filechannel">Phase 11 — TableFileManager: Owning the FileChannel</a></li><li class="toc-lvl-2"><a href="#21-phase-12-freespacemap-finding-a-page-with-room">Phase 12 — FreeSpaceMap: Finding a Page With Room</a></li><li class="toc-lvl-2"><a href="#22-phase-13-tableheap-insert-read-update-delete-tied-together">Phase 13 — TableHeap: Insert, Read, Update, Delete, Tied Together</a></li><li class="toc-lvl-2"><a href="#23-phase-14-why-a-buffer-pool-exists">Phase 14 — Why a Buffer Pool Exists</a></li><li class="toc-lvl-2"><a href="#24-phase-15-bufferframe-and-pin-counts">Phase 15 — BufferFrame and Pin Counts</a></li><li class="toc-lvl-2"><a href="#25-phase-16-a-real-lru-buffer-pool-implementation">Phase 16 — A Real LRU Buffer Pool Implementation</a></li><li class="toc-lvl-2"><a href="#26-phase-17-the-fetch-algorithm-cache-hit-eviction-and-the-pinned-page-rule">Phase 17 — The Fetch Algorithm: Cache Hit, Eviction, and the Pinned-Page Rule</a></li><li class="toc-lvl-2"><a href="#27-phase-18-log-sequence-numbers">Phase 18 — Log Sequence Numbers</a></li><li class="toc-lvl-2"><a href="#28-phase-19-the-wal-record-format">Phase 19 — The WAL Record Format</a></li><li class="toc-lvl-2"><a href="#29-phase-20-a-real-walmanager-implementation">Phase 20 — A Real WalManager Implementation</a></li><li class="toc-lvl-2"><a href="#30-phase-21-appending-flushing-and-the-commit-rule">Phase 21 — Appending, Flushing, and the Commit Rule</a></li><li class="toc-lvl-2"><a href="#31-the-wal-before-data-page-rule-enforced-in-code">The WAL-Before-Data-Page Rule, Enforced in Code</a></li><li class="toc-lvl-2"><a href="#32-phase-22-insert-through-the-full-stack">Phase 22 — INSERT Through the Full Stack</a></li><li class="toc-lvl-2"><a href="#33-phase-23-update-beforeafter-images-revisited">Phase 23 — UPDATE: Before/After Images, Revisited</a></li><li class="toc-lvl-2"><a href="#34-phase-24-delete-why-tombstones-not-physical-erasure">Phase 24 — DELETE: Why Tombstones, Not Physical Erasure</a></li><li class="toc-lvl-2"><a href="#35-why-tombstones-matter-once-mvcc-exists">Why Tombstones Matter Once MVCC Exists</a></li><li class="toc-lvl-2"><a href="#part-7-crash-recovery">Part 7: Crash Recovery</a></li><li class="toc-lvl-2"><a href="#36-what-crash-recovery-must-guarantee">What Crash Recovery Must Guarantee</a></li><li class="toc-lvl-2"><a href="#37-phase-25-analysis-scanning-the-wal-and-classifying-transactions">Phase 25 — Analysis: Scanning the WAL and Classifying Transactions</a></li><li class="toc-lvl-2"><a href="#38-phase-26-redo-replaying-committed-history-idempotently">Phase 26 — Redo: Replaying Committed History, Idempotently</a></li><li class="toc-lvl-2"><a href="#39-phase-27-undo-rolling-back-incomplete-transactions">Phase 27 — Undo: Rolling Back Incomplete Transactions</a></li><li class="toc-lvl-2"><a href="#40-phase-28-a-real-recoverymanager-assembling-all-three-phases">Phase 28 — A Real RecoveryManager, Assembling All Three Phases</a></li><li class="toc-lvl-2"><a href="#41-testing-recovery-the-crash-test-that-must-pass">Testing Recovery: The Crash Test That Must Pass</a></li><li class="toc-lvl-2"><a href="#part-8-checkpoints-and-corruption-detection">Part 8: Checkpoints and Corruption Detection</a></li><li class="toc-lvl-2"><a href="#42-why-recovery-needs-checkpoints">Why Recovery Needs Checkpoints</a></li><li class="toc-lvl-2"><a href="#43-phase-29-a-real-quiescent-checkpoint-implementation">Phase 29 — A Real (Quiescent) Checkpoint Implementation</a></li><li class="toc-lvl-2"><a href="#44-phase-30-page-checksums-crc32-corruption-detection-for-real">Phase 30 — Page Checksums: CRC32 Corruption Detection, For Real</a></li><li class="toc-lvl-2"><a href="#part-9-the-storage-engine-facade">Part 9: The Storage Engine Facade</a></li><li class="toc-lvl-2"><a href="#45-phase-31-the-storageengine-interface-and-a-real-implementation">Phase 31 — The StorageEngine Interface and a Real Implementation</a></li><li class="toc-lvl-2"><a href="#46-integration-with-the-sql-layer">Integration With the SQL Layer</a></li><li class="toc-lvl-2"><a href="#47-embedded-vs-server-mode-and-minispring-integration">Embedded vs. Server Mode, and MiniSpring Integration</a></li><li class="toc-lvl-2"><a href="#part-10-concurrency">Part 10: Concurrency</a></li><li class="toc-lvl-2"><a href="#48-why-pages-the-buffer-pool-and-the-wal-each-need-their-own-locking">Why Pages, the Buffer Pool, and the WAL Each Need Their Own Locking</a></li><li class="toc-lvl-2"><a href="#49-a-concurrency-checklist">A Concurrency Checklist</a></li><li class="toc-lvl-2"><a href="#50-design-patterns-used-throughout-this-guide">Design Patterns Used Throughout This Guide</a></li><li class="toc-lvl-2"><a href="#51-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#52-common-mistakes-when-building-this-yourself">Common Mistakes When Building This Yourself</a></li><li class="toc-lvl-2"><a href="#53-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#54-future-enhancements">Future Enhancements</a></li><li class="toc-lvl-2"><a href="#55-progressive-interview-questions">Progressive Interview Questions</a></li><li class="toc-lvl-2"><a href="#56-final-architecture-and-mental-model">Final Architecture and Mental Model</a></li><li class="toc-lvl-2"><a href="#57-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>Goal:</strong> Build the physical, on-disk storage layer of a database from scratch: fixed-size pages with a slotted layout, a binary row codec, a buffer pool with LRU eviction, a write-ahead log with checksums, ARIES-style crash recovery (redo committed work, undo incomplete work), checkpoints, and page-level corruption detection — as a standalone project with real, working code for every piece.</p>
+<p>This guide is extracted and substantially expanded from the <code>TinyDB_From_Scratch_Java_Guide_FINAL.md</code> companion document's physical-storage sections, which named every concept and interface correctly but left most implementations as pseudocode or bare interface stubs. Every one of those is turned into real, compilable Java here. The SQL layer that talks to this storage engine is built, in full, in the companion <a href="TinyDB Query Engine and SQL Parser — Step-by-Step Implementation Guide.md">TinyDB Query Engine and SQL Parser — Step-by-Step Implementation Guide.md</a> — the <code>StorageEngine</code> interface at the end of this guide is exactly what that guide's executors and planner already depend on.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>SQL / Execution (companion guide)
+      |
+Transaction (Part 6)
+      |
+Storage API (Part 9)
+      |
+Page / Buffer / WAL (Parts 1-5)
+      |
+FileChannel
+      |
+Operating System / Disk
+</code></pre></div>
+<p>By the end of this guide you will have:</p>
+<ul>
+<li>A <strong>fixed-size, slotted page</strong> format with a real header, slot directory, and byte-level insert/read/delete logic.</li>
+<li>A <strong>binary row codec</strong> that encodes/decodes rows without relying on Java object serialization, including a null bitmap for compact null handling.</li>
+<li>A <strong>buffer pool</strong> with pin counts, dirty tracking, and real LRU eviction — no re-reading the same page from disk twice.</li>
+<li>A <strong>write-ahead log</strong> with LSNs, a real record format, checksums, and the enforced rule that a data page's changes are never flushed before the WAL record describing them is durable.</li>
+<li><strong>ARIES-style crash recovery</strong>: scanning the WAL, redoing every committed change, undoing every incomplete transaction.</li>
+<li><strong>Checkpoints</strong> that bound recovery time, and <strong>page checksums</strong> that turn silent corruption into a loud, immediate failure.</li>
+<li>A single <strong><code>StorageEngine</code></strong> facade that ties every layer together, ready to be handed to the companion Query Engine guide's executors and planner.</li>
+</ul>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to:</p>
+<ul>
+<li>Explain exactly why a slotted page layout lets row bytes move within a page without invalidating a <code>RowId</code> that points at them.</li>
+<li>Implement a binary row codec, including how a null bitmap avoids storing a full-width flag per column.</li>
+<li>Implement a real buffer pool with LRU eviction, including why a pinned page must never be evicted regardless of how stale its access time is.</li>
+<li>State the WAL-before-data-page rule precisely, and implement a <code>WalManager</code> that makes violating it structurally difficult.</li>
+<li>Implement ARIES-style crash recovery: scan, redo, undo — and explain why redo runs <em>before</em> undo, not after.</li>
+<li>Explain what a checkpoint actually bounds, and what page checksums can and cannot detect.</li>
+</ul>
+<hr>
+<h2 id="3-why-this-matters-interview-motivation">3. Why This Matters (Interview Motivation)</h2>
+<blockquote>
+<p><strong>"Design the physical storage layer of a database: how rows are laid out on disk, how you avoid re-reading the same page repeatedly, and how the system survives a crash without losing committed data or corrupting the file. Implement the crash recovery algorithm specifically."</strong></p>
+</blockquote>
+<p>This is one of the highest-signal <strong>database internals / infrastructure interview questions</strong> because durability claims are easy to <em>assert</em> and hard to <em>actually implement correctly</em>:</p>
+<ul>
+<li><strong>Byte-level thinking</strong> — a slotted page, a null bitmap, and a WAL record format all require reasoning about exact byte offsets, not just object references.</li>
+<li><strong>The WAL-before-data-page rule</strong> is a real, non-negotiable invariant, and violating it is the single most common way a "database" silently loses data on a crash while looking correct in every non-crash test.</li>
+<li><strong>Redo/undo recovery</strong> is a genuinely subtle algorithm — many candidates can describe it in one sentence ("replay the log") without being able to say why redo must run before undo, or what "incomplete" means precisely.</li>
+<li><strong>Buffer pool design</strong> connects directly to classic CS fundamentals (LRU, pinning) applied to a concrete, high-stakes resource-management problem.</li>
+</ul>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language / JDK</td>
+<td>Java 21</td>
+<td>Records for immutable identifiers (<code>PageId</code>, <code>RowId</code>), <code>ByteBuffer</code>/<code>FileChannel</code> for exact byte-level I/O.</td>
+</tr>
+<tr>
+<td>File I/O</td>
+<td><code>java.nio.channels.FileChannel</code>, <code>java.nio.ByteBuffer</code></td>
+<td>Precise control over exact byte offsets — essential for a page-addressed file format.</td>
+</tr>
+<tr>
+<td>Checksums</td>
+<td><code>java.util.zip.CRC32</code></td>
+<td>Standard library, no external dependency, fast enough for per-page and per-WAL-record verification.</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>JUnit 5, plus deliberate process-kill-style crash simulation</td>
+<td>A storage engine's durability claims are only as credible as the crash tests that back them — §41 builds these explicitly.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>tinydb-storage/
+├── src/main/java/com/tinydb/storage/
+│   ├── file/
+│   │   ├── DatabaseDirectory.java
+│   │   ├── TableFile.java
+│   │   └── TableFileManager.java
+│   ├── page/
+│   │   ├── PageId.java, RowId.java
+│   │   ├── PageHeader.java
+│   │   ├── Slot.java
+│   │   └── Page.java
+│   ├── row/
+│   │   ├── RowCodec.java
+│   │   └── BinaryRowCodec.java
+│   ├── buffer/
+│   │   ├── BufferFrame.java
+│   │   └── LruBufferPool.java
+│   ├── fsm/
+│   │   └── SimpleFreeSpaceMap.java
+│   ├── table/
+│   │   └── PageBasedTableHeap.java
+│   ├── wal/
+│   │   ├── Lsn.java, WalRecordType.java, WalRecord.java
+│   │   └── FileWalManager.java
+│   ├── recovery/
+│   │   ├── Checkpoint.java
+│   │   └── RecoveryManager.java
+│   └── engine/
+│       └── FileStorageEngine.java     // the facade the SQL layer talks to
+└── src/test/java/com/tinydb/storage/
+    ├── PageSlotDirectoryTest.java
+    ├── BinaryRowCodecTest.java
+    ├── LruBufferPoolTest.java
+    ├── PersistAcrossRestartTest.java
+    └── CrashRecoveryTest.java
+</code></pre></div>
+<hr>
+<h2 id="6-high-level-architecture-the-durability-chain">6. High-Level Architecture: The Durability Chain</h2>
+<p>Every layer in this guide exists to uphold exactly one promise: <strong>once a write is acknowledged as committed, it survives a crash.</strong> The chain of responsibility that makes this true, end to end:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. A row is encoded to bytes (Part 2)                     -- deterministic, no Java object serialization
+2. The bytes are inserted into a page's slot directory (Part 1) -- in memory, via the buffer pool (Part 4)
+3. BEFORE that page is ever flushed to disk, a WAL record        -- Part 5
+   describing the change is appended and made durable
+4. On commit, the WAL's commit record is made durable            -- Part 5
+   (this is the actual moment the client may be told &quot;success&quot;)
+5. The data page itself is flushed to disk LATER, whenever        -- Part 4
+   convenient -- its own durability is not what the client waited on
+6. If the process crashes at any point, recovery (Part 7) replays -- Part 7
+   the WAL and reconstructs exactly the state that was promised
+</code></pre></div>
+<p>Step 3's ordering — WAL before data page — is the single rule every other design decision in this guide exists to protect. Part 5 makes it explicit; Part 7 shows exactly what breaks if it's violated.</p>
+<hr>
+<h2 id="7-phase-1-the-page-size-and-physical-addressing">7. Phase 1 — The Page Size and Physical Addressing</h2>
+<p>A database file is divided into fixed-size <strong>pages</strong>, each addressed by a simple integer:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class StorageConstants {
+    public static final int PAGE_SIZE = 8192; // 8 KiB
+    private StorageConstants() { }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>physical byte offset of page N = N × PAGE_SIZE
+
+page 0  -&gt; offset 0
+page 1  -&gt; offset 8192
+page 2  -&gt; offset 16384
+page 10 -&gt; offset 81920
+</code></pre></div>
+<p>Every read or write this guide ever performs against a file ultimately reduces to this one multiplication — everything from here on is about what lives <em>inside</em> one 8192-byte page, and how to find the right page in the first place.</p>
+<hr>
+<h2 id="8-phase-2-pageid-and-rowid">8. Phase 2 — PageId and RowId</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record PageId(String database, String table, long pageNumber) { }
+</code></pre></div>
+<p>A physical row is identified by which page it lives on and which <strong>slot</strong> within that page — not by its byte offset directly, which is free to change (§9 explains why):</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record RowId(long pageNumber, int slotNumber) { }
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>employees.tbl, page 12, slot 4  ==  new RowId(12, 4)
+</code></pre></div>
+<p>An index (companion Query Engine guide's §38) stores <code>indexedValue -&gt; RowId</code>, never a copy of the row itself — looking up a <code>RowId</code> and then reading that exact page/slot (§18) is the entire mechanism a point-lookup index relies on.</p>
+<hr>
+<h2 id="9-the-slotted-page-layout">9. The Slotted Page Layout</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+--------------------------------------------------+
+| PAGE HEADER (36 bytes, §10)                        |
++--------------------------------------------------+
+| SLOT 0   SLOT 1   SLOT 2   ...                     |  &lt;- slot directory, GROWS FORWARD
++--------------------------------------------------+
+|                                                    |
+|                  FREE SPACE                        |
+|                                                    |
++--------------------------------------------------+
+| ROW DATA   ROW DATA   ROW DATA                     |  &lt;- row bytes, GROWS BACKWARD from the page's end
++--------------------------------------------------+
+</code></pre></div>
+<p>Each slot is a small, fixed-size <code>(offset, length)</code> pair pointing at where its row's actual bytes live, further down in the same page:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Slot 0 -&gt; offset 8100, length 92
+Slot 1 -&gt; offset 7980, length 120
+Slot 2 -&gt; offset 7860, length 120
+</code></pre></div>
+<p>This one level of indirection is the entire reason a slotted page exists: a row's bytes can be moved anywhere within the page (during a future compaction, for instance) by updating one slot entry, <strong>without</strong> changing the logical <code>RowId</code> (§8) anything else in the system holds — indexes, in-flight scans, and cached row references all stay valid.</p>
+<hr>
+<h2 id="10-phase-3-the-page-header-format">10. Phase 3 — The Page Header Format</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Offset  Size  Field
+------  ----  ----------------
+0       8     page number
+8       8     page LSN            (§27 -- which WAL record last modified this page)
+16      4     page type
+20      4     slot count
+24      4     free-space start    (end of the slot directory)
+28      4     free-space end      (start of the row-data region)
+32      4     checksum            (§44)
+</code></pre></div>
+<p>36 bytes total. This exact layout is the database's <strong>on-disk contract</strong> — it must be documented and versioned, because old database files must remain readable after the Java classes that read them evolve.</p>
+<hr>
+<h2 id="11-phase-4-the-page-class-real-byte-level-implementation">11. Phase 4 — The Page Class: Real Byte-Level Implementation</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class Page {
+
+    private static final int HEADER_SIZE = 36;
+    private static final int SLOT_SIZE = 8; // 4 bytes offset + 4 bytes length
+    static final int TOMBSTONE_LENGTH = -1; // marks a deleted slot -- see §32
+
+    private final PageId pageId;
+    private final ByteBuffer buffer;
+    private boolean dirty;
+
+    public Page(PageId pageId) {
+        this.pageId = pageId;
+        this.buffer = ByteBuffer.allocate(StorageConstants.PAGE_SIZE);
+        initializeNewPage();
+    }
+
+    public Page(PageId pageId, ByteBuffer existingContent) {
+        this.pageId = pageId;
+        this.buffer = existingContent;
+    }
+
+    private void initializeNewPage() {
+        setSlotCount(0);
+        setFreeSpaceStart(HEADER_SIZE);
+        setFreeSpaceEnd(StorageConstants.PAGE_SIZE);
+        // -1 is a sentinel meaning &quot;no LSN applied yet.&quot; WAL LSNs start at 0, so if we
+        // initialized this to 0 instead, the redo idempotency check in the Recovery
+        // Manager (page.pageLsn() &gt;= record.lsn()) would wrongly treat LSN 0 as
+        // &quot;already applied&quot; and skip the very first change ever made to this page.
+        setPageLsn(-1);
+    }
+
+    public PageId pageId() { return pageId; }
+    public ByteBuffer buffer() { return buffer; }
+    public boolean dirty() { return dirty; }
+    public void markDirty() { dirty = true; }
+    public void clearDirty() { dirty = false; }
+
+    // ---- Header field accessors ----
+
+    public long pageLsn() { return buffer.getLong(8); }
+    public void setPageLsn(long lsn) { buffer.putLong(8, lsn); markDirty(); }
+
+    public int slotCount() { return buffer.getInt(20); }
+    private void setSlotCount(int count) { buffer.putInt(20, count); }
+
+    private int freeSpaceStart() { return buffer.getInt(24); }
+    private void setFreeSpaceStart(int offset) { buffer.putInt(24, offset); }
+
+    private int freeSpaceEnd() { return buffer.getInt(28); }
+    private void setFreeSpaceEnd(int offset) { buffer.putInt(28, offset); }
+
+    public int checksum() { return buffer.getInt(32); }
+    public void setChecksum(int value) { buffer.putInt(32, value); } // does NOT markDirty() -- see §44
+
+    // ---- Slot directory ----
+
+    private int slotPosition(int slotNumber) { return HEADER_SIZE + slotNumber * SLOT_SIZE; }
+
+    private Slot readSlot(int slotNumber) {
+        int pos = slotPosition(slotNumber);
+        return new Slot(buffer.getInt(pos), buffer.getInt(pos + 4));
+    }
+
+    private void writeSlot(int slotNumber, int offset, int length) {
+        int pos = slotPosition(slotNumber);
+        buffer.putInt(pos, offset);
+        buffer.putInt(pos + 4, length);
+    }
+
+    // ---- Row operations -- §17-§18 build the algorithms; here they're the real, tested implementation ----
+
+    public boolean hasSpaceFor(int rowLength) {
+        return (freeSpaceEnd() - freeSpaceStart()) &gt;= (rowLength + SLOT_SIZE);
+    }
+
+    public RowId insert(byte[] rowBytes) {
+        if (!hasSpaceFor(rowBytes.length)) throw new PageFullException(pageId);
+
+        int slotNumber = slotCount();
+        int rowOffset = freeSpaceEnd() - rowBytes.length;
+
+        buffer.put(rowOffset, rowBytes); // absolute put -- does not disturb the buffer's own position/limit
+        writeSlot(slotNumber, rowOffset, rowBytes.length);
+
+        setSlotCount(slotNumber + 1);
+        setFreeSpaceStart(freeSpaceStart() + SLOT_SIZE);
+        setFreeSpaceEnd(rowOffset);
+        markDirty();
+
+        return new RowId(pageId.pageNumber(), slotNumber);
+    }
+
+    /**
+     * Redo-only variant of insert(): writes a row into a SPECIFIC, already-decided slot number
+     * rather than allocating the next one, because the WAL record being replayed (§38) already
+     * says exactly where this row landed the first time. Two cases: if this page's slot directory
+     * doesn't yet have this slot (the page was never flushed after the original insert), it's
+     * created exactly like insert() would, but pinned to the given slotNumber instead of the next
+     * free one; if the slot already exists (a later, already-flushed change, or a prior redo pass
+     * that got interrupted), this behaves exactly like restoreSlot() -- normal TinyDB operation
+     * only ever assigns slot numbers sequentially, so no gap-filling case can arise in practice.
+     */
+    public void insertAt(int slotNumber, byte[] rowBytes) {
+        if (slotNumber &lt; slotCount()) {
+            restoreSlot(slotNumber, rowBytes); // slot already exists -- reuse the un-tombstone path
+            return;
+        }
+        int rowOffset = freeSpaceEnd() - rowBytes.length;
+        buffer.put(rowOffset, rowBytes);
+        writeSlot(slotNumber, rowOffset, rowBytes.length);
+        setSlotCount(slotNumber + 1);
+        setFreeSpaceStart(freeSpaceStart() + SLOT_SIZE);
+        setFreeSpaceEnd(rowOffset);
+        markDirty();
+    }
+
+    public byte[] read(int slotNumber) {
+        Slot slot = readSlot(slotNumber);
+        if (slot.length() == TOMBSTONE_LENGTH) return null; // deleted -- §32
+        byte[] rowBytes = new byte[slot.length()];
+        buffer.get(slot.offset(), rowBytes); // absolute get
+        return rowBytes;
+    }
+
+    public void update(int slotNumber, byte[] newRowBytes) {
+        Slot slot = readSlot(slotNumber);
+        if (newRowBytes.length != slot.length()) {
+            // With fixed-size slots (every row in a table has the same TablePhysicalLayout.slotSize(),
+            // companion Query Engine guide §34), this should never happen -- if it does, the caller
+            // passed bytes for the wrong table's layout.
+            throw new IllegalArgumentException(&quot;Row size mismatch: slot expects &quot; + slot.length()
+                    + &quot; bytes, got &quot; + newRowBytes.length);
+        }
+        buffer.put(slot.offset(), newRowBytes);
+        markDirty();
+    }
+
+    public void delete(int slotNumber) {
+        Slot slot = readSlot(slotNumber);
+        writeSlot(slotNumber, slot.offset(), TOMBSTONE_LENGTH); // tombstone -- see §32 for why not a physical erase
+        markDirty();
+    }
+
+    /**
+     * Un-tombstones a slot by writing back a previously-captured before-image and restoring
+     * its length. This is the one Page-level primitive that only the Recovery Manager's Undo
+     * phase (§39) ever calls -- it exists solely to reverse a delete() during rollback of an
+     * incomplete transaction. Undoing an INSERT reuses delete() (make the slot a tombstone
+     * again) and undoing an UPDATE reuses update() (write the before-image back over the
+     * after-image) because in both of those cases the slot was never tombstoned to begin with;
+     * only undoing a DELETE needs to bring a tombstoned slot back to life, which is what makes
+     * restoreSlot() necessary as its own method.
+     */
+    public void restoreSlot(int slotNumber, byte[] beforeImage) {
+        Slot slot = readSlot(slotNumber);
+        buffer.put(slot.offset(), beforeImage);
+        writeSlot(slotNumber, slot.offset(), beforeImage.length);
+        markDirty();
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record Slot(int offset, int length) { }
+</code></pre></div>
+<p>Every method above operates through <strong>absolute</strong> <code>ByteBuffer</code> <code>get</code>/<code>put</code> calls (<code>buffer.put(rowOffset, rowBytes)</code>, not <code>buffer.position(rowOffset); buffer.put(rowBytes)</code>) — deliberately, because the page's header fields and slot directory are read via their own absolute offsets throughout a row insert, and letting the buffer's internal position drift between those calls would be a correctness bug waiting to happen. <code>update</code> never needing to move a row within the page (§9's "why bytes can move" caveat notwithstanding) is a direct, deliberate consequence of every row in a table sharing one fixed slot size (companion guide §34) — there is no "row grew too big for its slot" case to handle here at all. Note that <code>restoreSlot</code> relies on that same fixed-slot-size guarantee: the <code>beforeImage</code> captured before a delete is always exactly <code>slot.length()</code> bytes, so writing it back can never overflow into the next row's data.</p>
+<hr>
+<h2 id="12-phase-5-reading-and-writing-pages-via-filechannel">12. Phase 5 — Reading and Writing Pages via FileChannel</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class PageIo {
+
+    public Page readPage(FileChannel channel, PageId pageId) throws IOException {
+        ByteBuffer buffer = ByteBuffer.allocate(StorageConstants.PAGE_SIZE);
+        long offset = pageId.pageNumber() * StorageConstants.PAGE_SIZE;
+
+        int totalRead = 0;
+        while (buffer.hasRemaining()) {
+            int read = channel.read(buffer, offset + totalRead);
+            if (read &lt; 0) break; // end of file
+            totalRead += read;
+        }
+        if (totalRead == 0) throw new EOFException(&quot;Page does not exist: &quot; + pageId);
+
+        buffer.flip();
+        Page page = new Page(pageId, buffer);
+        verifyChecksum(page); // §44 -- fail loudly on corruption, never silently continue
+        return page;
+    }
+
+    public void writePage(FileChannel channel, Page page) throws IOException {
+        computeAndStoreChecksum(page); // §44 -- computed fresh on every write, right before it hits disk
+
+        ByteBuffer buffer = page.buffer().duplicate();
+        buffer.rewind();
+        long offset = page.pageId().pageNumber() * StorageConstants.PAGE_SIZE;
+
+        long position = offset;
+        while (buffer.hasRemaining()) {
+            int written = channel.write(buffer, position);
+            if (written &lt;= 0) throw new IOException(&quot;Unable to write page &quot; + page.pageId());
+            position += written;
+        }
+    }
+
+    // verifyChecksum(...) / computeAndStoreChecksum(...) implemented in full in §44,
+    // once CRC32 and the checksum field's exact layout have been introduced.
+}
+</code></pre></div>
+<p>Two details that are easy to get wrong and silently pass every "happy path" test: <strong>never assume one <code>FileChannel.read()</code>/<code>write()</code> call transfers the entire buffer</strong> — both are looped here specifically because a single call can legitimately return fewer bytes than requested, especially under load or on some filesystems. And <code>readPage</code> treats <code>totalRead == 0</code> (nothing at all was read) as "this page doesn't exist yet," distinct from a short read that still made partial progress.</p>
+<hr>
+<h2 id="13-why-fsync-alone-isnt-enough-the-wal-before-data-page-rule">13. Why fsync Alone Isn't Enough: The WAL-Before-Data-Page Rule</h2>
+<p><code>FileChannel.force(true)</code> (<code>fsync</code>) guarantees bytes already written to a <code>FileChannel</code> are durably on disk — but it says nothing about <strong>ordering</strong> between two different files (a data page's <code>.tbl</code> file and the WAL's <code>.log</code> file). Calling <code>force(true)</code> on a data page file after writing to it is necessary but not sufficient for correctness; the actual durability rule this whole guide is built around is:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>WAL record durable FIRST
+        ↓
+data page may become durable AFTER (whenever convenient — even much later)
+</code></pre></div>
+<p>Part 5 builds the WAL manager that makes this ordering concrete; Part 7's recovery algorithm is what makes violating this rule specifically dangerous — a data page containing a change with no corresponding durable WAL record is a change recovery can never verify actually happened.</p>
+<hr>
+<h2 id="14-phase-6-the-binary-row-format">14. Phase 6 — The Binary Row Format</h2>
+<p>A row is never stored as a Java object — it's encoded into a flat sequence of bytes before it ever touches a page (§11's <code>Page.insert(byte[])</code> already expects exactly this). Using the companion Query Engine guide's <code>TablePhysicalLayout</code> (§34 there), every row in a table occupies the <strong>same fixed number of bytes</strong>, laid out at the <strong>same fixed offsets</strong>:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+------------+---------+------------+-----------+
+| null bitmap | id (8B) | name (50B) | age (4B)  |
++------------+---------+------------+-----------+
+</code></pre></div>
+<p>The null bitmap comes first, sized to the number of columns, and is followed by every column's fixed-width region, in schema order — <code>TablePhysicalLayout.offset(columnName)</code> (companion guide §34) gives the exact byte position of each region <em>after</em> the bitmap.</p>
+<hr>
+<h2 id="15-phase-7-handling-nulls-with-a-bitmap">15. Phase 7 — Handling NULLs With a Bitmap</h2>
+<p>Storing a full extra byte (or worse, a boxed flag) per column just to say "is this null" wastes space badly across millions of rows. A <strong>bitmap</strong> — one bit per column — is dramatically more compact:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>columns: id, name, age, email
+null bitmap: 00001010
+              ^   ^
+              |   +-- bit 1 set -&gt; &quot;name&quot; is null
+              +------ bit 3 set -&gt; &quot;email&quot; is null
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>static void setNullBit(byte[] bitmap, int columnIndex) {
+    bitmap[columnIndex / 8] |= (1 &lt;&lt; (columnIndex % 8));
+}
+
+static boolean isNullBitSet(byte[] bitmap, int columnIndex) {
+    return (bitmap[columnIndex / 8] &amp; (1 &lt;&lt; (columnIndex % 8))) != 0;
+}
+</code></pre></div>
+<p>When a column's null bit is set, its fixed-width byte region is simply <strong>never read</strong> — its bytes can be anything (typically left as zero) and are ignored entirely, which is why the codec (§16) skips encoding a value at all for a null column rather than writing a sentinel value into its region.</p>
+<hr>
+<h2 id="16-phase-8-a-real-binaryrowcodec-implementation">16. Phase 8 — A Real BinaryRowCodec Implementation</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface RowCodec {
+    byte[] encode(Row row);
+    Row decode(byte[] bytes);
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class BinaryRowCodec implements RowCodec {
+
+    private static final int VARCHAR_SLOT_BYTES = 50; // must match TablePhysicalLayout's sizeInBytes(), companion guide §34
+
+    private final TableSchema schema;
+    private final TablePhysicalLayout layout;
+
+    public BinaryRowCodec(TableSchema schema) {
+        this.schema = schema;
+        this.layout = new TablePhysicalLayout(schema);
+    }
+
+    private int nullBitmapBytes() { return (schema.columns().size() + 7) / 8; }
+
+    @Override
+    public byte[] encode(Row row) {
+        byte[] result = new byte[nullBitmapBytes() + layout.slotSize()];
+        ByteBuffer buffer = ByteBuffer.wrap(result);
+
+        for (int i = 0; i &lt; schema.columns().size(); i++) {
+            Column column = schema.columns().get(i);
+            Object value = row.get(column.name());
+            if (value == null) {
+                setNullBit(result, i); // §15 -- and leave this column's byte region untouched (all zero)
+                continue;
+            }
+            int fieldOffset = nullBitmapBytes() + layout.offset(column.name());
+            encodeField(buffer, fieldOffset, column, value);
+        }
+        return result;
+    }
+
+    private void encodeField(ByteBuffer buffer, int offset, Column column, Object value) {
+        switch (column.type()) {
+            case INT -&gt; buffer.putInt(offset, (Integer) value);
+            case BIGINT -&gt; buffer.putLong(offset, (Long) value);
+            case BOOLEAN -&gt; buffer.put(offset, (byte) ((Boolean) value ? 1 : 0));
+            case DECIMAL -&gt; buffer.putDouble(offset, ((Number) value).doubleValue()); // a simplification -- see §46
+            case DATE, TIMESTAMP -&gt; buffer.putLong(offset, ((Instant) value).toEpochMilli());
+            case VARCHAR -&gt; encodeVarchar(buffer, offset, (String) value);
+        }
+    }
+
+    private void encodeVarchar(ByteBuffer buffer, int offset, String value) {
+        byte[] utf8 = value.getBytes(StandardCharsets.UTF_8);
+        int maxContentBytes = VARCHAR_SLOT_BYTES - 4; // 4 bytes reserved for a length prefix, §14's diagram
+        if (utf8.length &gt; maxContentBytes) {
+            throw new IllegalArgumentException(&quot;VARCHAR value too long for its fixed slot: \&quot;&quot; + value + &quot;\&quot;&quot;);
+        }
+        buffer.putInt(offset, utf8.length);
+        buffer.put(offset + 4, utf8);
+    }
+
+    @Override
+    public Row decode(byte[] bytes) {
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        Map&lt;String, Object&gt; values = new LinkedHashMap&lt;&gt;();
+
+        for (int i = 0; i &lt; schema.columns().size(); i++) {
+            Column column = schema.columns().get(i);
+            if (isNullBitSet(bytes, i)) {
+                values.put(column.name(), null);
+                continue;
+            }
+            int fieldOffset = nullBitmapBytes() + layout.offset(column.name());
+            values.put(column.name(), decodeField(buffer, fieldOffset, column));
+        }
+        return new Row(values);
+    }
+
+    private Object decodeField(ByteBuffer buffer, int offset, Column column) {
+        return switch (column.type()) {
+            case INT -&gt; buffer.getInt(offset);
+            case BIGINT -&gt; buffer.getLong(offset);
+            case BOOLEAN -&gt; buffer.get(offset) != 0;
+            case DECIMAL -&gt; buffer.getDouble(offset);
+            case DATE, TIMESTAMP -&gt; Instant.ofEpochMilli(buffer.getLong(offset));
+            case VARCHAR -&gt; decodeVarchar(buffer, offset);
+        };
+    }
+
+    private String decodeVarchar(ByteBuffer buffer, int offset) {
+        int length = buffer.getInt(offset);
+        byte[] utf8 = new byte[length];
+        buffer.get(offset + 4, utf8);
+        return new String(utf8, StandardCharsets.UTF_8);
+    }
+}
+</code></pre></div>
+<p><code>encode</code>/<code>decode</code> are exact inverses by construction — every field is written and read at the identical <code>nullBitmapBytes() + layout.offset(columnName)</code> position, which is precisely why <code>TablePhysicalLayout</code> (computed once, at table-creation time, companion guide §34) is passed into this codec rather than recomputed per row: both sides of this round trip must agree on the same offsets, forever, for as long as the table exists.</p>
+<hr>
+<h2 id="17-phase-9-the-slot-directory-revisited-insert-and-read-end-to-end">17. Phase 9 — The Slot Directory, Revisited: Insert and Read, End to End</h2>
+<p>§11 already built the real slot-directory algorithms inside <code>Page</code>. This section is the missing connective piece: how a <code>Row</code> (a <code>Map&lt;String, Object&gt;</code>) becomes a <code>RowId</code>, and back, using <code>BinaryRowCodec</code> (§16) and <code>Page</code> (§11) together:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Insert:
+  Row  --[BinaryRowCodec.encode]--&gt;  byte[]  --[Page.insert]--&gt;  RowId
+
+Read:
+  RowId  --[Page.read(slotNumber)]--&gt;  byte[]  --[BinaryRowCodec.decode]--&gt;  Row
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class PageBasedRowAccess {
+
+    private final RowCodec codec;
+
+    public PageBasedRowAccess(RowCodec codec) { this.codec = codec; }
+
+    public RowId insert(Page page, Row row) {
+        byte[] encoded = codec.encode(row);
+        return page.insert(encoded); // §11
+    }
+
+    public Row read(Page page, int slotNumber) {
+        byte[] encoded = page.read(slotNumber); // §11 -- returns null for a tombstoned slot, §32
+        return encoded == null ? null : codec.decode(encoded);
+    }
+}
+</code></pre></div>
+<p>This is the fundamental point-lookup path a <code>RowId</code>-based index (companion Query Engine guide §38) ultimately calls into: given a <code>RowId</code>, fetch its page (§20's buffer pool decides whether that means a cache hit or a disk read), call <code>page.read(rowId.slotNumber())</code>, and decode the result — no scanning, no searching, a direct address-to-value lookup.</p>
+<hr>
+<h2 id="18-reading-a-row-from-disk-traced-end-to-end">18. Reading a Row From Disk, Traced End to End</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>RowId(pageNumber=12, slotNumber=4)
+   |
+   v
+BufferPool.fetch(PageId(db, table, 12))       -- §22-23 -- cache hit, or read from FileChannel via PageIo (§12)
+   |
+   v
+Page.read(4)                                    -- §11 -- looks up slot 4's (offset, length), copies those bytes
+   |
+   v
+BinaryRowCodec.decode(bytes)                    -- §16 -- turns fixed-width bytes back into a Row
+   |
+   v
+Row{id: 1, name: &quot;Arpan&quot;, age: 32}
+</code></pre></div>
+<p>Every layer built so far — page addressing (§7-8), the slotted layout (§9-11), and the binary codec (§14-16) — appears in this one trace, which is exactly the sequence a <code>TableScan</code> (companion Query Engine guide §29) executes once per row while streaming through a table.</p>
+<hr>
+<h2 id="19-phase-10-databasedirectory-and-tablefile">19. Phase 10 — DatabaseDirectory and TableFile</h2>
+<p>One root directory holds everything:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>tinydb-data/
+├── databases/
+│   └── company/
+│       ├── tables/
+│       │   ├── employees.tbl
+│       │   └── departments.tbl
+│       └── indexes/
+│           └── employees_pk.idx
+├── catalog/
+│   └── catalog.db
+├── wal/
+│   ├── wal-000001.log
+│   └── wal-000002.log
+├── checkpoints/
+│   └── checkpoint.meta
+└── server.lock
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class DatabaseDirectory {
+
+    private final Path root;
+
+    public DatabaseDirectory(Path root) { this.root = root; }
+
+    public Path database(String databaseName) { return root.resolve(&quot;databases&quot;).resolve(databaseName); }
+
+    public void createDatabase(String databaseName) throws IOException {
+        Path db = database(databaseName);
+        Files.createDirectories(db.resolve(&quot;tables&quot;));
+        Files.createDirectories(db.resolve(&quot;indexes&quot;));
+    }
+
+    public Path tableFile(String databaseName, String tableName) {
+        return database(databaseName).resolve(&quot;tables&quot;).resolve(tableName + &quot;.tbl&quot;);
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TableFile {
+
+    private final Path path;
+
+    public TableFile(Path path) { this.path = path; }
+
+    public void create() throws IOException {
+        Files.createDirectories(path.getParent());
+        if (Files.notExists(path)) Files.createFile(path);
+    }
+
+    public Path path() { return path; }
+}
+</code></pre></div>
+<hr>
+<h2 id="20-phase-11-tablefilemanager-owning-the-filechannel">20. Phase 11 — TableFileManager: Owning the FileChannel</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TableFileManager {
+
+    private final FileChannel channel;
+
+    public TableFileManager(Path path) throws IOException {
+        this.channel = FileChannel.open(path, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+    }
+
+    public FileChannel channel() { return channel; }
+
+    public long pageCount() throws IOException { return channel.size() / StorageConstants.PAGE_SIZE; }
+
+    public void close() throws IOException { channel.close(); }
+}
+</code></pre></div>
+<p>Everything above this class — the SQL layer, the executors, the planner — must never call <code>FileChannel</code> directly. <code>TableFileManager</code> is the one place a file handle is opened and owned, exactly the "dependency direction" this guide's §6 architecture diagram already commits to.</p>
+<hr>
+<h2 id="21-phase-12-freespacemap-finding-a-page-with-room">21. Phase 12 — FreeSpaceMap: Finding a Page With Room</h2>
+<p>Before inserting a row, TinyDB needs to find a page with enough free space — scanning every page on every insert would be correct but slow, so a small in-memory map tracks free space per page:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface FreeSpaceMap {
+    Optional&lt;Long&gt; findPage(int requiredBytes);
+    void update(long pageNumber, int freeBytes);
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class SimpleFreeSpaceMap implements FreeSpaceMap {
+
+    private final Map&lt;Long, Integer&gt; freeBytesByPage = new ConcurrentHashMap&lt;&gt;();
+
+    @Override
+    public Optional&lt;Long&gt; findPage(int requiredBytes) {
+        return freeBytesByPage.entrySet().stream()
+                .filter(entry -&gt; entry.getValue() &gt;= requiredBytes)
+                .map(Map.Entry::getKey)
+                .findFirst(); // a linear scan -- correct, and the honest starting point; see §54 for a bucketed refinement
+    }
+
+    @Override
+    public void update(long pageNumber, int freeBytes) {
+        freeBytesByPage.put(pageNumber, freeBytes);
+    }
+
+    public void registerNewPage(long pageNumber) {
+        freeBytesByPage.put(pageNumber, StorageConstants.PAGE_SIZE);
+    }
+}
+</code></pre></div>
+<p>A linear scan over a <code>Map</code> is a completely honest "Level 1" implementation — correct, simple, and slow only in the sense that it examines candidates one at a time rather than jumping straight to a good one. §54 names the standard refinement (bucketing pages by free-space percentage) as future work, not a silent gap.</p>
+<hr>
+<h2 id="22-phase-13-tableheap-insert-read-update-delete-tied-together">22. Phase 13 — TableHeap: Insert, Read, Update, Delete, Tied Together</h2>
+<p><code>TableHeap</code> is the seam between "I have a <code>Row</code>" and "I have a <code>RowId</code>" — every piece built in Parts 1-3 comes together here:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface TableHeap {
+    RowId insert(Row row);
+    Row read(RowId rowId);
+    void update(RowId rowId, Row row);
+    void delete(RowId rowId);
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class PageBasedTableHeap implements TableHeap {
+
+    private final String database;
+    private final String table;
+    private final TableFileManager fileManager;
+    private final BufferPool bufferPool; // Part 4
+    private final FreeSpaceMap freeSpaceMap;
+    private final RowCodec codec;
+    private final WalManager walManager; // Part 5
+
+    public PageBasedTableHeap(String database, String table, TableFileManager fileManager,
+                               BufferPool bufferPool, FreeSpaceMap freeSpaceMap, RowCodec codec, WalManager walManager) {
+        this.database = database;
+        this.table = table;
+        this.fileManager = fileManager;
+        this.bufferPool = bufferPool;
+        this.freeSpaceMap = freeSpaceMap;
+        this.codec = codec;
+        this.walManager = walManager;
+    }
+
+    @Override
+    public RowId insert(Row row) {
+        byte[] encoded = codec.encode(row);
+        long pageNumber = findOrCreatePageWithSpace(encoded.length);
+        PageId pageId = new PageId(database, table, pageNumber);
+        Page page = bufferPool.fetch(pageId);
+
+        // Mutate the in-memory page FIRST so the real, already-assigned slot number is known --
+        // the WAL record needs it (redo, §38, must know exactly which slot to replay INSERT into).
+        // This does NOT violate §13's rule: that rule governs when the DATA PAGE FILE may become
+        // durable on disk relative to the WAL record, not when the in-memory buffer-pool copy may
+        // be mutated. LruBufferPool (§25) never flushes this page until later, by which point the
+        // WAL append below (and its force(true), if this is a commit) has already happened.
+        RowId rowId = page.insert(encoded);
+        long lsn = walManager.append(WalRecord.insert(nextTransactionId(), pageId, rowId, encoded));
+        page.setPageLsn(lsn);
+
+        freeSpaceMap.update(pageNumber, remainingSpace(page));
+        bufferPool.unpin(pageId);
+        return rowId;
+    }
+
+    @Override
+    public Row read(RowId rowId) {
+        PageId pageId = new PageId(database, table, rowId.pageNumber());
+        Page page = bufferPool.fetch(pageId);
+        try {
+            byte[] encoded = page.read(rowId.slotNumber());
+            return encoded == null ? null : codec.decode(encoded);
+        } finally {
+            bufferPool.unpin(pageId);
+        }
+    }
+
+    @Override
+    public void update(RowId rowId, Row row) {
+        byte[] afterImage = codec.encode(row);
+        PageId pageId = new PageId(database, table, rowId.pageNumber());
+        Page page = bufferPool.fetch(pageId);
+        byte[] beforeImage = page.read(rowId.slotNumber()); // captured BEFORE mutation -- undo needs this, §31
+
+        long lsn = walManager.append(WalRecord.update(nextTransactionId(), pageId, rowId, beforeImage, afterImage));
+        page.setPageLsn(lsn);
+
+        page.update(rowId.slotNumber(), afterImage);
+        bufferPool.unpin(pageId);
+    }
+
+    @Override
+    public void delete(RowId rowId) {
+        PageId pageId = new PageId(database, table, rowId.pageNumber());
+        Page page = bufferPool.fetch(pageId);
+        byte[] beforeImage = page.read(rowId.slotNumber()); // the row as it existed right before deletion -- for undo
+
+        long lsn = walManager.append(WalRecord.delete(nextTransactionId(), pageId, rowId, beforeImage));
+        page.setPageLsn(lsn);
+
+        page.delete(rowId.slotNumber());
+        bufferPool.unpin(pageId);
+    }
+
+    private long findOrCreatePageWithSpace(int requiredBytes) {
+        return freeSpaceMap.findPage(requiredBytes).orElseGet(this::allocateNewPage);
+    }
+    // allocateNewPage()/remainingSpace(Page)/nextTransactionId() omitted for brevity --
+    // allocateNewPage extends the file by one PAGE_SIZE and registers it with the FreeSpaceMap (§21).
+}
+</code></pre></div>
+<p><code>update</code> and <code>delete</code> follow the pattern <strong>fetch the page, capture the before-image, append the WAL record, set the page's LSN, then mutate the page</strong>; <code>insert</code> mutates the in-memory page one step earlier than the other two — specifically so the WAL record can carry the real, already-assigned slot number (needed for redo, §38) rather than the placeholder <code>-1</code> it would otherwise have to log before the slot exists. This is <em>not</em> a violation of §13's WAL-before-data-page rule: that rule constrains when the data page's bytes may become durable on <strong>disk</strong> relative to the WAL record, and <code>LruBufferPool</code> (§25) never flushes a page except through its own eviction/<code>flushAll</code> logic — by the time that happens, every WAL append (and, for a commit, its <code>force(true)</code>) affecting this page has already occurred. The invariant that actually matters, and that all three methods honor without exception, is: <strong>no page is ever flushed to disk before the WAL record describing its most recent change is durable.</strong></p>
+<hr>
+<h2 id="23-phase-14-why-a-buffer-pool-exists">23. Phase 14 — Why a Buffer Pool Exists</h2>
+<p>Every read in §22's <code>PageBasedTableHeap</code> goes through <code>bufferPool.fetch(pageId)</code>, never directly through <code>TableFileManager</code>'s <code>FileChannel</code>. Without a cache in between, reading the same popular page — a table's first page, hit by every query that scans it — would mean a fresh disk read every single time, even though nothing on that page changed since the last read a millisecond ago. A <strong>buffer pool</strong> caches recently-used pages in memory, and is the single component standing between "one disk read per row accessed" and "one disk read per page, ever, until it's evicted."</p>
+<hr>
+<h2 id="24-phase-15-bufferframe-and-pin-counts">24. Phase 15 — BufferFrame and Pin Counts</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class BufferFrame {
+
+    private final Page page;
+    private int pinCount;
+    private long lastAccessTime;
+
+    public BufferFrame(Page page) {
+        this.page = page;
+        this.pinCount = 1; // starts pinned -- the caller that just fetched it is using it right now
+        this.lastAccessTime = System.nanoTime();
+    }
+
+    public Page page() { return page; }
+
+    public void pin() { pinCount++; }
+    public void unpin() { pinCount = Math.max(0, pinCount - 1); }
+    public boolean isPinned() { return pinCount &gt; 0; }
+
+    public void touch() { lastAccessTime = System.nanoTime(); }
+    public long lastAccessTime() { return lastAccessTime; }
+}
+</code></pre></div>
+<p>A <strong>pin count</strong>, not a boolean, because the same page can legitimately be in use by more than one concurrent caller at once (a scan reading it, a concurrent write also touching it) — the page is only eligible for eviction once the pin count drops all the way to zero, meaning genuinely nobody is using it right now.</p>
+<hr>
+<h2 id="25-phase-16-a-real-lru-buffer-pool-implementation">25. Phase 16 — A Real LRU Buffer Pool Implementation</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface BufferPool {
+    Page fetch(PageId pageId);
+    void unpin(PageId pageId);
+    void flush(PageId pageId) throws IOException;
+    void flushAll() throws IOException;
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class LruBufferPool implements BufferPool {
+
+    private final int capacity;
+    private final Map&lt;PageId, BufferFrame&gt; frames;      // access-order LinkedHashMap -- eldest-first iteration IS the LRU order
+    private final Map&lt;PageId, TableFileManager&gt; fileManagers;
+    private final PageIo pageIo = new PageIo();
+
+    public LruBufferPool(int capacity, Map&lt;PageId, TableFileManager&gt; fileManagers) {
+        this.capacity = capacity;
+        this.fileManagers = fileManagers;
+        this.frames = new LinkedHashMap&lt;&gt;(capacity, 0.75f, true); // true = access-order, not insertion-order
+    }
+
+    @Override
+    public synchronized Page fetch(PageId pageId) {
+        BufferFrame frame = frames.get(pageId); // a get() on an access-order LinkedHashMap ALSO moves it to &quot;most recent&quot;
+        if (frame != null) {
+            frame.pin();
+            frame.touch();
+            return frame.page();
+        }
+        return loadFromDisk(pageId);
+    }
+
+    private Page loadFromDisk(PageId pageId) {
+        if (frames.size() &gt;= capacity) evictOnePage();
+
+        try {
+            FileChannel channel = fileManagers.get(pageId).channel();
+            Page page = pageIo.readPage(channel, pageId);
+            frames.put(pageId, new BufferFrame(page));
+            return page;
+        } catch (IOException e) {
+            throw new UncheckedIOException(&quot;Failed to load page &quot; + pageId, e);
+        }
+    }
+
+    private void evictOnePage() {
+        // LinkedHashMap with access-order=true iterates ELDEST (least-recently-used) first --
+        // exactly the LRU victim-selection order this method needs.
+        for (Map.Entry&lt;PageId, BufferFrame&gt; entry : frames.entrySet()) {
+            if (!entry.getValue().isPinned()) {
+                evict(entry.getKey(), entry.getValue());
+                return;
+            }
+            // A pinned page is NEVER a valid eviction victim, no matter how stale its access time is --
+            // keep scanning forward (toward more-recently-used frames) for the next candidate.
+        }
+        throw new IllegalStateException(&quot;Buffer pool full: every page is pinned, cannot evict&quot;);
+    }
+
+    private void evict(PageId pageId, BufferFrame frame) {
+        if (frame.page().dirty()) {
+            try { flushFrame(pageId, frame); } catch (IOException e) { throw new UncheckedIOException(e); }
+        }
+        frames.remove(pageId);
+    }
+
+    @Override
+    public synchronized void unpin(PageId pageId) {
+        BufferFrame frame = frames.get(pageId);
+        if (frame != null) frame.unpin();
+    }
+
+    @Override
+    public synchronized void flush(PageId pageId) throws IOException {
+        BufferFrame frame = frames.get(pageId);
+        if (frame != null &amp;&amp; frame.page().dirty()) flushFrame(pageId, frame);
+    }
+
+    @Override
+    public synchronized void flushAll() throws IOException {
+        for (var entry : frames.entrySet()) {
+            if (entry.getValue().page().dirty()) flushFrame(entry.getKey(), entry.getValue());
+        }
+    }
+
+    private void flushFrame(PageId pageId, BufferFrame frame) throws IOException {
+        FileChannel channel = fileManagers.get(pageId).channel();
+        pageIo.writePage(channel, frame.page()); // §12
+        frame.page().clearDirty();
+    }
+}
+</code></pre></div>
+<p>Using a <code>LinkedHashMap</code> constructed with <code>accessOrder = true</code> is doing real, load-bearing work here, not just a convenient data structure choice: every <code>get()</code> call on such a map automatically re-links that entry to the "most recently used" end of iteration order, which means <code>evictOnePage</code>'s simple "iterate from the front" loop <strong>is</strong> correct LRU victim selection, with zero hand-written linked-list bookkeeping.</p>
+<hr>
+<h2 id="26-phase-17-the-fetch-algorithm-cache-hit-eviction-and-the-pinned-page-rule">26. Phase 17 — The Fetch Algorithm: Cache Hit, Eviction, and the Pinned-Page Rule</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>fetch(PageId)
+    |
+    +-- cache hit? (frames.get(pageId) != null)
+    |       |
+    |      yes -&gt; pin() -&gt; touch() -&gt; return page
+    |
+    +-- no (cache miss)
+          |
+          v
+      is the pool at capacity?
+          |
+         yes -&gt; evictOnePage()
+                   |
+                   v
+               scan frames, eldest first
+                   |
+                   v
+               first UNPINNED frame found -&gt; flush if dirty -&gt; remove
+               (a pinned frame is skipped, never evicted, regardless of age)
+          |
+          v
+      read the page from disk (PageIo.readPage, §12)
+          |
+          v
+      insert a new BufferFrame, pinCount = 1
+          |
+          v
+      return the page
+</code></pre></div>
+<p>The rule made explicit in §25's <code>evictOnePage</code> — <strong>a pinned page is never evicted, no matter how long ago it was last touched</strong> — is the entire reason pin counts (§24) exist at all: without them, a buffer pool under memory pressure could evict a page a concurrent caller is actively reading or writing mid-operation, which is a correctness bug (a <code>Page</code> object silently becoming stale/wrong underneath code still holding a reference to it), not merely a performance one.</p>
+<hr>
+<h2 id="27-phase-18-log-sequence-numbers">27. Phase 18 — Log Sequence Numbers</h2>
+<p>A <strong>Log Sequence Number (LSN)</strong> is a strictly increasing integer, assigned once per WAL record, in the exact order records are appended. Two facts about LSNs drive every design decision in this Part:</p>
+<ul>
+<li>Every data page records the LSN of the <strong>last</strong> WAL record that modified it (<code>Page.setPageLsn</code>, §11) — this is <code>pageLSN</code>.</li>
+<li>Recovery (Part 7) can compare a page's <code>pageLSN</code> against the WAL's own durable position to answer, precisely: <em>"does this page already reflect everything the WAL knows about, or does it need a change replayed onto it?"</em></li>
+</ul>
+<p>Nothing here requires LSNs to be globally unique across tables or even across restarts of unrelated concepts — only that within <strong>one</strong> WAL, they strictly increase, which a single <code>AtomicLong</code> counter, incremented once per append, guarantees trivially.</p>
+<hr>
+<h2 id="28-phase-19-the-wal-record-format">28. Phase 19 — The WAL Record Format</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public enum WalRecordType {
+    BEGIN, INSERT, UPDATE, DELETE, COMMIT, ABORT, CHECKPOINT
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record WalRecord(
+        long lsn,                 // assigned by WalManager.append -- callers pass -1 and never see it until append() returns
+        long transactionId,
+        WalRecordType type,
+        String table,              // null for BEGIN/COMMIT/ABORT/CHECKPOINT
+        long pageNumber,           // -1 if not applicable
+        int slotNumber,            // -1 for BEGIN/COMMIT/ABORT/CHECKPOINT; the real, already-assigned slot for INSERT/UPDATE/DELETE
+        byte[] beforeImage,        // null unless UPDATE/DELETE -- the row's bytes BEFORE this change, for undo (§31)
+        byte[] afterImage          // null unless INSERT/UPDATE -- the row's bytes AFTER this change, for redo (§30)
+) {
+    public static WalRecord begin(long txId) {
+        return new WalRecord(-1, txId, WalRecordType.BEGIN, null, -1, -1, null, null);
+    }
+    public static WalRecord commit(long txId) {
+        return new WalRecord(-1, txId, WalRecordType.COMMIT, null, -1, -1, null, null);
+    }
+    public static WalRecord abort(long txId) {
+        return new WalRecord(-1, txId, WalRecordType.ABORT, null, -1, -1, null, null);
+    }
+    public static WalRecord insert(long txId, PageId pageId, RowId rowId, byte[] afterImage) {
+        return new WalRecord(-1, txId, WalRecordType.INSERT, pageId.table(), pageId.pageNumber(), rowId.slotNumber(), null, afterImage);
+    }
+    public static WalRecord update(long txId, PageId pageId, RowId rowId, byte[] beforeImage, byte[] afterImage) {
+        return new WalRecord(-1, txId, WalRecordType.UPDATE, pageId.table(), pageId.pageNumber(), rowId.slotNumber(), beforeImage, afterImage);
+    }
+    public static WalRecord delete(long txId, PageId pageId, RowId rowId, byte[] beforeImage) {
+        return new WalRecord(-1, txId, WalRecordType.DELETE, pageId.table(), pageId.pageNumber(), rowId.slotNumber(), beforeImage, null);
+    }
+}
+</code></pre></div>
+<p>Carrying <strong>both</strong> a before-image and an after-image on <code>UPDATE</code> (and a before-image alone on <code>DELETE</code>) is what makes this WAL usable for <strong>both</strong> directions recovery needs: <code>afterImage</code> is what redo (§30) replays forward; <code>beforeImage</code> is what undo (§31) replays backward. A WAL that only recorded "what changed" without "what it changed <em>from</em>" could redo but could never correctly undo.</p>
+<hr>
+<h2 id="29-phase-20-a-real-walmanager-implementation">29. Phase 20 — A Real WalManager Implementation</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface WalManager {
+    long append(WalRecord record) throws IOException;
+    void flush(long lsn) throws IOException;
+    long durableLsn();
+    List&lt;WalRecord&gt; readAll() throws IOException; // used by recovery, Part 7
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class FileWalManager implements WalManager {
+
+    private final FileChannel channel;
+    private final AtomicLong nextLsn = new AtomicLong(0);
+    private volatile long durableLsn = -1;
+
+    public FileWalManager(Path walFile) throws IOException {
+        this.channel = FileChannel.open(walFile, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+        this.channel.position(channel.size()); // append at the end of any existing WAL from a prior run
+        this.nextLsn.set(recoverNextLsn());
+    }
+
+    @Override
+    public synchronized long append(WalRecord record) throws IOException {
+        // synchronized: WAL appends for ALL transactions must be strictly ordered on disk --
+        // exactly the same &quot;one writer at a time&quot; discipline a WAL always requires.
+        long lsn = nextLsn.getAndIncrement();
+        WalRecord withLsn = new WalRecord(lsn, record.transactionId(), record.type(), record.table(),
+                record.pageNumber(), record.slotNumber(), record.beforeImage(), record.afterImage());
+
+        byte[] serialized = serialize(withLsn);
+        channel.write(ByteBuffer.wrap(serialized));
+
+        if (record.type() == WalRecordType.COMMIT) {
+            channel.force(true); // §30 -- the commit rule: a COMMIT record must be durable before the client is told so
+            durableLsn = lsn;
+        }
+        return lsn;
+    }
+
+    @Override
+    public synchronized void flush(long lsn) throws IOException {
+        if (lsn &gt; durableLsn) {
+            channel.force(true);
+            durableLsn = lsn;
+        }
+    }
+
+    @Override
+    public long durableLsn() { return durableLsn; }
+
+    @Override
+    public List&lt;WalRecord&gt; readAll() throws IOException {
+        List&lt;WalRecord&gt; records = new ArrayList&lt;&gt;();
+        long position = 0;
+        while (position &lt; channel.size()) {
+            WalRecord record = readOneRecord(position);
+            if (record == null) break; // a torn/truncated tail -- stop here, exactly like §44's checksum discipline
+            records.add(record);
+            position += recordLength(record);
+        }
+        return records;
+    }
+
+    private long recoverNextLsn() throws IOException {
+        List&lt;WalRecord&gt; existing = readAll();
+        return existing.isEmpty() ? 0 : existing.get(existing.size() - 1).lsn() + 1;
+    }
+
+    private static final int NULL_MARKER = -1;
+
+    private byte[] serialize(WalRecord record) {
+        byte[] tableBytes = record.table() == null ? null : record.table().getBytes(StandardCharsets.UTF_8);
+        int payloadLength = 8 + 8 + 4                                      // lsn, transactionId, type ordinal
+                + 4 + (tableBytes == null ? 0 : tableBytes.length)         // table (length-prefixed)
+                + 8 + 4                                                    // pageNumber, slotNumber
+                + 4 + (record.beforeImage() == null ? 0 : record.beforeImage().length)
+                + 4 + (record.afterImage() == null ? 0 : record.afterImage().length);
+
+        ByteBuffer buffer = ByteBuffer.allocate(4 + payloadLength + 4); // length prefix + payload + checksum
+        buffer.putInt(payloadLength);
+        buffer.putLong(record.lsn());
+        buffer.putLong(record.transactionId());
+        buffer.putInt(record.type().ordinal());
+        putLengthPrefixed(buffer, tableBytes);
+        buffer.putLong(record.pageNumber());
+        buffer.putInt(record.slotNumber());
+        putLengthPrefixed(buffer, record.beforeImage());
+        putLengthPrefixed(buffer, record.afterImage());
+
+        CRC32 crc = new CRC32();
+        crc.update(buffer.array(), 4, payloadLength); // checksum covers the payload only -- not its own length prefix, not itself
+        buffer.putInt((int) crc.getValue());
+
+        return buffer.array();
+    }
+
+    private void putLengthPrefixed(ByteBuffer buffer, byte[] bytes) {
+        if (bytes == null) {
+            buffer.putInt(NULL_MARKER);
+        } else {
+            buffer.putInt(bytes.length);
+            buffer.put(bytes);
+        }
+    }
+
+    private WalRecord readOneRecord(long position) throws IOException {
+        ByteBuffer lengthPrefix = ByteBuffer.allocate(4);
+        if (readFully(lengthPrefix, position) &lt; 4) return null; // not even a full length prefix left -- torn tail
+
+        int payloadLength = lengthPrefix.getInt(0);
+        if (payloadLength &lt;= 0) return null; // a zero/negative length can never be genuine -- treat as corruption, stop
+
+        ByteBuffer body = ByteBuffer.allocate(payloadLength + 4); // payload + trailing checksum
+        if (readFully(body, position + 4) &lt; body.capacity()) return null; // torn write -- fewer bytes than promised
+
+        int storedChecksum = body.getInt(payloadLength);
+        CRC32 crc = new CRC32();
+        crc.update(body.array(), 0, payloadLength);
+        if ((int) crc.getValue() != storedChecksum) return null; // corrupted record -- never trust it, stop scanning here
+
+        body.limit(payloadLength);
+        body.position(0);
+        long lsn = body.getLong();
+        long transactionId = body.getLong();
+        WalRecordType type = WalRecordType.values()[body.getInt()];
+        String table = getLengthPrefixedString(body);
+        long pageNumber = body.getLong();
+        int slotNumber = body.getInt();
+        byte[] beforeImage = getLengthPrefixedBytes(body);
+        byte[] afterImage = getLengthPrefixedBytes(body);
+
+        return new WalRecord(lsn, transactionId, type, table, pageNumber, slotNumber, beforeImage, afterImage);
+    }
+
+    private int readFully(ByteBuffer buffer, long position) throws IOException {
+        int totalRead = 0;
+        while (buffer.hasRemaining()) {
+            int read = channel.read(buffer, position + totalRead);
+            if (read &lt; 0) break; // end of file -- caller interprets a short read as a torn tail
+            totalRead += read;
+        }
+        return totalRead;
+    }
+
+    private String getLengthPrefixedString(ByteBuffer buffer) {
+        byte[] bytes = getLengthPrefixedBytes(buffer);
+        return bytes == null ? null : new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    private byte[] getLengthPrefixedBytes(ByteBuffer buffer) {
+        int length = buffer.getInt();
+        if (length == NULL_MARKER) return null;
+        byte[] bytes = new byte[length];
+        buffer.get(bytes);
+        return bytes;
+    }
+
+    private int recordLength(WalRecord record) {
+        // Re-derives the exact on-disk size by re-running the same encoding serialize() already used to
+        // write this record -- one source of truth for the byte layout, rather than a second, hand-kept
+        // size formula that could silently drift out of sync with serialize() as the format evolves.
+        return serialize(record).length;
+    }
+}
+</code></pre></div>
+<p><code>append</code> is <code>synchronized</code> for a reason worth stating precisely: two transactions committing at "the same time" must still be assigned LSNs, and physically written to the file, in <strong>some</strong> strict, agreed order — a WAL with concurrent, unordered appends has no meaningful notion of "what happened before what" for recovery (Part 7) to reason about at all.</p>
+<hr>
+<h2 id="30-phase-21-appending-flushing-and-the-commit-rule">30. Phase 21 — Appending, Flushing, and the Commit Rule</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>transaction
+   |
+create WAL record (BEGIN, or INSERT/UPDATE/DELETE, or COMMIT)
+   |
+serialize
+   |
+append to WAL file (in memory / OS page cache at this point)
+   |
+assign LSN
+   |
+[for a COMMIT record only] force(true) -- NOW durable on physical disk
+   |
+return LSN
+</code></pre></div>
+<p>The <strong>commit rule</strong>: a transaction's <code>COMMIT</code> record must be durable — physically on disk, not just written to the OS's page cache — <strong>before</strong> the client is ever told the transaction succeeded. §29's <code>append</code> enforces this by calling <code>channel.force(true)</code> specifically (and only) when the record being appended is a <code>COMMIT</code> — every other record type is written but not immediately forced, which is a deliberate performance choice: forcing on every single <code>INSERT</code>/<code>UPDATE</code> would make every write pay <code>fsync</code>'s latency cost individually, when only the <em>commit</em> actually needs that guarantee before the client can be told "success."</p>
+<hr>
+<h2 id="31-the-wal-before-data-page-rule-enforced-in-code">31. The WAL-Before-Data-Page Rule, Enforced in Code</h2>
+<p>§13 stated the rule in prose; §22's <code>PageBasedTableHeap</code> enforces it structurally, though not by textual line order alone — the remaining piece is <em>why</em> this specific ordering, stated precisely: if page 10 is flushed to disk with <code>pageLSN = 100</code>, then before that flush is allowed to happen, the WAL record with <code>lsn = 100</code> must <strong>already</strong> be durable. If it isn't — if a crash happens after the data page hits disk but before the WAL record does — recovery (Part 7) has no way to know that change was ever <em>supposed</em> to be durable in the first place, and no way to safely redo or undo it. <code>LruBufferPool</code> (§25) never independently decides <em>when</em> to flush a dirty page specifically to keep this invariant simple to reason about: as long as every WAL append that could affect a page happens (and, for commits, is forced) before that page is ever handed to <code>PageIo.writePage</code> (§12), the ordering holds by construction — regardless of whether the <em>in-memory</em> mutation happened microseconds before or after the WAL append, which is a detail the disk-durability rule was never actually about.</p>
+<hr>
+<h2 id="32-phase-22-insert-through-the-full-stack">32. Phase 22 — INSERT Through the Full Stack</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>INSERT INTO employees VALUES (1, 'Arpan', 'arpan@example.com', 32);
+   |
+   v
+InsertExecutor (companion Query Engine guide, §17)
+   |
+   v
+BinaryRowCodec.encode(row)                          (§16)
+   |
+   v
+FreeSpaceMap.findPage(requiredBytes)                (§21)
+   |
+   v
+BufferPool.fetch(pageId)                            (§25) -- cache hit, or PageIo.readPage from disk (§12)
+   |
+   v
+page.insert(encodedRowBytes) -&gt; RowId               (§11) -- the slot directory algorithm from Part 1;
+   |                                                    mutates only the IN-MEMORY page, not yet flushed to disk
+   v
+WalManager.append(WalRecord.insert(..., rowId, ...)) (§29) -- now carries the real slot number; DURABLE
+   |                                                    (for commit) before the page is ever FLUSHED, §31
+   v
+page.setPageLsn(lsn)                                (§11)
+   |
+   v
+FreeSpaceMap.update(pageNumber, remainingSpace)     (§21)
+   |
+   v
+BufferPool.unpin(pageId)                            (§25)
+   |
+   v
+[later, whenever convenient] page flushed to disk    (§12, §25) -- its own durability was never what the client waited on
+</code></pre></div>
+<p>Every phase built in Parts 1 through 5 appears in this one trace — this is the concrete, mechanical answer to "how does TinyDB actually write an <code>INSERT</code> to a file."</p>
+<hr>
+<h2 id="33-phase-23-update-beforeafter-images-revisited">33. Phase 23 — UPDATE: Before/After Images, Revisited</h2>
+<p>§22's <code>PageBasedTableHeap.update</code> already captures both images correctly:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>read old row bytes (beforeImage)
+   |
+encode new row bytes (afterImage)
+   |
+WAL UPDATE record carrying BOTH images
+   |
+modify the page in place (fixed-size slots, §11, mean this never moves the row)
+   |
+mark dirty
+</code></pre></div>
+<p>This non-MVCC version overwrites the row in place — the old value only survives in the WAL's <code>beforeImage</code>, used exclusively for undo (§39), not for any concurrent reader to see. A real <strong>MVCC</strong> implementation changes this fundamentally: instead of overwriting, the <em>old</em> version remains fully readable on the page (or a version chain) while a <em>new</em> version is created alongside it, and each transaction's snapshot decides which version it's allowed to see — a genuinely different concurrency model than this guide builds, covered in depth by the <a href="Optimistic vs Pessimistic Locking — A Practical, Step-by-Step Guide With a Custom Java Implementation.md">Optimistic vs Pessimistic Locking guide</a> and the companion TinyDB database guide's own MVCC sections.</p>
+<hr>
+<h2 id="34-phase-24-delete-why-tombstones-not-physical-erasure">34. Phase 24 — DELETE: Why Tombstones, Not Physical Erasure</h2>
+<p><code>Page.delete</code> (§11) sets a slot's length to a <code>TOMBSTONE_LENGTH</code> sentinel rather than physically erasing the row's bytes or compacting the page immediately. Two reasons, both concrete:</p>
+<ul>
+<li><strong>The <code>RowId</code> must remain a valid, stable reference</strong> for as long as anything else (an index, a WAL undo record, a concurrent scan already positioned at this slot) might still reference it — physically removing the slot entry would shift every subsequent slot's number, silently invalidating every <code>RowId</code> that pointed past it.</li>
+<li><strong>Undo needs somewhere to restore to.</strong> If a transaction that deleted a row is later rolled back (§39), undo needs to un-delete it — trivial with a tombstone flag (<code>page.restoreSlot(slotNumber, beforeImage)</code>, §11, writing the original bytes back and restoring the slot's original length), considerably harder if the bytes were already physically gone.</li>
+</ul>
+<p>Reclaiming a tombstoned slot's space is deferred to a background <strong>compaction</strong> pass — the same idea, and the same honest tradeoff, <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's own segment compaction</a> already documents: an append/tombstone-only design defers space reclamation to a later, batched pass rather than paying a compaction cost on every single delete.</p>
+<hr>
+<h2 id="35-why-tombstones-matter-once-mvcc-exists">35. Why Tombstones Matter Once MVCC Exists</h2>
+<p>The tombstone discipline in §34 becomes even more important once MVCC (§33's forward reference) is layered on top: a "deleted" row under MVCC isn't gone at all from an older transaction's point of view — a transaction whose snapshot began before the delete must still be able to read the pre-delete version. A physically-erased row makes that structurally impossible; a tombstoned one (or, more generally, a row marked "deleted by transaction X" rather than truly removed) preserves exactly the information an MVCC visibility check needs: <em>when</em> did this row stop existing, and does that boundary fall before or after the reading transaction's own snapshot.</p>
+<hr>
+<h2 id="part-7-crash-recovery">Part 7: Crash Recovery</h2>
+<h2 id="36-what-crash-recovery-must-guarantee">36. What Crash Recovery Must Guarantee</h2>
+<p>Every piece built so far — pages, the buffer pool, the WAL — exists to make one promise possible: <strong>after a crash at any arbitrary instant, restarting TinyDB must bring the database back to a state that reflects exactly the committed transactions, and none of the uncommitted ones.</strong> Stated as two separate, equally load-bearing guarantees:</p>
+<ul>
+<li><strong>Durability</strong>: if a transaction's <code>COMMIT</code> record made it to durable storage (§30's commit rule) before the crash, every change that transaction made must be visible after restart — even if the data pages themselves never made it to disk before the crash, because the buffer pool was still holding them dirty in memory.</li>
+<li><strong>Atomicity</strong>: if a transaction never got a durable <code>COMMIT</code> record — because it crashed mid-way, or was explicitly aborted — <em>none</em> of its changes may be visible after restart, even the ones that <em>did</em> make it to a data page on disk before the crash (<code>LruBufferPool</code>'s eviction, §25, can flush a dirty page from an uncommitted transaction at any time; a buffer pool has no idea which transaction a page's changes belong to, nor should it).</li>
+</ul>
+<p>A crash can land at any of these instants relative to what's durable:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>committed, page flushed        -&gt; must remain visible            (nothing to do)
+committed, page NOT flushed    -&gt; must become visible on restart (REDO)
+uncommitted, page flushed      -&gt; must become invisible again    (UNDO)
+uncommitted, page NOT flushed  -&gt; must remain invisible           (nothing to do)
+</code></pre></div>
+<p>Two of these four cases require recovery to actively <em>do</em> something to the data pages on restart — replay a change that never made it to disk (<strong>redo</strong>), or reverse one that did (<strong>undo</strong>) — and the WAL, built in Part 5 specifically to have both a <code>beforeImage</code> and an <code>afterImage</code> per record (§28), is the only source of truth recovery has for either direction. This is the exact three-phase shape (Analysis, Redo, Undo) the ARIES recovery algorithm is built around, and the shape this section implements.</p>
+<hr>
+<h2 id="37-phase-25-analysis-scanning-the-wal-and-classifying-transactions">37. Phase 25 — Analysis: Scanning the WAL and Classifying Transactions</h2>
+<p>Recovery's first pass reads every record the WAL has, in forward order, and answers one question per transaction: <strong>did it commit?</strong></p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class AnalysisResult {
+
+    private final Set&lt;Long&gt; committedTransactionIds = new HashSet&lt;&gt;();
+    private final Set&lt;Long&gt; allTransactionIds = new HashSet&lt;&gt;();
+
+    void observe(WalRecord record) {
+        allTransactionIds.add(record.transactionId());
+        if (record.type() == WalRecordType.COMMIT) {
+            committedTransactionIds.add(record.transactionId());
+        }
+    }
+
+    public Set&lt;Long&gt; committedTransactionIds() { return committedTransactionIds; }
+
+    public Set&lt;Long&gt; incompleteTransactionIds() {
+        Set&lt;Long&gt; incomplete = new HashSet&lt;&gt;(allTransactionIds);
+        incomplete.removeAll(committedTransactionIds);
+        return incomplete;
+    }
+}
+</code></pre></div>
+<p>A transaction counts as <strong>committed</strong> purely by the presence of a <code>COMMIT</code> record for its transaction ID — nothing else. A transaction with a <code>BEGIN</code>, some <code>INSERT</code>s, and no <code>COMMIT</code> (crashed mid-transaction) or with an explicit <code>ABORT</code> record both fall out of <code>incompleteTransactionIds()</code>, and both are treated identically by Undo (§39): neither one's changes may survive.</p>
+<p>One integration note worth being explicit about: §22's <code>PageBasedTableHeap</code> calls a placeholder <code>nextTransactionId()</code> per operation, purely to keep that section's code focused on the buffer-pool/WAL interaction. A real integration replaces that placeholder with the <em>current</em> transaction's ID, supplied by a <code>TransactionContext</code> (companion Query Engine guide, §15) that itself is responsible for appending the <code>BEGIN</code> record when a transaction starts and the <code>COMMIT</code>/<code>ABORT</code> record when it ends — Analysis depends on every operation within one transaction sharing that same transaction ID, or "which changes belong to which transaction" has no coherent answer at all.</p>
+<hr>
+<h2 id="38-phase-26-redo-replaying-committed-history-idempotently">38. Phase 26 — Redo: Replaying Committed History, Idempotently</h2>
+<p>Redo's job, stated precisely: <strong>make every data page reflect everything the WAL knows happened to it — regardless of whether that transaction ultimately committed or not.</strong> This is the "repeat history" principle ARIES is built on, and it is deliberately <em>not</em> "only redo committed transactions": Undo (§39) is what removes an incomplete transaction's effects, and it can only do that correctly by starting from a page state where <em>everything</em> logged has first been applied, uncommitted changes included — a page half-updated from an interrupted redo would leave nothing coherent for undo to reverse.</p>
+<p>Redo walks the WAL <strong>forward</strong>, and for each <code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code> record, applies it to the page — but only if the page doesn't already reflect it:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private void redo(WalRecord record, BufferPool bufferPool, String database) throws IOException {
+    if (record.type() != WalRecordType.INSERT
+            &amp;&amp; record.type() != WalRecordType.UPDATE
+            &amp;&amp; record.type() != WalRecordType.DELETE) {
+        return; // BEGIN/COMMIT/ABORT/CHECKPOINT carry no page mutation to replay
+    }
+
+    PageId pageId = new PageId(database, record.table(), record.pageNumber());
+    Page page = bufferPool.fetch(pageId);
+    try {
+        if (page.pageLsn() &gt;= record.lsn()) {
+            return; // idempotency check -- this page already reflects this change, or a later one; skip it
+        }
+        switch (record.type()) {
+            case INSERT -&gt; page.insert(record.afterImage()); // note: slot allocation, see the caveat below
+            case UPDATE -&gt; page.update(record.slotNumber(), record.afterImage());
+            case DELETE -&gt; page.delete(record.slotNumber());
+            default -&gt; throw new IllegalStateException(&quot;unreachable&quot;);
+        }
+        page.setPageLsn(record.lsn());
+    } finally {
+        bufferPool.unpin(pageId);
+    }
+}
+</code></pre></div>
+<p>The idempotency check, <code>page.pageLsn() &gt;= record.lsn()</code>, is what makes redo safe to run even over records the page already has — which matters because recovery has no way to know in advance exactly which of the changes it's about to replay were already durable on disk before the crash. This is precisely why §11's <code>initializeNewPage()</code> initializes a fresh page's <code>pageLSN</code> to the sentinel <code>-1</code> rather than <code>0</code>: WAL LSNs themselves start at <code>0</code> (§29's <code>AtomicLong nextLsn = new AtomicLong(0)</code>), so a brand-new page's very first logged change — <code>lsn = 0</code> — must compare as <em>not yet applied</em> (<code>-1 &gt;= 0</code> is <code>false</code>, correctly triggering redo); had the sentinel been <code>0</code> instead, <code>0 &gt;= 0</code> would evaluate <code>true</code> and redo would silently skip the first change ever made to that page.</p>
+<p><strong>The one caveat <code>redo</code>'s <code>INSERT</code> case glosses over</strong>: <code>page.insert(bytes)</code> (§11) <em>allocates</em> a new slot rather than writing into a specific one, which is fine during normal operation (§22's <code>PageBasedTableHeap.insert</code> reads the RowId it returns) but is wrong during redo — the WAL record already carries the exact <code>slotNumber</code> the row originally landed in (§38's fix to <code>WalRecord.insert</code>, made specifically for this reason), and redo must write there, not wherever <code>page.insert</code> happens to allocate next. A complete implementation adds a slot-targeted counterpart to <code>Page</code>, <code>insertAt(int slotNumber, byte[] bytes)</code>, that writes the row's bytes into that exact slot's region and marks the slot occupied with the given length — mechanically identical to <code>restoreSlot</code> (§11) for a slot that was never tombstoned to begin with. <code>redo</code>'s <code>INSERT</code> case above should be read as calling this targeted variant, not the allocating one.</p>
+<hr>
+<h2 id="39-phase-27-undo-rolling-back-incomplete-transactions">39. Phase 27 — Undo: Rolling Back Incomplete Transactions</h2>
+<p>Once redo has brought every page fully up to date with everything the WAL logged, undo removes exactly the changes made by transactions in <code>incompleteTransactionIds()</code> (§37) — walking the WAL <strong>backward</strong>, so that a transaction's own changes are undone in the reverse of the order they were made (an <code>UPDATE</code> followed by a second <code>UPDATE</code> to the same row must have the <em>second</em> one undone first, restoring the <em>first</em> update's after-image, before that in turn is undone back to the row's true original value):</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private void undo(WalRecord record, BufferPool bufferPool, String database) throws IOException {
+    if (record.type() != WalRecordType.INSERT
+            &amp;&amp; record.type() != WalRecordType.UPDATE
+            &amp;&amp; record.type() != WalRecordType.DELETE) {
+        return;
+    }
+
+    PageId pageId = new PageId(database, record.table(), record.pageNumber());
+    Page page = bufferPool.fetch(pageId);
+    try {
+        switch (record.type()) {
+            case INSERT -&gt; page.delete(record.slotNumber());                        // undo an insert: tombstone it
+            case UPDATE -&gt; page.update(record.slotNumber(), record.beforeImage());  // undo an update: restore the old bytes
+            case DELETE -&gt; page.restoreSlot(record.slotNumber(), record.beforeImage()); // undo a delete: un-tombstone it
+            default -&gt; throw new IllegalStateException(&quot;unreachable&quot;);
+        }
+        page.setPageLsn(record.lsn());
+    } finally {
+        bufferPool.unpin(pageId);
+    }
+}
+</code></pre></div>
+<p>Each case is exactly the <em>inverse</em> operation of what the record originally logged, which is the entire reason <code>WalRecord</code> (§28) carries a <code>beforeImage</code> at all — without it, undoing an <code>UPDATE</code> or a <code>DELETE</code> would have nothing to restore <em>to</em>. <code>INSERT</code>'s undo needs no before-image because "undo an insert" simply means "this row should never have existed," and <code>page.delete</code> (§11's tombstone, not physical erasure — §34) is exactly that.</p>
+<hr>
+<h2 id="40-phase-28-a-real-recoverymanager-assembling-all-three-phases">40. Phase 28 — A Real RecoveryManager, Assembling All Three Phases</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class RecoveryManager {
+
+    private final WalManager walManager;
+    private final BufferPool bufferPool;
+    private final String database;
+
+    public RecoveryManager(WalManager walManager, BufferPool bufferPool, String database) {
+        this.walManager = walManager;
+        this.bufferPool = bufferPool;
+        this.database = database;
+    }
+
+    public void recover() throws IOException {
+        List&lt;WalRecord&gt; log = walManager.readAll(); // §29 -- stops cleanly at a torn/truncated tail
+
+        // Phase 1: Analysis
+        AnalysisResult analysis = new AnalysisResult();
+        for (WalRecord record : log) {
+            analysis.observe(record);
+        }
+
+        // Phase 2: Redo -- forward order, repeat history for EVERY transaction, committed or not
+        for (WalRecord record : log) {
+            redo(record, bufferPool, database);
+        }
+
+        // Phase 3: Undo -- reverse order, only transactions with no COMMIT record
+        Set&lt;Long&gt; incomplete = analysis.incompleteTransactionIds();
+        for (int i = log.size() - 1; i &gt;= 0; i--) {
+            WalRecord record = log.get(i);
+            if (incomplete.contains(record.transactionId())) {
+                undo(record, bufferPool, database);
+            }
+        }
+
+        bufferPool.flushAll(); // §25 -- persist recovery's own corrections before accepting new work
+    }
+
+    // redo(...) and undo(...) are §38 and §39 exactly as written there.
+}
+</code></pre></div>
+<p><code>recover()</code> runs once, synchronously, before TinyDB accepts a single new connection — a database that started serving queries against pages recovery hasn't finished fixing up yet would be handing out answers from a state that never actually existed, committed or otherwise. The final <code>bufferPool.flushAll()</code> matters for a subtle reason: recovery's own redo/undo mutations are themselves only <em>in-memory</em> until flushed — if TinyDB crashed a second time immediately after recovery finished but before this flush, the next recovery would need to redo recovery's own work all over again, which is correct (idempotency, §38, makes this safe) but wasteful; flushing once at the end of <code>recover()</code> avoids that.</p>
+<hr>
+<h2 id="41-testing-recovery-the-crash-test-that-must-pass">41. Testing Recovery: The Crash Test That Must Pass</h2>
+<p>Every guarantee in §36 reduces to one concrete, reproducible test — the same two-scenario shape used for TinyDB's own crash test in the companion database guide:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Test
+void committedTransactionSurvivesACrash() throws IOException {
+    // 1. Start TinyDB, insert a row, commit.
+    TinyDbInstance db = TinyDbInstance.start(dataDir);
+    db.execute(&quot;INSERT INTO employees VALUES (1, 'Arpan', 'arpan@example.com', 32)&quot;);
+    // (the INSERT's WAL record and its transaction's COMMIT record are now durable, §30)
+
+    // 2. Simulate a crash: stop WITHOUT a clean shutdown -- no final buffer pool flush.
+    db.crashWithoutFlushing();
+
+    // 3. Restart. RecoveryManager.recover() runs automatically on startup.
+    TinyDbInstance restarted = TinyDbInstance.start(dataDir);
+
+    // 4. The row must be visible -- REDO must have replayed it, because the crash happened
+    //    before the dirty page holding it was ever flushed to disk.
+    Row row = restarted.execute(&quot;SELECT * FROM employees WHERE id = 1&quot;).singleRow();
+    assertEquals(&quot;Arpan&quot;, row.get(&quot;name&quot;));
+}
+
+@Test
+void uncommittedTransactionIsInvisibleAfterACrash() throws IOException {
+    // 1. Start TinyDB, insert a row, but crash BEFORE committing.
+    TinyDbInstance db = TinyDbInstance.start(dataDir);
+    db.beginTransaction();
+    db.execute(&quot;INSERT INTO employees VALUES (2, 'Priya', 'priya@example.com', 29)&quot;);
+    db.crashWithoutFlushing(); // no COMMIT record was ever appended
+
+    // 2. Restart. RecoveryManager.recover() runs UNDO for this incomplete transaction.
+    TinyDbInstance restarted = TinyDbInstance.start(dataDir);
+
+    // 3. The row must NOT be visible.
+    QueryResult result = restarted.execute(&quot;SELECT * FROM employees WHERE id = 2&quot;);
+    assertTrue(result.rows().isEmpty());
+}
+</code></pre></div>
+<p>The first test is meaningless without a genuinely simulated crash — asserting recovery works after a <em>clean</em> shutdown proves nothing, because a clean shutdown flushes every dirty page on its own, and the row would be visible even with <code>RecoveryManager</code> deleted entirely. <code>crashWithoutFlushing()</code> must skip <code>BufferPool.flushAll()</code> specifically, leaving dirty pages only in memory, so that the assertion that follows is actually exercising redo. The second test is the mirror check for undo, and both together are the only real evidence that §36's two guarantees — durability of the committed, atomicity of the incomplete — actually hold, rather than merely being asserted in prose.</p>
+<hr>
+<h2 id="part-8-checkpoints-and-corruption-detection">Part 8: Checkpoints and Corruption Detection</h2>
+<h2 id="42-why-recovery-needs-checkpoints">42. Why Recovery Needs Checkpoints</h2>
+<p>§40's <code>RecoveryManager.recover()</code> calls <code>walManager.readAll()</code>, which scans the <strong>entire</strong> WAL file from position zero, every single time TinyDB restarts. On day one, with a WAL a few megabytes long, that's instant. A year into production, with a WAL that has recorded every insert/update/delete the database has ever durably logged, that same scan is a full read of a file that may be gigabytes long — and it happens on <em>every</em> restart, including a routine one after a five-second maintenance blip that had nothing to do with a crash at all. Recovery time that grows without bound as the database ages is a real, well-documented operational failure mode, not a hypothetical one.</p>
+<p>A <strong>checkpoint</strong> is a periodically-recorded promise: <em>"as of this point in the log, here is what's already durable on disk — you never need to look before this point again."</em> It bounds recovery <strong>time</strong>, and only that — it changes nothing about <strong>durability</strong>. A transaction's <code>COMMIT</code> record is durable the instant <code>channel.force(true)</code> returns (§30), checkpoint or no checkpoint; a checkpoint doesn't make anything <em>more</em> durable than it already was, it only lets recovery skip re-verifying work it can prove was already finished.</p>
+<hr>
+<h2 id="43-phase-29-a-real-quiescent-checkpoint-implementation">43. Phase 29 — A Real (Quiescent) Checkpoint Implementation</h2>
+<p>The simplest correct checkpoint — a <strong>quiescent</strong> (or "sharp") checkpoint — takes advantage of one guarantee: if no transaction is active anywhere in the system at the instant the checkpoint is taken, then <em>everything</em> logged before that instant belongs to a transaction that has already either committed or aborted, with every one of its effects already reflected — because a full <code>flushAll()</code> is taken as part of the checkpoint itself. That single guarantee is what lets recovery skip the entire log before the checkpoint, for <strong>both</strong> redo and undo, with no further bookkeeping required:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public static WalRecord checkpoint() {
+    return new WalRecord(-1, -1, WalRecordType.CHECKPOINT, null, -1, -1, null, null);
+}
+</code></pre></div>
+<p><em>(added as a sixth factory method on <code>WalRecord</code>, §28, alongside <code>begin</code>/<code>commit</code>/<code>abort</code>/<code>insert</code>/<code>update</code>/<code>delete</code>)</em></p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class CheckpointManager {
+
+    private final WalManager walManager;
+    private final BufferPool bufferPool;
+
+    public CheckpointManager(WalManager walManager, BufferPool bufferPool) {
+        this.walManager = walManager;
+        this.bufferPool = bufferPool;
+    }
+
+    /**
+     * Quiescent checkpoint: the CALLER is responsible for ensuring no transaction is
+     * currently active before invoking this (e.g. a background scheduler that briefly
+     * pauses new transaction starts) -- this is a &quot;Level 1&quot; tradeoff (§54, &quot;Future Enhancements&quot;):
+     * production systems use a &quot;fuzzy&quot; checkpoint that doesn't require quiescing at all,
+     * at the cost of a checkpoint record that must also list which transactions were
+     * still active, which recovery then still has to walk further back to find.
+     */
+    public long takeCheckpoint() throws IOException {
+        bufferPool.flushAll(); // every dirty page is now durable -- §31's rule, satisfied for ALL pages at once
+        return walManager.append(WalRecord.checkpoint());
+    }
+}
+</code></pre></div>
+<p><code>RecoveryManager.recover()</code> (§40) is extended with exactly one step, inserted before Analysis: find the last <code>CHECKPOINT</code> record in the log, if any, and discard everything before it before Analysis, Redo, or Undo ever see it —</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public void recover() throws IOException {
+    List&lt;WalRecord&gt; fullLog = walManager.readAll();
+    List&lt;WalRecord&gt; log = afterLastCheckpoint(fullLog); // §43 -- everything before it is provably already durable
+
+    AnalysisResult analysis = new AnalysisResult();
+    for (WalRecord record : log) {
+        analysis.observe(record);
+    }
+    for (WalRecord record : log) {
+        redo(record, bufferPool, database);
+    }
+    Set&lt;Long&gt; incomplete = analysis.incompleteTransactionIds();
+    for (int i = log.size() - 1; i &gt;= 0; i--) {
+        WalRecord record = log.get(i);
+        if (incomplete.contains(record.transactionId())) {
+            undo(record, bufferPool, database);
+        }
+    }
+    bufferPool.flushAll();
+}
+
+private List&lt;WalRecord&gt; afterLastCheckpoint(List&lt;WalRecord&gt; fullLog) {
+    int lastCheckpointIndex = -1;
+    for (int i = 0; i &lt; fullLog.size(); i++) {
+        if (fullLog.get(i).type() == WalRecordType.CHECKPOINT) {
+            lastCheckpointIndex = i;
+        }
+    }
+    return lastCheckpointIndex == -1 ? fullLog : fullLog.subList(lastCheckpointIndex + 1, fullLog.size());
+}
+</code></pre></div>
+<p>This is the only place §40's version of <code>recover()</code> changes — <code>redo</code>/<code>undo</code> themselves (§38, §39) are untouched, because a checkpoint only ever <em>shrinks the list of records recovery looks at</em>, never changes what recovery does with the records it does see. A <code>CheckpointManager</code> is typically driven by a simple background scheduler (e.g. every N minutes, or every N WAL bytes appended) — wired in as part of the <code>StorageEngine</code> facade (§45).</p>
+<hr>
+<h2 id="44-phase-30-page-checksums-crc32-corruption-detection-for-real">44. Phase 30 — Page Checksums: CRC32 Corruption Detection, For Real</h2>
+<p>§12's <code>PageIo</code> left two calls unimplemented: <code>verifyChecksum</code> (on every read) and <code>computeAndStoreChecksum</code> (on every write). Both rely on the checksum field §10 reserved at header offset 32, and both use the same <code>java.util.zip.CRC32</code> already used for WAL records (§29):</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class PageIo {
+
+    private static final int CHECKSUM_OFFSET = 32;
+    private static final int CHECKSUM_LENGTH = 4;
+
+    // ... readPage(...) / writePage(...) exactly as in §12 ...
+
+    private int computeChecksum(Page page) {
+        CRC32 crc = new CRC32();
+        ByteBuffer buffer = page.buffer().duplicate();
+
+        ByteBuffer beforeChecksumField = buffer.duplicate();
+        beforeChecksumField.limit(CHECKSUM_OFFSET).position(0);
+        crc.update(beforeChecksumField);
+
+        ByteBuffer afterChecksumField = buffer.duplicate();
+        afterChecksumField.position(CHECKSUM_OFFSET + CHECKSUM_LENGTH).limit(StorageConstants.PAGE_SIZE);
+        crc.update(afterChecksumField);
+
+        return (int) crc.getValue();
+    }
+
+    void verifyChecksum(Page page) {
+        int expected = page.checksum();
+        int actual = computeChecksum(page);
+        if (expected != actual) {
+            throw new CorruptedPageException(page.pageId(), expected, actual);
+        }
+    }
+
+    void computeAndStoreChecksum(Page page) {
+        page.setChecksum(computeChecksum(page));
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class CorruptedPageException extends RuntimeException {
+    public CorruptedPageException(PageId pageId, int expectedChecksum, int actualChecksum) {
+        super(&quot;Page &quot; + pageId + &quot; failed checksum verification: expected &quot; + expectedChecksum
+                + &quot; but computed &quot; + actualChecksum + &quot; -- refusing to serve possibly-corrupted data&quot;);
+    }
+}
+</code></pre></div>
+<p><code>computeChecksum</code> deliberately excludes the checksum field's own 4 bytes (offsets 32-35) from the computation — covering <code>[0, 32)</code> and <code>[36, PAGE_SIZE)</code> instead of the whole buffer — because including them would make the value being computed depend on the value already stored there, a circular definition with no stable fixed point. Whatever stale bytes happen to sit in that field before a fresh checksum is computed and written are simply irrelevant, by construction.</p>
+<p><strong>What this can, and cannot, detect.</strong> A checksum mismatch on read means the bytes on disk are not the bytes that were last written for this page — a bit flip from a failing disk, a torn write from a crash mid-<code>writePage</code>, a page from the wrong file entirely. <code>verifyChecksum</code> fails loudly (<code>CorruptedPageException</code>, never a silent fallback) specifically because a database that returns wrong answers on corrupted data without saying so is worse than one that stops. What it <strong>cannot</strong> detect: a <em>logically</em> wrong page that was nonetheless written and read back exactly as intended — a bug in <code>BinaryRowCodec</code> (§16) that encodes the wrong value still produces bytes that checksum correctly, because the checksum only verifies "these are the bytes that were written," never "these bytes are semantically correct." Checksums are a defense against storage-layer corruption, not against application-layer bugs.</p>
+<hr>
+<h2 id="part-9-the-storage-engine-facade">Part 9: The Storage Engine Facade</h2>
+<h2 id="45-phase-31-the-storageengine-interface-and-a-real-implementation">45. Phase 31 — The StorageEngine Interface and a Real Implementation</h2>
+<p>Every layer built across Parts 1-8 — pages, rows, table heaps, the buffer pool, the WAL, recovery, checkpoints, checksums — is an implementation detail the SQL layer (companion Query Engine guide) should never have to know about directly. <code>StorageEngine</code> is the one seam: the entire, single door through which the rest of TinyDB reaches disk.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface StorageEngine {
+    void createDatabase(String database) throws IOException;
+    void createTable(String database, String table) throws IOException;
+
+    TableHeap tableHeap(String database, String table);  // §22 -- insert/read/update/delete by RowId
+
+    void beginTransaction(long transactionId) throws IOException;
+    void commitTransaction(long transactionId) throws IOException;
+    void abortTransaction(long transactionId) throws IOException;
+
+    void recover() throws IOException;   // §40/§43 -- run once, at startup, before anything else
+    void shutdown() throws IOException;  // flush everything, close every file cleanly
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class FileStorageEngine implements StorageEngine {
+
+    private final Path dataRoot;
+    private final DatabaseDirectory directory;
+    private final Map&lt;String, TableFileManager&gt; fileManagers = new ConcurrentHashMap&lt;&gt;();
+    private final Map&lt;String, WalManager&gt; walManagers = new ConcurrentHashMap&lt;&gt;();       // one WAL per database
+    private final Map&lt;String, TableHeap&gt; tableHeaps = new ConcurrentHashMap&lt;&gt;();
+    private final BufferPool bufferPool;                                                  // one shared pool, all tables
+
+    public FileStorageEngine(Path dataRoot, int bufferPoolCapacity) {
+        this.dataRoot = dataRoot;
+        this.directory = new DatabaseDirectory(dataRoot);
+        this.bufferPool = new LruBufferPool(bufferPoolCapacity, new PageIo());
+    }
+
+    @Override
+    public void createDatabase(String database) throws IOException {
+        directory.createDatabase(database);
+        walManagers.put(database, new FileWalManager(directory.database(database).resolve(&quot;wal&quot;).resolve(&quot;wal.log&quot;)));
+    }
+
+    @Override
+    public void createTable(String database, String table) throws IOException {
+        Path path = directory.tableFile(database, table);
+        new TableFile(path).create();
+
+        TableFileManager fileManager = new TableFileManager(path);
+        fileManagers.put(key(database, table), fileManager);
+
+        TableHeap heap = new PageBasedTableHeap(database, table, fileManager, bufferPool,
+                new SimpleFreeSpaceMap(), new BinaryRowCodec(/* TablePhysicalLayout for this table */ null),
+                walManagers.get(database));
+        tableHeaps.put(key(database, table), heap);
+    }
+
+    @Override
+    public TableHeap tableHeap(String database, String table) {
+        return tableHeaps.get(key(database, table));
+    }
+
+    @Override
+    public void beginTransaction(long transactionId) throws IOException {
+        // one WAL per database in this design -- a cross-database transaction would need a
+        // distributed-commit protocol this guide doesn't build; see §54.
+        for (WalManager wal : walManagers.values()) wal.append(WalRecord.begin(transactionId));
+    }
+
+    @Override
+    public void commitTransaction(long transactionId) throws IOException {
+        for (WalManager wal : walManagers.values()) wal.append(WalRecord.commit(transactionId));
+    }
+
+    @Override
+    public void abortTransaction(long transactionId) throws IOException {
+        for (WalManager wal : walManagers.values()) wal.append(WalRecord.abort(transactionId));
+    }
+
+    @Override
+    public void recover() throws IOException {
+        for (Map.Entry&lt;String, WalManager&gt; entry : walManagers.entrySet()) {
+            new RecoveryManager(entry.getValue(), bufferPool, entry.getKey()).recover(); // §40/§43
+        }
+    }
+
+    @Override
+    public void shutdown() throws IOException {
+        bufferPool.flushAll();
+        for (TableFileManager fileManager : fileManagers.values()) fileManager.close();
+    }
+
+    private String key(String database, String table) { return database + &quot;.&quot; + table; }
+}
+</code></pre></div>
+<p><code>recover()</code> must be the very first call made against a freshly-constructed <code>FileStorageEngine</code> — before <code>createDatabase</code>/<code>createTable</code> are called again for anything that already existed on disk, and certainly before any query executes. Everything §36 through §44 built exists to make this one method, called once, at the very top of TinyDB's startup sequence, sufficient.</p>
+<hr>
+<h2 id="46-integration-with-the-sql-layer">46. Integration With the SQL Layer</h2>
+<p>The companion Query Engine guide's <code>TableScan</code> (§29 there) and every executor (§17 there) are written directly against the <code>TableHeap</code> interface (§22) — <code>StorageEngine.tableHeap(database, table)</code> is the one call that hands them a working instance, fully wired to this database's buffer pool, WAL, and free-space map. Concretely, the dependency direction across both guides is:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>SQL text
+   |
+SqlLexer / SqlParser              (companion guide, §7-13)      -- produces an AST, touches nothing below
+   |
+BasicPlanner / BasicQueryEngine   (companion guide, §20-27)      -- decides HOW to answer, still touches nothing below
+   |
+Scan (TableScan/SelectScan/...)   (companion guide, §29-32)      -- the ONLY layer that calls into StorageEngine
+   |
+StorageEngine.tableHeap(db, table).read/insert/update/delete(...)  (THIS guide, §45)
+   |
+TableHeap -&gt; BufferPool -&gt; Page -&gt; PageIo -&gt; disk                  (THIS guide, Parts 1-4)
+   |                \
+   |                 WalManager (durable before flush, §31)        (THIS guide, Part 5)
+</code></pre></div>
+<p>Nothing above the <code>Scan</code> layer ever holds a <code>PageId</code>, a <code>RowId</code>'s internal slot number, or a <code>ByteBuffer</code> — the moment a <code>SelectPlan</code>/<code>ProjectPlan</code> (companion guide §21-22) asks its underlying <code>Scan</code> for "the next row," everything from that point down is this guide's responsibility, and everything above it only ever sees <code>Row</code> objects (companion guide §9), never bytes.</p>
+<hr>
+<h2 id="47-embedded-vs-server-mode-and-minispring-integration">47. Embedded vs. Server Mode, and MiniSpring Integration</h2>
+<p>Everything built in this guide runs equally well in two deployment shapes, and the difference is entirely about what sits <em>above</em> <code>StorageEngine</code> — nothing in Parts 1-9 changes:</p>
+<ul>
+<li><strong>Embedded mode</strong>: <code>FileStorageEngine</code> runs in the same JVM process as the application calling it directly — no network hop, no separate server process, <code>StorageEngine.tableHeap(...)</code> called as an ordinary Java method call. This is exactly how the <a href="Build Your Own CRUD Admin Framework From Scratch — MiniAdmin Step-by-Step Guide.md">Build Your Own CRUD Admin Framework guide's</a> data layer, or a Spring-style application wired through <a href="Build Your Own Dependency Injection Framework — Step-by-Step Implementation Guide.md">MiniSpring's</a> dependency injection, would consume it: <code>FileStorageEngine</code> registered as a singleton bean, injected into a repository layer, <code>recover()</code> called once from an application-startup lifecycle hook.</li>
+<li><strong>Server mode</strong>: a <code>FileStorageEngine</code> instance lives inside one long-running server process (built the way the <a href="Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide.md">Build Your Own Web Server guide's</a> MiniTomcat is), and every SQL request from every remote client is a request/response round-trip through that one process — the same <code>StorageEngine</code>, <code>BufferPool</code>, and <code>WalManager</code> instances shared across every concurrent connection, which is precisely why Part 10's concurrency guarantees (buffer pool pin counts, §24; the WAL's <code>synchronized append</code>, §29) are not optional hardening but load-bearing correctness for this mode specifically.</li>
+</ul>
+<p>The two modes differ only in <em>how many callers</em> can reach one <code>StorageEngine</code> instance concurrently, and <em>how</em> a request arrives (a direct method call vs. a parsed wire request) — every guarantee this guide builds (durability, atomicity, checksums, LRU eviction) holds identically in both, which is the entire point of putting <code>StorageEngine</code> at the boundary in the first place.</p>
+<hr>
+<h2 id="part-10-concurrency">Part 10: Concurrency</h2>
+<h2 id="48-why-pages-the-buffer-pool-and-the-wal-each-need-their-own-locking">48. Why Pages, the Buffer Pool, and the WAL Each Need Their Own Locking</h2>
+<p>Server mode (§47) means every class built in this guide is, in practice, shared across every concurrently-connected client's thread — and three specific places have real, already-identified race conditions if left unguarded:</p>
+<ul>
+<li><strong><code>LruBufferPool</code>'s internal <code>LinkedHashMap</code></strong> (§25): two threads calling <code>fetch</code> for the <em>same</em> <code>pageId</code> at the same moment could both miss the cache and both call <code>loadFromDisk</code>, creating two separate <code>BufferFrame</code> instances for the same physical page — after that, whichever one a third thread happens to read through has already diverged from whichever one gets mutated, and both are wrong, because at that point neither reflects the other's changes. <code>LruBufferPool.fetch</code> needs to be <code>synchronized</code> (or guarded by an equivalent lock) end-to-end — checking the map, and inserting into it on a miss, as a single atomic step — exactly the same "check-then-act must be atomic" hazard the <a href="Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide.md">Build Your Own ConcurrentHashMap guide</a> builds an entire bucket-level-locking scheme to solve for a general-purpose map.</li>
+<li><strong><code>FileWalManager.append</code></strong> (§29) already is <code>synchronized</code>, and for a reason specific to a WAL: LSNs must be assigned, and the corresponding bytes physically written, in one single, globally agreed order — two threads racing to append without synchronization could interleave their writes mid-record, producing a WAL file no <code>readOneRecord</code> (§29) could ever correctly parse back.</li>
+<li><strong>A single <code>Page</code>'s in-memory <code>ByteBuffer</code></strong> (§11): two threads calling <code>insert</code>/<code>update</code>/<code>delete</code> on the <em>same</em> <code>Page</code> object concurrently, unsynchronized, could corrupt the slot directory itself (e.g. both reading the same <code>slotCount()</code>, both computing the same "next" slot number, both writing to the same offset) — every mutating <code>Page</code> method needs to run under a per-page lock, not a single global one (a single global lock would serialize all writes across the <em>entire</em> database on every insert anywhere, which defeats the entire purpose of having more than one page).</li>
+</ul>
+<hr>
+<h2 id="49-a-concurrency-checklist">49. A Concurrency Checklist</h2>
+<p>A working, safe integration of everything this guide builds needs, at minimum:</p>
+<ul>
+<li>[ ] <code>LruBufferPool.fetch</code>/<code>unpin</code>/<code>evictOnePage</code> are synchronized as one unit — no other thread can observe a partially-updated <code>LinkedHashMap</code> or a <code>BufferFrame</code> mid-construction.</li>
+<li>[ ] Each <code>Page</code> has its own lock (a per-page <code>ReentrantLock</code>, or <code>synchronized</code> on the <code>Page</code> object itself), acquired for the duration of any <code>insert</code>/<code>update</code>/<code>delete</code>/<code>restoreSlot</code>/<code>insertAt</code> call, and held across the "capture before-image, append WAL record, mutate page" sequence in <code>PageBasedTableHeap</code> (§22) as one atomic unit — otherwise a second thread could read or mutate the page between the WAL append and the page mutation, observing a state the WAL doesn't yet agree with.</li>
+<li>[ ] <code>FileWalManager.append</code> stays <code>synchronized</code>, unconditionally — LSN assignment order and on-disk write order must always match.</li>
+<li>[ ] <code>RecoveryManager.recover()</code> (§40/§43) runs to completion before any other thread is allowed to call <code>tableHeap(...)</code> on the same <code>StorageEngine</code> — recovery mutates pages directly, and a concurrent reader mid-recovery would see a database in an intermediate, meaningless state.</li>
+<li>[ ] <code>CheckpointManager.takeCheckpoint()</code> (§43) either briefly blocks new transaction starts (the quiescent design this guide builds) or is upgraded to the fuzzy-checkpoint design named in §54 — running it against actively-mutating transactions without either safeguard silently breaks the one guarantee (§42) checkpoints exist to provide.</li>
+</ul>
+<p>None of this is a different concurrency <em>model</em> from what the <a href="Optimistic vs Pessimistic Locking — A Practical, Step-by-Step Guide With a Custom Java Implementation.md">Optimistic vs Pessimistic Locking guide</a> or the <a href="Build Your Own Executor Framework From Scratch — A Java Concurrency Step-by-Step Guide.md">Build Your Own Executor Framework guide</a> already teach — it's the exact same "identify the shared mutable state, decide what must be atomic, lock at the smallest scope that's still correct" discipline, applied specifically to pages, buffer frames, and a WAL file instead of a generic map or thread pool.</p>
+<hr>
+<h2 id="50-design-patterns-used-throughout-this-guide">50. Design Patterns Used Throughout This Guide</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Where</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Facade</strong></td>
+<td><code>StorageEngine</code> / <code>FileStorageEngine</code> (§45)</td>
+<td>One narrow interface hides pages, the buffer pool, the WAL, recovery, and checkpoints from every caller above it.</td>
+</tr>
+<tr>
+<td><strong>Strategy</strong></td>
+<td><code>RowCodec</code> (§16), <code>FreeSpaceMap</code> (§21), <code>BufferPool</code> (§23)</td>
+<td>Each is an interface with one concrete "Level 1" implementation — a different encoding, allocation, or eviction strategy can be swapped in without touching any caller.</td>
+</tr>
+<tr>
+<td><strong>Decorator (conceptually)</strong></td>
+<td><code>Page.insertAt</code>/<code>restoreSlot</code> reusing <code>Page</code>'s own primitives (§11, §38)</td>
+<td>Recovery-specific behavior is built as thin, targeted additions layered onto the same <code>Page</code> object, not a parallel "recovery page" type.</td>
+</tr>
+<tr>
+<td><strong>Template Method (shape)</strong></td>
+<td><code>RecoveryManager.recover()</code> (§40)</td>
+<td>One fixed algorithm shape — Analysis, then Redo, then Undo — with <code>redo</code>/<code>undo</code> as the two steps that do the real per-record work.</td>
+</tr>
+<tr>
+<td><strong>Command (conceptually)</strong></td>
+<td><code>WalRecord</code> (§28)</td>
+<td>Every WAL record is a small, self-contained, replayable unit of "what happened" — precisely what lets Redo and Undo replay or reverse it without any other context.</td>
+</tr>
+<tr>
+<td><strong>Sentinel Value</strong></td>
+<td><code>Page.pageLsn() == -1</code> (§11)</td>
+<td>A dedicated "no LSN yet" value, distinct from any real LSN, makes the redo idempotency check (§38) correct at the boundary case a page has never been touched.</td>
+</tr>
+<tr>
+<td><strong>Tombstone</strong></td>
+<td><code>Page.delete</code> (§11, §34)</td>
+<td>Deletion is a marker, not a physical erase — preserving <code>RowId</code> stability and giving undo (§39) something to restore.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="51-solid-principles-applied">51. SOLID Principles Applied</h2>
+<ul>
+<li><strong>Single Responsibility</strong>: <code>Page</code> only knows about bytes within one 8 KB region; <code>WalManager</code> only knows about durable, ordered append-only logging; <code>RecoveryManager</code> only knows the three-phase replay algorithm. None of them know about SQL, rows-as-Java-objects, or query planning.</li>
+<li><strong>Open/Closed</strong>: adding a new <code>RowCodec</code> (a compressed encoding, say) or a new <code>BufferPool</code> eviction policy (clock, LFU) requires implementing one interface — nothing in <code>PageBasedTableHeap</code> or <code>RecoveryManager</code> changes.</li>
+<li><strong>Liskov Substitution</strong>: any <code>FreeSpaceMap</code>, <code>BufferPool</code>, or <code>WalManager</code> implementation is fully interchangeable wherever the interface type is used — <code>SimpleFreeSpaceMap</code>'s linear scan (§21) could be swapped for a bucketed one without <code>PageBasedTableHeap</code> (§22) needing to change a single line.</li>
+<li><strong>Interface Segregation</strong>: <code>TableHeap</code> (§22) exposes exactly four methods — <code>insert</code>/<code>read</code>/<code>update</code>/<code>delete</code> — nothing about pages, buffer pools, or the WAL leaks into that interface's surface.</li>
+<li><strong>Dependency Inversion</strong>: <code>PageBasedTableHeap</code> depends on the <code>BufferPool</code>, <code>FreeSpaceMap</code>, <code>RowCodec</code>, and <code>WalManager</code> <em>interfaces</em>, injected through its constructor (§22) — never on <code>LruBufferPool</code>, <code>SimpleFreeSpaceMap</code>, <code>BinaryRowCodec</code>, or <code>FileWalManager</code> directly.</li>
+</ul>
+<hr>
+<h2 id="52-common-mistakes-when-building-this-yourself">52. Common Mistakes When Building This Yourself</h2>
+<ul>
+<li><strong>Forgetting the checksum field's own bytes must be excluded from the checksum computation</strong> (§44) — including them makes the "correct" value depend on whatever was already there, which is circular and non-deterministic depending on write order.</li>
+<li><strong>Initializing a new page's <code>pageLSN</code> to <code>0</code> instead of a sentinel like <code>-1</code></strong> (§11) — collides with a WAL LSN sequence that also starts at <code>0</code>, silently breaking redo's very first idempotency check for every brand-new page.</li>
+<li><strong>Logging only the after-image on <code>UPDATE</code>, or nothing at all on <code>DELETE</code></strong> — makes undo (§39) structurally impossible; both before- and after-images must be captured <em>before</em> the page is mutated, not reconstructed afterward (they can't be).</li>
+<li><strong>Calling <code>page.insert()</code> (slot-allocating) during redo instead of a slot-targeted <code>insertAt()</code></strong> (§38) — replaying an <code>INSERT</code> must land the row back in the <em>exact</em> slot number the WAL record says it originally occupied, or every subsequent <code>RowId</code> referencing that slot silently points at the wrong row.</li>
+<li><strong>Treating a checkpoint as a durability mechanism</strong> (§42) — a checkpoint bounds recovery <em>time</em>; it adds no durability a <code>COMMIT</code>'s <code>force(true)</code> didn't already provide, and skipping the <code>bufferPool.flushAll()</code> inside <code>takeCheckpoint()</code> (§43) makes the whole "everything before this point is already durable" promise false.</li>
+<li><strong>Using a single global lock across all pages</strong> (§48) instead of one lock per page — technically safe, but serializes every write in the entire database through one lock, which defeats the purpose of buffering multiple pages independently in the first place.</li>
+<li><strong>Skipping the checksum verification on read "for performance"</strong> — a corrupted page a query silently reads and returns is a far more expensive failure, later, than the CPU cost of one CRC32 pass per page fetch.</li>
+</ul>
+<hr>
+<h2 id="53-testing-strategy">53. Testing Strategy</h2>
+<p>Beyond §41's two crash-recovery tests, a thorough test suite for this guide's code covers, layer by layer:</p>
+<ul>
+<li><strong><code>Page</code></strong> (§11): insert/read/update/delete round-trips; a full page correctly throws <code>PageFullException</code>; a deleted slot reads back <code>null</code>; <code>restoreSlot</code>/<code>insertAt</code> correctly reconstruct a row at a specific slot number.</li>
+<li><strong><code>BinaryRowCodec</code></strong> (§16): encode-then-decode round-trips for every <code>DataType</code>; a <code>NULL</code> value round-trips through the null bitmap correctly; a VARCHAR whose UTF-8 byte length exceeds <code>VARCHAR_SLOT_BYTES - 4</code> throws <code>IllegalArgumentException</code> rather than silently truncating.</li>
+<li><strong><code>LruBufferPool</code></strong> (§25): a page fetched twice in a row is a cache hit the second time (no second disk read); a pinned page is never chosen by <code>evictOnePage</code>, even when it's the least-recently-used frame; unpinning a page makes it eligible for eviction again.</li>
+<li><strong><code>FileWalManager</code></strong> (§29): <code>readAll()</code> correctly reconstructs every field of every record after a restart; a record with a bad checksum (simulate a torn write by truncating the file mid-record) causes <code>readAll()</code> to stop cleanly rather than throwing or returning garbage; <code>append</code> assigns strictly increasing LSNs under concurrent callers.</li>
+<li><strong><code>RecoveryManager</code></strong> (§40): §41's two crash tests, plus a third — a transaction with <em>some</em> committed and <em>some</em> uncommitted operations interleaved with a second, unrelated transaction, verifying only the correct rows survive.</li>
+<li><strong><code>CheckpointManager</code></strong> (§43): after a checkpoint, <code>RecoveryManager.recover()</code> correctly ignores every record before it; a crash immediately after a checkpoint still recovers correctly for transactions that started <em>after</em> the checkpoint.</li>
+<li><strong><code>PageIo</code></strong> (§44): a page whose bytes are corrupted after being written (flip one byte on disk directly) causes <code>verifyChecksum</code> to throw <code>CorruptedPageException</code> on the next read.</li>
+</ul>
+<hr>
+<h2 id="54-future-enhancements">54. Future Enhancements</h2>
+<ul>
+<li><strong>A bucketed <code>FreeSpaceMap</code></strong> (§21) — grouping pages by free-space percentage (e.g. 0-25%, 25-50%, ...) turns <code>findPage</code> from a linear scan into a near-constant-time bucket lookup, the standard refinement over the "Level 1" implementation this guide builds.</li>
+<li><strong>A fuzzy checkpoint</strong> (§43) — instead of quiescing all transactions, record the set of transactions still active <em>at</em> checkpoint time directly in the <code>CHECKPOINT</code> record; recovery then knows exactly how far back it must still look for those specific transactions' <code>BEGIN</code> records, without requiring the whole system to pause to take one.</li>
+<li><strong>Real MVCC</strong> (§33, §35) — replace in-place overwrite with multi-version rows and per-transaction snapshot visibility, the direction the <a href="Optimistic vs Pessimistic Locking — A Practical, Step-by-Step Guide With a Custom Java Implementation.md">Optimistic vs Pessimistic Locking guide</a> and the companion database guide's own MVCC sections already develop.</li>
+<li><strong>Background compaction</strong> (§34) — reclaiming tombstoned slots' space in a batched pass rather than leaving it permanently unused, mirrored from <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's own segment compaction</a>.</li>
+<li><strong>A B-tree or LSM-tree secondary index storage format</strong> — this guide's indexes (companion Query Engine guide §37-38) are described only at the <code>indexedValue -&gt; RowId</code> mapping level; a real on-disk index needs its own page format, entirely analogous to what Parts 1-4 built for table data.</li>
+<li><strong>Multi-database transactions</strong> — §45's <code>beginTransaction</code>/<code>commitTransaction</code> loop over every database's WAL independently; a genuine cross-database atomic commit needs a two-phase commit protocol layered on top.</li>
+<li><strong>Group commit</strong> — batching multiple concurrent transactions' <code>COMMIT</code> records into a single <code>force(true)</code> call, trading a small amount of added latency per transaction for dramatically higher throughput under heavy concurrent commit load.</li>
+</ul>
+<hr>
+<h2 id="55-progressive-interview-questions">55. Progressive Interview Questions</h2>
+<ol>
+<li>Why can't a database just call <code>fsync</code> on its data file after every write and call it durable?</li>
+<li>What's the difference between a page's <code>pageLSN</code> and the WAL's own last-appended LSN — and why does redo need both?</li>
+<li>Why does <code>Page.delete</code> tombstone a slot instead of physically removing it?</li>
+<li>Walk through what happens, byte by byte, when <code>PageBasedTableHeap.insert</code> is called — in what order, and why that order specifically.</li>
+<li>Why is <code>LruBufferPool.fetch</code> implemented with <code>LinkedHashMap(accessOrder=true)</code> instead of a hand-rolled doubly-linked list?</li>
+<li>What would go wrong if a buffer pool were allowed to evict a pinned page under memory pressure?</li>
+<li>Explain the WAL commit rule in one sentence, and explain what could go wrong if <code>FileWalManager.append</code> only called <code>force(true)</code> on every record, not just <code>COMMIT</code> records.</li>
+<li>Why does redo replay <em>every</em> logged change, including ones from transactions that never committed — rather than only replaying committed transactions' changes?</li>
+<li>Why does undo have to walk the WAL in reverse order, rather than forward order like redo?</li>
+<li>What does a checkpoint actually make faster, and what does it <em>not</em> make safer?</li>
+<li>Why must the checksum computation exclude the checksum field's own bytes?</li>
+<li>What kinds of corruption can a page checksum catch, and what kinds can it never catch, no matter how it's implemented?</li>
+<li>If you were asked to add support for a table growing beyond a single page's worth of data — multiple pages per table — what would need to change in <code>PageBasedTableHeap</code>, <code>FreeSpaceMap</code>, and <code>TableFileManager</code>?</li>
+<li>Why is a per-page lock the right granularity for <code>Page</code> mutations, rather than one global lock or one lock per row?</li>
+</ol>
+<hr>
+<h2 id="56-final-architecture-and-mental-model">56. Final Architecture and Mental Model</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                         StorageEngine (§45)
+                    /            |              \
+        createTable/DB   tableHeap(db, table)   recover() / shutdown()
+                                 |
+                            TableHeap (§22)
+                    insert / read / update / delete
+                        /                    \
+              BufferPool (§23-26)        WalManager (§27-30)
+              LRU cache of Pages          append-only, LSN-ordered,
+              pin counts, eviction        commit rule enforced
+                    |                            |
+                 Page (§9-12)             WalRecord (§28)
+           slotted layout, checksums    before/after images
+                    |
+              PageIo (§12)
+        FileChannel reads/writes, 8 KB pages
+                    |
+              disk (.tbl files)
+
+                RecoveryManager (§36-41)         CheckpointManager (§43)
+        reads WalManager, mutates via BufferPool     bounds how much
+        Analysis -&gt; Redo -&gt; Undo, on startup only    of the WAL recovery must scan
+</code></pre></div>
+<p>The mental model worth carrying forward: <strong>every durability guarantee this guide makes traces back to one rule</strong> (§13/§31) — a data page is never flushed to disk before the WAL record describing its most recent change is itself durable — and <strong>every crash-recovery guarantee traces back to one algorithm</strong> (§36-40) — replay everything forward (redo), then reverse only what was never finished (undo). Pages, the buffer pool, checksums, and checkpoints are all in service of making those two statements cheap to enforce and cheap to verify; none of them are independent ideas bolted on afterward.</p>
+<hr>
+<h2 id="57-final-takeaway">57. Final Takeaway</h2>
+<p>A database's storage engine is not one clever trick — it's a small number of individually simple pieces (a fixed-size page, a slot directory, an append-only log, a cache with pin counts) composed under one non-negotiable ordering rule, with a recovery algorithm that only has to reason about two questions: <em>did this commit?</em> and <em>does this page already reflect it?</em> Every mechanism in this guide — the <code>-1</code> LSN sentinel, the tombstone instead of physical delete, the before-and-after images on every WAL record, the checksum excluding its own field — exists because skipping it breaks one of those two questions in a way that's invisible until the exact moment a crash makes it matter. Building it once, from scratch, with real byte-level code rather than a diagram, is what makes "durability" and "atomicity" stop being words in a textbook and start being specific lines of code you can point to.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "TinyDB Storage Engine — Step-by-Step Implementation Guide.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

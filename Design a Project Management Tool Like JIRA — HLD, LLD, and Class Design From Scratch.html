@@ -1,0 +1,1456 @@
+<meta charset="utf-8">
+<title>Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; system design guide</div>
+      <h1>Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch</h1>
+      <p class="dek">A system-design-interview-style guide to designing a JIRA-like project management and issue-tracking tool — functional and non-functional requirements, a high-level architecture (services, search, real-time updates, caching, multi-tenancy), and a low-level class design built around a data-driven workflow engine (the State pattern), role-based access control, an event-driven Observer-pattern notification system, and a JQL-style filter query language.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-the-interview-framed">Why This Matters (The Interview, Framed)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-step-1-clarifying-requirements-before-designing-anything">Step 1 — Clarifying Requirements Before Designing Anything</a></li><li class="toc-lvl-2"><a href="#7-functional-requirements">Functional Requirements</a></li><li class="toc-lvl-2"><a href="#8-non-functional-requirements">Non-Functional Requirements</a></li><li class="toc-lvl-2"><a href="#9-follow-up-question-1-whats-the-core-entity-model-before-we-draw-any-boxes">Follow-up Question 1 — "What's the Core Entity Model Before We Draw Any Boxes?"</a></li><li class="toc-lvl-2"><a href="#10-identifying-the-core-domain-entities">Identifying the Core Domain Entities</a></li><li class="toc-lvl-2"><a href="#11-high-level-architecture-overview">High-Level Architecture Overview</a></li><li class="toc-lvl-2"><a href="#12-follow-up-question-2-monolith-or-microservices-justify-it">Follow-up Question 2 — "Monolith or Microservices? Justify It."</a></li><li class="toc-lvl-2"><a href="#13-service-decomposition-project-issue-workflow-notification-search">Service Decomposition: Project, Issue, Workflow, Notification, Search</a></li><li class="toc-lvl-2"><a href="#14-api-design-the-core-rest-endpoints">API Design: The Core REST Endpoints</a></li><li class="toc-lvl-2"><a href="#15-data-storage-choices-why-a-relational-store-for-core-data">Data Storage Choices: Why a Relational Store for Core Data</a></li><li class="toc-lvl-2"><a href="#16-follow-up-question-3-how-do-you-handle-full-text-search-across-millions-of-issues">Follow-up Question 3 — "How Do You Handle Full-Text Search Across Millions of Issues?"</a></li><li class="toc-lvl-2"><a href="#17-search-architecture-a-secondary-search-index-elasticsearch-style">Search Architecture: A Secondary Search Index (Elasticsearch-style)</a></li><li class="toc-lvl-2"><a href="#18-follow-up-question-4-how-do-real-time-board-updates-work-when-multiple-users-are-viewing-the-same-board">Follow-up Question 4 — "How Do Real-Time Board Updates Work When Multiple Users Are Viewing the Same Board?"</a></li><li class="toc-lvl-2"><a href="#19-real-time-updates-websockets-and-a-pubsub-backbone">Real-Time Updates: WebSockets and a Pub/Sub Backbone</a></li><li class="toc-lvl-2"><a href="#20-caching-strategy-what-to-cache-and-why">Caching Strategy: What to Cache and Why</a></li><li class="toc-lvl-2"><a href="#21-follow-up-question-5-how-would-you-design-for-multi-tenancy-many-organizations-one-platform">Follow-up Question 5 — "How Would You Design for Multi-Tenancy (Many Organizations, One Platform)?"</a></li><li class="toc-lvl-2"><a href="#22-multi-tenancy-shared-schema-vs-schema-per-tenant-vs-database-per-tenant">Multi-Tenancy: Shared Schema vs Schema-per-Tenant vs Database-per-Tenant</a></li><li class="toc-lvl-2"><a href="#23-asynchronous-processing-a-message-queue-for-notifications-and-webhooks">Asynchronous Processing: A Message Queue for Notifications and Webhooks</a></li><li class="toc-lvl-2"><a href="#24-high-level-architecture-diagram-assembled">High-Level Architecture Diagram, Assembled</a></li><li class="toc-lvl-2"><a href="#25-follow-up-question-6-lets-get-concrete-design-the-class-model-for-an-issue-and-its-lifecycle">Follow-up Question 6 — "Let's Get Concrete. Design the Class Model for an Issue and Its Lifecycle."</a></li><li class="toc-lvl-2"><a href="#26-the-issue-entity">The Issue Entity</a></li><li class="toc-lvl-2"><a href="#27-issuetype-priority-label-value-objects-and-enums">IssueType, Priority, Label — Value Objects and Enums</a></li><li class="toc-lvl-2"><a href="#28-the-project-entity-and-its-relationship-to-issues">The Project Entity and Its Relationship to Issues</a></li><li class="toc-lvl-2"><a href="#29-epics-stories-and-sub-tasks-modeling-issue-hierarchy">Epics, Stories, and Sub-Tasks: Modeling Issue Hierarchy</a></li><li class="toc-lvl-2"><a href="#30-the-board-sprints-backlogs-and-columns">The Board: Sprints, Backlogs, and Columns</a></li><li class="toc-lvl-2"><a href="#31-the-sprint-entity-and-its-lifecycle">The Sprint Entity and Its Lifecycle</a></li><li class="toc-lvl-2"><a href="#32-class-diagram-core-domain-entities">Class Diagram: Core Domain Entities</a></li><li class="toc-lvl-2"><a href="#33-follow-up-question-7-how-do-you-model-a-customizable-workflow-to-do-in-progress-done-or-a-custom-one">Follow-up Question 7 — "How Do You Model a Customizable Workflow (To Do → In Progress → Done, or a Custom One)?"</a></li><li class="toc-lvl-2"><a href="#34-why-a-hard-coded-status-enum-doesnt-scale">Why a Hard-Coded Status Enum Doesn't Scale</a></li><li class="toc-lvl-2"><a href="#35-the-workflow-state-and-transition-model">The Workflow, State, and Transition Model</a></li><li class="toc-lvl-2"><a href="#36-implementing-the-state-pattern-for-issue-status-transitions">Implementing the State Pattern for Issue Status Transitions</a></li><li class="toc-lvl-2"><a href="#37-validating-transitions-and-enforcing-guards-eg-cant-close-without-qa-approval">Validating Transitions and Enforcing Guards (e.g., "Can't Close Without QA Approval")</a></li><li class="toc-lvl-2"><a href="#38-class-diagram-the-workflow-engine">Class Diagram: The Workflow Engine</a></li><li class="toc-lvl-2"><a href="#39-follow-up-question-8-how-do-you-handle-permissions-who-can-do-what-on-which-project">Follow-up Question 8 — "How Do You Handle Permissions — Who Can Do What, on Which Project?"</a></li><li class="toc-lvl-2"><a href="#40-role-based-access-control-roles-permissions-and-project-level-overrides">Role-Based Access Control: Roles, Permissions, and Project-Level Overrides</a></li><li class="toc-lvl-2"><a href="#41-implementing-a-permissionchecker">Implementing a PermissionChecker</a></li><li class="toc-lvl-2"><a href="#42-class-diagram-rbac-model">Class Diagram: RBAC Model</a></li><li class="toc-lvl-2"><a href="#43-follow-up-question-9-when-an-issue-is-updated-a-dozen-things-might-need-to-happen-how-do-you-design-that">Follow-up Question 9 — "When an Issue Is Updated, a Dozen Things Might Need to Happen. How Do You Design That?"</a></li><li class="toc-lvl-2"><a href="#44-the-observer-pattern-for-issue-event-handling">The Observer Pattern for Issue Event Handling</a></li><li class="toc-lvl-2"><a href="#45-implementing-eventpublisher-and-listeners-notification-webhook-audit-log">Implementing EventPublisher and Listeners (Notification, Webhook, Audit Log)</a></li><li class="toc-lvl-2"><a href="#46-class-diagram-event-driven-side-effects">Class Diagram: Event-Driven Side Effects</a></li><li class="toc-lvl-2"><a href="#47-modeling-comments-and-attachments">Modeling Comments and Attachments</a></li><li class="toc-lvl-2"><a href="#48-the-activityaudit-log-an-append-only-history-of-every-change">The Activity/Audit Log: An Append-Only History of Every Change</a></li><li class="toc-lvl-2"><a href="#49-follow-up-question-10-users-want-to-build-custom-filters-jql-style-how-do-you-design-that">Follow-up Question 10 — "Users Want to Build Custom Filters (JQL-Style). How Do You Design That?"</a></li><li class="toc-lvl-2"><a href="#50-a-query-language-for-issues-parsing-and-executing-filters">A Query Language for Issues: Parsing and Executing Filters</a></li><li class="toc-lvl-2"><a href="#51-implementing-a-simple-filter-expression-evaluator">Implementing a Simple Filter Expression Evaluator</a></li><li class="toc-lvl-2"><a href="#52-follow-up-question-11-two-users-edit-the-same-issue-at-the-same-time-what-happens">Follow-up Question 11 — "Two Users Edit the Same Issue at the Same Time. What Happens?"</a></li><li class="toc-lvl-2"><a href="#53-optimistic-locking-for-issue-updates">Optimistic Locking for Issue Updates</a></li><li class="toc-lvl-2"><a href="#54-follow-up-question-12-how-do-you-generate-unique-human-readable-issue-keys-proj-123-without-collisions-at-scale">Follow-up Question 12 — "How Do You Generate Unique, Human-Readable Issue Keys (PROJ-123) Without Collisions at Scale?"</a></li><li class="toc-lvl-2"><a href="#55-distributed-id-generation-for-issue-keys">Distributed ID Generation for Issue Keys</a></li><li class="toc-lvl-2"><a href="#56-follow-up-question-13-this-now-has-10-million-issues-and-100000-concurrent-users-what-breaks-first-and-how-do-you-fix-it">Follow-up Question 13 — "This Now Has 10 Million Issues and 100,000 Concurrent Users. What Breaks First, and How Do You Fix It?"</a></li><li class="toc-lvl-2"><a href="#57-database-sharding-strategy">Database Sharding Strategy</a></li><li class="toc-lvl-2"><a href="#58-read-replicas-and-cqrs-style-readwrite-separation">Read Replicas and CQRS-Style Read/Write Separation</a></li><li class="toc-lvl-2"><a href="#59-rate-limiting-the-api">Rate Limiting the API</a></li><li class="toc-lvl-2"><a href="#60-full-worked-example-creating-and-transitioning-an-issue-end-to-end">Full Worked Example: Creating and Transitioning an Issue End to End</a></li><li class="toc-lvl-2"><a href="#61-final-architecture-diagram">Final Architecture Diagram</a></li><li class="toc-lvl-2"><a href="#62-design-patterns-used">Design Patterns Used</a></li><li class="toc-lvl-2"><a href="#63-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#64-common-mistakes">Common Mistakes</a></li><li class="toc-lvl-2"><a href="#65-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#66-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#67-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#68-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>The interview question this guide answers:</strong></p>
+<p><em>"Design a project management and issue-tracking tool like JIRA. Cover both high-level design (services, data flow, scaling) and low-level design (class diagrams, core algorithms). Be ready to justify every design decision when I push back."</em></p>
+<p>This guide is structured exactly as that interview unfolds: a requirements-gathering phase, a high-level architecture built up decision by decision, a low-level class design deep dive, and a sequence of escalating <strong>follow-up questions</strong> — each answered with real reasoning and, where it matters, real Java code — not a single static diagram presented as if no one ever questioned it.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<p>We are building <strong>MiniTracker</strong> — a project management and issue-tracking system covering:</p>
+<ul>
+<li><strong>Functional requirements</strong>: projects, issues (bugs, stories, tasks, epics, sub-tasks), boards, sprints, customizable workflows, comments, attachments, notifications, and search/filtering.</li>
+<li><strong>High-level design</strong>: service decomposition, API shape, data storage choices, real-time board updates, caching, multi-tenancy, and asynchronous processing.</li>
+<li><strong>Low-level design</strong>: a full class model for the issue lifecycle, a genuinely pluggable workflow engine (the State pattern), role-based permissions, an event-driven notification system (the Observer pattern), and a JIRA-Query-Language-style filter evaluator.</li>
+<li><strong>Scaling concerns</strong>: optimistic locking for concurrent edits, distributed unique ID generation for human-readable issue keys, sharding, and read/write separation.</li>
+</ul>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                        Client (web / mobile / CLI)
+                                  |
+                     API Gateway / Load Balancer
+                                  |
+        +---------+---------+---------+---------+---------+
+        v         v         v         v         v         v
+    Project   Issue    Workflow  Notification  Search   Auth/RBAC
+    Service   Service   Service    Service     Service   Service
+        |         |         |          |           |         |
+        +---------+---------+----------+-----------+---------+
+                                  |
+                    Relational DB (source of truth)
+                    + Search Index (Elasticsearch-style)
+                    + Cache (Redis-style)
+                    + Message Queue (async events)
+</code></pre></div>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to:</p>
+<ul>
+<li>Gather and state functional/non-functional requirements for an ambiguous system-design prompt, before designing anything.</li>
+<li>Justify a service decomposition (or a deliberate monolith) with concrete reasoning, not a reflexive "microservices are better."</li>
+<li>Design a class model where an issue's status transitions are validated by a genuinely pluggable <strong>workflow engine</strong>, not a hard-coded <code>if/else</code> chain.</li>
+<li>Design an event-driven side-effect system (notifications, webhooks, audit logs) using the Observer pattern, so adding a new side effect never touches existing code.</li>
+<li>Explain exactly how two users editing the same issue concurrently is resolved correctly, and how a system generates collision-free, human-readable IDs like <code>PROJ-123</code> at scale.</li>
+<li>Reason about what breaks first as data volume and concurrent users grow, and name the specific, standard techniques (sharding, read replicas, caching, rate limiting) that address each bottleneck.</li>
+</ul>
+<hr>
+<h2 id="3-why-this-matters-the-interview-framed">3. Why This Matters (The Interview, Framed)</h2>
+<p>Designing a JIRA-like system is one of the most common <strong>senior/staff application-architecture interview questions</strong> because, unlike a narrower infrastructure question, it forces a candidate to move fluidly across <strong>three different levels of design</strong> in one conversation:</p>
+<ul>
+<li><strong>Requirements-driven scoping</strong> — the prompt is deliberately broad ("design a project management tool"), and a strong candidate narrows it explicitly before designing, exactly as <a href="Design Your Own File Storage System — Block, File, Object Storage, and RAID From Scratch.md">the file storage guide's own opening</a> argues.</li>
+<li><strong>High-level architecture</strong> — service boundaries, data flow, and the classic scaling toolkit (caching, queues, read replicas), tested through direct follow-up pressure rather than a memorized diagram.</li>
+<li><strong>Low-level, code-level design</strong> — this is where many candidates who can draw boxes competently actually struggle: translating "issues have a status" into a real class model that supports a <em>customizable</em> workflow, real permissions, and real concurrent-edit handling, not just a <code>status: String</code> field.</li>
+</ul>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language</td>
+<td>Java 21</td>
+<td>Matches this guide's class diagrams and pattern implementations (State, Observer, Strategy).</td>
+</tr>
+<tr>
+<td>Core data store</td>
+<td>A relational database (Postgres-style, or <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB</a> from the companion guide)</td>
+<td>Issues, projects, and workflows have real relational structure and need real transactions (§52-§53).</td>
+</tr>
+<tr>
+<td>Search index</td>
+<td>An inverted-index-based search engine (Elasticsearch-style)</td>
+<td>Full-text and faceted search over millions of issues doesn't fit a relational engine's strengths (§16-§17).</td>
+</tr>
+<tr>
+<td>Cache</td>
+<td>An in-memory key-value store (Redis-style)</td>
+<td>Hot-path reads (a project's board, a user's assigned issues) benefit enormously from avoiding a database round trip (§20).</td>
+</tr>
+<tr>
+<td>Message queue</td>
+<td>A durable, ordered queue (Kafka-style)</td>
+<td>Decouples "an issue changed" from "notify everyone who cares" (§23, §43-§46).</td>
+</tr>
+<tr>
+<td>Real-time transport</td>
+<td>WebSockets</td>
+<td>Live board updates without polling (§18-§19).</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>minitracker/
+├── src/main/java/com/example/minitracker/
+│   ├── domain/
+│   │   ├── Issue.java                    // §26
+│   │   ├── IssueType.java, Priority.java, Label.java // §27
+│   │   ├── Project.java                  // §28
+│   │   ├── Epic.java, Story.java, SubTask.java // §29
+│   │   ├── Board.java, Sprint.java        // §30-§31
+│   │   └── User.java
+│   ├── workflow/
+│   │   ├── Workflow.java, WorkflowState.java, WorkflowTransition.java // §35
+│   │   ├── TransitionGuard.java          // §37
+│   │   └── IssueStatusContext.java       // §36
+│   ├── permissions/
+│   │   ├── Role.java, Permission.java     // §40
+│   │   └── PermissionChecker.java        // §41
+│   ├── events/
+│   │   ├── IssueEvent.java, EventPublisher.java // §44-§45
+│   │   ├── NotificationListener.java
+│   │   ├── WebhookListener.java
+│   │   └── AuditLogListener.java
+│   ├── search/
+│   │   ├── FilterExpression.java          // §50
+│   │   └── FilterEvaluator.java           // §51
+│   └── idgen/
+│       └── IssueKeyGenerator.java         // §55
+└── src/test/java/com/example/minitracker/
+    ├── WorkflowTransitionTest.java
+    ├── OptimisticLockingConcurrencyTest.java
+    └── FilterEvaluatorTest.java
+</code></pre></div>
+<hr>
+<h2 id="6-step-1-clarifying-requirements-before-designing-anything">6. Step 1 — Clarifying Requirements Before Designing Anything</h2>
+<blockquote>
+<p><strong>Candidate's clarifying questions:</strong> <em>"Is this single-tenant (one company's internal tool) or multi-tenant (a SaaS product serving many organizations)? Do we need fully customizable workflows per project, or is one fixed workflow acceptable? What's the expected scale — thousands or millions of issues? Do we need real-time collaborative updates, like seeing a teammate's comment appear live?"</em></p>
+</blockquote>
+<p>Exactly as <a href="Design Your Own File Storage System — Block, File, Object Storage, and RAID From Scratch.md">the file storage guide's opening</a> argues, jumping straight to boxes-and-arrows without narrowing "design a project management tool" is the first mistake a candidate can make — the answers to these questions determine whether multi-tenancy (§21-§22) and a pluggable workflow engine (§33-§38) are core requirements or premature complexity.</p>
+<p>For this guide, we settle on a concrete, realistic scope: <strong>multi-tenant SaaS</strong>, <strong>customizable per-project workflows</strong>, targeting <strong>millions of issues</strong> and <strong>tens of thousands of concurrent users</strong>, with <strong>real-time board updates</strong>.</p>
+<hr>
+<h2 id="7-functional-requirements">7. Functional Requirements</h2>
+<ul>
+<li>Create and manage <strong>projects</strong>, each with its own team, workflow, and issue backlog.</li>
+<li>Create <strong>issues</strong> of multiple types (Bug, Story, Task, Epic, Sub-task) with a title, description, assignee, reporter, priority, labels, and status.</li>
+<li>Organize issues into <strong>epics</strong> (large bodies of work) and <strong>sub-tasks</strong> (smaller pieces of a single issue) — a real hierarchy, not a flat list.</li>
+<li>Group issues into <strong>sprints</strong> on a <strong>board</strong>, with drag-and-drop status transitions.</li>
+<li>Support <strong>customizable workflows</strong> per project (a project can define its own statuses and allowed transitions between them).</li>
+<li>Support <strong>comments</strong>, <strong>attachments</strong>, and an <strong>activity log</strong> on every issue.</li>
+<li>Support <strong>role-based permissions</strong> — who can create, edit, transition, or delete issues, per project.</li>
+<li>Support <strong>search and filtering</strong> across all issues, including a query-language-style filter (JIRA's JQL).</li>
+<li>Send <strong>notifications</strong> (in-app, email, webhook) when an issue relevant to a user changes.</li>
+</ul>
+<hr>
+<h2 id="8-non-functional-requirements">8. Non-Functional Requirements</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>What it means concretely</th>
+<th>Where this guide addresses it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Scalability</strong></td>
+<td>Millions of issues, tens of thousands of concurrent users, without a redesign</td>
+<td>Sharding (§57), read replicas (§58), caching (§20)</td>
+</tr>
+<tr>
+<td><strong>Availability</strong></td>
+<td>The tool stays usable even if a non-critical subsystem (search, notifications) is degraded</td>
+<td>Asynchronous processing via a message queue (§23) decouples core writes from side effects</td>
+</tr>
+<tr>
+<td><strong>Consistency</strong></td>
+<td>An issue's core fields (status, assignee) must never silently lose a concurrent update</td>
+<td>Optimistic locking (§52-§53)</td>
+</tr>
+<tr>
+<td><strong>Low latency for reads</strong></td>
+<td>Loading a board or an issue should feel instant</td>
+<td>Caching (§20), a dedicated search index instead of ad-hoc relational queries (§16-§17)</td>
+</tr>
+<tr>
+<td><strong>Extensibility</strong></td>
+<td>Adding a new issue type, a new notification channel, or a new workflow status should not require touching unrelated code</td>
+<td>The State (§36) and Observer (§44) patterns, applied deliberately for exactly this reason</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="9-follow-up-question-1-whats-the-core-entity-model-before-we-draw-any-boxes">9. Follow-up Question 1 — "What's the Core Entity Model Before We Draw Any Boxes?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Before we talk about services or databases — what are the actual 'nouns' in this system? What has to exist, and how do they relate?"</em></p>
+</blockquote>
+<p>This question is a deliberate pivot away from architecture diagrams toward the <strong>domain model</strong> — and it's the correct order to design in: a service boundary or a database schema that doesn't reflect a clearly-understood domain model tends to need painful rework later. §10 answers it directly, and Part 3 (§25 onward) builds every one of these entities as real code.</p>
+<hr>
+<h2 id="10-identifying-the-core-domain-entities">10. Identifying the Core Domain Entities</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>Represents</th>
+<th>Key relationships</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Project</strong></td>
+<td>A container for a team's work</td>
+<td>Has many Issues, has one Workflow, has many Boards</td>
+</tr>
+<tr>
+<td><strong>Issue</strong></td>
+<td>A single unit of trackable work (bug, story, task)</td>
+<td>Belongs to a Project, has a Status (via Workflow), may belong to an Epic, may have Sub-tasks</td>
+</tr>
+<tr>
+<td><strong>Epic</strong></td>
+<td>A large body of work spanning many issues</td>
+<td>A special Issue type that "parents" other Issues</td>
+</tr>
+<tr>
+<td><strong>Board</strong></td>
+<td>A visual, often Kanban/Scrum-style view of issues</td>
+<td>Belongs to a Project, filters/displays Issues, may be tied to a Sprint</td>
+</tr>
+<tr>
+<td><strong>Sprint</strong></td>
+<td>A fixed time-boxed iteration of work</td>
+<td>Contains a subset of a Project's Issues</td>
+</tr>
+<tr>
+<td><strong>Workflow</strong></td>
+<td>The set of valid statuses and transitions for a Project's issues</td>
+<td>Made of WorkflowStates and WorkflowTransitions (§35)</td>
+</tr>
+<tr>
+<td><strong>User</strong></td>
+<td>A person interacting with the system</td>
+<td>Assigned to Issues, has Roles per Project (§40)</td>
+</tr>
+<tr>
+<td><strong>Comment / Attachment</strong></td>
+<td>Supplementary content on an Issue</td>
+<td>Belongs to exactly one Issue</td>
+</tr>
+</tbody>
+</table></div>
+<p>Every section from §11 onward is either building infrastructure <strong>around</strong> these entities (services, storage, APIs) or building the entities <strong>themselves</strong> as real, working class designs (Part 3 onward) — nothing in this guide introduces a concept that isn't traceable back to this table.</p>
+<hr>
+<h2 id="11-high-level-architecture-overview">11. High-Level Architecture Overview</h2>
+<p>At the highest level: clients talk to an API layer, which delegates to a set of focused services, each owning a slice of the domain model from §10, all ultimately persisting to a relational store, with a search index and cache as read-path accelerators and a message queue for anything that doesn't need to happen synchronously with the triggering request. §1's diagram is this section's answer, restated for reference; §12–§23 justify every box in it one decision at a time.</p>
+<hr>
+<h2 id="12-follow-up-question-2-monolith-or-microservices-justify-it">12. Follow-up Question 2 — "Monolith or Microservices? Justify It."</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"You've drawn six separate services. Why not one application with six modules? What does splitting them into actual services buy you, concretely, and what does it cost?"</em></p>
+</blockquote>
+<p>The honest answer resists the reflexive "microservices are more scalable" — the real justification is about <strong>independent scaling and failure isolation</strong>, not scalability in the abstract: the <strong>Search Service</strong> (§16-§17) has a completely different resource profile (index-heavy, CPU for query parsing) than the <strong>Notification Service</strong> (§43-§46, I/O-bound, bursty), and a spike in one shouldn't be able to starve the other of resources if they're deployed and scaled independently. The cost, honestly stated, is real: network calls between services replace in-process method calls (added latency, added failure modes), and data consistency across service boundaries becomes eventual rather than transactional (§23's message queue exists specifically to manage this tradeoff). For a <strong>smaller</strong> version of this system (§6's scope questions matter here too), a well-modularized monolith is a legitimate, often better, answer — the services-vs-monolith decision should be justified by the specific scale and failure-isolation needs established in requirements, not asserted as a default.</p>
+<hr>
+<h2 id="13-service-decomposition-project-issue-workflow-notification-search">13. Service Decomposition: Project, Issue, Workflow, Notification, Search</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Owns</th>
+<th>Talks to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Project Service</strong></td>
+<td>Project CRUD, team membership, board/sprint configuration</td>
+<td>Issue Service (to list a project's issues)</td>
+</tr>
+<tr>
+<td><strong>Issue Service</strong></td>
+<td>Issue CRUD, the core domain model (§25-§32)</td>
+<td>Workflow Service (validate transitions), Event Publisher (§45)</td>
+</tr>
+<tr>
+<td><strong>Workflow Service</strong></td>
+<td>Workflow definitions, valid states/transitions per project (§33-§38)</td>
+<td>Issue Service (called synchronously on every status change)</td>
+</tr>
+<tr>
+<td><strong>Notification Service</strong></td>
+<td>Delivering in-app/email/webhook notifications</td>
+<td>Consumes events from the message queue (§23), asynchronously</td>
+</tr>
+<tr>
+<td><strong>Search Service</strong></td>
+<td>Indexing issues, executing filter/search queries (§16-§17, §49-§51)</td>
+<td>Consumes issue-changed events to keep its index current</td>
+</tr>
+<tr>
+<td><strong>Auth/RBAC Service</strong></td>
+<td>Authentication, role and permission checks (§39-§42)</td>
+<td>Called by every other service on every write</td>
+</tr>
+</tbody>
+</table></div>
+<p>Each service owns exactly one clear slice of §10's domain model, and — critically — each one could, in principle, be scaled, deployed, and even rewritten independently without the others needing to change, which is the actual test of whether a service boundary is well-drawn.</p>
+<hr>
+<h2 id="14-api-design-the-core-rest-endpoints">14. API Design: The Core REST Endpoints</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>POST   /projects                          create a project
+GET    /projects/{projectId}/issues       list issues in a project (supports filter query params, §49-§51)
+POST   /projects/{projectId}/issues       create an issue
+GET    /issues/{issueKey}                 get a single issue by its human-readable key (e.g. PROJ-123)
+PATCH  /issues/{issueKey}                 update fields (uses optimistic locking, §52-§53)
+POST   /issues/{issueKey}/transitions     move an issue to a new status (validated by the Workflow Service, §33-§38)
+POST   /issues/{issueKey}/comments        add a comment
+GET    /search?jql=...                    execute a filter query (§49-§51)
+</code></pre></div>
+<p>Note that <strong>transitioning</strong> an issue's status is deliberately its <strong>own</strong> endpoint (<code>POST /transitions</code>), not folded into the general <code>PATCH</code> — this is a direct consequence of §33-§38's design: a transition isn't an ordinary field update, it's a validated operation against the workflow engine, and giving it its own endpoint makes that distinction visible at the API layer, not just buried inside a generic update handler's internal logic.</p>
+<hr>
+<h2 id="15-data-storage-choices-why-a-relational-store-for-core-data">15. Data Storage Choices: Why a Relational Store for Core Data</h2>
+<p>Projects, issues, and their relationships (an issue belongs to a project, may belong to an epic, has a status from a specific workflow) are fundamentally <strong>relational</strong> — foreign keys, joins, and, crucially, <strong>transactions</strong> (creating an issue and appending its first activity-log entry must succeed or fail together) are exactly what a relational database is built for. <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's own transaction machinery</a> — atomicity, isolation, rollback — is precisely the guarantee the core Issue/Project data needs and a document or pure key-value store would need to reconstruct manually.</p>
+<hr>
+<h2 id="16-follow-up-question-3-how-do-you-handle-full-text-search-across-millions-of-issues">16. Follow-up Question 3 — "How Do You Handle Full-Text Search Across Millions of Issues?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A user wants to search for 'issues mentioning null pointer exception in the payment service, assigned to Alice, updated in the last week.' Walk me through how that query actually executes."</em></p>
+</blockquote>
+<p>Not via the relational database directly — a <code>LIKE '%null pointer%'</code> query has no efficient index support for free-text search at this scale, and combining free-text relevance with structured filters (assignee, date range) in one relational query is exactly the wrong tool for the job. The answer is a <strong>dedicated search index</strong> (§17), kept <strong>eventually consistent</strong> with the source-of-truth relational data via the same event stream (§23) the Notification Service already consumes.</p>
+<hr>
+<h2 id="17-search-architecture-a-secondary-search-index-elasticsearch-style">17. Search Architecture: A Secondary Search Index (Elasticsearch-style)</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Issue Service: issue created/updated -&gt; writes to relational DB (source of truth)
+                                      -&gt; publishes an IssueChanged event to the message queue (§23)
+                                                    |
+                                                    v
+                                        Search Indexer (a consumer)
+                                                    |
+                                                    v
+                                     Inverted index: term -&gt; [issue ids]
+                                     (tokenized title/description, plus structured fields
+                                      like assignee/status/labels for fast filtering)
+</code></pre></div>
+<p>A query like §16's example decomposes into a free-text relevance search (<code>"null pointer exception"</code>, <code>"payment service"</code>) <strong>combined with</strong> structured filters (<code>assignee = Alice</code>, <code>updatedAt &gt; now - 7d</code>) — exactly what an inverted-index search engine is purpose-built to execute efficiently, at a cost the design explicitly accepts: the search index can be <strong>milliseconds to seconds behind</strong> the source of truth, an eventual-consistency tradeoff that's entirely acceptable for a search/discovery use case (nobody expects a search result to reflect a write from half a second ago) but would be <strong>unacceptable</strong> for the core issue read/write path itself (§15).</p>
+<hr>
+<h2 id="18-follow-up-question-4-how-do-real-time-board-updates-work-when-multiple-users-are-viewing-the-same-board">18. Follow-up Question 4 — "How Do Real-Time Board Updates Work When Multiple Users Are Viewing the Same Board?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Two teammates have the same Scrum board open. One drags an issue to 'In Progress.' How does the other person's screen update without them refreshing?"</em></p>
+</blockquote>
+<p>Polling (repeatedly asking "anything new?" on a timer) works but wastes bandwidth and adds latency proportional to the poll interval. The real answer is a <strong>persistent connection</strong> (WebSockets) from each connected client to the server, paired with a <strong>publish-subscribe</strong> mechanism so a write from any client fans out to every other client currently watching the same board.</p>
+<hr>
+<h2 id="19-real-time-updates-websockets-and-a-pubsub-backbone">19. Real-Time Updates: WebSockets and a Pub/Sub Backbone</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>User A drags an issue -&gt; PATCH /issues/{key} (or POST /transitions)
+                       -&gt; Issue Service processes the write, publishes an &quot;IssueChanged&quot; event
+                                                      |
+                                                      v
+                                    Pub/Sub backbone (topic: &quot;board:{boardId}&quot;)
+                                                      |
+                              +----------------------+----------------------+
+                              v                                             v
+                    WebSocket connection                          WebSocket connection
+                    (User A's browser)                             (User B's browser)
+                              |                                             |
+                    (already knows — it made the change)          receives the update, re-renders LIVE
+</code></pre></div>
+<p>The same event that feeds the search indexer (§17) and the notification service (§23, §45) also feeds this real-time fan-out — <strong>one</strong> event, <strong>multiple</strong> independent consumers, each reacting to it for a completely different purpose. This is the direct payoff of treating "an issue changed" as a first-class published event rather than a side effect buried inside the Issue Service's own write path.</p>
+<hr>
+<h2 id="20-caching-strategy-what-to-cache-and-why">20. Caching Strategy: What to Cache and Why</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>What's cached</th>
+<th>Why</th>
+<th>Invalidation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A project's board view (issues + their current status/assignee)</td>
+<td>Read far more often than written — a board is loaded on every page view but only mutated on individual drag-and-drop actions</td>
+<td>Invalidate the specific issue's cache entry on the <code>IssueChanged</code> event (§17, §19) reused again here</td>
+</tr>
+<tr>
+<td>A user's "assigned to me" issue list</td>
+<td>Loaded on nearly every page (a persistent sidebar/notification badge)</td>
+<td>Same event-driven invalidation</td>
+</tr>
+<tr>
+<td>Workflow definitions per project</td>
+<td>Rarely change, read on every single status transition validation (§36-§37)</td>
+<td>A much longer TTL, or invalidated only on an explicit workflow edit</td>
+</tr>
+</tbody>
+</table></div>
+<p>The pattern worth naming explicitly: caching pays off most where <strong>read frequency vastly exceeds write frequency</strong>, and the same <code>IssueChanged</code> event this guide already introduced for search (§17) and real-time updates (§19) is, once again, the natural invalidation trigger — one event, a third independent consumer.</p>
+<hr>
+<h2 id="21-follow-up-question-5-how-would-you-design-for-multi-tenancy-many-organizations-one-platform">21. Follow-up Question 5 — "How Would You Design for Multi-Tenancy (Many Organizations, One Platform)?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"This is a SaaS product — thousands of different companies use it, each with their own projects and users, who must never see each other's data. How do you architect that?"</em></p>
+</blockquote>
+<p>Three standard approaches exist, each a different point on a spectrum trading isolation strength against operational complexity — §22 lays them out directly rather than picking one without showing the tradeoff.</p>
+<hr>
+<h2 id="22-multi-tenancy-shared-schema-vs-schema-per-tenant-vs-database-per-tenant">22. Multi-Tenancy: Shared Schema vs Schema-per-Tenant vs Database-per-Tenant</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>How it works</th>
+<th>Isolation</th>
+<th>Operational cost</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Shared schema</strong></td>
+<td>Every table has a <code>tenant_id</code> column; every query filters on it</td>
+<td>Weakest — a missing <code>WHERE tenant_id = ?</code> is a real, dangerous bug class</td>
+<td>Lowest — one schema, one set of migrations, cheapest to run at small-to-medium scale</td>
+</tr>
+<tr>
+<td><strong>Schema-per-tenant</strong></td>
+<td>Each tenant gets its own schema within a shared database instance</td>
+<td>Stronger — accidental cross-tenant queries are structurally harder</td>
+<td>Moderate — migrations must run per-schema, but infrastructure is still shared</td>
+</tr>
+<tr>
+<td><strong>Database-per-tenant</strong></td>
+<td>Each tenant gets a fully separate database (or even separate infrastructure)</td>
+<td>Strongest — a bug literally cannot leak data across tenants at the query level</td>
+<td>Highest — provisioning, migrating, and monitoring scale linearly with tenant count</td>
+</tr>
+</tbody>
+</table></div>
+<p>For MiniTracker's assumed scale (§6), <strong>shared schema with a mandatory <code>tenant_id</code>, enforced at the ORM/query-builder level rather than trusted to every hand-written query</strong>, is the pragmatic starting choice — with schema- or database-per-tenant reserved as an upgrade path for a small number of enterprise customers with contractual isolation requirements, a real, common pattern rather than an all-or-nothing choice.</p>
+<hr>
+<h2 id="23-asynchronous-processing-a-message-queue-for-notifications-and-webhooks">23. Asynchronous Processing: A Message Queue for Notifications and Webhooks</h2>
+<p>Sending an email, calling a customer's webhook URL, and updating a search index all share a property that matters architecturally: <strong>none of them need to complete before the triggering write is acknowledged to the user</strong>. Forcing them to be synchronous would mean an issue update's latency is at the mercy of the slowest side effect (a webhook endpoint that takes 3 seconds to respond) — a durable, ordered <strong>message queue</strong> decouples "the write succeeded" from "everything that should eventually happen because of it," letting the Issue Service publish one event and move on immediately (§17, §19, §20 all already lean on this same event as consumers).</p>
+<hr>
+<h2 id="24-high-level-architecture-diagram-assembled">24. High-Level Architecture Diagram, Assembled</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                              Client (web / mobile)
+                                       |
+                          API Gateway (auth, rate limiting §59)
+                                       |
+        +----------+----------+----------+----------+----------+
+        v          v          v          v          v          v
+    Project    Issue      Workflow   Auth/RBAC   (reads hit cache first, §20)
+    Service    Service    Service     Service
+        |          |          |
+        +----------+----------+
+                   |
+        Relational DB (source of truth, §15) --- tenant_id on every row (§22)
+                   |
+          publishes IssueChanged events
+                   |
+        +----------+----------+----------+
+        v                     v          v
+  Search Indexer      Notification    WebSocket Pub/Sub
+  (§17)               Service (§23)   (§19, live board updates)
+        |                     |
+        v                     v
+  Search Index          Email / Webhook delivery
+  (Elasticsearch-style)  (async, via the queue)
+</code></pre></div>
+<p>Every box in this diagram was justified by a specific follow-up question (§12, §16, §18, §21) rather than assumed — which is exactly the difference between presenting an architecture and defending one.</p>
+<hr>
+<h2 id="25-follow-up-question-6-lets-get-concrete-design-the-class-model-for-an-issue-and-its-lifecycle">25. Follow-up Question 6 — "Let's Get Concrete. Design the Class Model for an Issue and Its Lifecycle."</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"We've covered architecture at a high level. Now let's go deep on one piece: design the actual classes for an Issue, including its type, its status, and how it relates to epics and sub-tasks. I want to see real fields and real relationships, not a box labeled 'Issue.'"</em></p>
+</blockquote>
+<p>This is the pivot every strong system-design interview makes eventually — from architecture to <strong>class-level design</strong>, and it's where a candidate's actual object-oriented design skill (not just their familiarity with architecture buzzwords) becomes visible. §26–§32 answer it in full.</p>
+<hr>
+<h2 id="26-the-issue-entity">26. The Issue Entity</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// domain/Issue.java
+public class Issue {
+    private final String key;              // e.g. &quot;PROJ-123&quot; — human-readable, generated per §54-§55
+    private final String projectId;
+    private IssueType type;                 // §27
+    private String title;
+    private String description;
+    private Priority priority;              // §27
+    private final Set&lt;Label&gt; labels = new HashSet&lt;&gt;(); // §27
+    private String assigneeUserId;
+    private final String reporterUserId;
+    private WorkflowState status;           // §35 — NOT a plain enum; see §34 for why
+    private String epicKey;                 // null unless this issue belongs to an Epic (§29)
+    private final List&lt;String&gt; subTaskKeys = new ArrayList&lt;&gt;(); // §29
+    private long version;                   // optimistic locking, §52-§53
+    private final Instant createdAt;
+    private Instant updatedAt;
+
+    // constructor / getters / setters omitted for brevity — every SETTER that changes status
+    // goes through WorkflowService.transition(), never a direct field assignment, per §36-§37
+}
+</code></pre></div>
+<p>Two fields are deliberately <strong>not</strong> what a first-pass design might reach for: <code>status</code> is a <code>WorkflowState</code> object (§35), not a plain <code>enum Status { TODO, IN_PROGRESS, DONE }</code> — because §34 shows exactly why a fixed enum can't support §7's "customizable workflow per project" requirement. And <code>subTaskKeys</code>/<code>epicKey</code> model the hierarchy from §10 directly as references by key, not nested objects — an issue hierarchy that's too deep to load recursively by default, loaded on demand instead.</p>
+<hr>
+<h2 id="27-issuetype-priority-label-value-objects-and-enums">27. IssueType, Priority, Label — Value Objects and Enums</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public enum IssueType { BUG, STORY, TASK, EPIC, SUB_TASK }
+public enum Priority { LOWEST, LOW, MEDIUM, HIGH, HIGHEST }
+
+// Label is a per-project, user-defined tag — NOT a fixed enum, since projects need to invent their own labels
+public record Label(String name, String colorHex) { }
+</code></pre></div>
+<p><code>IssueType</code> and <code>Priority</code> are fixed enums because they're genuinely closed sets defined by the <em>system</em>, not by individual users — every project shares the same five priority levels. <code>Label</code>, by contrast, is user-defined per project ("frontend", "needs-design", "customer-reported") and modeled as a plain value object stored in the database, not a code-level enum — the same "closed set defined by the domain vs. open set defined by users" distinction that should drive every enum-vs-database-row decision in this kind of system.</p>
+<hr>
+<h2 id="28-the-project-entity-and-its-relationship-to-issues">28. The Project Entity and Its Relationship to Issues</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// domain/Project.java
+public class Project {
+    private final String id;
+    private final String tenantId;          // §22 — every row in a multi-tenant table carries this
+    private String key;                     // e.g. &quot;PROJ&quot; — the prefix used in every issue's human-readable key, §54-§55
+    private String name;
+    private Workflow workflow;               // §35 — THIS project's specific set of valid states/transitions
+    private final List&lt;String&gt; boardIds = new ArrayList&lt;&gt;();
+
+    // getIssues() is deliberately NOT a field here — issues are queried from the Issue Service/repository
+    // by projectId, never held as an in-memory collection on Project itself (this would not scale to
+    // a project with 100,000 issues, and it's not how any real system models a one-to-many at this size)
+}
+</code></pre></div>
+<p>The comment on the missing <code>issues</code> field is worth taking seriously as a design decision, not an omission: a naive <code>List&lt;Issue&gt; issues</code> field on <code>Project</code> looks natural in a UML diagram but is a real anti-pattern once a project can have tens of thousands of issues — it invites loading the entire collection into memory for an operation that only needed one issue, or three.</p>
+<hr>
+<h2 id="29-epics-stories-and-sub-tasks-modeling-issue-hierarchy">29. Epics, Stories, and Sub-Tasks: Modeling Issue Hierarchy</h2>
+<p>Rather than three unrelated classes, <code>Epic</code>, <code>Story</code>, and <code>SubTask</code> are all just <code>Issue</code> objects with <code>type</code> set accordingly (§27) — the hierarchy lives entirely in the <strong>relationship fields</strong> already present on <code>Issue</code> (§26):</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Epic (Issue, type=EPIC)
+  |
+  +-- Story (Issue, type=STORY, epicKey = the Epic's key)
+  |     |
+  |     +-- SubTask (Issue, type=SUB_TASK, referenced in the Story's subTaskKeys)
+  |
+  +-- Bug (Issue, type=BUG, epicKey = the Epic's key)
+</code></pre></div>
+<p>This is a deliberate, important simplification over "one Java class per issue type": every issue type shares the <em>overwhelming majority</em> of its behavior (has a status, a workflow, comments, an activity log, participates in a board) — introducing a full class hierarchy (<code>Epic extends Issue</code>, <code>Story extends Issue</code>) would mean every piece of shared logic (querying, workflow validation, permission checks) needs to handle a polymorphic type, for essentially no behavioral benefit, since the <em>only</em> real difference between the types is which fields are meaningful and what parent/child relationships are valid — exactly the kind of case where composition (a <code>type</code> field plus relationship fields) beats inheritance.</p>
+<hr>
+<h2 id="30-the-board-sprints-backlogs-and-columns">30. The Board: Sprints, Backlogs, and Columns</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// domain/Board.java
+public class Board {
+    private final String id;
+    private final String projectId;
+    private BoardType type;                 // SCRUM or KANBAN
+    private final List&lt;BoardColumn&gt; columns = new ArrayList&lt;&gt;(); // §35's WorkflowStates, mapped to visual columns
+    private String activeSprintId;           // null for a Kanban board, or a Scrum board with no active sprint
+}
+
+public record BoardColumn(String name, List&lt;WorkflowState&gt; mappedStates) { }
+</code></pre></div>
+<p>A board's columns are explicitly a <strong>mapping onto</strong> the project's workflow states (§35), not an independent concept — a "To Do" column might map to a single <code>TODO</code> workflow state, while a "Done" column could map to <em>both</em> <code>DONE</code> and <code>WONT_FIX</code> states collapsed into one visual column. Modeling this as an explicit mapping, rather than assuming a 1:1 correspondence between workflow states and board columns, is what supports a real JIRA feature (multiple statuses shown in one column) without any special-casing elsewhere in the design.</p>
+<hr>
+<h2 id="31-the-sprint-entity-and-its-lifecycle">31. The Sprint Entity and Its Lifecycle</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// domain/Sprint.java
+public class Sprint {
+    private final String id;
+    private final String boardId;
+    private String name;
+    private SprintState state;               // PLANNED -&gt; ACTIVE -&gt; COMPLETED — itself a small, fixed state machine
+    private Instant startDate, endDate;
+    private final Set&lt;String&gt; issueKeys = new HashSet&lt;&gt;(); // which issues are committed to this sprint
+
+    public void start() {
+        if (state != SprintState.PLANNED) throw new IllegalStateException(&quot;Only a PLANNED sprint can be started&quot;);
+        this.state = SprintState.ACTIVE;
+    }
+    public void complete(List&lt;String&gt; incompleteIssueKeysToCarryOver) {
+        if (state != SprintState.ACTIVE) throw new IllegalStateException(&quot;Only an ACTIVE sprint can be completed&quot;);
+        this.state = SprintState.COMPLETED;
+        // incomplete issues are moved to the backlog or the next sprint — handled by the caller, given this list
+    }
+}
+</code></pre></div>
+<p><code>Sprint</code>'s own <code>PLANNED -&gt; ACTIVE -&gt; COMPLETED</code> progression is a small state machine in its own right, guarded the same defensive way (checking current state before allowing a transition) that §36's much larger <code>WorkflowState</code> engine guards issue status changes — the same design idea, applied at a smaller scale, because it's genuinely useful any time an object has a small number of valid states and not every transition between them is legal.</p>
+<hr>
+<h2 id="32-class-diagram-core-domain-entities">32. Class Diagram: Core Domain Entities</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>┌─────────────┐        1      *  ┌─────────────┐        *      1  ┌─────────────┐
+│   Project   │─────────────────&gt;│    Issue    │&lt;─────────────────│    Board    │
+├─────────────┤   has many        ├─────────────┤   filters/shows  ├─────────────┤
+│ id          │                   │ key         │                   │ id          │
+│ tenantId    │                   │ projectId   │                   │ projectId   │
+│ key         │        1      1   │ type        │                   │ type        │
+│ workflow ───┼──────────────────&gt;│ status      │                   │ columns     │
+└─────────────┘   defines valid   │ priority    │                   │ activeSprint│
+                   states for     │ labels      │                   └──────┬──────┘
+                                  │ assignee    │                          │ 1
+                                  │ epicKey     │                          │
+                                  │ subTaskKeys │                          v *
+                                  │ version     │                   ┌─────────────┐
+                                  └──────┬──────┘                   │   Sprint    │
+                                         │ 1                        ├─────────────┤
+                                         │                          │ id          │
+                                         v *                        │ state       │
+                                  ┌─────────────┐                   │ issueKeys   │
+                                  │  Comment /  │                   └─────────────┘
+                                  │  Attachment │
+                                  └─────────────┘
+</code></pre></div>
+<p>Every box and every cardinality in this diagram traces back to a decision already justified in §26–§31 — a <code>1..*</code> between <code>Project</code> and <code>Issue</code>, for instance, is a direct consequence of §28's decision <em>not</em> to hold issues as an in-memory collection on <code>Project</code>.</p>
+<hr>
+<h2 id="33-follow-up-question-7-how-do-you-model-a-customizable-workflow-to-do-in-progress-done-or-a-custom-one">33. Follow-up Question 7 — "How Do You Model a Customizable Workflow (To Do → In Progress → Done, or a Custom One)?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"§7 said workflows are customizable per project. One team wants a simple three-status flow. Another wants five statuses with a mandatory code-review step before 'Done.' How does your class design support both without an if/else chain checking project IDs?"</em></p>
+</blockquote>
+<p>This is the question that separates "I used an enum for status" from a genuinely extensible design — §34 names exactly why a fixed enum fails this requirement, and §35–§37 build the actual engine that succeeds at it.</p>
+<hr>
+<h2 id="34-why-a-hard-coded-status-enum-doesnt-scale">34. Why a Hard-Coded Status Enum Doesn't Scale</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// The tempting, WRONG first approach
+public enum Status { TODO, IN_PROGRESS, IN_REVIEW, DONE }
+
+public void transition(Issue issue, Status newStatus) {
+    if (issue.getStatus() == Status.TODO &amp;&amp; newStatus == Status.IN_PROGRESS) { /* ok */ }
+    else if (issue.getStatus() == Status.IN_PROGRESS &amp;&amp; newStatus == Status.IN_REVIEW) { /* ok */ }
+    // ... one branch per valid transition, for EVERY project, hard-coded at compile time ...
+    else throw new IllegalStateException(&quot;Invalid transition&quot;);
+}
+</code></pre></div>
+<p>This compiles, works for a demo, and fails the actual requirement immediately: every project is forced into the <strong>same</strong> fixed set of statuses and the <strong>same</strong> fixed set of valid transitions between them — exactly what §7/§33 said must be customizable per project. Worse, adding a new status for <em>any</em> project means editing this shared enum and this shared <code>if/else</code> chain, risking every other project's workflow in the process. The fix isn't a bigger enum — it's recognizing that <strong>states and transitions are data, not code</strong> (§35).</p>
+<hr>
+<h2 id="35-the-workflow-state-and-transition-model">35. The Workflow, State, and Transition Model</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// workflow/WorkflowState.java
+public record WorkflowState(String id, String name, boolean isInitial, boolean isTerminal) { }
+
+// workflow/WorkflowTransition.java
+public record WorkflowTransition(String id, WorkflowState fromState, WorkflowState toState,
+                                  String name, List&lt;TransitionGuard&gt; guards) { } // §37
+
+// workflow/Workflow.java — this IS the per-project customization point §33 asked about
+public class Workflow {
+    private final String id;
+    private final List&lt;WorkflowState&gt; states = new ArrayList&lt;&gt;();
+    private final List&lt;WorkflowTransition&gt; transitions = new ArrayList&lt;&gt;();
+
+    public List&lt;WorkflowTransition&gt; getAvailableTransitions(WorkflowState currentState) {
+        return transitions.stream().filter(t -&gt; t.fromState().equals(currentState)).toList();
+    }
+
+    public boolean isValidTransition(WorkflowState from, WorkflowState to) {
+        return transitions.stream().anyMatch(t -&gt; t.fromState().equals(from) &amp;&amp; t.toState().equals(to));
+    }
+}
+</code></pre></div>
+<p>Every project gets its <strong>own</strong> <code>Workflow</code> instance, built from its own set of <code>WorkflowState</code>/<code>WorkflowTransition</code> rows stored in the database — a simple three-status project and a five-status project with a mandatory review gate are just two different <strong>data</strong> configurations of the exact same classes, with zero code branching on which project is which. This is the direct, concrete resolution of §34's problem: states and transitions moved from hard-coded Java control flow into data the <code>Workflow</code> class interprets generically.</p>
+<hr>
+<h2 id="36-implementing-the-state-pattern-for-issue-status-transitions">36. Implementing the State Pattern for Issue Status Transitions</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// workflow/IssueStatusContext.java — the State pattern's &quot;Context,&quot; coordinating a transition attempt
+public class IssueStatusContext {
+    private final Issue issue;
+    private final Workflow workflow;
+
+    public IssueStatusContext(Issue issue, Workflow workflow) {
+        this.issue = issue;
+        this.workflow = workflow;
+    }
+
+    public void transitionTo(WorkflowState targetState, TransitionContext ctx) {
+        if (!workflow.isValidTransition(issue.getStatus(), targetState)) {
+            throw new InvalidTransitionException(issue.getStatus(), targetState);
+        }
+        WorkflowTransition transition = findTransition(issue.getStatus(), targetState);
+        for (TransitionGuard guard : transition.guards()) {         // §37
+            guard.check(issue, ctx); // throws if this specific transition's precondition isn't met
+        }
+        issue.setStatus(targetState); // the ONLY place in the entire codebase allowed to mutate Issue.status
+        eventPublisher.publish(new IssueTransitionedEvent(issue, transition)); // §44-§45
+    }
+    // findTransition(...) omitted for brevity — looks up the matching WorkflowTransition from workflow.getAvailableTransitions
+}
+</code></pre></div>
+<p>This is a direct application of the <strong>State pattern</strong>: <code>Issue.status</code> never changes except through <code>IssueStatusContext.transitionTo</code>, which centralizes <strong>every</strong> rule about what a valid transition is (§35's data-driven check) and what must be true for it to be allowed (§37's guards) — no other code path in the system can move an issue into an invalid or unauthorized state, because no other code path is given the ability to.</p>
+<hr>
+<h2 id="37-validating-transitions-and-enforcing-guards-eg-cant-close-without-qa-approval">37. Validating Transitions and Enforcing Guards (e.g., "Can't Close Without QA Approval")</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// workflow/TransitionGuard.java
+public interface TransitionGuard {
+    void check(Issue issue, TransitionContext ctx); // throws GuardFailedException if the precondition isn't met
+}
+
+public class RequiresQaApprovalGuard implements TransitionGuard {
+    @Override
+    public void check(Issue issue, TransitionContext ctx) {
+        if (!ctx.hasLabel(issue, &quot;qa-approved&quot;)) {
+            throw new GuardFailedException(&quot;Cannot transition to Done without the 'qa-approved' label&quot;);
+        }
+    }
+}
+
+public class RequiresRoleGuard implements TransitionGuard {
+    private final String requiredRole;
+    @Override
+    public void check(Issue issue, TransitionContext ctx) {
+        if (!ctx.currentUserHasRole(requiredRole)) {
+            throw new GuardFailedException(&quot;Only a &quot; + requiredRole + &quot; can perform this transition&quot;);
+        }
+    }
+}
+</code></pre></div>
+<p>A <code>WorkflowTransition</code> (§35) holds a <strong>list</strong> of <code>TransitionGuard</code>s — this is the Strategy pattern layered on top of the State pattern: which specific guard(s) apply to a given transition is, again, <strong>data</strong>, configured per project per transition, not a hard-coded check. A project that wants "only a Team Lead can reopen a closed issue" attaches a <code>RequiresRoleGuard</code> to that one transition; a project that doesn't care attaches none — exactly the extensibility §7's requirement demanded, now genuinely delivered rather than promised.</p>
+<hr>
+<h2 id="38-class-diagram-the-workflow-engine">38. Class Diagram: The Workflow Engine</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>┌──────────────┐   1        *   ┌───────────────────┐
+│   Workflow   │───────────────&gt;│ WorkflowTransition │
+├──────────────┤   has many      ├───────────────────┤
+│ id           │                 │ fromState          │
+│ states[]     │   1        *    │ toState             │
+│ transitions[]│&lt;───────────────&gt;│ guards: List&lt;Guard&gt;│──────┐
+└──────────────┘                 └───────────────────┘      │ *
+       ^                                                     v
+       │ references                                  ┌───────────────┐
+       │                                              │TransitionGuard│ (interface)
+┌──────────────┐                                      ├───────────────┤
+│ WorkflowState│                                       │ + check(...)  │
+├──────────────┤                                      └───────┬───────┘
+│ id, name     │                                              │ implements
+│ isInitial    │                                    ┌─────────┴─────────┐
+│ isTerminal   │                                    v                   v
+└──────────────┘                          ┌──────────────────┐ ┌──────────────────┐
+       ^                                  │RequiresQaApproval│ │  RequiresRole    │
+       │ current state of                 │      Guard        │ │      Guard       │
+       │                                  └──────────────────┘ └──────────────────┘
+┌──────────────┐
+│    Issue     │   (from §26 — status field IS a WorkflowState)
+└──────────────┘
+</code></pre></div>
+<p>This diagram is the concrete answer to §33's original challenge — nowhere in it does a project ID appear in any conditional logic; <strong>every</strong> project-specific behavior lives in which <code>WorkflowState</code>/<code>WorkflowTransition</code>/<code>TransitionGuard</code> <strong>data</strong> that project's <code>Workflow</code> instance happens to be composed of.</p>
+<hr>
+<h2 id="39-follow-up-question-8-how-do-you-handle-permissions-who-can-do-what-on-which-project">39. Follow-up Question 8 — "How Do You Handle Permissions — Who Can Do What, on Which Project?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Alice is an admin on Project A but just a regular contributor on Project B. How does your design express that, and where does the check actually happen?"</em></p>
+</blockquote>
+<p>The key insight this question is probing for: permissions are <strong>per-project</strong>, not global to a user — the same person needs different capabilities depending on which project's data they're touching, which rules out a single, flat <code>user.role</code> field entirely.</p>
+<hr>
+<h2 id="40-role-based-access-control-roles-permissions-and-project-level-overrides">40. Role-Based Access Control: Roles, Permissions, and Project-Level Overrides</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public enum Permission { CREATE_ISSUE, EDIT_ISSUE, DELETE_ISSUE, TRANSITION_ISSUE, MANAGE_WORKFLOW, MANAGE_MEMBERS }
+
+public class Role {
+    private final String name;                          // &quot;Admin&quot;, &quot;Contributor&quot;, &quot;Viewer&quot;
+    private final Set&lt;Permission&gt; permissions;
+}
+
+// The actual per-project assignment — THIS is what makes RBAC per-project, not global
+public class ProjectMembership {
+    private final String userId;
+    private final String projectId;
+    private Role role;
+}
+</code></pre></div>
+<p><code>ProjectMembership</code> is the entity that resolves §39's exact scenario: Alice has one <code>ProjectMembership</code> row for Project A (with the Admin role) and a separate one for Project B (with the Contributor role) — the same <code>User</code> object, two independent role assignments, checked against whichever project the current request actually concerns.</p>
+<hr>
+<h2 id="41-implementing-a-permissionchecker">41. Implementing a PermissionChecker</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class PermissionChecker {
+    private final ProjectMembershipRepository membershipRepository;
+
+    public void requirePermission(String userId, String projectId, Permission permission) {
+        ProjectMembership membership = membershipRepository.find(userId, projectId);
+        if (membership == null || !membership.getRole().getPermissions().contains(permission)) {
+            throw new AccessDeniedException(userId, projectId, permission);
+        }
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// Used at the START of every write path — including inside IssueStatusContext.transitionTo (§36)
+public void transitionIssue(String userId, Issue issue, WorkflowState targetState, TransitionContext ctx) {
+    permissionChecker.requirePermission(userId, issue.getProjectId(), Permission.TRANSITION_ISSUE);
+    new IssueStatusContext(issue, workflow).transitionTo(targetState, ctx); // §36 — only reached if the check above passed
+}
+</code></pre></div>
+<p>Notice <code>PermissionChecker</code> is invoked <strong>before</strong> any of §36–§37's workflow logic runs — permission is a coarser-grained, earlier gate ("can this user touch this project's issues at all") than a <code>TransitionGuard</code> (§37, "is this <em>specific</em> transition allowed given the issue's current state") — two genuinely different concerns, deliberately checked at two different points, rather than one bloated authorization method trying to answer both questions at once.</p>
+<hr>
+<h2 id="42-class-diagram-rbac-model">42. Class Diagram: RBAC Model</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>┌──────────┐   *        1   ┌────────────────────┐   *        1   ┌──────────┐
+│   User   │───────────────&gt;│  ProjectMembership  │&lt;───────────────│ Project  │
+├──────────┤                ├────────────────────┤                ├──────────┤
+│ id       │                │ userId             │                │ id       │
+│ name     │                │ projectId           │                │ ...      │
+└──────────┘                │ role ──────┐        │                └──────────┘
+                             └────────────┼────────┘
+                                          │ *      1
+                                          v
+                                    ┌──────────┐   *        *   ┌────────────┐
+                                    │   Role   │───────────────&gt;│ Permission │
+                                    ├──────────┤                 ├────────────┤
+                                    │ name     │                 │ (enum)     │
+                                    └──────────┘                 └────────────┘
+</code></pre></div>
+<p>The same <code>User</code> can appear in many <code>ProjectMembership</code> rows, each pointing at a different <code>Project</code> and, independently, a different <code>Role</code> — the diagram makes §39's requirement ("different permissions on different projects") structurally obvious rather than something you'd have to infer from a paragraph of prose.</p>
+<hr>
+<h2 id="43-follow-up-question-9-when-an-issue-is-updated-a-dozen-things-might-need-to-happen-how-do-you-design-that">43. Follow-up Question 9 — "When an Issue Is Updated, a Dozen Things Might Need to Happen. How Do You Design That?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"An issue transitions to 'Done.' Now: notify the assignee, notify anyone watching the issue, fire any configured webhooks, write an activity-log entry, and update the search index. How do you avoid the <code>IssueService</code> becoming a giant method that knows about all five of those things?"</em></p>
+</blockquote>
+<p>This is the exact motivation for the <strong>Observer pattern</strong> — and the question is deliberately shaped to expose a common anti-pattern: cramming every side effect directly into the method that performs the core action, which becomes an ever-growing, tightly-coupled list every time a new side effect is needed.</p>
+<hr>
+<h2 id="44-the-observer-pattern-for-issue-event-handling">44. The Observer Pattern for Issue Event Handling</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// events/IssueEvent.java
+public sealed interface IssueEvent {
+    record IssueCreated(Issue issue) implements IssueEvent { }
+    record IssueTransitionedEvent(Issue issue, WorkflowTransition transition) implements IssueEvent { } // referenced in §36
+    record IssueCommented(Issue issue, Comment comment) implements IssueEvent { }
+}
+
+// events/EventPublisher.java
+public class EventPublisher {
+    private final List&lt;IssueEventListener&gt; listeners = new ArrayList&lt;&gt;();
+
+    public void subscribe(IssueEventListener listener) { listeners.add(listener); }
+
+    public void publish(IssueEvent event) {
+        for (IssueEventListener listener : listeners) {
+            listener.onEvent(event); // each listener decides independently whether/how to react
+        }
+    }
+}
+
+public interface IssueEventListener {
+    void onEvent(IssueEvent event);
+}
+</code></pre></div>
+<p><code>IssueStatusContext.transitionTo</code> (§36) already calls <code>eventPublisher.publish(...)</code> and nothing more — it has <strong>zero knowledge</strong> of notifications, webhooks, search indexing, or the activity log. Every one of those five side effects §43 listed becomes an <strong>independent</strong> <code>IssueEventListener</code>, registered once at startup, entirely decoupled from the code that triggers the event.</p>
+<hr>
+<h2 id="45-implementing-eventpublisher-and-listeners-notification-webhook-audit-log">45. Implementing EventPublisher and Listeners (Notification, Webhook, Audit Log)</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class NotificationListener implements IssueEventListener {
+    @Override
+    public void onEvent(IssueEvent event) {
+        if (event instanceof IssueEvent.IssueTransitionedEvent e) {
+            notifyUser(e.issue().getAssigneeUserId(), &quot;Issue &quot; + e.issue().getKey() + &quot; is now &quot; + e.transition().toState().name());
+        }
+        // other event types this listener cares about, handled similarly — types it doesn't care about are simply ignored
+    }
+}
+
+public class WebhookListener implements IssueEventListener {
+    @Override
+    public void onEvent(IssueEvent event) {
+        for (String webhookUrl : webhooksConfiguredFor(event)) {
+            asyncHttpClient.post(webhookUrl, serialize(event)); // fire-and-forget, doesn't block the transition itself
+        }
+    }
+}
+
+public class AuditLogListener implements IssueEventListener {
+    @Override
+    public void onEvent(IssueEvent event) {
+        auditLogRepository.append(new AuditEntry(event, Instant.now())); // §48 — an append-only history
+    }
+}
+</code></pre></div>
+<p>Adding a <strong>sixth</strong> side effect — say, updating a "recently active issues" dashboard widget — means writing <strong>one new class</strong> implementing <code>IssueEventListener</code> and registering it, touching <strong>zero</strong> existing code, including <code>IssueStatusContext</code> itself. This is the entire payoff §43's question was probing for, made concrete: the Observer pattern turns "add a side effect" from a modification into an addition.</p>
+<hr>
+<h2 id="46-class-diagram-event-driven-side-effects">46. Class Diagram: Event-Driven Side Effects</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>┌──────────────────┐  publish   ┌────────────────┐  notifies  ┌────────────────────┐
+│IssueStatusContext │───────────&gt;│ EventPublisher  │───────────&gt;│ IssueEventListener  │ (interface)
+│  (§36)            │            ├────────────────┤            ├────────────────────┤
+└──────────────────┘            │ listeners: []   │             │ + onEvent(event)   │
+                                 └────────────────┘             └──────────┬─────────┘
+                                                                            │ implements
+                              ┌─────────────────────┬──────────────────────┼──────────────────────┐
+                              v                     v                      v                      v
+                     ┌──────────────────┐  ┌────────────────┐  ┌────────────────────┐  ┌────────────────────┐
+                     │NotificationListener│ │ WebhookListener │  │  AuditLogListener   │  │ SearchIndexListener │
+                     └──────────────────┘  └────────────────┘  └────────────────────┘  └────────────────────┘
+</code></pre></div>
+<p>Every listener implements the same one-method interface and is registered with the same <code>EventPublisher</code> — the diagram's flatness (four independent boxes hanging off one interface, none aware of the others) <strong>is</strong> the design goal, not a simplification of a more complex reality.</p>
+<hr>
+<h2 id="47-modeling-comments-and-attachments">47. Modeling Comments and Attachments</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class Comment {
+    private final String id;
+    private final String issueKey;
+    private final String authorUserId;
+    private String body;
+    private final Instant createdAt;
+    private Instant editedAt; // null if never edited
+}
+
+public class Attachment {
+    private final String id;
+    private final String issueKey;
+    private final String uploaderUserId;
+    private String fileName;
+    private long fileSizeBytes;
+    private String storageObjectKey; // a KEY into an object store, §-cross-reference below — the file bytes live there, not here
+}
+</code></pre></div>
+<p><code>Attachment.storageObjectKey</code> deliberately doesn't hold the file's bytes at all — it's a pointer into an object store, exactly <a href="Design Your Own File Storage System — Block, File, Object Storage, and RAID From Scratch.md">the file storage guide's own object-storage design</a>: a relational row is the wrong place to store a 50MB PDF, but it's exactly the right place to store a small, indexed reference to where that PDF actually lives.</p>
+<hr>
+<h2 id="48-the-activityaudit-log-an-append-only-history-of-every-change">48. The Activity/Audit Log: An Append-Only History of Every Change</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record AuditEntry(String issueKey, String actorUserId, IssueEvent event, Instant timestamp) { }
+
+public class AuditLogRepository {
+    public void append(AuditEntry entry) { /* INSERT only — this table is NEVER updated or deleted from */ }
+    public List&lt;AuditEntry&gt; historyFor(String issueKey) { /* SELECT ... ORDER BY timestamp */ return List.of(); }
+}
+</code></pre></div>
+<p>An audit log's entire value proposition depends on it being genuinely <strong>append-only</strong> — the same design discipline <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's own change-event log</a> is built on: if an entry could be edited or deleted after the fact, the log could no longer be trusted as a faithful record of what actually happened, which is precisely why <code>AuditLogListener</code> (§45) only ever calls <code>append</code>, never <code>update</code> or <code>delete</code>.</p>
+<hr>
+<h2 id="49-follow-up-question-10-users-want-to-build-custom-filters-jql-style-how-do-you-design-that">49. Follow-up Question 10 — "Users Want to Build Custom Filters (JQL-Style). How Do You Design That?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"JIRA lets users type something like <code>project = "PROJ" AND status = "In Progress" AND assignee = currentUser()</code>. How would you design a system that parses and executes queries like that?"</em></p>
+</blockquote>
+<p>This is a smaller, self-contained version of exactly the parser/executor problem <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">the TinyDB guide's own SQL layer</a> solves — a small grammar, a parser producing an expression tree, and an evaluator that runs it against real data, scoped here to filtering issues instead of general-purpose SQL.</p>
+<hr>
+<h2 id="50-a-query-language-for-issues-parsing-and-executing-filters">50. A Query Language for Issues: Parsing and Executing Filters</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Grammar (deliberately small, mirroring the discipline of keeping a first version minimal):
+  expression := condition (('AND' | 'OR') condition)*
+  condition  := field operator value
+  field      := 'project' | 'status' | 'assignee' | 'priority' | 'label'
+  operator   := '=' | '!=' | 'IN'
+  value      := STRING | 'currentUser()'
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// search/FilterExpression.java
+public sealed interface FilterExpression {
+    record Condition(String field, String operator, String value) implements FilterExpression { }
+    record And(FilterExpression left, FilterExpression right) implements FilterExpression { }
+    record Or(FilterExpression left, FilterExpression right) implements FilterExpression { }
+}
+</code></pre></div>
+<p>A small, hand-rolled recursive-descent parser (the exact same technique <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's SQL parser</a> uses) turns the raw filter string into a <code>FilterExpression</code> tree — <code>project = "PROJ" AND status = "In Progress"</code> becomes <code>And(Condition("project","=","PROJ"), Condition("status","=","In Progress"))</code>, ready for §51 to evaluate against real issues.</p>
+<hr>
+<h2 id="51-implementing-a-simple-filter-expression-evaluator">51. Implementing a Simple Filter Expression Evaluator</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// search/FilterEvaluator.java
+public class FilterEvaluator {
+    public boolean matches(Issue issue, FilterExpression expression, String currentUserId) {
+        return switch (expression) {
+            case FilterExpression.Condition c -&gt; evaluateCondition(issue, c, currentUserId);
+            case FilterExpression.And a -&gt; matches(issue, a.left(), currentUserId) &amp;&amp; matches(issue, a.right(), currentUserId);
+            case FilterExpression.Or o -&gt; matches(issue, o.left(), currentUserId) || matches(issue, o.right(), currentUserId);
+        };
+    }
+
+    private boolean evaluateCondition(Issue issue, FilterExpression.Condition c, String currentUserId) {
+        String actualValue = extractField(issue, c.field());          // e.g. issue.getStatus().name()
+        String expectedValue = &quot;currentUser()&quot;.equals(c.value()) ? currentUserId : c.value();
+        return switch (c.operator()) {
+            case &quot;=&quot; -&gt; actualValue.equals(expectedValue);
+            case &quot;!=&quot; -&gt; !actualValue.equals(expectedValue);
+            default -&gt; throw new UnsupportedOperationException(c.operator());
+        };
+    }
+    // extractField(...) omitted for brevity — a simple switch over c.field() reading the matching Issue getter
+}
+</code></pre></div>
+<p>This tree-walking evaluator is a perfectly reasonable implementation for evaluating a filter against issues already loaded in memory (or as a fallback when the search index, §17, is unavailable); the <strong>production</strong> path for a query like this against millions of issues would translate the same <code>FilterExpression</code> tree into a query against the search index (§17) instead of walking it in application code row by row — the parser and the expression tree are reusable either way, only the "how do I actually execute this" backend differs, the same separation of concerns <a href="Build Your Own CRUD Admin Framework From Scratch — MiniAdmin Step-by-Step Guide.md">MiniAdmin's generic CRUD layer</a> already demonstrated between a query's <em>shape</em> and <em>where it actually runs</em>.</p>
+<hr>
+<h2 id="52-follow-up-question-11-two-users-edit-the-same-issue-at-the-same-time-what-happens">52. Follow-up Question 11 — "Two Users Edit the Same Issue at the Same Time. What Happens?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Alice and Bob both open PROJ-123. Alice changes the priority. Bob, a second later, changes the assignee — but he loaded the issue before Alice's change was saved. What happens when Bob saves?"</em></p>
+</blockquote>
+<p>This is a direct, textbook <strong>lost-update</strong> race — exactly <a href="Optimistic vs Pessimistic Locking — A Practical, Step-by-Step Guide With a Custom Java Implementation.md">the locking guide's own opening scenario</a>, just with an issue's fields instead of inventory stock. The fix is the same one that guide derives in full: <strong>optimistic locking</strong> via a version field, which §26 already included on <code>Issue</code> for exactly this reason.</p>
+<hr>
+<h2 id="53-optimistic-locking-for-issue-updates">53. Optimistic Locking for Issue Updates</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public void updateIssue(String issueKey, IssueUpdateRequest request, long expectedVersion) throws SQLException {
+    int rowsUpdated = jdbcTemplate.update(
+        &quot;UPDATE issue SET priority = ?, assignee_user_id = ?, version = version + 1 &quot; +
+        &quot;WHERE key = ? AND version = ?&quot;, // the version check IS the entire concurrency control mechanism
+        request.priority(), request.assigneeUserId(), issueKey, expectedVersion
+    );
+    if (rowsUpdated == 0) {
+        throw new OptimisticLockException(issueKey); // Bob's save is REJECTED, not silently overwritten or silently accepted
+    }
+}
+</code></pre></div>
+<p>Bob's <code>PATCH</code> request (§14) must include the <code>version</code> he last read (typically returned in the <code>GET</code> response and round-tripped by the client) — if Alice's update already bumped the version, Bob's conditional <code>UPDATE</code> matches zero rows, and the API returns a <code>409 Conflict</code> the client surfaces as "this issue changed since you loaded it, please refresh" — never a silent, undetected overwrite of Alice's change. <a href="Optimistic vs Pessimistic Locking — A Practical, Step-by-Step Guide With a Custom Java Implementation.md">The locking guide's full treatment</a> covers exactly why optimistic (rather than pessimistic, lock-and-block) locking is the right default here: issue edits are infrequent and low-contention compared to that guide's flash-sale example, exactly the profile optimistic locking is best suited for.</p>
+<hr>
+<h2 id="54-follow-up-question-12-how-do-you-generate-unique-human-readable-issue-keys-proj-123-without-collisions-at-scale">54. Follow-up Question 12 — "How Do You Generate Unique, Human-Readable Issue Keys (PROJ-123) Without Collisions at Scale?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Every issue needs a key like PROJ-123 — unique within the project, sequential-looking, and generated correctly even if two people create an issue in the same project at the exact same instant, possibly on different application servers. How?"</em></p>
+</blockquote>
+<p>A naive "read the current max number for this project, add one" approach has the exact same lost-update race as §52 — two concurrent issue creations could both read the same max and both compute the same "next" number, producing two issues both claiming to be <code>PROJ-457</code>.</p>
+<hr>
+<h2 id="55-distributed-id-generation-for-issue-keys">55. Distributed ID Generation for Issue Keys</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class IssueKeyGenerator {
+    private final DataSource dataSource;
+
+    /** Uses an atomic, database-level counter increment — the SQL server resolves the race, not the application. */
+    public String nextKey(String projectKey) throws SQLException {
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 &quot;UPDATE project_counter SET next_number = next_number + 1 &quot; +
+                 &quot;WHERE project_key = ? RETURNING next_number&quot;)) { // atomic increment-and-return, in ONE statement
+            ps.setString(1, projectKey);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return projectKey + &quot;-&quot; + rs.getLong(&quot;next_number&quot;);
+            }
+        }
+    }
+}
+</code></pre></div>
+<p>The critical detail: incrementing and reading the counter happens in <strong>one atomic database statement</strong> (<code>UPDATE ... RETURNING</code>), not as a separate <code>SELECT</code> followed by an <code>UPDATE</code> — which would reopen exactly the same race §54 warned about, just moved into this class instead of avoiding it. This pushes the concurrency problem onto the database's own row-level atomicity guarantee (conceptually the same single-row atomic update guarantee <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's row-level locking</a> provides), rather than trying to solve it in application code — the correct instinct any time a strictly-increasing, collision-free counter is needed under real concurrency.</p>
+<hr>
+<h2 id="56-follow-up-question-13-this-now-has-10-million-issues-and-100000-concurrent-users-what-breaks-first-and-how-do-you-fix-it">56. Follow-up Question 13 — "This Now Has 10 Million Issues and 100,000 Concurrent Users. What Breaks First, and How Do You Fix It?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Let's fast-forward. The product succeeded. What's the first thing that falls over at this scale, and what specifically do you do about it — not in general terms, be specific."</em></p>
+</blockquote>
+<p>This is the interview's final escalation — testing whether a candidate can reason about <strong>which</strong> bottleneck hits first, in order, rather than reciting a generic list of "add caching, add sharding, add replicas" with no sense of sequencing or root cause.</p>
+<hr>
+<h2 id="57-database-sharding-strategy">57. Database Sharding Strategy</h2>
+<p>The single relational database (§15) is the first thing to strain — specifically, write throughput and index size on the <code>issue</code> table. <strong>Sharding by <code>tenant_id</code></strong> (§22's multi-tenancy column, reused directly here) is the natural first cut: since no query ever legitimately needs to join across two different tenants' data (they're different companies entirely), routing each tenant's data to a specific shard based on a hash of <code>tenant_id</code> scales write throughput roughly linearly with shard count, with <strong>zero</strong> cross-shard queries ever required for normal operation — the best-case scenario for sharding, because the natural data-isolation boundary (tenant) and the natural query-isolation boundary (a query never spans tenants) are the same boundary.</p>
+<hr>
+<h2 id="58-read-replicas-and-cqrs-style-readwrite-separation">58. Read Replicas and CQRS-Style Read/Write Separation</h2>
+<p>Even within one shard, read traffic (loading boards, viewing issues) vastly outweighs write traffic (creating/updating issues) — a classic <strong>read replica</strong> setup, where writes go to a primary and reads are served from one or more asynchronously-replicated followers, absorbs the read load without adding write-side complexity. This is architecturally the same <strong>leader-follower replication</strong> <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's own replication design</a> implements — the same tradeoff applies too: a read from a replica can be milliseconds stale, which is entirely acceptable for viewing a board but must be handled carefully for anything that just wrote and immediately needs to read its own write (the same "read-your-writes" concern that guide's replication section names explicitly).</p>
+<hr>
+<h2 id="59-rate-limiting-the-api">59. Rate Limiting the API</h2>
+<p>At 100,000 concurrent users, a single misbehaving client (a buggy integration polling too aggressively, or a genuine abuse case) can degrade service for everyone else sharing the same infrastructure — a <strong>rate limiter</strong> at the API gateway (§24), keyed by tenant and/or API token, rejects requests past a configured threshold with a <code>429 Too Many Requests</code> <strong>before</strong> they ever reach a service, protecting the Issue/Project/Workflow services from load they were never sized to handle from one bad actor.</p>
+<hr>
+<h2 id="60-full-worked-example-creating-and-transitioning-an-issue-end-to-end">60. Full Worked Example: Creating and Transitioning an Issue End to End</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>POST /projects/PROJ/issues { title, description, type: STORY, priority: HIGH }
+  -&gt; PermissionChecker.requirePermission(userId, &quot;PROJ&quot;, CREATE_ISSUE)                    (§41)
+  -&gt; IssueKeyGenerator.nextKey(&quot;PROJ&quot;) -&gt; &quot;PROJ-458&quot;                                       (§55)
+  -&gt; Issue saved to the sharded relational DB, tenant_id set, version = 0                  (§26, §57)
+  -&gt; EventPublisher.publish(IssueCreated(issue))                                           (§44)
+       -&gt; SearchIndexListener indexes it                                                   (§17)
+       -&gt; AuditLogListener appends an entry                                                (§48)
+
+POST /issues/PROJ-458/transitions { toState: &quot;IN_PROGRESS&quot; }
+  -&gt; PermissionChecker.requirePermission(userId, &quot;PROJ&quot;, TRANSITION_ISSUE)                 (§41)
+  -&gt; IssueStatusContext.transitionTo(IN_PROGRESS, ctx)                                      (§36)
+       -&gt; Workflow.isValidTransition(TODO, IN_PROGRESS) -&gt; true                             (§35)
+       -&gt; guards checked (none configured for this transition, in this example)             (§37)
+       -&gt; issue.setStatus(IN_PROGRESS), UPDATE ... WHERE version = ? (optimistic lock)      (§53)
+       -&gt; EventPublisher.publish(IssueTransitionedEvent(issue, transition))                 (§44)
+            -&gt; NotificationListener notifies the assignee                                   (§45)
+            -&gt; WebSocket pub/sub pushes a live board update to everyone viewing PROJ's board (§19)
+            -&gt; SearchIndexListener updates the index                                        (§17)
+</code></pre></div>
+<p>Every mechanism this guide built — permissions, key generation, the workflow engine, optimistic locking, and the full event fan-out — appears somewhere in these two requests, which is the clearest possible demonstration that the pieces genuinely compose into one coherent system rather than being independent exercises.</p>
+<hr>
+<h2 id="61-final-architecture-diagram">61. Final Architecture Diagram</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                          Client
+                              |
+              API Gateway (auth, rate limiting, §59)
+                              |
+        +---------+---------+---------+---------+
+        v         v         v         v         v
+    Project   Issue     Workflow  Notification  Search
+    Service   Service    Service    Service      Service
+        |         |          |
+        +---------+----------+
+                   |
+     PermissionChecker (§41) gates every write
+                   |
+     IssueStatusContext (§36) -- Workflow (§35) -- TransitionGuards (§37)
+                   |
+        Sharded relational DB, by tenant_id (§22, §57)
+        + read replicas (§58)
+                   |
+         publishes IssueEvents (§44)
+                   |
+        +----------+----------+----------+
+        v          v          v          v
+  SearchIndexer  Notification  Webhook  AuditLog
+  (§17)          (§45)         (§45)    (§45, §48)
+</code></pre></div>
+<hr>
+<h2 id="62-design-patterns-used">62. Design Patterns Used</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Applied to</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>State</strong></td>
+<td>Issue status transitions, validated against a per-project <code>Workflow</code></td>
+<td>§35-§36</td>
+</tr>
+<tr>
+<td><strong>Strategy</strong></td>
+<td><code>TransitionGuard</code> implementations, pluggable per transition</td>
+<td>§37</td>
+</tr>
+<tr>
+<td><strong>Observer</strong></td>
+<td>Fan-out of side effects (notifications, webhooks, audit log, search indexing) on any issue event</td>
+<td>§44-§46</td>
+</tr>
+<tr>
+<td><strong>Composition over Inheritance</strong></td>
+<td>Epic/Story/SubTask as one <code>Issue</code> class with a <code>type</code> field, not a class hierarchy</td>
+<td>§29</td>
+</tr>
+<tr>
+<td><strong>Repository</strong> (implicit)</td>
+<td>Data access abstracted behind repository interfaces, never raw SQL scattered through business logic</td>
+<td>Throughout Part 3 onward</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="63-solid-principles-applied">63. SOLID Principles Applied</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Principle</th>
+<th>Where it holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>S</strong>ingle Responsibility</td>
+<td><code>IssueStatusContext</code> only validates and performs transitions; <code>PermissionChecker</code> only checks permissions; <code>EventPublisher</code> only fans out events — none of them do more than one job</td>
+</tr>
+<tr>
+<td><strong>O</strong>pen/Closed</td>
+<td>Adding a new <code>IssueEventListener</code> (§45) or a new <code>TransitionGuard</code> (§37) is purely additive — no existing class changes</td>
+</tr>
+<tr>
+<td><strong>L</strong>iskov Substitution</td>
+<td>Every <code>TransitionGuard</code>/<code>IssueEventListener</code> implementation is fully interchangeable from its caller's point of view</td>
+</tr>
+<tr>
+<td><strong>I</strong>nterface Segregation</td>
+<td><code>IssueEventListener</code> and <code>TransitionGuard</code> are each single-method interfaces — no implementation is forced to support behavior it doesn't need</td>
+</tr>
+<tr>
+<td><strong>D</strong>ependency Inversion</td>
+<td><code>IssueStatusContext</code> depends on the <code>Workflow</code>/<code>TransitionGuard</code> abstractions, never on a specific project's concrete configuration</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="64-common-mistakes">64. Common Mistakes</h2>
+<ul>
+<li><strong>Mistake 1 — A <code>List&lt;Issue&gt;</code> field directly on <code>Project</code> (§28).</strong> Looks natural in a diagram, catastrophic at real scale — always query issues by project ID through a repository, never hold them as an in-memory collection on the parent.</li>
+<li><strong>Mistake 2 — A hard-coded <code>Status</code> enum shared across all projects (§34).</strong> Directly fails the "customizable workflow per project" requirement the moment two projects need different statuses.</li>
+<li><strong>Mistake 3 — Cramming every side effect into the transition method itself (§43).</strong> Turns a focused state-machine operation into an ever-growing, tightly-coupled god-method every time a new notification channel is added.</li>
+<li><strong>Mistake 4 — Checking permissions <em>after</em> performing a mutation, or skipping the check for "trusted" internal callers.</strong> Every write path must call <code>PermissionChecker</code> first, with no exceptions, or a future caller (or a future bug) silently bypasses authorization.</li>
+<li><strong>Mistake 5 — A read-then-write (not atomic) issue key generator (§54).</strong> Reopens the exact concurrent-collision problem it was meant to solve; the increment and read must be one atomic database operation.</li>
+<li><strong>Mistake 6 — Treating the search index as the source of truth.</strong> It's a derived, eventually-consistent projection (§17) — the relational database (§15) is authoritative, and the index must always be rebuildable from it.</li>
+</ul>
+<hr>
+<h2 id="65-testing-strategy">65. Testing Strategy</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>What to test</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Workflow engine (§35-§37)</td>
+<td>Only configured transitions succeed; a missing/failing guard blocks the transition</td>
+<td>Build a small test <code>Workflow</code> with two states and a <code>RequiresQaApprovalGuard</code>, assert both the allowed and blocked paths</td>
+</tr>
+<tr>
+<td>Permission checks (§41)</td>
+<td>A user without the required role on a project is denied, even if they have it on a different project</td>
+<td>Two <code>ProjectMembership</code> rows for the same user, different projects, different roles — assert per-project isolation</td>
+</tr>
+<tr>
+<td>Event fan-out (§44-§45)</td>
+<td>Every registered listener receives every published event; a listener throwing an exception doesn't prevent others from running</td>
+<td>Register several fake listeners, publish one event, assert all were invoked</td>
+</tr>
+<tr>
+<td>Optimistic locking (§53)</td>
+<td>A concurrent update with a stale version is rejected, not silently overwritten</td>
+<td>The same concurrent-load harness style as <a href="Optimistic vs Pessimistic Locking — A Practical, Step-by-Step Guide With a Custom Java Implementation.md">the locking guide's §48</a></td>
+</tr>
+<tr>
+<td>Issue key generation (§55)</td>
+<td>No two concurrently-created issues in the same project ever receive the same key</td>
+<td>Many threads calling <code>nextKey</code> concurrently for the same project, asserting every returned key is unique</td>
+</tr>
+<tr>
+<td>Filter evaluator (§50-§51)</td>
+<td>A parsed <code>AND</code>/<code>OR</code> expression correctly matches/excludes issues</td>
+<td>Build a small in-memory issue set, assert filter results against hand-computed expected matches</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="66-suggested-future-enhancements">66. Suggested Future Enhancements</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Enhancement</th>
+<th>What it adds</th>
+<th>Where it plugs in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Custom fields per project</td>
+<td>Projects define their own issue fields beyond the fixed set (§26)</td>
+<td>An EAV-style extension, the same technique <a href="Build Your Own CRUD Admin Framework From Scratch — MiniAdmin Step-by-Step Guide.md">MiniAdmin's Custom Object builder</a> uses for user-defined schema</td>
+</tr>
+<tr>
+<td>Automation rules ("when X, do Y")</td>
+<td>User-configurable triggers, e.g. "when an issue is labeled 'urgent', notify the team lead"</td>
+<td>A rules engine subscribing to the same <code>IssueEvent</code> stream (§44) as the built-in listeners</td>
+</tr>
+<tr>
+<td>Time tracking and reporting (burndown charts)</td>
+<td>Sprint velocity, cycle time, and other analytics</td>
+<td>A separate read-optimized analytics store, fed by the same event stream, mirroring §17's search-indexer pattern</td>
+</tr>
+<tr>
+<td>Cross-project epics and dependencies</td>
+<td>An epic (or a "blocks"/"is blocked by" link) spanning multiple projects</td>
+<td>Relaxes §28's project-scoped assumption — a genuinely bigger design change, not just an additive one</td>
+</tr>
+<tr>
+<td>Fine-grained field-level permissions</td>
+<td>"Contributors can edit description but not priority"</td>
+<td>Extends §40's <code>Permission</code> enum to be field-aware, checked inside the update path rather than only at the operation level</td>
+</tr>
+<tr>
+<td>Real-time collaborative editing of descriptions</td>
+<td>Multiple users editing the same issue's description simultaneously, like a shared document</td>
+<td>Operational transforms or CRDTs — a substantially more complex mechanism than §19's simple change-broadcast</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="67-progressive-interview-question-set">67. Progressive Interview Question Set</h2>
+<p><strong>Level 1 — Requirements and domain modeling</strong>
+1. What functional requirement, if changed, would most change your high-level architecture — and why?
+2. Why isn't an Epic modeled as a separate Java class from a Story or Bug?</p>
+<p><strong>Level 2 — High-level design</strong>
+3. Justify the service boundary between the Issue Service and the Workflow Service — why not combine them?
+4. Walk through what happens, system-wide, when one issue changes status — name every downstream consumer of that event.</p>
+<p><strong>Level 3 — Low-level design</strong>
+5. Why can't <code>Issue.status</code> be a plain enum if workflows are customizable per project?
+6. Explain how a <code>TransitionGuard</code> differs from a <code>PermissionChecker</code> check, and why both exist as separate mechanisms.</p>
+<p><strong>Level 4 — Concurrency and scale</strong>
+7. Trace exactly what happens when two users edit the same issue concurrently, from both users' perspective.
+8. Why must issue key generation be one atomic database operation, not a read followed by a write?
+9. Justify sharding by <code>tenant_id</code> specifically — why is this a favorable sharding key for this domain, and what would make a sharding key <em>unfavorable</em>?</p>
+<p><strong>Final challenge:</strong> A customer wants issues to support <strong>field-level history</strong> — not just "the issue changed" (§48's audit log), but "priority changed from Low to High by Alice at 3:04pm, and separately, assignee changed from Bob to Carol at 3:06pm" — queryable per field. Design the change to <code>AuditEntry</code> (§48) and to whichever listener populates it, and explain what tradeoff (storage volume vs. query granularity) this enhancement makes explicit that the original coarse-grained audit log didn't have to confront.</p>
+<hr>
+<h2 id="68-final-takeaway">68. Final Takeaway</h2>
+<p>Every escalating follow-up question in this guide pushed on the same underlying discipline: <strong>a good answer to "design X" is never a single diagram — it's a chain of justified decisions, each one defensible against "why not something simpler."</strong> A fixed status enum is simpler than a data-driven workflow engine (§34–§35) — until a customizable-workflow requirement (§7) makes it wrong. A <code>List&lt;Issue&gt;</code> field on <code>Project</code> is simpler than a repository query (§28) — until scale makes it wrong. A synchronous side-effect call is simpler than the Observer pattern (§43–§44) — until the fifth side effect makes it unmaintainable. None of these "more complex" answers were reached for by default; each was justified by a specific requirement or a specific follow-up question exposing exactly why the simpler version breaks. That's the actual skill a JIRA-style system-design interview is testing — not whether you've memorized what JIRA looks like, but whether you can derive its design decisions, one defensible step at a time, the way this guide just did.</p>
+</main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

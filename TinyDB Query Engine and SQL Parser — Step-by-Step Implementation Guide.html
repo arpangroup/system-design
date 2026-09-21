@@ -1,0 +1,2125 @@
+<meta charset="utf-8">
+<title>TinyDB Query Engine and SQL Parser — Build a SQL Engine from Scratch in Java</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; database internals guide</div>
+      <h1>TinyDB Query Engine and SQL Parser — From SQL Text to Query Results</h1>
+      <p class="dek">A complete SQL processing stack built from scratch in Java, as a standalone companion to the TinyDB storage engine guide: a hand-written lexer and recursive-descent parser producing an immutable, sealed-interface AST, six real statement executors, and the query-planner architecture every production database actually uses &mdash; a Plan/Scan pipeline (BasicPlanner, BasicQueryEngine, TableScan/SelectScan/ProjectScan), a persistent Catalog Manager, rule-based index selection, and an ANTLR/Visitor-pattern alternative &mdash; with real, compilable code for every piece.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-interview-motivation">Why This Matters (Interview Motivation)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-high-level-architecture-lexer-parser-ast-executorsplanner-scan-pipeline">High-Level Architecture: Lexer → Parser → AST → Executors/Planner → Scan Pipeline</a></li><li class="toc-lvl-2"><a href="#7-phase-1-tokens-and-the-sql-lexer">Phase 1 — Tokens and the SQL Lexer</a></li><li class="toc-lvl-2"><a href="#8-the-sql-grammar-we-support-start-small">The SQL Grammar We Support (Start Small)</a></li><li class="toc-lvl-2"><a href="#9-the-domain-model-row-tableschema-column-and-datatype">The Domain Model: Row, TableSchema, Column, and DataType</a></li><li class="toc-lvl-2"><a href="#10-phase-2-the-sqlstatement-ast">Phase 2 — The SqlStatement AST</a></li><li class="toc-lvl-2"><a href="#11-phase-3-recursive-descent-parsing-from-tokens-to-sqlstatement">Phase 3 — Recursive-Descent Parsing: From Tokens to SqlStatement</a></li><li class="toc-lvl-2"><a href="#12-representing-insert-update-delete-create-table-drop-table">Representing INSERT, UPDATE, DELETE, CREATE TABLE, DROP TABLE</a></li><li class="toc-lvl-2"><a href="#13-phase-4-the-where-clause-a-small-expression-ast">Phase 4 — The WHERE Clause: A Small Expression AST</a></li><li class="toc-lvl-2"><a href="#14-implementing-the-expression-evaluator">Implementing the Expression Evaluator</a></li><li class="toc-lvl-2"><a href="#15-phase-5-queryresult-and-transactioncontext">Phase 5 — QueryResult and TransactionContext</a></li><li class="toc-lvl-2"><a href="#16-phase-6-a-minimal-storageengine-to-execute-against">Phase 6 — A Minimal StorageEngine to Execute Against</a></li><li class="toc-lvl-2"><a href="#17-phase-7-the-six-statement-executors">Phase 7 — The Six Statement Executors</a></li><li class="toc-lvl-2"><a href="#18-phase-8-the-queryengine-dispatcher-wiring-lexer-parser-and-executors-together">Phase 8 — The QueryEngine Dispatcher: Wiring Lexer, Parser, and Executors Together</a></li><li class="toc-lvl-2"><a href="#19-alternative-architecture-antlr-generated-parsing-the-visitor-pattern">Alternative Architecture: ANTLR-Generated Parsing + the Visitor Pattern</a></li><li class="toc-lvl-2"><a href="#20-why-direct-execution-doesnt-scale-introducing-the-planner">Why Direct Execution Doesn't Scale: Introducing the Planner</a></li><li class="toc-lvl-2"><a href="#21-the-three-parts-of-a-query-engine">The Three Parts of a Query Engine</a></li><li class="toc-lvl-2"><a href="#22-rule-based-vs-cost-based-optimization">Rule-Based vs Cost-Based Optimization</a></li><li class="toc-lvl-2"><a href="#23-phase-9-the-plan-interface">Phase 9 — The Plan Interface</a></li><li class="toc-lvl-2"><a href="#24-phase-10-basicqueryplanner-and-updateplanner">Phase 10 — BasicQueryPlanner and UpdatePlanner</a></li><li class="toc-lvl-2"><a href="#25-phase-11-basicplanner-a-facade-over-parsing-and-planning">Phase 11 — BasicPlanner: A Facade Over Parsing and Planning</a></li><li class="toc-lvl-2"><a href="#26-phase-12-basicqueryengine-doquery-and-doupdate">Phase 12 — BasicQueryEngine: doQuery and doUpdate</a></li><li class="toc-lvl-2"><a href="#27-revisiting-the-six-executors-to-use-the-planner">Revisiting the Six Executors to Use the Planner</a></li><li class="toc-lvl-2"><a href="#28-phase-13-the-scan-interface-streaming-instead-of-materializing">Phase 13 — The Scan Interface: Streaming Instead of Materializing</a></li><li class="toc-lvl-2"><a href="#29-phase-14-tablescan">Phase 14 — TableScan</a></li><li class="toc-lvl-2"><a href="#30-phase-15-selectscan-and-projectscan">Phase 15 — SelectScan and ProjectScan</a></li><li class="toc-lvl-2"><a href="#31-extending-the-expression-evaluator-to-work-against-a-scan">Extending the Expression Evaluator to Work Against a Scan</a></li><li class="toc-lvl-2"><a href="#32-why-streaming-beats-materializing-a-concrete-cost-trace">Why Streaming Beats Materializing: A Concrete Cost Trace</a></li><li class="toc-lvl-2"><a href="#33-phase-16-the-catalog-interface-revisited">Phase 16 — The Catalog Interface, Revisited</a></li><li class="toc-lvl-2"><a href="#34-phase-17-tablephysicallayout-from-logical-schema-to-byte-offsets">Phase 17 — TablePhysicalLayout: From Logical Schema to Byte Offsets</a></li><li class="toc-lvl-2"><a href="#35-phase-18-persistentcatalog-storing-schema-as-data">Phase 18 — PersistentCatalog: Storing Schema as Data</a></li><li class="toc-lvl-2"><a href="#36-bootstrapping-how-the-catalog-describes-itself">Bootstrapping: How the Catalog Describes Itself</a></li><li class="toc-lvl-2"><a href="#37-follow-up-how-does-the-planner-actually-choose-an-indexscan">Follow-up: How Does the Planner Actually Choose an IndexScan?</a></li><li class="toc-lvl-2"><a href="#38-sketch-an-indexselectplan">Sketch: An IndexSelectPlan</a></li><li class="toc-lvl-2"><a href="#39-full-worked-example-create-table-insert-select-end-to-end">Full Worked Example: CREATE TABLE, INSERT, SELECT End to End</a></li><li class="toc-lvl-2"><a href="#40-final-architecture">Final Architecture</a></li><li class="toc-lvl-2"><a href="#41-tracing-a-query-through-every-layer">Tracing a Query Through Every Layer</a></li><li class="toc-lvl-2"><a href="#42-design-patterns-used">Design Patterns Used</a></li><li class="toc-lvl-2"><a href="#43-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#44-common-mistakes">Common Mistakes</a></li><li class="toc-lvl-2"><a href="#45-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#46-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#47-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#48-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>Goal:</strong> Build the entire SQL processing stack of a database from scratch, as a standalone, self-contained project: a lexer that turns raw SQL text into tokens, a recursive-descent parser that turns tokens into an immutable AST, a set of statement executors that run directly against that AST, and — once that's working — a real query planner (<code>Plan</code>/<code>Scan</code> pipeline) and a persistent catalog manager that supersede direct execution the way every production database's query engine actually works.</p>
+<p>This guide is extracted and substantially expanded from the <code>TinyDB_From_Scratch_Java_Guide_FINAL.md</code> companion document's SQL-processing sections, reorganized to stand on its own — you should be able to implement everything in this guide without needing that document open. The storage layer this guide's <code>StorageEngine</code> interface talks to is built, in full, in the companion <a href="TinyDB Storage Engine — Step-by-Step Implementation Guide.md">TinyDB Storage Engine — Step-by-Step Implementation Guide.md</a>.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<p>A complete pipeline from raw SQL text to an executed result:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>&quot;SELECT name FROM employee WHERE salary &gt; 50000&quot;
+        |
+        v
+   SqlLexer            -- text -&gt; tokens
+        |
+        v
+   SqlParser            -- tokens -&gt; SqlStatement (an immutable AST)
+        |
+        v
+   QueryEngine           -- Level 1: execute the AST directly
+        |                    Level 2: hand it to a Planner instead (Part 4 onward)
+        v
+   StorageEngine         -- built in the companion Storage Engine guide
+</code></pre></div>
+<p>By the end of this guide you will have:</p>
+<ul>
+<li>A <strong>lexer</strong> and a <strong>hand-written recursive-descent parser</strong> producing a sealed <code>SqlStatement</code> AST — no external grammar tool required.</li>
+<li>A small <strong><code>Expression</code></strong> AST and evaluator for <code>WHERE</code> clauses.</li>
+<li><strong>Six real statement executors</strong> (<code>SelectExecutor</code>, <code>InsertExecutor</code>, <code>UpdateExecutor</code>, <code>DeleteExecutor</code>, <code>CreateTableExecutor</code>, <code>DropTableExecutor</code>) that run directly against a <code>StorageEngine</code>.</li>
+<li>A <strong><code>QueryEngine</code> dispatcher</strong> using an exhaustive, compiler-checked <code>switch</code> over the sealed AST — the actual mechanism connecting lexer, parser, and executors.</li>
+<li>A full <strong>query planner</strong>: <code>Plan</code>/<code>Scan</code> abstractions, <code>TablePlan</code>/<code>SelectPlan</code>/<code>ProjectPlan</code>, <code>BasicQueryPlanner</code>/<code>BasicUpdatePlanner</code>, and a <code>BasicPlanner</code> facade — the same architecture real teaching databases (and, in spirit, production ones) use once "just execute the AST directly" stops being enough.</li>
+<li>A <strong>persistent catalog manager</strong> that stores table schema as rows in the database itself, not a throwaway in-memory map.</li>
+<li>A look at the <strong>ANTLR + Visitor pattern</strong> alternative real multi-dialect SQL engines (like Apache ShardingSphere) use instead of a hand-written parser.</li>
+</ul>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to:</p>
+<ul>
+<li>Implement a lexer and a recursive-descent parser for a small SQL grammar, and explain why a sealed AST interface makes adding a new statement type a compile-time-checked change.</li>
+<li>Explain the exact architectural seam between "text processing" (lexing/parsing) and "data processing" (execution) — and point to the one class where they meet.</li>
+<li>Explain the three parts of a query engine (Optimizer, Execution Engine, Catalog Manager) and build a working version of each.</li>
+<li>Explain the difference between Rule-Based and Cost-Based query optimization, with a concrete example.</li>
+<li>Implement a <code>Plan</code>/<code>Scan</code> pipeline that streams rows instead of materializing full result sets in memory, and explain precisely when that matters.</li>
+<li>Justify, with real tradeoffs, when a hand-written parser is the right choice and when ANTLR (or a similar parser generator) earns its keep instead.</li>
+</ul>
+<hr>
+<h2 id="3-why-this-matters-interview-motivation">3. Why This Matters (Interview Motivation)</h2>
+<blockquote>
+<p><strong>"Implement a small SQL engine: parse a <code>SELECT</code>/<code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code> statement and execute it against an in-memory table. Then explain how you'd evolve this into something with a real query planner, and why a planner is worth the added complexity."</strong></p>
+</blockquote>
+<p>This is a strong <strong>backend/database-internals interview question</strong> because it has a natural, escalating structure that separates candidates at every level:</p>
+<ul>
+<li><strong>Can you build a parser at all?</strong> — tokenizing and recursive descent are fundamental, teachable-in-an-hour skills that a surprising number of engineers have never actually implemented.</li>
+<li><strong>Do you understand the AST as a real architectural boundary?</strong> — not just "the parser's output," but the specific thing that lets lexing/parsing and execution evolve independently.</li>
+<li><strong>Can you name and build the three parts of a query engine</strong>, rather than treating "the query engine" as one undifferentiated blob?</li>
+<li><strong>Do you know why a planner exists at all</strong>, beyond "it's what real databases have" — the actual, concrete reason direct AST execution stops being sufficient?</li>
+</ul>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language / JDK</td>
+<td>Java 21</td>
+<td>Sealed interfaces, records, and exhaustive pattern-matching <code>switch</code> are used throughout — they are what make the AST-to-executor dispatch compiler-checked rather than a runtime <code>instanceof</code> chain.</td>
+</tr>
+<tr>
+<td>Parsing technique</td>
+<td>Hand-written lexer + recursive-descent parser</td>
+<td>Small grammar, full control, zero build-tool dependency — see Part 8 for when this stops being the right choice.</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>The <code>StorageEngine</code> interface built in the companion <a href="TinyDB Storage Engine — Step-by-Step Implementation Guide.md">Storage Engine guide</a></td>
+<td>This guide's executors and planner depend only on that interface — swapping the in-memory version for the real page-based one requires no change here.</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>JUnit 5</td>
+<td>Parser and planner correctness is best proven with concrete input/output pairs, not manual inspection.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>tinydb-query-engine/
+├── src/main/java/com/tinydb/sql/
+│   ├── lexer/
+│   │   ├── Token.java, TokenType.java
+│   │   └── SqlLexer.java
+│   ├── ast/
+│   │   ├── SqlStatement.java              // sealed interface
+│   │   ├── SelectStatement.java, InsertStatement.java, UpdateStatement.java,
+│   │   ├── DeleteStatement.java, CreateTableStatement.java, DropTableStatement.java
+│   │   ├── Expression.java, Comparison.java, And.java, Or.java
+│   │   └── ExpressionEvaluator.java
+│   ├── parser/
+│   │   └── SqlParser.java
+│   ├── executor/
+│   │   ├── StatementExecutor.java
+│   │   ├── SelectExecutor.java, InsertExecutor.java, UpdateExecutor.java,
+│   │   ├── DeleteExecutor.java, CreateTableExecutor.java, DropTableExecutor.java
+│   │   └── QueryEngine.java
+│   ├── plan/
+│   │   ├── Plan.java, TablePlan.java, SelectPlan.java, ProjectPlan.java
+│   │   ├── Scan.java, TableScan.java, SelectScan.java, ProjectScan.java
+│   │   └── QueryPlanner.java, BasicQueryPlanner.java, UpdatePlanner.java, BasicUpdatePlanner.java
+│   ├── engine/
+│   │   ├── BasicPlanner.java
+│   │   └── BasicQueryEngine.java
+│   └── catalog/
+│       ├── Catalog.java, TableSchema.java, Column.java, DataType.java
+│       ├── TablePhysicalLayout.java
+│       └── PersistentCatalog.java
+└── src/test/java/com/tinydb/sql/
+    ├── SqlLexerTest.java
+    ├── SqlParserTest.java
+    ├── ExpressionEvaluatorTest.java
+    ├── QueryEngineTest.java
+    └── BasicQueryPlannerTest.java
+</code></pre></div>
+<hr>
+<h2 id="6-high-level-architecture-lexer-parser-ast-executorsplanner-scan-pipeline">6. High-Level Architecture: Lexer → Parser → AST → Executors/Planner → Scan Pipeline</h2>
+<p>Two execution strategies are built in this guide, deliberately in sequence, not as alternatives to choose between arbitrarily:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Level 1 (Part 3): SqlStatement -&gt; Executor -&gt; StorageEngine directly
+                   Simple, correct, materializes full result sets in memory.
+
+Level 2 (Part 4-5): SqlStatement -&gt; Planner -&gt; Plan -&gt; Scan -&gt; StorageEngine
+                   More moving parts, streams rows one at a time, and is the
+                   shape a Cost-Based Optimizer (Part 6) can eventually plug into.
+</code></pre></div>
+<p>Building Level 1 first and Level 2 second is deliberate pedagogy, not an accident of this guide's structure — Part 4 opens by naming exactly what Level 1 cannot do, which is what actually motivates every piece of Level 2's added complexity.</p>
+<hr>
+<h2 id="7-phase-1-tokens-and-the-sql-lexer">7. Phase 1 — Tokens and the SQL Lexer</h2>
+<p>A <strong>lexer</strong> turns raw text into a flat sequence of <strong>tokens</strong> — the smallest meaningful pieces of the language (keywords, identifiers, literals, operators, punctuation) — with no notion yet of how they combine into a statement. That structural question is entirely the parser's job (Part 2).</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// lexer/TokenType.java
+public enum TokenType {
+    // Keywords
+    SELECT, FROM, WHERE, INSERT, INTO, VALUES, UPDATE, SET, DELETE,
+    CREATE, TABLE, DROP, AND, OR, PRIMARY, KEY,
+    // Literals
+    IDENTIFIER, NUMBER, STRING,
+    // Punctuation and operators
+    STAR, COMMA, LPAREN, RPAREN, EQ, NEQ, GT, GTE, LT, LTE,
+    // End of input
+    EOF
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// lexer/Token.java
+public record Token(TokenType type, String text) { }
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// lexer/SqlLexer.java
+public final class SqlLexer {
+
+    private final String sql;
+    private int position = 0;
+
+    public SqlLexer(String sql) {
+        this.sql = sql;
+    }
+
+    public List&lt;Token&gt; tokenize() {
+        List&lt;Token&gt; tokens = new ArrayList&lt;&gt;();
+        Token token;
+        while ((token = nextToken()).type() != TokenType.EOF) {
+            tokens.add(token);
+        }
+        tokens.add(token); // include the EOF sentinel — the parser uses it to know when to stop
+        return tokens;
+    }
+
+    private Token nextToken() {
+        skipWhitespace();
+        if (position &gt;= sql.length()) return new Token(TokenType.EOF, &quot;&quot;);
+
+        char c = sql.charAt(position);
+
+        if (Character.isLetter(c) || c == '_') return readIdentifierOrKeyword();
+        if (Character.isDigit(c)) return readNumber();
+        if (c == '\'') return readStringLiteral();
+
+        return readOperatorOrPunctuation();
+    }
+
+    private void skipWhitespace() {
+        while (position &lt; sql.length() &amp;&amp; Character.isWhitespace(sql.charAt(position))) position++;
+    }
+
+    private Token readIdentifierOrKeyword() {
+        int start = position;
+        while (position &lt; sql.length() &amp;&amp; (Character.isLetterOrDigit(sql.charAt(position)) || sql.charAt(position) == '_')) {
+            position++;
+        }
+        String text = sql.substring(start, position);
+        TokenType keyword = keywordOrNull(text.toUpperCase());
+        return new Token(keyword != null ? keyword : TokenType.IDENTIFIER, text);
+    }
+
+    private TokenType keywordOrNull(String upper) {
+        return switch (upper) {
+            case &quot;SELECT&quot; -&gt; TokenType.SELECT;
+            case &quot;FROM&quot; -&gt; TokenType.FROM;
+            case &quot;WHERE&quot; -&gt; TokenType.WHERE;
+            case &quot;INSERT&quot; -&gt; TokenType.INSERT;
+            case &quot;INTO&quot; -&gt; TokenType.INTO;
+            case &quot;VALUES&quot; -&gt; TokenType.VALUES;
+            case &quot;UPDATE&quot; -&gt; TokenType.UPDATE;
+            case &quot;SET&quot; -&gt; TokenType.SET;
+            case &quot;DELETE&quot; -&gt; TokenType.DELETE;
+            case &quot;CREATE&quot; -&gt; TokenType.CREATE;
+            case &quot;TABLE&quot; -&gt; TokenType.TABLE;
+            case &quot;DROP&quot; -&gt; TokenType.DROP;
+            case &quot;AND&quot; -&gt; TokenType.AND;
+            case &quot;OR&quot; -&gt; TokenType.OR;
+            case &quot;PRIMARY&quot; -&gt; TokenType.PRIMARY;
+            case &quot;KEY&quot; -&gt; TokenType.KEY;
+            default -&gt; null; // not a keyword -- caller falls back to IDENTIFIER
+        };
+    }
+
+    private Token readNumber() {
+        int start = position;
+        while (position &lt; sql.length() &amp;&amp; Character.isDigit(sql.charAt(position))) position++;
+        return new Token(TokenType.NUMBER, sql.substring(start, position));
+    }
+
+    private Token readStringLiteral() {
+        position++; // consume the opening quote
+        int start = position;
+        while (position &lt; sql.length() &amp;&amp; sql.charAt(position) != '\'') position++;
+        String text = sql.substring(start, position);
+        position++; // consume the closing quote
+        return new Token(TokenType.STRING, text);
+    }
+
+    private Token readOperatorOrPunctuation() {
+        char c = sql.charAt(position);
+        char next = position + 1 &lt; sql.length() ? sql.charAt(position + 1) : '\0';
+
+        return switch (c) {
+            case '*' -&gt; single(TokenType.STAR);
+            case ',' -&gt; single(TokenType.COMMA);
+            case '(' -&gt; single(TokenType.LPAREN);
+            case ')' -&gt; single(TokenType.RPAREN);
+            case '=' -&gt; single(TokenType.EQ);
+            case '!' when next == '=' -&gt; doubleChar(TokenType.NEQ);
+            case '&gt;' when next == '=' -&gt; doubleChar(TokenType.GTE);
+            case '&gt;' -&gt; single(TokenType.GT);
+            case '&lt;' when next == '=' -&gt; doubleChar(TokenType.LTE);
+            case '&lt;' -&gt; single(TokenType.LT);
+            default -&gt; throw new IllegalArgumentException(&quot;Unexpected character: &quot; + c);
+        };
+    }
+
+    private Token single(TokenType type) {
+        String text = sql.substring(position, position + 1);
+        position++;
+        return new Token(type, text);
+    }
+
+    private Token doubleChar(TokenType type) {
+        String text = sql.substring(position, position + 2);
+        position += 2;
+        return new Token(type, text);
+    }
+}
+</code></pre></div>
+<p>Every branch above resolves in a small, fixed number of character comparisons — a lexer's entire job is turning <code>O(text length)</code> characters into <code>O(text length)</code> tokens, with no lookahead beyond a single character (the <code>when next == '='</code> guards above are the only place this lexer looks more than one character ahead, and only by exactly one).</p>
+<hr>
+<h2 id="8-the-sql-grammar-we-support-start-small">8. The SQL Grammar We Support (Start Small)</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>statement
+    := select | insert | update | delete | createTable | dropTable
+
+select
+    := SELECT selectList FROM identifier whereClause?
+
+selectList
+    := STAR
+     | identifier (COMMA identifier)*
+
+whereClause
+    := WHERE expression
+
+expression
+    := comparison
+     | expression AND expression
+     | expression OR expression
+
+comparison
+    := identifier operator value
+
+operator
+    := '=' | '!=' | '&gt;' | '&gt;=' | '&lt;' | '&lt;='
+</code></pre></div>
+<p>No <code>JOIN</code>, no <code>ORDER BY</code>, no aggregate functions, no subqueries — Part 9 names these explicitly as future work, not silent omissions. A grammar this small is deliberately proportionate to a hand-written recursive-descent parser (Part 2) — earning a parser generator like ANTLR (Part 3's alternative) only becomes worthwhile once the grammar grows well past this.</p>
+<hr>
+<h2 id="9-the-domain-model-row-tableschema-column-and-datatype">9. The Domain Model: Row, TableSchema, Column, and DataType</h2>
+<p>Before the AST can reference a table's shape (§12's <code>CREATE TABLE</code> parsing needs <code>Column</code>/<code>DataType</code>/<code>TableSchema</code> immediately), the small set of plain data types every later section builds on needs to exist:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// catalog/DataType.java
+public enum DataType {
+    INT, BIGINT, BOOLEAN, VARCHAR, DECIMAL, DATE, TIMESTAMP
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// catalog/Column.java
+public record Column(String name, DataType type, boolean nullable) { }
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// catalog/TableSchema.java
+public record TableSchema(String tableName, List&lt;Column&gt; columns) {
+
+    public List&lt;String&gt; fieldNames() {
+        return columns.stream().map(Column::name).toList();
+    }
+
+    public TableSchema project(List&lt;String&gt; fieldNames) {
+        List&lt;Column&gt; projected = columns.stream().filter(c -&gt; fieldNames.contains(c.name())).toList();
+        return new TableSchema(tableName, projected);
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// A row is deliberately a thin wrapper over a Map for this guide's purposes — see the
+// companion Storage Engine guide for the REAL binary, on-disk row representation this
+// in-memory shape stands in for at execution time.
+public final class Row {
+
+    private final Map&lt;String, Object&gt; values;
+
+    public Row(Map&lt;String, Object&gt; values) {
+        this.values = Map.copyOf(values);
+    }
+
+    public Object get(String column) { return values.get(column); }
+
+    public Set&lt;String&gt; columnNames() { return values.keySet(); }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// catalog/Catalog.java
+public interface Catalog {
+
+    void createTable(TableSchema schema);
+
+    void dropTable(String tableName);
+
+    TableSchema getTable(String tableName);
+
+    boolean tableExists(String tableName);
+
+    List&lt;TableSchema&gt; listTables();
+}
+</code></pre></div>
+<p><code>Catalog</code> is deliberately an interface, not a concrete class, from the very first line it's introduced — Part 6 builds two implementations (an in-memory one for Part 3's Level 1 execution, and <code>PersistentCatalog</code> for Part 6's real, durable version), and no code anywhere in this guide is ever written against a specific one of them.</p>
+<hr>
+<h2 id="10-phase-2-the-sqlstatement-ast">10. Phase 2 — The SqlStatement AST</h2>
+<p>The parser's entire output is one value: a <code>SqlStatement</code>. Making it a <code>sealed interface</code> is the single most consequential design decision in this guide — every later dispatch (executors in Part 3, the planner in Part 4) gets compiler-enforced exhaustiveness from this one choice:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// ast/SqlStatement.java
+public sealed interface SqlStatement
+        permits SelectStatement, InsertStatement, UpdateStatement,
+                DeleteStatement, CreateTableStatement, DropTableStatement {
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record SelectStatement(
+        List&lt;String&gt; columns,
+        String table,
+        Expression where   // null if there was no WHERE clause
+) implements SqlStatement { }
+
+public record InsertStatement(
+        String table,
+        List&lt;String&gt; columns,
+        List&lt;Object&gt; values
+) implements SqlStatement { }
+
+public record UpdateStatement(
+        String table,
+        Map&lt;String, Object&gt; assignments,
+        Expression where
+) implements SqlStatement { }
+
+public record DeleteStatement(
+        String table,
+        Expression where
+) implements SqlStatement { }
+
+public record CreateTableStatement(
+        TableSchema schema
+) implements SqlStatement { }
+
+public record DropTableStatement(
+        String table
+) implements SqlStatement { }
+</code></pre></div>
+<p>Every one of these records is a plain, immutable fact about what the user asked for — no behavior, no reference back to the tokens it was parsed from. That immutability is what lets the exact same <code>SqlStatement</code> object be handed to an executor (Part 3), a planner (Part 4), or a test assertion, with no risk of one consumer's use of it affecting another's.</p>
+<hr>
+<h2 id="11-phase-3-recursive-descent-parsing-from-tokens-to-sqlstatement">11. Phase 3 — Recursive-Descent Parsing: From Tokens to SqlStatement</h2>
+<p><strong>Recursive descent</strong> means: one method per grammar rule (§8), each method consuming tokens and calling other rule-methods for sub-rules, mirroring the grammar's own structure almost line for line.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// parser/SqlParser.java
+public final class SqlParser {
+
+    private final List&lt;Token&gt; tokens;
+    private int position = 0;
+
+    public SqlParser(List&lt;Token&gt; tokens) {
+        this.tokens = tokens;
+    }
+
+    public SqlStatement parseStatement() {
+        return switch (peek().type()) {
+            case SELECT -&gt; parseSelect();
+            case INSERT -&gt; parseInsert();
+            case UPDATE -&gt; parseUpdate();
+            case DELETE -&gt; parseDelete();
+            case CREATE -&gt; parseCreateTable();
+            case DROP -&gt; parseDropTable();
+            default -&gt; throw new IllegalArgumentException(&quot;Unexpected token: &quot; + peek());
+        };
+    }
+
+    // ---- Token stream helpers ----
+
+    private Token peek() { return tokens.get(position); }
+
+    private Token advance() { return tokens.get(position++); }
+
+    private Token expect(TokenType type) {
+        Token token = advance();
+        if (token.type() != type) {
+            throw new IllegalArgumentException(&quot;Expected &quot; + type + &quot; but found &quot; + token);
+        }
+        return token;
+    }
+
+    private boolean check(TokenType type) { return peek().type() == type; }
+}
+</code></pre></div>
+<p><code>peek</code>/<code>advance</code>/<code>expect</code> are the entire vocabulary a recursive-descent parser needs — look at the next token without consuming it, consume the next token, or consume it while asserting it's the type you expected. Every grammar rule below is built from exactly these three operations.</p>
+<hr>
+<h2 id="12-representing-insert-update-delete-create-table-drop-table">12. Representing INSERT, UPDATE, DELETE, CREATE TABLE, DROP TABLE</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// SqlParser.java, continued
+
+private SelectStatement parseSelect() {
+    expect(TokenType.SELECT);
+    List&lt;String&gt; columns = parseSelectList();
+    expect(TokenType.FROM);
+    String table = expect(TokenType.IDENTIFIER).text();
+    Expression where = check(TokenType.WHERE) ? parseWhereClause() : null;
+    return new SelectStatement(columns, table, where);
+}
+
+private List&lt;String&gt; parseSelectList() {
+    if (check(TokenType.STAR)) {
+        advance();
+        return List.of(&quot;*&quot;);
+    }
+    List&lt;String&gt; columns = new ArrayList&lt;&gt;();
+    columns.add(expect(TokenType.IDENTIFIER).text());
+    while (check(TokenType.COMMA)) {
+        advance();
+        columns.add(expect(TokenType.IDENTIFIER).text());
+    }
+    return columns;
+}
+
+private InsertStatement parseInsert() {
+    expect(TokenType.INSERT);
+    expect(TokenType.INTO);
+    String table = expect(TokenType.IDENTIFIER).text();
+
+    expect(TokenType.LPAREN);
+    List&lt;String&gt; columns = parseIdentifierList();
+    expect(TokenType.RPAREN);
+
+    expect(TokenType.VALUES);
+    expect(TokenType.LPAREN);
+    List&lt;Object&gt; values = parseValueList();
+    expect(TokenType.RPAREN);
+
+    return new InsertStatement(table, columns, values);
+}
+
+private List&lt;String&gt; parseIdentifierList() {
+    List&lt;String&gt; identifiers = new ArrayList&lt;&gt;();
+    identifiers.add(expect(TokenType.IDENTIFIER).text());
+    while (check(TokenType.COMMA)) {
+        advance();
+        identifiers.add(expect(TokenType.IDENTIFIER).text());
+    }
+    return identifiers;
+}
+
+private List&lt;Object&gt; parseValueList() {
+    List&lt;Object&gt; values = new ArrayList&lt;&gt;();
+    values.add(parseLiteral());
+    while (check(TokenType.COMMA)) {
+        advance();
+        values.add(parseLiteral());
+    }
+    return values;
+}
+
+private Object parseLiteral() {
+    Token token = advance();
+    return switch (token.type()) {
+        case NUMBER -&gt; Long.parseLong(token.text());
+        case STRING -&gt; token.text();
+        default -&gt; throw new IllegalArgumentException(&quot;Expected a literal but found &quot; + token);
+    };
+}
+
+private UpdateStatement parseUpdate() {
+    expect(TokenType.UPDATE);
+    String table = expect(TokenType.IDENTIFIER).text();
+    expect(TokenType.SET);
+
+    Map&lt;String, Object&gt; assignments = new LinkedHashMap&lt;&gt;();
+    assignments.putAll(parseAssignment());
+    while (check(TokenType.COMMA)) {
+        advance();
+        assignments.putAll(parseAssignment());
+    }
+
+    Expression where = check(TokenType.WHERE) ? parseWhereClause() : null;
+    return new UpdateStatement(table, assignments, where);
+}
+
+private Map&lt;String, Object&gt; parseAssignment() {
+    String column = expect(TokenType.IDENTIFIER).text();
+    expect(TokenType.EQ);
+    Object value = parseLiteral();
+    return Map.of(column, value);
+}
+
+private DeleteStatement parseDelete() {
+    expect(TokenType.DELETE);
+    expect(TokenType.FROM);
+    String table = expect(TokenType.IDENTIFIER).text();
+    Expression where = check(TokenType.WHERE) ? parseWhereClause() : null;
+    return new DeleteStatement(table, where);
+}
+
+private CreateTableStatement parseCreateTable() {
+    expect(TokenType.CREATE);
+    expect(TokenType.TABLE);
+    String table = expect(TokenType.IDENTIFIER).text();
+
+    expect(TokenType.LPAREN);
+    List&lt;Column&gt; columns = new ArrayList&lt;&gt;();
+    columns.add(parseColumnDefinition());
+    while (check(TokenType.COMMA)) {
+        advance();
+        columns.add(parseColumnDefinition());
+    }
+    expect(TokenType.RPAREN);
+
+    return new CreateTableStatement(new TableSchema(table, columns));
+}
+
+private Column parseColumnDefinition() {
+    String name = expect(TokenType.IDENTIFIER).text();
+    DataType type = DataType.valueOf(expect(TokenType.IDENTIFIER).text().toUpperCase());
+    boolean isPrimaryKey = false;
+    if (check(TokenType.PRIMARY)) {
+        advance();
+        expect(TokenType.KEY);
+        isPrimaryKey = true;
+    }
+    return new Column(name, type, !isPrimaryKey); // a primary key column is implicitly NOT NULL
+}
+
+private DropTableStatement parseDropTable() {
+    expect(TokenType.DROP);
+    expect(TokenType.TABLE);
+    String table = expect(TokenType.IDENTIFIER).text();
+    return new DropTableStatement(table);
+}
+</code></pre></div>
+<p>Every one of these methods reads, top to bottom, almost exactly like the grammar rule it implements (§8) — that correspondence is recursive descent's biggest practical advantage: a grammar change usually maps to a small, localized, easy-to-locate change in exactly one method.</p>
+<hr>
+<h2 id="13-phase-4-the-where-clause-a-small-expression-ast">13. Phase 4 — The WHERE Clause: A Small Expression AST</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// ast/Expression.java
+public sealed interface Expression permits Comparison, And, Or { }
+
+public record Comparison(String column, String operator, Object value) implements Expression { }
+public record And(Expression left, Expression right) implements Expression { }
+public record Or(Expression left, Expression right) implements Expression { }
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// SqlParser.java, continued — implements expression := comparison | expression AND expression | expression OR expression
+private Expression parseWhereClause() {
+    expect(TokenType.WHERE);
+    return parseExpression();
+}
+
+private Expression parseExpression() {
+    Expression left = parseComparison();
+    while (check(TokenType.AND) || check(TokenType.OR)) {
+        boolean isAnd = check(TokenType.AND);
+        advance();
+        Expression right = parseComparison();
+        left = isAnd ? new And(left, right) : new Or(left, right);
+    }
+    return left;
+}
+
+private Comparison parseComparison() {
+    String column = expect(TokenType.IDENTIFIER).text();
+    String operator = parseOperator();
+    Object value = parseLiteral();
+    return new Comparison(column, operator, value);
+}
+
+private String parseOperator() {
+    Token token = advance();
+    return switch (token.type()) {
+        case EQ -&gt; &quot;=&quot;; case NEQ -&gt; &quot;!=&quot;; case GT -&gt; &quot;&gt;&quot;;
+        case GTE -&gt; &quot;&gt;=&quot;; case LT -&gt; &quot;&lt;&quot;; case LTE -&gt; &quot;&lt;=&quot;;
+        default -&gt; throw new IllegalArgumentException(&quot;Expected a comparison operator but found &quot; + token);
+    };
+}
+</code></pre></div>
+<p><code>salary &gt; 50000 AND department = 'Engineering'</code> parses into <code>And(Comparison("salary", "&gt;", 50000), Comparison("department", "=", "Engineering"))</code> — a tree shape §13's evaluator walks recursively, matching the sealed interface's own shape exactly.</p>
+<hr>
+<h2 id="14-implementing-the-expression-evaluator">14. Implementing the Expression Evaluator</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// ast/ExpressionEvaluator.java
+public final class ExpressionEvaluator {
+
+    public static boolean matches(Row row, Expression expression) {
+        return switch (expression) {
+            case Comparison c -&gt; evaluateComparison(row.get(c.column()), c);
+            case And a -&gt; matches(row, a.left()) &amp;&amp; matches(row, a.right());
+            case Or o -&gt; matches(row, o.left()) || matches(row, o.right());
+        };
+    }
+
+    static boolean evaluateComparison(Object actual, Comparison c) {
+        int cmp = compare(actual, c.value());
+        return switch (c.operator()) {
+            case &quot;=&quot; -&gt; Objects.equals(actual, c.value());
+            case &quot;!=&quot; -&gt; !Objects.equals(actual, c.value());
+            case &quot;&gt;&quot; -&gt; cmp &gt; 0;
+            case &quot;&gt;=&quot; -&gt; cmp &gt;= 0;
+            case &quot;&lt;&quot; -&gt; cmp &lt; 0;
+            case &quot;&lt;=&quot; -&gt; cmp &lt;= 0;
+            default -&gt; throw new IllegalStateException(&quot;Unsupported operator: &quot; + c.operator());
+        };
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private static int compare(Object actual, Object expected) {
+        if (actual instanceof Comparable&lt;?&gt; &amp;&amp; expected != null) {
+            return ((Comparable&lt;Object&gt;) actual).compareTo(expected);
+        }
+        return 0;
+    }
+}
+</code></pre></div>
+<p><code>Expression</code> being a sealed interface means <code>matches</code>'s <code>switch</code> needs <strong>no <code>default</code> branch</strong> — and the compiler refuses to build this file if a fourth expression type (say, a future <code>Not</code>) is ever added to the <code>permits</code> clause without a matching <code>case</code> here. That guarantee is what stops a new expression type from silently falling through to "matches nothing" instead of a compile error.</p>
+<hr>
+<h2 id="15-phase-5-queryresult-and-transactioncontext">15. Phase 5 — QueryResult and TransactionContext</h2>
+<p>Two small supporting types every executor (§17) and the dispatcher (§18) need:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record QueryResult(List&lt;Row&gt; rows, int affectedRows) {
+
+    public static QueryResult ofRows(List&lt;Row&gt; rows) {
+        return new QueryResult(rows, rows.size());
+    }
+
+    public static QueryResult ofAffected(int count) {
+        return new QueryResult(List.of(), count);
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TransactionContext {
+
+    // Deliberately empty for now. This guide focuses on parsing/planning/execution;
+    // real isolation, locking, and rollback belong to a transaction manager, covered
+    // in depth by the companion Storage Engine guide's crash-recovery and WAL sections.
+    // Until a real TransactionContext is wired in, every statement is its own
+    // implicit, auto-committed transaction.
+    public static final TransactionContext AUTOCOMMIT = new TransactionContext();
+}
+</code></pre></div>
+<hr>
+<h2 id="16-phase-6-a-minimal-storageengine-to-execute-against">16. Phase 6 — A Minimal StorageEngine to Execute Against</h2>
+<p>The executors need something real underneath them. This in-memory version is the Level 1 stand-in — the companion <a href="TinyDB Storage Engine — Step-by-Step Implementation Guide.md">Storage Engine guide</a> builds the real, page-based, durable implementation of this exact same interface.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface StorageEngine {
+
+    void createTable(TableSchema schema);
+
+    void dropTable(String tableName);
+
+    void insert(String tableName, Row row);
+
+    List&lt;Row&gt; scan(String tableName);
+
+    void replaceRows(String tableName, List&lt;Row&gt; rows);
+
+    Scan openScan(String tableName); // streaming access — used from Part 5 onward
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class MemoryStorageEngine implements StorageEngine {
+
+    private final Map&lt;String, List&lt;Row&gt;&gt; tables = new ConcurrentHashMap&lt;&gt;();
+
+    @Override
+    public void createTable(TableSchema schema) {
+        tables.putIfAbsent(schema.tableName(), new CopyOnWriteArrayList&lt;&gt;());
+    }
+
+    @Override
+    public void dropTable(String tableName) { tables.remove(tableName); }
+
+    @Override
+    public void insert(String tableName, Row row) { tables.get(tableName).add(row); }
+
+    @Override
+    public List&lt;Row&gt; scan(String tableName) { return List.copyOf(tables.get(tableName)); }
+
+    @Override
+    public void replaceRows(String tableName, List&lt;Row&gt; rows) {
+        tables.put(tableName, new CopyOnWriteArrayList&lt;&gt;(rows));
+    }
+
+    @Override
+    public Scan openScan(String tableName) {
+        // Implemented in full in Part 5 (§21), once the Scan interface itself is introduced.
+        throw new UnsupportedOperationException(&quot;see Part 5&quot;);
+    }
+}
+</code></pre></div>
+<p><code>replaceRows</code> is a deliberately blunt instrument: <code>UpdateExecutor</code>/<code>DeleteExecutor</code> (§17) compute a new row list and swap the whole thing in, rather than mutating individual rows — correct and simple here, and honestly wasteful once a table is large, which is exactly the problem the real page-based storage engine (the companion guide) solves properly.</p>
+<hr>
+<h2 id="17-phase-7-the-six-statement-executors">17. Phase 7 — The Six Statement Executors</h2>
+<p>Each executor implements one small, typed contract:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface StatementExecutor&lt;S extends SqlStatement&gt; {
+    QueryResult execute(S statement, TransactionContext transaction);
+}
+</code></pre></div>
+<p><strong>SelectExecutor</strong></p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class SelectExecutor implements StatementExecutor&lt;SelectStatement&gt; {
+
+    private final StorageEngine storageEngine;
+
+    public SelectExecutor(StorageEngine storageEngine) { this.storageEngine = storageEngine; }
+
+    @Override
+    public QueryResult execute(SelectStatement statement, TransactionContext transaction) {
+        List&lt;Row&gt; matching = storageEngine.scan(statement.table()).stream()
+                .filter(row -&gt; statement.where() == null || ExpressionEvaluator.matches(row, statement.where()))
+                .toList();
+
+        if (statement.columns().size() == 1 &amp;&amp; statement.columns().get(0).equals(&quot;*&quot;)) {
+            return QueryResult.ofRows(matching);
+        }
+        List&lt;Row&gt; projected = matching.stream().map(row -&gt; projectColumns(row, statement.columns())).toList();
+        return QueryResult.ofRows(projected);
+    }
+
+    private Row projectColumns(Row row, List&lt;String&gt; columns) {
+        Map&lt;String, Object&gt; projected = new LinkedHashMap&lt;&gt;();
+        for (String column : columns) projected.put(column, row.get(column));
+        return new Row(projected);
+    }
+}
+</code></pre></div>
+<p><strong>InsertExecutor</strong></p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class InsertExecutor implements StatementExecutor&lt;InsertStatement&gt; {
+
+    private final StorageEngine storageEngine;
+    private final Catalog catalog;
+
+    public InsertExecutor(StorageEngine storageEngine, Catalog catalog) {
+        this.storageEngine = storageEngine;
+        this.catalog = catalog;
+    }
+
+    @Override
+    public QueryResult execute(InsertStatement statement, TransactionContext transaction) {
+        TableSchema schema = catalog.getTable(statement.table());
+        if (schema == null) throw new IllegalStateException(&quot;No such table: &quot; + statement.table());
+        if (statement.columns().size() != statement.values().size()) {
+            throw new IllegalArgumentException(&quot;Column count does not match value count&quot;);
+        }
+
+        Map&lt;String, Object&gt; values = new LinkedHashMap&lt;&gt;();
+        for (int i = 0; i &lt; statement.columns().size(); i++) {
+            values.put(statement.columns().get(i), statement.values().get(i));
+        }
+        validateAgainstSchema(schema, values);
+
+        storageEngine.insert(statement.table(), new Row(values));
+        return QueryResult.ofAffected(1);
+    }
+
+    private void validateAgainstSchema(TableSchema schema, Map&lt;String, Object&gt; values) {
+        for (Column column : schema.columns()) {
+            if (!column.nullable() &amp;&amp; values.get(column.name()) == null) {
+                throw new IllegalStateException(column.name() + &quot; cannot be null&quot;);
+            }
+        }
+    }
+}
+</code></pre></div>
+<p><strong>UpdateExecutor</strong></p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class UpdateExecutor implements StatementExecutor&lt;UpdateStatement&gt; {
+
+    private final StorageEngine storageEngine;
+
+    public UpdateExecutor(StorageEngine storageEngine) { this.storageEngine = storageEngine; }
+
+    @Override
+    public QueryResult execute(UpdateStatement statement, TransactionContext transaction) {
+        List&lt;Row&gt; current = storageEngine.scan(statement.table());
+        List&lt;Row&gt; updated = new ArrayList&lt;&gt;();
+        int affected = 0;
+
+        for (Row row : current) {
+            if (statement.where() == null || ExpressionEvaluator.matches(row, statement.where())) {
+                Map&lt;String, Object&gt; newValues = new LinkedHashMap&lt;&gt;();
+                for (String column : row.columnNames()) newValues.put(column, row.get(column));
+                newValues.putAll(statement.assignments());
+                updated.add(new Row(newValues));
+                affected++;
+            } else {
+                updated.add(row);
+            }
+        }
+        storageEngine.replaceRows(statement.table(), updated);
+        return QueryResult.ofAffected(affected);
+    }
+}
+</code></pre></div>
+<p><strong>DeleteExecutor</strong></p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class DeleteExecutor implements StatementExecutor&lt;DeleteStatement&gt; {
+
+    private final StorageEngine storageEngine;
+
+    public DeleteExecutor(StorageEngine storageEngine) { this.storageEngine = storageEngine; }
+
+    @Override
+    public QueryResult execute(DeleteStatement statement, TransactionContext transaction) {
+        List&lt;Row&gt; current = storageEngine.scan(statement.table());
+        List&lt;Row&gt; kept = new ArrayList&lt;&gt;();
+        int affected = 0;
+
+        for (Row row : current) {
+            boolean shouldDelete = statement.where() == null || ExpressionEvaluator.matches(row, statement.where());
+            if (shouldDelete) affected++; else kept.add(row);
+        }
+        storageEngine.replaceRows(statement.table(), kept);
+        return QueryResult.ofAffected(affected);
+    }
+}
+</code></pre></div>
+<p><strong>CreateTableExecutor</strong></p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class CreateTableExecutor implements StatementExecutor&lt;CreateTableStatement&gt; {
+
+    private final Catalog catalog;
+    private final StorageEngine storageEngine;
+
+    public CreateTableExecutor(Catalog catalog, StorageEngine storageEngine) {
+        this.catalog = catalog;
+        this.storageEngine = storageEngine;
+    }
+
+    @Override
+    public QueryResult execute(CreateTableStatement statement, TransactionContext transaction) {
+        if (catalog.tableExists(statement.schema().tableName())) {
+            throw new IllegalStateException(&quot;Table already exists: &quot; + statement.schema().tableName());
+        }
+        catalog.createTable(statement.schema());
+        storageEngine.createTable(statement.schema());
+        return QueryResult.ofAffected(0);
+    }
+}
+</code></pre></div>
+<p><strong>DropTableExecutor</strong></p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class DropTableExecutor implements StatementExecutor&lt;DropTableStatement&gt; {
+
+    private final Catalog catalog;
+    private final StorageEngine storageEngine;
+
+    public DropTableExecutor(Catalog catalog, StorageEngine storageEngine) {
+        this.catalog = catalog;
+        this.storageEngine = storageEngine;
+    }
+
+    @Override
+    public QueryResult execute(DropTableStatement statement, TransactionContext transaction) {
+        if (!catalog.tableExists(statement.table())) throw new IllegalStateException(&quot;No such table: &quot; + statement.table());
+        catalog.dropTable(statement.table());
+        storageEngine.dropTable(statement.table());
+        return QueryResult.ofAffected(0);
+    }
+}
+</code></pre></div>
+<p>Every executor above depends only on <code>Catalog</code> and <code>StorageEngine</code> — <strong>interfaces</strong>, never <code>MemoryStorageEngine</code> directly. Swapping in the companion guide's real, page-based <code>FileStorageEngine</code> later means constructing these executors with a different object; not one line of executor logic changes.</p>
+<hr>
+<h2 id="18-phase-8-the-queryengine-dispatcher-wiring-lexer-parser-and-executors-together">18. Phase 8 — The QueryEngine Dispatcher: Wiring Lexer, Parser, and Executors Together</h2>
+<p>This is the answer to "how do lexer, parser, and executors actually connect":</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class QueryEngine {
+
+    private final SelectExecutor selectExecutor;
+    private final InsertExecutor insertExecutor;
+    private final UpdateExecutor updateExecutor;
+    private final DeleteExecutor deleteExecutor;
+    private final CreateTableExecutor createTableExecutor;
+    private final DropTableExecutor dropTableExecutor;
+
+    public QueryEngine(Catalog catalog, StorageEngine storageEngine) {
+        this.selectExecutor = new SelectExecutor(storageEngine);
+        this.insertExecutor = new InsertExecutor(storageEngine, catalog);
+        this.updateExecutor = new UpdateExecutor(storageEngine);
+        this.deleteExecutor = new DeleteExecutor(storageEngine);
+        this.createTableExecutor = new CreateTableExecutor(catalog, storageEngine);
+        this.dropTableExecutor = new DropTableExecutor(catalog, storageEngine);
+    }
+
+    public QueryResult run(String sql) {
+        List&lt;Token&gt; tokens = new SqlLexer(sql).tokenize();            // §7
+        SqlStatement statement = new SqlParser(tokens).parseStatement(); // §11
+        return execute(statement, TransactionContext.AUTOCOMMIT);
+    }
+
+    public QueryResult execute(SqlStatement statement, TransactionContext transaction) {
+        return switch (statement) {
+            case SelectStatement s -&gt; selectExecutor.execute(s, transaction);
+            case InsertStatement s -&gt; insertExecutor.execute(s, transaction);
+            case UpdateStatement s -&gt; updateExecutor.execute(s, transaction);
+            case DeleteStatement s -&gt; deleteExecutor.execute(s, transaction);
+            case CreateTableStatement s -&gt; createTableExecutor.execute(s, transaction);
+            case DropTableStatement s -&gt; dropTableExecutor.execute(s, transaction);
+        };
+    }
+}
+</code></pre></div>
+<p>Two details make this dispatcher the actual seam this whole guide has been building toward:</p>
+<ol>
+<li><code>SqlStatement</code> is <code>sealed ... permits Select, Insert, Update, Delete, CreateTable, DropTable</code>. The <code>switch</code> in <code>execute</code> needs <strong>no <code>default</code> branch</strong>, and the compiler refuses to compile if a seventh statement type is ever added without a matching <code>case</code> here — adding <code>CREATE INDEX</code> later is a compile error until this switch is updated, not a runtime surprise discovered months later.</li>
+<li><code>run(String sql)</code> is the <strong>only</strong> method that touches the lexer or parser at all. Every executor, and <code>execute(SqlStatement, ...)</code> itself, only ever sees the already-parsed AST. Lexing/parsing is a text-processing concern; execution is a data-processing concern; <code>QueryEngine.run</code> is the one seam where they meet.</li>
+</ol>
+<hr>
+<h2 id="19-alternative-architecture-antlr-generated-parsing-the-visitor-pattern">19. Alternative Architecture: ANTLR-Generated Parsing + the Visitor Pattern</h2>
+<p>A hand-written lexer and recursive-descent parser (§7, §11) is not the only legitimate way to build this — <strong>ANTLR</strong> (a parser generator: write a <code>.g4</code> grammar file, get a lexer, a parser, and a base <code>Visitor</code> class generated for you) is a real, production-proven alternative. Apache ShardingSphere's MySQL frontend, for one, is built exactly this way:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// Uses an ANTLR-generated MySQLLexer/MySQLStatementParser instead of a hand-written one.
+public class MySqlParser implements IParser {
+    MySqlStatementVisitor sqlStatementVisitor;
+
+    public MySqlParser(String sql) {
+        MySQLLexer lexer = new MySQLLexer(CharStreams.fromString(sql));
+        MySQLStatementParser parser = new MySQLStatementParser(new CommonTokenStream(lexer));
+
+        sqlStatementVisitor = new MySqlStatementVisitor(parser);
+        sqlStatementVisitor.visit(parser.execute());
+    }
+
+    @Override
+    public QueryData queryCmd() { return (QueryData) sqlStatementVisitor.getValue(); }
+
+    @Override
+    public Object updateCmd() { return sqlStatementVisitor.getValue(); }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// The Visitor walks ANTLR's generated parse tree and extracts exactly the fields needed
+// into a domain object -- the ANTLR equivalent of this guide's SqlStatement records.
+public class MySqlStatementVisitor extends MySQLStatementBaseVisitor {
+    private final MySQLStatementParser parser;
+    private COMMAND_TYPE commandType;
+    private String tableName;
+
+    @Override
+    public Object visitCreateTable(MySQLStatementParser.CreateTableContext ctx) {
+        commandType = COMMAND_TYPE.CREATE_TABLE;
+        return super.visitCreateTable(ctx);
+    }
+
+    @Override
+    public Object visitTableName(MySQLStatementParser.TableNameContext ctx) {
+        this.tableName = ctx.name().getText();
+        return super.visitTableName(ctx);
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>This guide (hand-written):      ANTLR-based (e.g. ShardingSphere):
+SQL text                        SQL text
+  |                               |
+SqlLexer (hand-written)         MySQLLexer (generated from a grammar)
+  |                               |
+SqlParser (hand-written)        MySQLStatementParser (generated) + a
+  |                             Visitor subclass that walks its parse tree
+SqlStatement (a sealed          QueryData / InsertData / ModifyData
+ interface of records)          (plain domain objects the Visitor builds)
+  |                               |
+QueryEngine.execute(...)         dispatch by commandType / object type
+ (an exhaustive switch)          (structurally the same idea, without a
+                                  sealed-type-checked switch, since ANTLR's
+                                  generated node types are not a sealed
+                                  hierarchy this codebase controls)
+</code></pre></div>
+<p><strong>Why this guide does not start there:</strong> a hand-rolled recursive-descent parser producing a sealed <code>SqlStatement</code> gets exhaustiveness checking from the Java compiler itself (§18's point 1) with zero extra tooling. ANTLR earns its keep once the grammar gets large enough that hand-writing and hand-maintaining a parser for it becomes the bigger cost — full dialect compatibility (MySQL, Postgres, and their many edge cases) is exactly that situation, which is why real multi-dialect tools reach for a grammar file and a generated parser instead. Know both; pick the hand-written one for as long as §8's grammar stays small, and reach for ANTLR when it stops being small.</p>
+<hr>
+<h2 id="20-why-direct-execution-doesnt-scale-introducing-the-planner">20. Why Direct Execution Doesn't Scale: Introducing the Planner</h2>
+<p>§17's executors work correctly, and they share one real limitation: <code>SelectExecutor.execute</code> always calls <code>storageEngine.scan(table)</code> — a <strong>full table scan</strong>, every single time, even for <code>WHERE id = 100</code> against a table with a primary-key index that could answer the same question in <code>O(log n)</code> instead of <code>O(n)</code>. Nothing in §17's code has anywhere to <em>record</em> "use the index here" as a decision — the scan-then-filter logic is hard-coded inline. Fixing this requires separating "what to do" (a <code>Plan</code>, an object you can inspect, compare, and choose between) from "just doing it" — which is the entire reason a <strong>query planner</strong> exists.</p>
+<hr>
+<h2 id="21-the-three-parts-of-a-query-engine">21. The Three Parts of a Query Engine</h2>
+<p>A query engine is not one component. It is three, each with a distinct job:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Query Optimizer      -- decides HOW to answer a query (which plan, which indexes)
+Execution Engine      -- actually reads rows/columns according to that plan
+Catalog / Metadata     -- knows what tables and indexes exist, and their shape
+Manager
+</code></pre></div>
+<p>Part 4 (this part) builds the Optimizer's mechanism and the seam it plugs into. Part 5 builds the Execution Engine. Part 6 builds the Catalog Manager for real. Keeping these three separate is the same Interface Segregation discipline (a <code>QueryPlanner</code>, a <code>QueryExecutor</code>, and a <code>Catalog</code> as three different interfaces) that motivates never merging them into one <code>DatabaseEverything</code> class.</p>
+<hr>
+<h2 id="22-rule-based-vs-cost-based-optimization">22. Rule-Based vs Cost-Based Optimization</h2>
+<p>"Use the index if the <code>WHERE</code> clause matches an indexed column, otherwise scan the table" is <strong>Rule-Based Optimization (RBO)</strong> — a fixed rule, applied without comparing alternatives. A <strong>Cost-Based Optimizer (CBO)</strong> generalizes this: instead of one hard-coded rule, it generates several candidate plans and picks whichever has the lowest <em>estimated</em> cost, using statistics the Catalog Manager (Part 6) collects — row counts, blocks accessed, selectivity. RBO is simpler to build and reason about; CBO scales better as the number of indexes and join orderings grows, at the cost of needing real statistics to estimate against. This guide builds RBO's actual mechanism — §27's <code>Plan.blocksAccessed()</code>/<code>recordsOutput()</code> are exactly the hooks a later CBO would compare across candidate plans.</p>
+<hr>
+<h2 id="23-phase-9-the-plan-interface">23. Phase 9 — The Plan Interface</h2>
+<p>A <code>Plan</code> describes <em>how</em> a piece of relational algebra will be executed, and can report an estimated cost for it — exactly what a Cost-Based Optimizer (§22) needs to compare alternatives:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface Plan {
+
+    Scan open();          // §29 -- calling this does not read any data yet, only prepares to
+
+    int blocksAccessed();  // cost estimate, for a future CBO to compare across candidate plans
+
+    int recordsOutput();
+
+    TableSchema schema();
+}
+</code></pre></div>
+<p><strong>TablePlan</strong> — the only <code>Plan</code> that talks to <code>StorageEngine</code> directly:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TablePlan implements Plan {
+
+    private final String tableName;
+    private final StorageEngine storageEngine;
+    private final Catalog catalog;
+
+    public TablePlan(String tableName, StorageEngine storageEngine, Catalog catalog) {
+        this.tableName = tableName;
+        this.storageEngine = storageEngine;
+        this.catalog = catalog;
+    }
+
+    @Override
+    public Scan open() { return storageEngine.openScan(tableName); } // the ONE seam into physical storage
+
+    @Override
+    public int blocksAccessed() { return catalog.getStatistics(tableName).blockCount(); }
+
+    @Override
+    public int recordsOutput() { return catalog.getStatistics(tableName).recordCount(); }
+
+    @Override
+    public TableSchema schema() { return catalog.getTable(tableName); }
+}
+</code></pre></div>
+<p><strong>SelectPlan</strong> and <strong>ProjectPlan</strong> — each wraps another <code>Plan</code>, the way a Decorator wraps another object, rather than talking to storage itself:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class SelectPlan implements Plan {
+
+    private final Plan input;
+    private final Expression predicate;
+
+    public SelectPlan(Plan input, Expression predicate) {
+        this.input = input;
+        this.predicate = predicate;
+    }
+
+    @Override
+    public Scan open() { return new SelectScan(input.open(), predicate); } // §30
+
+    @Override
+    public int blocksAccessed() { return input.blocksAccessed(); } // filtering reads the SAME blocks -- no extra I/O
+
+    @Override
+    public int recordsOutput() { return input.recordsOutput() / 2; } // a naive fixed selectivity -- a CBO refines this
+
+    @Override
+    public TableSchema schema() { return input.schema(); } // filtering ROWS never changes which COLUMNS exist
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class ProjectPlan implements Plan {
+
+    private final Plan input;
+    private final List&lt;String&gt; fields;
+
+    public ProjectPlan(Plan input, List&lt;String&gt; fields) {
+        this.input = input;
+        this.fields = fields;
+    }
+
+    @Override
+    public Scan open() { return new ProjectScan(input.open(), fields); } // §30
+
+    @Override
+    public int blocksAccessed() { return input.blocksAccessed(); }
+
+    @Override
+    public int recordsOutput() { return input.recordsOutput(); } // projecting columns doesn't change row COUNT
+
+    @Override
+    public TableSchema schema() { return input.schema().project(fields); } // a NARROWER schema -- fewer columns
+}
+</code></pre></div>
+<p><code>TablePlan</code>, <code>SelectPlan</code>, and <code>ProjectPlan</code> compose exactly the way <code>SelectStatement</code>'s three parts (table, where, columns) already suggest: read, then filter, then narrow columns — each step wrapping the previous <code>Plan</code>, never reaching around it to touch storage directly.</p>
+<hr>
+<h2 id="24-phase-10-basicqueryplanner-and-updateplanner">24. Phase 10 — BasicQueryPlanner and UpdatePlanner</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface QueryPlanner {
+    Plan createPlan(SelectStatement statement, TransactionContext tx);
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class BasicQueryPlanner implements QueryPlanner {
+
+    private final Catalog catalog;
+    private final StorageEngine storageEngine;
+
+    public BasicQueryPlanner(Catalog catalog, StorageEngine storageEngine) {
+        this.catalog = catalog;
+        this.storageEngine = storageEngine;
+    }
+
+    @Override
+    public Plan createPlan(SelectStatement statement, TransactionContext tx) {
+        Plan plan = new TablePlan(statement.table(), storageEngine, catalog); // Step 1: read
+
+        if (statement.where() != null) plan = new SelectPlan(plan, statement.where()); // Step 2: filter rows
+
+        boolean selectStar = statement.columns().size() == 1 &amp;&amp; statement.columns().get(0).equals(&quot;*&quot;);
+        if (!selectStar) plan = new ProjectPlan(plan, statement.columns()); // Step 3: filter columns
+
+        return plan;
+    }
+}
+</code></pre></div>
+<p>Compare this three-step body to §17's <code>SelectExecutor</code> — the <em>logic</em> (read, then filter, then project) is identical. What changed is that each step is now a composed, reusable <code>Plan</code> object instead of an inline <code>.stream().filter(...)</code> call — the exact shape a Cost-Based Optimizer needs later, since it can only compare plans it can hold as objects, not inline expressions buried in an executor's method body.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface UpdatePlanner {
+    int executeInsert(InsertStatement statement, TransactionContext tx);
+    int executeUpdate(UpdateStatement statement, TransactionContext tx);
+    int executeDelete(DeleteStatement statement, TransactionContext tx);
+    int executeCreateTable(CreateTableStatement statement, TransactionContext tx);
+    int executeDropTable(DropTableStatement statement, TransactionContext tx);
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class BasicUpdatePlanner implements UpdatePlanner {
+
+    private final Catalog catalog;
+    private final StorageEngine storageEngine;
+
+    public BasicUpdatePlanner(Catalog catalog, StorageEngine storageEngine) {
+        this.catalog = catalog;
+        this.storageEngine = storageEngine;
+    }
+
+    @Override
+    public int executeInsert(InsertStatement statement, TransactionContext tx) {
+        Plan plan = new TablePlan(statement.table(), storageEngine, catalog);
+        Scan scan = plan.open();
+        scan.insert(); // position at a fresh slot
+        for (int i = 0; i &lt; statement.columns().size(); i++) {
+            scan.setVal(statement.columns().get(i), statement.values().get(i));
+        }
+        scan.close();
+        return 1;
+    }
+
+    @Override
+    public int executeUpdate(UpdateStatement statement, TransactionContext tx) {
+        Plan plan = new TablePlan(statement.table(), storageEngine, catalog);
+        if (statement.where() != null) plan = new SelectPlan(plan, statement.where());
+        Scan scan = plan.open();
+        int affected = 0;
+        while (scan.next()) {
+            for (var entry : statement.assignments().entrySet()) scan.setVal(entry.getKey(), entry.getValue());
+            affected++;
+        }
+        scan.close();
+        return affected;
+    }
+
+    @Override
+    public int executeDelete(DeleteStatement statement, TransactionContext tx) {
+        Plan plan = new TablePlan(statement.table(), storageEngine, catalog);
+        if (statement.where() != null) plan = new SelectPlan(plan, statement.where());
+        Scan scan = plan.open();
+        int affected = 0;
+        while (scan.next()) { scan.delete(); affected++; }
+        scan.close();
+        return affected;
+    }
+
+    @Override
+    public int executeCreateTable(CreateTableStatement statement, TransactionContext tx) {
+        catalog.createTable(statement.schema());
+        storageEngine.createTable(statement.schema());
+        return 0;
+    }
+
+    @Override
+    public int executeDropTable(DropTableStatement statement, TransactionContext tx) {
+        catalog.dropTable(statement.table());
+        storageEngine.dropTable(statement.table());
+        return 0;
+    }
+}
+</code></pre></div>
+<p><code>executeUpdate</code>/<code>executeDelete</code> reuse <code>SelectPlan</code> for their <code>WHERE</code> clause — filtering which rows to mutate is the <em>identical</em> operation as filtering which rows to read, so it is composed from the same <code>Plan</code>, not reimplemented.</p>
+<hr>
+<h2 id="25-phase-11-basicplanner-a-facade-over-parsing-and-planning">25. Phase 11 — BasicPlanner: A Facade Over Parsing and Planning</h2>
+<p><code>BasicPlanner</code> is a <strong>Facade</strong> sitting between the parser and the two planners above — the same seam idea as §18's <code>QueryEngine</code>, one layer deeper now that statements produce <code>Plan</code>s instead of being executed immediately:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class BasicPlanner {
+
+    private final QueryPlanner queryPlanner;
+    private final UpdatePlanner updatePlanner;
+
+    public BasicPlanner(QueryPlanner queryPlanner, UpdatePlanner updatePlanner) {
+        this.queryPlanner = queryPlanner;
+        this.updatePlanner = updatePlanner;
+    }
+
+    public Plan createQueryPlan(String sql, TransactionContext tx) {
+        SqlStatement statement = parse(sql);
+        if (!(statement instanceof SelectStatement select)) throw new IllegalArgumentException(&quot;Not a query: &quot; + sql);
+        return queryPlanner.createPlan(select, tx);
+    }
+
+    public int executeUpdate(String sql, TransactionContext tx) {
+        SqlStatement statement = parse(sql);
+        return switch (statement) {
+            case InsertStatement s -&gt; updatePlanner.executeInsert(s, tx);
+            case UpdateStatement s -&gt; updatePlanner.executeUpdate(s, tx);
+            case DeleteStatement s -&gt; updatePlanner.executeDelete(s, tx);
+            case CreateTableStatement s -&gt; updatePlanner.executeCreateTable(s, tx);
+            case DropTableStatement s -&gt; updatePlanner.executeDropTable(s, tx);
+            case SelectStatement s -&gt; throw new IllegalArgumentException(&quot;Use createQueryPlan for a SELECT&quot;);
+        };
+    }
+
+    private SqlStatement parse(String sql) {
+        List&lt;Token&gt; tokens = new SqlLexer(sql).tokenize(); // §7
+        return new SqlParser(tokens).parseStatement();      // §11
+    }
+}
+</code></pre></div>
+<p>This is the exact same exhaustive-<code>switch</code>-over-a-sealed-interface trick §18's <code>QueryEngine.execute</code> already used — adding a <code>CREATE INDEX</code> statement later means the compiler refuses to build this method until a matching <code>case</code> is added here too.</p>
+<hr>
+<h2 id="26-phase-12-basicqueryengine-doquery-and-doupdate">26. Phase 12 — BasicQueryEngine: doQuery and doUpdate</h2>
+<p>The externally-visible database facade — what a CLI or a JDBC driver actually calls:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class BasicQueryEngine {
+
+    private final BasicPlanner planner;
+    private final TransactionManager transactionManager; // see the companion Storage Engine guide
+
+    public BasicQueryEngine(BasicPlanner planner, TransactionManager transactionManager) {
+        this.planner = planner;
+        this.transactionManager = transactionManager;
+    }
+
+    public QueryResult doQuery(String sql) {
+        TransactionContext tx = transactionManager.begin();
+        Plan plan = planner.createQueryPlan(sql, tx);
+        Scan scan = plan.open();
+
+        List&lt;Row&gt; rows = new ArrayList&lt;&gt;();
+        while (scan.next()) {
+            Map&lt;String, Object&gt; values = new LinkedHashMap&lt;&gt;();
+            for (String field : plan.schema().fieldNames()) values.put(field, scan.getVal(field));
+            rows.add(new Row(values));
+        }
+        scan.close();
+        transactionManager.commit(tx);
+        return QueryResult.ofRows(rows);
+    }
+
+    public QueryResult doUpdate(String sql) {
+        TransactionContext tx = transactionManager.begin();
+        int affected = planner.executeUpdate(sql, tx);
+        transactionManager.commit(tx);
+        return QueryResult.ofAffected(affected);
+    }
+}
+</code></pre></div>
+<p><code>doQuery</code> is the only place left that walks a <code>Scan</code> into a <code>List&lt;Row&gt;</code> — and it does that only because the caller above it wants a materialized result set to print or return. The engine itself, all the way down through <code>Plan</code>/<code>Scan</code>, never materializes more than one row at a time (§32 explains exactly why that matters).</p>
+<hr>
+<h2 id="27-revisiting-the-six-executors-to-use-the-planner">27. Revisiting the Six Executors to Use the Planner</h2>
+<p>Here is what §17 looks like once the planner (§23–§26) exists — for one executor; the rest follow the identical shape:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// SelectExecutor, REVISITED: same StatementExecutor&lt;SelectStatement&gt; contract as §17,
+// but the BODY now delegates to the planner instead of scanning+filtering a materialized List&lt;Row&gt; by hand.
+public final class SelectExecutor implements StatementExecutor&lt;SelectStatement&gt; {
+
+    private final QueryPlanner queryPlanner;
+
+    public SelectExecutor(QueryPlanner queryPlanner) { this.queryPlanner = queryPlanner; }
+
+    @Override
+    public QueryResult execute(SelectStatement statement, TransactionContext transaction) {
+        Plan plan = queryPlanner.createPlan(statement, transaction);
+        Scan scan = plan.open();
+
+        List&lt;Row&gt; rows = new ArrayList&lt;&gt;();
+        while (scan.next()) {
+            Map&lt;String, Object&gt; values = new LinkedHashMap&lt;&gt;();
+            for (String field : plan.schema().fieldNames()) values.put(field, scan.getVal(field));
+            rows.add(new Row(values));
+        }
+        scan.close();
+        return QueryResult.ofRows(rows);
+    }
+}
+</code></pre></div>
+<p>The public contract did not change at all. Only what happens <em>inside</em> <code>execute</code> changed — from "load everything, then filter in Java" to "compose a plan, then stream through it." This is precisely why §17 was told to depend on <code>Catalog</code>/<code>StorageEngine</code> interfaces: the same Dependency Inversion that let <code>MemoryStorageEngine</code> be swapped for a real one also lets an executor's <em>implementation strategy</em> change without its callers noticing.</p>
+<hr>
+<h2 id="28-phase-13-the-scan-interface-streaming-instead-of-materializing">28. Phase 13 — The Scan Interface: Streaming Instead of Materializing</h2>
+<p>§16's <code>StorageEngine.scan(tableName)</code> returns a <code>List&lt;Row&gt;</code> — every row, loaded into memory, before anything even looks at the first one. That is fine for a table that fits comfortably in memory; it is a real problem the moment a table doesn't. A <code>Scan</code> fixes this by being an <strong>iterator</strong>, not a collection — it produces rows one at a time, on demand:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface Scan {
+
+    boolean next();
+
+    Object getVal(String fieldName);
+
+    boolean hasField(String fieldName);
+
+    void close();
+
+    // Writable operations -- a stricter design (see the note below) splits these
+    // into a separate interface so a read-only SELECT path can never call them.
+    void insert();
+    void setVal(String fieldName, Object value);
+    void delete();
+}
+</code></pre></div>
+<p>Putting both read and write methods on one interface is a pragmatic simplification, not the final answer — Interface Segregation argues against exactly this shape in the abstract. A stricter design splits this into <code>ReadOnlyScan</code> (<code>next</code>/<code>getVal</code>/<code>hasField</code>/<code>close</code>) and <code>UpdatableScan extends ReadOnlyScan</code> (adding <code>insert</code>/<code>setVal</code>/<code>delete</code>), so a <code>SELECT</code> path is never even <em>able</em> to call <code>delete()</code> by accident — the compiler enforces it instead of a runtime check. §29's implementations work identically either way; only which interface each one is declared to return changes.</p>
+<hr>
+<h2 id="29-phase-14-tablescan">29. Phase 14 — TableScan</h2>
+<p><code>TableScan</code> is the only <code>Scan</code> that talks to <code>StorageEngine</code> directly — everything else wraps another <code>Scan</code>:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// StorageEngine (§16) gains one method beyond insert()/scan()/replaceRows():
+public interface StorageEngine {
+    // ... createTable, dropTable, insert, scan, replaceRows from §16 ...
+    Scan openScan(String tableName);
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// MemoryStorageEngine.openScan -- still backed by the in-memory List&lt;Row&gt; for now.
+// Once real page-based storage exists (the companion Storage Engine guide), this walks
+// Pages via RowId instead of a Java Iterator -- the Scan CONTRACT above does not change.
+@Override
+public Scan openScan(String tableName) {
+    List&lt;Row&gt; rows = tables.get(tableName);
+    return new Scan() {
+        private int index = -1;
+
+        @Override
+        public boolean next() {
+            index++;
+            return index &lt; rows.size();
+        }
+
+        @Override
+        public Object getVal(String fieldName) { return rows.get(index).get(fieldName); }
+
+        @Override
+        public boolean hasField(String fieldName) { return rows.get(index).columnNames().contains(fieldName); }
+
+        @Override
+        public void insert() {
+            rows.add(new Row(new HashMap&lt;&gt;()));
+            index = rows.size() - 1;
+        }
+
+        @Override
+        public void setVal(String fieldName, Object value) {
+            Map&lt;String, Object&gt; updated = new LinkedHashMap&lt;&gt;();
+            for (String column : rows.get(index).columnNames()) updated.put(column, rows.get(index).get(column));
+            updated.put(fieldName, value);
+            rows.set(index, new Row(updated));
+        }
+
+        @Override
+        public void delete() {
+            rows.remove(index);
+            index--; // the next next() call must not skip the row that just slid into this slot
+        }
+
+        @Override
+        public void close() { }
+    };
+}
+</code></pre></div>
+<hr>
+<h2 id="30-phase-15-selectscan-and-projectscan">30. Phase 15 — SelectScan and ProjectScan</h2>
+<p><strong>SelectScan</strong> wraps a child <code>Scan</code> and a predicate — it filters rows as they stream past, one at a time, never holding more than the current row:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class SelectScan implements Scan {
+
+    private final Scan input;
+    private final Expression predicate;
+
+    public SelectScan(Scan input, Expression predicate) {
+        this.input = input;
+        this.predicate = predicate;
+    }
+
+    @Override
+    public boolean next() {
+        while (input.next()) {
+            if (ExpressionEvaluator.matchesScan(this, predicate)) return true; // §31
+        }
+        return false;
+    }
+
+    @Override public Object getVal(String fieldName) { return input.getVal(fieldName); }
+    @Override public boolean hasField(String fieldName) { return input.hasField(fieldName); }
+    @Override public void setVal(String fieldName, Object value) { input.setVal(fieldName, value); }
+    @Override public void insert() { input.insert(); }
+    @Override public void delete() { input.delete(); }
+    @Override public void close() { input.close(); }
+}
+</code></pre></div>
+<p><strong>ProjectScan</strong> wraps a child <code>Scan</code> and a field list — it filters <em>columns</em>, and explicitly rejects access to any column outside the projection, matching the "narrower schema" guard <code>ProjectPlan.schema()</code> (§23) already imposes:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class ProjectScan implements Scan {
+
+    private final Scan input;
+    private final List&lt;String&gt; fields;
+
+    public ProjectScan(Scan input, List&lt;String&gt; fields) {
+        this.input = input;
+        this.fields = fields;
+    }
+
+    @Override
+    public boolean next() { return input.next(); }
+
+    @Override
+    public Object getVal(String fieldName) {
+        if (!hasField(fieldName)) throw new RuntimeException(&quot;field &quot; + fieldName + &quot; not found.&quot;);
+        return input.getVal(fieldName);
+    }
+
+    @Override
+    public boolean hasField(String fieldName) { return fields.contains(fieldName); }
+
+    @Override public void setVal(String fieldName, Object value) { throw new UnsupportedOperationException(&quot;read-only projection&quot;); }
+    @Override public void insert() { throw new UnsupportedOperationException(&quot;read-only projection&quot;); }
+    @Override public void delete() { throw new UnsupportedOperationException(&quot;read-only projection&quot;); }
+    @Override public void close() { input.close(); }
+}
+</code></pre></div>
+<p><code>ProjectScan</code> throwing on every write method is worth noticing — projection is fundamentally a read-shaping operation, and §28's "split into <code>ReadOnlyScan</code>/<code>UpdatableScan</code>" refinement would let this class simply not implement the write methods at all, rather than implementing them just to reject every call.</p>
+<hr>
+<h2 id="31-extending-the-expression-evaluator-to-work-against-a-scan">31. Extending the Expression Evaluator to Work Against a Scan</h2>
+<p><code>SelectScan</code> (§30) needs to evaluate the same <code>Expression</code> tree §14 already built — but against a <code>Scan</code>'s current position, not a fully-formed <code>Row</code>. Extend <code>ExpressionEvaluator</code> with a second entry point that mirrors <code>matches(Row, Expression)</code> field for field, reading through <code>Scan.getVal(...)</code> instead of <code>Row.get(...)</code>:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// Added to ExpressionEvaluator (§14):
+public static boolean matchesScan(Scan scan, Expression expression) {
+    return switch (expression) {
+        case Comparison c -&gt; evaluateComparison(scan.getVal(c.column()), c);
+        case And a -&gt; matchesScan(scan, a.left()) &amp;&amp; matchesScan(scan, a.right());
+        case Or o -&gt; matchesScan(scan, o.left()) || matchesScan(scan, o.right());
+    };
+}
+</code></pre></div>
+<p>§14's <code>evaluateComparison</code> was already written to take the actual value directly (not a <code>Row</code>), specifically so both <code>matches(Row, ...)</code> and <code>matchesScan(Scan, ...)</code> can share that one comparison method instead of duplicating it — one comparison implementation, two entry points, which is what keeps <code>Row</code>-based execution (Part 3) and <code>Scan</code>-based execution (Part 5) from silently drifting into two different definitions of "matches."</p>
+<hr>
+<h2 id="32-why-streaming-beats-materializing-a-concrete-cost-trace">32. Why Streaming Beats Materializing: A Concrete Cost Trace</h2>
+<p>Trace what happens for:</p>
+<div class="code-wrap"><span class="code-lang">SQL</span><pre class="code-block"><code>SELECT name FROM employee WHERE salary &gt; 50000;
+</code></pre></div>
+<p>against a table of one million rows where ten thousand match:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Part 3's original SelectExecutor (§17):
+  storageEngine.scan(&quot;employee&quot;)                 -- loads ALL 1,000,000 rows into a List&lt;Row&gt;
+    .stream().filter(...)                          -- then filters down to 10,000, still in memory
+    .map(...)                                       -- then projects, producing a THIRD list
+
+Part 4-5's Plan/Scan pipeline (§27-30):
+  TableScan.next()  -&gt; SelectScan.next()  -&gt; ProjectScan.next()
+  -- pulls ONE row at a time through all three stages, filters it, projects it, and only
+     the caller (BasicQueryEngine.doQuery, §26) decides whether to keep it in a List --
+     the pipeline itself never holds more than one row per stage at once.
+</code></pre></div>
+<p>Both eventually produce the same 10,000-row result. The difference is <strong>peak memory</strong>: one materializes three full intermediate collections along the way; the other never holds more than a handful of rows at any given instant, regardless of whether the table has a thousand rows or a billion. This is the concrete, measurable payoff of the Iterator-shaped <code>Scan</code> interface (§28) over §17's original "load a list, then <code>.stream()</code> it" approach — and it is also exactly why <code>Sort</code> and <code>Aggregate</code> (Part 9's future work) are structurally different from <code>Filter</code>/<code>Project</code>: sorting the whole result requires seeing every row before producing the first one, so a <code>SortScan</code> cannot stream the way <code>SelectScan</code>/<code>ProjectScan</code> do — a real, unavoidable limit on how far the streaming idea extends, worth stating honestly rather than implying every operator can be lazy for free.</p>
+<hr>
+<h2 id="33-phase-16-the-catalog-interface-revisited">33. Phase 16 — The Catalog Interface, Revisited</h2>
+<p>§9's <code>Catalog</code> interface has been used throughout this guide without a real, durable implementation — every example so far implicitly assumes something like a <code>Map&lt;String, TableSchema&gt;</code> in memory, which forgets every table the instant the process restarts. Part 6 fixes that properly.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface Catalog {
+    void createTable(TableSchema schema);
+    void dropTable(String tableName);
+    TableSchema getTable(String tableName);
+    boolean tableExists(String tableName);
+    List&lt;TableSchema&gt; listTables();
+    TableStatistics getStatistics(String tableName); // consumed by TablePlan.blocksAccessed()/recordsOutput(), §23
+}
+
+public record TableStatistics(int blockCount, int recordCount) { }
+</code></pre></div>
+<hr>
+<h2 id="34-phase-17-tablephysicallayout-from-logical-schema-to-byte-offsets">34. Phase 17 — TablePhysicalLayout: From Logical Schema to Byte Offsets</h2>
+<p><code>TableSchema</code> (§9) is a table's <em>logical</em> shape — names, types, nullability. Computing a row's exact physical layout needs one more thing: the byte <strong>offset</strong> of each column within a row, and the row's total <strong>slot size</strong>:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TablePhysicalLayout {
+
+    private final Map&lt;String, Integer&gt; offsets = new HashMap&lt;&gt;();
+    private final int slotSize;
+
+    public TablePhysicalLayout(TableSchema schema) {
+        int position = 0;
+        for (Column column : schema.columns()) {
+            offsets.put(column.name(), position);
+            position += sizeInBytes(column);
+        }
+        this.slotSize = position;
+    }
+
+    private int sizeInBytes(Column column) {
+        return switch (column.type()) {
+            case INT -&gt; 4;
+            case BIGINT -&gt; 8;
+            case BOOLEAN -&gt; 1;
+            case VARCHAR -&gt; 50; // fixed-length slots for simplicity -- even VARCHAR gets a fixed budget
+            case DECIMAL -&gt; 12;
+            case DATE, TIMESTAMP -&gt; 8;
+        };
+    }
+
+    public int offset(String fieldName) { return offsets.get(fieldName); }
+    public int slotSize() { return slotSize; }
+}
+</code></pre></div>
+<p>Fixed-length slots (even for <code>VARCHAR</code>) is a deliberate simplifying decision — worth restating because it's precisely what makes <code>offset(fieldName)</code> a single, cheap arithmetic lookup instead of "scan every earlier column to find where this one starts." The companion <a href="TinyDB Storage Engine — Step-by-Step Implementation Guide.md">Storage Engine guide</a> uses exactly this layout to encode/decode rows at the byte level.</p>
+<hr>
+<h2 id="35-phase-18-persistentcatalog-storing-schema-as-data">35. Phase 18 — PersistentCatalog: Storing Schema as Data</h2>
+<p>A real database stores its <strong>own schema as ordinary rows</strong>, in special tables the database itself manages, so table definitions get the exact same durability (WAL, covered in the companion Storage Engine guide) as user data, instead of a separate, ad hoc persistence mechanism:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>tinydb_tables               tinydb_columns
++-----------+-----------+   +-----------+-----------+--------+--------+
+| tblname   | slotsize  |   | tblname   | fldname   | type   | length |
++-----------+-----------+   +-----------+-----------+--------+--------+
+| employee  | 48        |   | employee  | id        | BIGINT | 0      |
+|           |           |   | employee  | name      | VARCHAR| 50     |
++-----------+-----------+   +-----------+-----------+--------+--------+
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class PersistentCatalog implements Catalog {
+
+    private static final TableSchema TABLES_SCHEMA = new TableSchema(&quot;tinydb_tables&quot;, List.of(
+            new Column(&quot;tblname&quot;, DataType.VARCHAR, false),
+            new Column(&quot;slotsize&quot;, DataType.INT, false)));
+
+    private static final TableSchema COLUMNS_SCHEMA = new TableSchema(&quot;tinydb_columns&quot;, List.of(
+            new Column(&quot;tblname&quot;, DataType.VARCHAR, false),
+            new Column(&quot;fldname&quot;, DataType.VARCHAR, false),
+            new Column(&quot;type&quot;, DataType.VARCHAR, false),
+            new Column(&quot;length&quot;, DataType.INT, false)));
+
+    private final StorageEngine storageEngine;
+
+    public PersistentCatalog(StorageEngine storageEngine) {
+        this.storageEngine = storageEngine;
+        storageEngine.createTable(TABLES_SCHEMA);   // bootstrap: the catalog's own tables must exist first
+        storageEngine.createTable(COLUMNS_SCHEMA);
+    }
+
+    @Override
+    public void createTable(TableSchema schema) {
+        int slotSize = new TablePhysicalLayout(schema).slotSize(); // §34
+        storageEngine.insert(TABLES_SCHEMA.tableName(),
+                new Row(Map.of(&quot;tblname&quot;, schema.tableName(), &quot;slotsize&quot;, slotSize)));
+        for (Column column : schema.columns()) {
+            storageEngine.insert(COLUMNS_SCHEMA.tableName(), new Row(Map.of(
+                    &quot;tblname&quot;, schema.tableName(), &quot;fldname&quot;, column.name(),
+                    &quot;type&quot;, column.type().name(), &quot;length&quot;, 0)));
+        }
+    }
+
+    @Override
+    public TableSchema getTable(String tableName) {
+        boolean exists = storageEngine.scan(TABLES_SCHEMA.tableName()).stream()
+                .anyMatch(row -&gt; row.get(&quot;tblname&quot;).equals(tableName));
+        if (!exists) return null;
+
+        List&lt;Column&gt; columns = storageEngine.scan(COLUMNS_SCHEMA.tableName()).stream()
+                .filter(row -&gt; row.get(&quot;tblname&quot;).equals(tableName))
+                .map(row -&gt; new Column((String) row.get(&quot;fldname&quot;), DataType.valueOf((String) row.get(&quot;type&quot;)), true))
+                .toList();
+        return new TableSchema(tableName, columns);
+    }
+
+    // dropTable/tableExists/listTables/getStatistics omitted for brevity -- same
+    // &quot;read from tinydb_tables / tinydb_columns&quot; pattern as getTable() above.
+}
+</code></pre></div>
+<hr>
+<h2 id="36-bootstrapping-how-the-catalog-describes-itself">36. Bootstrapping: How the Catalog Describes Itself</h2>
+<p>The bootstrap step in <code>PersistentCatalog</code>'s constructor — creating <code>tinydb_tables</code> and <code>tinydb_columns</code> <em>using the same <code>storageEngine.createTable</code> every other table uses</em> — is the interesting part: the catalog describes every table, <strong>including its own two tables</strong>, through one uniform mechanism. This is the same self-describing idea real databases use (Postgres's <code>pg_catalog</code>, MySQL's <code>information_schema</code>) — worth pausing on, because it means <code>getTable("tinydb_tables")</code> is itself a valid, answerable call, using the exact same code path as <code>getTable("employee")</code>.</p>
+<hr>
+<h2 id="37-follow-up-how-does-the-planner-actually-choose-an-indexscan">37. Follow-up: How Does the Planner Actually Choose an IndexScan?</h2>
+<p>§22 named Rule-Based Optimization's canonical example — "use the index if the <code>WHERE</code> clause matches an indexed column" — without yet showing the mechanism. With <code>Plan</code> (§23) as a real abstraction, the answer is now concrete: <code>BasicQueryPlanner.createPlan</code> (§24) needs one more decision point, made <strong>before</strong> defaulting to <code>TablePlan</code>:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Override
+public Plan createPlan(SelectStatement statement, TransactionContext tx) {
+    Plan plan = selectAccessPath(statement); // NEW: choose TablePlan OR IndexSelectPlan, per §38
+
+    if (statement.where() != null) plan = new SelectPlan(plan, statement.where());
+    boolean selectStar = statement.columns().size() == 1 &amp;&amp; statement.columns().get(0).equals(&quot;*&quot;);
+    if (!selectStar) plan = new ProjectPlan(plan, statement.columns());
+    return plan;
+}
+
+private Plan selectAccessPath(SelectStatement statement) {
+    if (statement.where() instanceof Comparison c
+            &amp;&amp; c.operator().equals(&quot;=&quot;)
+            &amp;&amp; catalog.hasIndex(statement.table(), c.column())) {
+        return new IndexSelectPlan(statement.table(), c.column(), c.value(), catalog); // §38
+    }
+    return new TablePlan(statement.table(), storageEngine, catalog); // the RBO &quot;default&quot; rule
+}
+</code></pre></div>
+<p><code>catalog.hasIndex(table, column)</code> is the one new <code>Catalog</code> method this decision needs — a Cost-Based Optimizer would replace this single <code>if</code> with a comparison of <code>blocksAccessed()</code> across <em>every</em> viable <code>Plan</code>, but the RBO version above is a real, working decision, not a placeholder.</p>
+<hr>
+<h2 id="38-sketch-an-indexselectplan">38. Sketch: An IndexSelectPlan</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class IndexSelectPlan implements Plan {
+
+    private final String tableName;
+    private final String indexedColumn;
+    private final Object searchKey;
+    private final Catalog catalog;
+
+    public IndexSelectPlan(String tableName, String indexedColumn, Object searchKey, Catalog catalog) {
+        this.tableName = tableName;
+        this.indexedColumn = indexedColumn;
+        this.searchKey = searchKey;
+        this.catalog = catalog;
+    }
+
+    @Override
+    public Scan open() {
+        RowId rowId = catalog.lookupIndex(tableName, indexedColumn, searchKey); // O(log n), not O(n)
+        return new SingleRowScan(tableName, rowId); // a Scan over exactly one row, or zero if not found
+    }
+
+    @Override
+    public int blocksAccessed() { return 3; } // a B+Tree lookup touches a small, roughly-constant number of pages
+
+    @Override
+    public int recordsOutput() { return 1; } // an equality lookup on a unique index returns at most one row
+
+    @Override
+    public TableSchema schema() { return catalog.getTable(tableName); }
+}
+</code></pre></div>
+<p><code>blocksAccessed()</code> returning a small constant instead of <code>TablePlan</code>'s (§23) full-table-scan estimate is the entire point made numerically: this is exactly the number a Cost-Based Optimizer would compare <code>TablePlan.blocksAccessed()</code> against to justify preferring the index. Building <code>SingleRowScan</code> and the actual B+Tree-backed index this sketch calls into is out of scope for this guide — see the future enhancements in §46.</p>
+<hr>
+<h2 id="39-full-worked-example-create-table-insert-select-end-to-end">39. Full Worked Example: CREATE TABLE, INSERT, SELECT End to End</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>$ CREATE TABLE employee (id BIGINT PRIMARY KEY, name VARCHAR, salary DECIMAL);
+Query OK, 0 rows affected
+
+$ INSERT INTO employee (id, name, salary) VALUES (1, 'Alice', 95000);
+Query OK, 1 row affected
+
+$ SELECT name FROM employee WHERE salary &gt; 50000;
++-------+
+| name  |
++-------+
+| Alice |
++-------+
+1 row in set
+</code></pre></div>
+<p>Tracing the third statement through every layer this guide built:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>&quot;SELECT name FROM employee WHERE salary &gt; 50000&quot;
+   -&gt; SqlLexer.tokenize()                                   (§7)
+   -&gt; SqlParser.parseStatement() -&gt; SelectStatement          (§10-11, §13)
+   -&gt; BasicQueryEngine.doQuery(sql)                          (§26)
+        -&gt; BasicPlanner.createQueryPlan(sql, tx)             (§25)
+             -&gt; BasicQueryPlanner.createPlan(statement, tx)  (§24, extended by §37)
+                  -&gt; selectAccessPath -&gt; TablePlan (no index on &quot;salary&quot;)
+                  -&gt; wrapped in SelectPlan(where: salary &gt; 50000)
+                  -&gt; wrapped in ProjectPlan(columns: [&quot;name&quot;])
+        -&gt; plan.open() -&gt; ProjectScan(SelectScan(TableScan))  (§29-30)
+        -&gt; while (scan.next()) { ... }                         (§26)
+   -&gt; QueryResult.ofRows([{name: &quot;Alice&quot;}])
+</code></pre></div>
+<p>Every mechanism this guide built — lexing, parsing, the AST, the planner, and the streaming scan pipeline — appears somewhere in this one trace.</p>
+<hr>
+<h2 id="40-final-architecture">40. Final Architecture</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                     SQL text
+                         |
+                    SqlLexer (§7)
+                         |
+                    SqlParser (§10-14)
+                         |
+                    SqlStatement (sealed AST)
+                         |
+            +------------+------------+
+            v                         v
+   Level 1: QueryEngine       Level 2: BasicPlanner (Facade)
+   direct dispatch (§18)      -&gt; QueryPlanner / UpdatePlanner (§24)
+            |                         |
+            v                         v
+     Six Executors (§17)         Plan (TablePlan/SelectPlan/ProjectPlan, §23)
+            |                    or IndexSelectPlan (§38)
+            |                         |
+            |                         v
+            |                    Scan (TableScan/SelectScan/ProjectScan, §29-30)
+            |                         |
+            +------------+------------+
+                         v
+                  StorageEngine (§16)
+                  Catalog / PersistentCatalog (§33-36)
+                         |
+                         v
+        Companion Storage Engine guide's real, page-based implementation
+</code></pre></div>
+<hr>
+<h2 id="41-tracing-a-query-through-every-layer">41. Tracing a Query Through Every Layer</h2>
+<p>§39's trace already showed one <code>SELECT</code>; the same shape holds for a write — <code>INSERT INTO employee ... VALUES (...)</code> goes <code>SqlLexer -&gt; SqlParser -&gt; BasicPlanner.executeUpdate -&gt; BasicUpdatePlanner.executeInsert -&gt; TablePlan.open() -&gt; Scan.insert()/setVal(...)</code> — the mirror image of the read path, sharing <code>TablePlan</code> and the same <code>Scan</code> contract rather than a separate write-only pipeline.</p>
+<hr>
+<h2 id="42-design-patterns-used">42. Design Patterns Used</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Applied to</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Command</strong></td>
+<td>Each <code>SqlStatement</code> is a self-contained, immutable description of an action</td>
+<td>§10, §12</td>
+</tr>
+<tr>
+<td><strong>Facade</strong></td>
+<td><code>BasicPlanner</code>/<code>BasicQueryEngine</code> hiding the parser, planner, and executor layers behind <code>doQuery</code>/<code>doUpdate</code></td>
+<td>§25-§26</td>
+</tr>
+<tr>
+<td><strong>Decorator</strong></td>
+<td><code>SelectPlan</code>/<code>ProjectPlan</code> and <code>SelectScan</code>/<code>ProjectScan</code> each wrap another <code>Plan</code>/<code>Scan</code></td>
+<td>§23, §30</td>
+</tr>
+<tr>
+<td><strong>Iterator</strong></td>
+<td><code>Scan</code> streams rows one at a time, exactly like <code>java.util.Iterator</code></td>
+<td>§28-§30</td>
+</tr>
+<tr>
+<td><strong>Strategy</strong></td>
+<td>Choosing <code>TablePlan</code> vs <code>IndexSelectPlan</code> per query, without the caller knowing which was chosen</td>
+<td>§37-§38</td>
+</tr>
+<tr>
+<td><strong>Visitor</strong> (alternative architecture)</td>
+<td>ANTLR's generated parse-tree traversal</td>
+<td>§19</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="43-solid-principles-applied">43. SOLID Principles Applied</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Principle</th>
+<th>Where it holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>S</strong>ingle Responsibility</td>
+<td><code>SqlLexer</code> only tokenizes; <code>SqlParser</code> only parses; each executor only executes one statement type</td>
+</tr>
+<tr>
+<td><strong>O</strong>pen/Closed</td>
+<td>Adding a seventh <code>SqlStatement</code> type is additive everywhere the sealed interface is switched over — the compiler enforces it (§18, §25)</td>
+</tr>
+<tr>
+<td><strong>L</strong>iskov Substitution</td>
+<td>Any <code>Plan</code>/<code>Scan</code> implementation is fully interchangeable from its caller's point of view</td>
+</tr>
+<tr>
+<td><strong>I</strong>nterface Segregation</td>
+<td><code>QueryPlanner</code>/<code>UpdatePlanner</code>/<code>Catalog</code> are separate, narrow interfaces; §28 names the further split <code>Scan</code> itself deserves</td>
+</tr>
+<tr>
+<td><strong>D</strong>ependency Inversion</td>
+<td>Every executor and planner depends on <code>Catalog</code>/<code>StorageEngine</code> interfaces, never a concrete implementation</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="44-common-mistakes">44. Common Mistakes</h2>
+<ul>
+<li><strong>Mistake 1 — Not making <code>SqlStatement</code>/<code>Expression</code> sealed interfaces.</strong> Loses compiler-enforced exhaustiveness at every dispatch point (§18, §14) — a new statement or expression type can silently fall through instead of failing to compile.</li>
+<li><strong>Mistake 2 — Confusing the lexer's job with the parser's.</strong> The lexer should never make a decision that depends on grammar structure (e.g. "is this the start of a <code>WHERE</code> clause") — that's the parser's job, using tokens the lexer already produced.</li>
+<li><strong>Mistake 3 — Materializing a full result set inside <code>Plan</code>/<code>Scan</code> code.</strong> Defeats the entire purpose of Part 5's streaming design — only the outermost caller (§26's <code>doQuery</code>) should ever build a <code>List&lt;Row&gt;</code>.</li>
+<li><strong>Mistake 4 — Letting <code>Scan</code> implementations hold onto stale state after <code>close()</code>.</strong> A <code>Scan</code> that's been closed should never be usable again — not enforced by the interface in this guide, worth adding an explicit check in a production version.</li>
+<li><strong>Mistake 5 — A <code>Catalog</code> that isn't durable.</strong> An in-memory-only catalog forgets every table on restart — §35's <code>PersistentCatalog</code> exists specifically to close this gap.</li>
+<li><strong>Mistake 6 — Choosing <code>IndexSelectPlan</code> (§38) without checking the operator is <code>=</code>.</strong> A range predicate (<code>WHERE id &gt; 100</code>) against an equality-only index needs a different index-scan strategy (a range scan, not a point lookup) — silently using a point-lookup index for a range query returns wrong results, not just slow ones.</li>
+</ul>
+<hr>
+<h2 id="45-testing-strategy">45. Testing Strategy</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>What to test</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SqlLexer</code> (§7)</td>
+<td>Every token type, including edge cases (<code>!=</code>, string literals with no content, numbers)</td>
+<td>Unit tests feeding hand-written SQL strings, asserting the exact token sequence</td>
+</tr>
+<tr>
+<td><code>SqlParser</code> (§11-13)</td>
+<td>Each statement type parses to the exact expected AST; malformed input throws</td>
+<td>Unit tests comparing <code>parseStatement()</code>'s output to a hand-built <code>SqlStatement</code> record</td>
+</tr>
+<tr>
+<td><code>ExpressionEvaluator</code> (§14, §31)</td>
+<td><code>AND</code>/<code>OR</code> short-circuiting is correct; both <code>matches(Row, ...)</code> and <code>matchesScan(Scan, ...)</code> agree on the same input</td>
+<td>Property-based: generate random rows and expressions, assert both entry points return the same boolean</td>
+</tr>
+<tr>
+<td><code>QueryEngine</code>/<code>BasicQueryEngine</code> (§18, §26)</td>
+<td>End-to-end: <code>CREATE TABLE</code> → <code>INSERT</code> → <code>SELECT</code> returns the inserted row</td>
+<td>Integration test running real SQL strings through the full pipeline</td>
+</tr>
+<tr>
+<td><code>BasicQueryPlanner</code> (§24, §37)</td>
+<td>The correct <code>Plan</code> type is chosen for a given statement (<code>TablePlan</code> vs <code>IndexSelectPlan</code>)</td>
+<td>Unit test asserting <code>createPlan(...)</code> returns an instance of the expected class</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="46-suggested-future-enhancements">46. Suggested Future Enhancements</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Enhancement</th>
+<th>What it adds</th>
+<th>Where it plugs in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>JOIN</code> support</td>
+<td>Combining rows from two tables</td>
+<td>A <code>JoinPlan</code>/<code>NestedLoopJoinScan</code> pair, composed the same way <code>SelectPlan</code>/<code>SelectScan</code> are</td>
+</tr>
+<tr>
+<td><code>ORDER BY</code></td>
+<td>Sorted results</td>
+<td>A <code>SortPlan</code>/<code>SortScan</code> — the one operator §32 already flags as unable to stream</td>
+</tr>
+<tr>
+<td><code>GROUP BY</code> / aggregate functions</td>
+<td><code>COUNT</code>, <code>SUM</code>, <code>AVG</code>, etc.</td>
+<td>An <code>AggregatePlan</code> consuming a full (possibly sorted) input before producing output rows</td>
+</tr>
+<tr>
+<td>Real B+Tree-backed indexes</td>
+<td>Making §38's <code>IndexSelectPlan</code> genuinely O(log n), not a sketch</td>
+<td>See the companion Storage Engine guide's indexing sections</td>
+</tr>
+<tr>
+<td>A real Cost-Based Optimizer</td>
+<td>Comparing multiple candidate <code>Plan</code>s by estimated cost, not one fixed rule</td>
+<td>Extending §37's <code>selectAccessPath</code> to build several plans and pick the cheapest via <code>blocksAccessed()</code></td>
+</tr>
+<tr>
+<td>Prepared statements</td>
+<td>Reusing a parsed <code>SqlStatement</code>/<code>Plan</code> across many executions with different literal values</td>
+<td>Parameterizing <code>Comparison.value()</code> instead of baking a literal into the AST at parse time</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="47-progressive-interview-question-set">47. Progressive Interview Question Set</h2>
+<p><strong>Level 1 — Lexing and parsing</strong>
+1. Why does a lexer need no knowledge of grammar structure, only character-level rules?
+2. Walk through, by hand, how <code>SELECT id FROM t WHERE x = 1</code> tokenizes and then parses into a <code>SelectStatement</code>.</p>
+<p><strong>Level 2 — The AST as a boundary</strong>
+3. Why does making <code>SqlStatement</code> a sealed interface matter beyond style — what does the compiler actually enforce because of it?</p>
+<p><strong>Level 3 — Execution</strong>
+4. Explain the seam between lexing/parsing and execution — name the one class where they meet, and explain why nothing on either side of it needs to know about the other.</p>
+<p><strong>Level 4 — The planner</strong>
+5. What can a <code>Plan</code>-based design do that direct AST execution (§17) cannot?
+6. Explain Rule-Based vs Cost-Based optimization with a concrete example from this guide.</p>
+<p><strong>Level 5 — Streaming</strong>
+7. Why does composing <code>Scan</code>s use less peak memory than composing <code>List&lt;Row&gt;</code>s, concretely?
+8. Name one query operator that fundamentally cannot stream, and explain why.</p>
+<p><strong>Final challenge:</strong> Extend this guide's planner to support <code>SELECT ... ORDER BY column LIMIT n</code> efficiently — without first materializing and sorting the entire input. What data structure would you use, and where does it sit in the <code>Plan</code>/<code>Scan</code> pipeline?</p>
+<hr>
+<h2 id="48-final-takeaway">48. Final Takeaway</h2>
+<p>Every layer in this guide exists to answer one question at a progressively more sophisticated level: <strong>given SQL text, what should actually happen?</strong> The lexer and parser turn that question from "text" into "a typed fact" (the <code>SqlStatement</code> AST). The executors (Part 3) answer it directly and simply. The planner (Part 4-6) answers the identical question with room for optimization — a <code>Plan</code> an optimizer can inspect and compare, and a <code>Scan</code> pipeline that streams instead of materializing. Nothing in the second answer contradicts the first; §27 shows the exact, mechanical adaptation from one to the other, because both were built from the very beginning against the same <code>SqlStatement</code>/<code>Expression</code>/<code>Catalog</code>/<code>StorageEngine</code> vocabulary. That vocabulary — not any single class — is the real architecture this guide teaches.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "TinyDB Query Engine and SQL Parser — Step-by-Step Implementation Guide.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

@@ -1,0 +1,1816 @@
+<meta charset="utf-8">
+<title>Build Your Own CRUD Admin Framework From Scratch — MiniAdmin Step-by-Step Guide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; admin framework guide</div>
+      <h1>Build Your Own CRUD Admin Framework From Scratch — MiniAdmin Step-by-Step Guide</h1>
+      <p class="dek">A step-by-step guide to building MiniAdmin &mdash; a metadata-driven CRUD admin framework on top of MiniSpring &mdash; that auto-generates list and form UIs straight from a model definition, Django-admin-style, adds a Salesforce-style Custom Object builder backed by Entity-Attribute-Value storage, renders many-to-one relationships as dropdowns and one-to-many relationships as related lists, and layers on customization hooks, all following disciplined SOLID and design-pattern principles.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-build-this-interview-motivation">Why Build This? (Interview Motivation)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-two-ways-to-define-a-model-class-based-vs-ui-based-salesforce-style">Two Ways to Define a Model: Class-Based vs UI-Based (Salesforce-Style)</a></li><li class="toc-lvl-2"><a href="#7-high-level-architecture">High-Level Architecture</a></li><li class="toc-lvl-2"><a href="#8-phase-1-the-metadata-model-objectmetadata-and-fieldmetadata">Phase 1 — The Metadata Model: ObjectMetadata and FieldMetadata</a></li><li class="toc-lvl-2"><a href="#9-field-types-and-their-ui-widgets">Field Types and Their UI Widgets</a></li><li class="toc-lvl-2"><a href="#10-relationship-metadata-many-to-one-and-one-to-many">Relationship Metadata: Many-to-One and One-to-Many</a></li><li class="toc-lvl-2"><a href="#11-phase-2-the-metadataregistry">Phase 2 — The MetadataRegistry</a></li><li class="toc-lvl-2"><a href="#12-phase-3-custom-annotations-for-class-based-models">Phase 3 — Custom Annotations for Class-Based Models</a></li><li class="toc-lvl-2"><a href="#13-phase-4-reflective-metadata-extraction-from-annotated-classes">Phase 4 — Reflective Metadata Extraction From Annotated Classes</a></li><li class="toc-lvl-2"><a href="#14-phase-5-registering-class-based-models-as-a-minispring-component">Phase 5 — Registering Class-Based Models as a MiniSpring Component</a></li><li class="toc-lvl-2"><a href="#15-detecting-and-resolving-relationships-between-class-based-models">Detecting and Resolving Relationships Between Class-Based Models</a></li><li class="toc-lvl-2"><a href="#16-two-storage-strategies-physical-tables-vs-entity-attribute-value-why-salesforce-uses-eav">Two Storage Strategies: Physical Tables vs Entity-Attribute-Value (Why Salesforce Uses EAV)</a></li><li class="toc-lvl-2"><a href="#17-phase-6-physicaltablestorage-for-class-based-models">Phase 6 — PhysicalTableStorage for Class-Based Models</a></li><li class="toc-lvl-2"><a href="#18-phase-7-the-custom-object-admin-api-salesforce-style-object-builder">Phase 7 — The Custom Object Admin API (Salesforce-Style Object Builder)</a></li><li class="toc-lvl-2"><a href="#19-phase-8-eavstorage-for-ui-defined-custom-objects">Phase 8 — EavStorage for UI-Defined Custom Objects</a></li><li class="toc-lvl-2"><a href="#20-phase-9-the-custom-object-builder-creating-an-object-from-the-ui">Phase 9 — The Custom Object Builder: Creating an Object From the UI</a></li><li class="toc-lvl-2"><a href="#21-phase-10-adding-fields-to-a-custom-object-without-a-schema-migration">Phase 10 — Adding Fields to a Custom Object Without a Schema Migration</a></li><li class="toc-lvl-2"><a href="#22-unifying-both-paths-into-one-metadataregistry-and-one-objectstoragestrategy-interface">Unifying Both Paths Into One MetadataRegistry and One ObjectStorageStrategy Interface</a></li><li class="toc-lvl-2"><a href="#23-phase-11-a-generic-repository-driven-by-metadata-and-storage-strategy">Phase 11 — A Generic Repository Driven by Metadata and Storage Strategy</a></li><li class="toc-lvl-2"><a href="#24-phase-12-a-generic-crud-rest-controller-for-any-object">Phase 12 — A Generic CRUD REST Controller for Any Object</a></li><li class="toc-lvl-2"><a href="#25-phase-13-metadata-driven-validation">Phase 13 — Metadata-Driven Validation</a></li><li class="toc-lvl-2"><a href="#26-phase-14-saving-many-to-one-foreign-keys">Phase 14 — Saving Many-to-One Foreign Keys</a></li><li class="toc-lvl-2"><a href="#27-phase-15-resolving-one-to-many-related-records-for-display">Phase 15 — Resolving One-to-Many Related Records for Display</a></li><li class="toc-lvl-2"><a href="#28-choosing-the-ui-approach-a-metadata-driven-admin-frontend">Choosing the UI Approach: A Metadata-Driven Admin Frontend</a></li><li class="toc-lvl-2"><a href="#29-phase-16-the-admin-shell-and-object-navigation">Phase 16 — The Admin Shell and Object Navigation</a></li><li class="toc-lvl-2"><a href="#30-phase-17-auto-generating-the-list-view">Phase 17 — Auto-Generating the List View</a></li><li class="toc-lvl-2"><a href="#31-phase-18-auto-generating-the-createedit-form">Phase 18 — Auto-Generating the Create/Edit Form</a></li><li class="toc-lvl-2"><a href="#32-mapping-field-types-to-input-widgets">Mapping Field Types to Input Widgets</a></li><li class="toc-lvl-2"><a href="#33-phase-19-rendering-many-to-one-fields-as-dropdowns">Phase 19 — Rendering Many-to-One Fields as Dropdowns</a></li><li class="toc-lvl-2"><a href="#34-phase-20-rendering-one-to-many-relationships-as-related-lists">Phase 20 — Rendering One-to-Many Relationships as Related Lists</a></li><li class="toc-lvl-2"><a href="#35-phase-21-wiring-the-ui-to-the-generic-crud-api">Phase 21 — Wiring the UI to the Generic CRUD API</a></li><li class="toc-lvl-2"><a href="#36-phase-22-client-side-validation-mirrored-from-metadata">Phase 22 — Client-Side Validation Mirrored From Metadata</a></li><li class="toc-lvl-2"><a href="#37-phase-23-customization-hooks-per-object-ui-configuration">Phase 23 — Customization Hooks: Per-Object UI Configuration</a></li><li class="toc-lvl-2"><a href="#38-phase-24-custom-field-widgets-and-renderers">Phase 24 — Custom Field Widgets and Renderers</a></li><li class="toc-lvl-2"><a href="#39-phase-25-custom-actions-on-list-and-detail-views">Phase 25 — Custom Actions on List and Detail Views</a></li><li class="toc-lvl-2"><a href="#40-phase-26-field-level-visibility-and-read-only-rules">Phase 26 — Field-Level Visibility and Read-Only Rules</a></li><li class="toc-lvl-2"><a href="#41-phase-27-a-simple-layout-editor-salesforce-page-layout-style">Phase 27 — A Simple Layout Editor (Salesforce Page-Layout-Style)</a></li><li class="toc-lvl-2"><a href="#42-full-end-to-end-example-defining-customer-and-order-class-based">Full End-to-End Example: Defining Customer and Order (Class-Based)</a></li><li class="toc-lvl-2"><a href="#43-full-end-to-end-example-defining-a-custom-object-from-the-ui">Full End-to-End Example: Defining a Custom Object From the UI</a></li><li class="toc-lvl-2"><a href="#44-tracing-a-create-request-end-to-end">Tracing a Create Request End to End</a></li><li class="toc-lvl-2"><a href="#45-tracing-how-a-many-to-one-dropdown-gets-populated">Tracing How a Many-to-One Dropdown Gets Populated</a></li><li class="toc-lvl-2"><a href="#46-design-patterns-used-in-miniadmin">Design Patterns Used in MiniAdmin</a></li><li class="toc-lvl-2"><a href="#47-solid-principles-applied-to-miniadmin">SOLID Principles Applied to MiniAdmin</a></li><li class="toc-lvl-2"><a href="#48-common-mistakes">Common Mistakes</a></li><li class="toc-lvl-2"><a href="#49-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#50-performance-considerations-at-scale">Performance Considerations at Scale</a></li><li class="toc-lvl-2"><a href="#51-final-architecture">Final Architecture</a></li><li class="toc-lvl-2"><a href="#52-suggested-v2-enhancements">Suggested V2 Enhancements</a></li><li class="toc-lvl-2"><a href="#53-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#54-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>Goal:</strong> Build <strong>MiniAdmin</strong> — a metadata-driven CRUD framework on top of <a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring</a> that behaves like Django's admin site or Flask-Admin: define a model (as a Java class, with annotations — no boilerplate CRUD code) and get a working list view, create/edit form, and delete action automatically, including dropdowns for many-to-one relationships and related lists for one-to-many. On top of that, add a <strong>Salesforce-style Custom Object builder</strong> — the ability to define an entirely new "object" (name, fields, types) <strong>from the UI, at runtime, with no code deployment at all</strong>.</p>
+<p>This guide assumes familiarity with the companion guides: <a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring-Step-by-Step-Guide.md</a> (the IoC container, component scanning, and MVC layer MiniAdmin is built on top of) and, optionally, <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md</a> (MiniAdmin's generic repository talks to any JDBC database, TinyDB included, exactly the way a MiniSpring <code>@Repository</code> does).</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<p>We are building <strong>MiniAdmin</strong> — a framework that turns a data model into a working CRUD UI <strong>without writing a controller, a form, or a table per entity</strong>. By the end of this guide you will have:</p>
+<ul>
+<li>A <strong>metadata model</strong> (<code>ObjectMetadata</code>/<code>FieldMetadata</code>) that describes any "object" — its fields, their types, and its relationships — regardless of how that object was defined.</li>
+<li><strong>Two ways to define an object</strong>, both producing the same metadata: a <strong>Java class with annotations</strong> (<code>@AdminEntity</code>, <code>@AdminField</code>, <code>@ManyToOne</code>, <code>@OneToMany</code> — Django-model-style), and a <strong>Salesforce-style Custom Object builder</strong> reachable entirely from the UI, with no code or redeploy.</li>
+<li><strong>Two storage strategies</strong> behind one interface: real physical tables (<code>CREATE TABLE</code>) for class-based models, and an <strong>Entity-Attribute-Value (EAV)</strong> store for UI-defined custom objects — the same technique Salesforce's own platform uses internally, chosen specifically so adding a field from the UI never requires a schema migration.</li>
+<li>A <strong>single generic CRUD REST controller</strong> that serves list/create/read/update/delete for <em>any</em> registered object, driven entirely by its metadata — not one controller per entity.</li>
+<li>An <strong>auto-generated admin UI</strong>: a list (data table) view and a create/edit form for every object, with many-to-one fields rendered as searchable dropdowns and one-to-many relationships rendered as related-list panels — built and refreshed purely from metadata, the same way Django's admin site introspects <code>Model._meta.fields</code>.</li>
+<li><strong>Customization hooks</strong> so a team can override the defaults (custom widgets, hidden fields, custom actions, a simple page-layout editor) without forking the generated behavior.</li>
+</ul>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Class-based model                     UI-based Custom Object
+(@AdminEntity, Java code)             (&quot;New Object&quot; screen, no code)
+        |                                       |
+        v                                       v
+  ClassModelScanner                    CustomObjectService
+        |                                       |
+        +------------------&gt; MetadataRegistry &lt;-+
+                                    |
+                    +---------------+---------------+
+                    |                               |
+           PhysicalTableStorage            EavStorage
+           (real CREATE TABLE)             (generic value rows)
+                    |                               |
+                    +---------------+---------------+
+                                    v
+                        GenericRepository (metadata-driven)
+                                    |
+                                    v
+                    GenericCrudController (one controller, any object)
+                                    |
+                                    v
+                  Auto-generated Admin UI (list, form, dropdowns, related lists)
+</code></pre></div>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to answer, from first principles:</p>
+<ul>
+<li>How does Django's admin site (or Flask-Admin) generate a full CRUD UI from a model class it has never seen before, without a developer writing a single view for it?</li>
+<li>What is the actual difference between defining a schema in code (a compiled class) and defining it as data (rows describing fields), and why does Salesforce choose the latter for its Custom Objects?</li>
+<li>What is Entity-Attribute-Value storage, why does it avoid the "every new field needs a migration" problem, and what does it cost you in return?</li>
+<li>How can one controller class correctly serve create/read/update/delete for objects it knows nothing about at compile time?</li>
+<li>How does a many-to-one relationship become a <code>&lt;select&gt;</code> dropdown, and a one-to-many relationship become a related-records panel, purely from metadata?</li>
+<li>Where do you draw the line between "generated by the framework" and "customized by a developer," so customization doesn't mean forking the generator?</li>
+</ul>
+<hr>
+<h2 id="3-why-build-this-interview-motivation">3. Why Build This? (Interview Motivation)</h2>
+<blockquote>
+<p><strong>"Design a system where defining a data model automatically produces a working CRUD UI — list, create, edit, delete — including relationship fields rendered as dropdowns and related lists, similar to Django's admin site. Additionally, support defining a completely new object from a UI, at runtime, without deploying code, similar to Salesforce Custom Objects. Explain how both paths converge into one system, and how you'd let a team customize the generated UI without losing the automation."</strong></p>
+</blockquote>
+<p>This is a strong <strong>platform/framework-design interview question</strong> — distinct from a typical CRUD-app question — because it tests:</p>
+<ul>
+<li><strong>Metadata-driven design</strong> — building software that describes <em>other</em> software's shape, and drives behavior from that description rather than from hard-coded per-entity logic.</li>
+<li><strong>Reflection</strong> — extracting a data model from annotated Java classes, the same mechanism <a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring's component scanner</a> uses to find <code>@Component</code> classes.</li>
+<li><strong>Schema flexibility trade-offs</strong> — physical tables vs. EAV, and knowing exactly when each is the right call rather than reaching for one reflexively.</li>
+<li><strong>API design for the unknown</strong> — a single controller and a single set of UI components that must correctly handle any object, including ones that don't exist yet.</li>
+<li><strong>Extensibility discipline</strong> — customization that composes with the generated defaults instead of replacing them, the same "strategy/decorator over special-casing" discipline the <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB guide's design-pattern sections</a> argued for.</li>
+</ul>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Application framework</td>
+<td><a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring</a></td>
+<td>MiniAdmin is a layer <em>on top of</em> MiniSpring's <code>ApplicationContext</code>, component scanning, and <code>@Controller</code>/<code>@GetMapping</code> MVC layer — not a replacement for it.</td>
+</tr>
+<tr>
+<td>Persistence</td>
+<td>Any JDBC database — <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB</a> or a real one</td>
+<td>MiniAdmin's <code>GenericRepository</code> talks to <code>java.sql.Connection</code>, so it works unmodified against TinyDB or Postgres/MySQL.</td>
+</tr>
+<tr>
+<td>Metadata storage</td>
+<td>The same JDBC database, in two dedicated tables (<code>admin_object_def</code>, <code>admin_field_def</code>)</td>
+<td>Object/field <em>definitions</em> need the same durability a real table's schema gets — see §18.</td>
+</tr>
+<tr>
+<td>UI rendering</td>
+<td>A single, generic, vanilla-JS admin frontend consuming a JSON metadata + CRUD API</td>
+<td>No external UI framework — matches this series' "no unexplained dependency" discipline, and makes the metadata-drives-everything design visible in the code, not hidden inside a framework.</td>
+</tr>
+<tr>
+<td>Reflection</td>
+<td><code>java.lang.reflect</code> (<code>Class</code>, <code>Field</code>, <code>Annotation</code>)</td>
+<td>Same toolset <a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring's <code>ComponentScanner</code></a> already uses.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>miniadmin/
+├── pom.xml
+├── src/main/java/com/example/miniadmin/
+│   ├── metadata/
+│   │   ├── FieldType.java
+│   │   ├── FieldMetadata.java
+│   │   ├── RelationshipMetadata.java
+│   │   ├── ObjectMetadata.java
+│   │   └── MetadataRegistry.java
+│   ├── classmodel/
+│   │   ├── AdminEntity.java
+│   │   ├── AdminField.java
+│   │   ├── AdminId.java
+│   │   ├── ManyToOne.java
+│   │   ├── OneToMany.java
+│   │   └── ClassModelScanner.java
+│   ├── customobject/
+│   │   ├── CustomObjectService.java
+│   │   ├── CustomObjectController.java
+│   │   └── AdminObjectDefRepository.java     // persists object/field DEFINITIONS
+│   ├── storage/
+│   │   ├── ObjectStorageStrategy.java
+│   │   ├── PhysicalTableStorage.java
+│   │   └── EavStorage.java
+│   ├── repository/
+│   │   └── GenericRepository.java
+│   ├── web/
+│   │   ├── GenericCrudController.java
+│   │   ├── ObjectMetadataController.java
+│   │   └── LookupController.java             // powers many-to-one dropdown search
+│   └── customization/
+│       ├── ObjectUiConfig.java
+│       ├── FieldWidget.java
+│       ├── WidgetRegistry.java
+│       └── AdminAction.java
+├── src/main/resources/static/admin/
+│   ├── admin.html                            // the generic admin shell (single page)
+│   ├── admin.js                              // metadata-driven list/form/dropdown rendering
+│   └── admin.css
+└── src/test/java/com/example/miniadmin/
+    ├── ClassModelScannerTest.java
+    ├── EavStorageTest.java
+    ├── GenericRepositoryTest.java
+    └── GenericCrudControllerTest.java
+</code></pre></div>
+<hr>
+<h2 id="6-two-ways-to-define-a-model-class-based-vs-ui-based-salesforce-style">6. Two Ways to Define a Model: Class-Based vs UI-Based (Salesforce-Style)</h2>
+<p>Django models are Python classes; Salesforce Custom Objects are records created by clicking "New Object" in Setup. MiniAdmin deliberately supports <strong>both</strong>, because they serve different moments in a system's life:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Class-based (<code>@AdminEntity</code>)</th>
+<th>UI-based (Custom Object builder)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Who defines it</td>
+<td>A developer, in Java code</td>
+<td>Anyone with admin access, from a browser</td>
+</tr>
+<tr>
+<td>When it takes effect</td>
+<td>On the next deploy</td>
+<td>Immediately, no deploy</td>
+</tr>
+<tr>
+<td>Where it's stored</td>
+<td>The class file itself is the definition</td>
+<td>A row in <code>admin_object_def</code>/<code>admin_field_def</code> (§18)</td>
+</tr>
+<tr>
+<td>Backing storage</td>
+<td>A real table, <code>CREATE TABLE</code>-defined</td>
+<td>An EAV structure — no schema change per field (§16, §19)</td>
+</tr>
+<tr>
+<td>Best for</td>
+<td>Core domain entities that evolve with the codebase</td>
+<td>Fast-moving, ad-hoc data needs — exactly Salesforce's own pitch for Custom Objects</td>
+</tr>
+</tbody>
+</table></div>
+<p>The design decision that makes this guide coherent rather than "two separate half-features": <strong>both paths produce the exact same <code>ObjectMetadata</code>/<code>FieldMetadata</code> shape</strong> (§8), and everything downstream of that — the generic repository (§23), the generic CRUD controller (§24), and the entire auto-generated UI (§28 onward) — is written once, against that shared metadata, and never needs to know or care which path an object came from.</p>
+<hr>
+<h2 id="7-high-level-architecture">7. High-Level Architecture</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                     +------------------+       +---------------------------+
+                     |  @AdminEntity     |       |  &quot;New Object&quot; / &quot;New Field&quot; |
+                     |  Java classes      |       |  UI screens (§20-§21)      |
+                     +--------+----------+       +--------------+------------+
+                              |                                 |
+                     ClassModelScanner (§13)          CustomObjectService (§19)
+                              |                                 |
+                              +----------------+----------------+
+                                               v
+                                    MetadataRegistry (§11)
+                                    ObjectMetadata + FieldMetadata (§8)
+                                               |
+                       +------------------------+------------------------+
+                       |                                                 |
+              PhysicalTableStorage (§17)                        EavStorage (§19)
+              one real table per object                    one shared value table
+                       |                                                 |
+                       +------------------------+------------------------+
+                                               v
+                                  GenericRepository (§23)
+                                  (talks to ObjectStorageStrategy, never
+                                   a concrete table structure directly)
+                                               |
+                                               v
+                                  GenericCrudController (§24)
+                                  one controller, driven by {objectName}
+                                               |
+                                               v
+                             Auto-generated Admin UI (§28-§36)
+                             list view, form view, dropdowns, related lists
+</code></pre></div>
+<hr>
+<h2 id="8-phase-1-the-metadata-model-objectmetadata-and-fieldmetadata">8. Phase 1 — The Metadata Model: ObjectMetadata and FieldMetadata</h2>
+<p>This is the single most important design decision in the whole guide: <strong>everything else is a producer or a consumer of this one shape.</strong></p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// metadata/FieldType.java
+public enum FieldType {
+    STRING, TEXT, INTEGER, LONG, DOUBLE, BOOLEAN, DATE, DATETIME,
+    MANY_TO_ONE,   // a foreign-key-style reference to one record of another object
+    ONE_TO_MANY    // the inverse side — a virtual field, never stored, only computed for display (§27)
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// metadata/FieldMetadata.java
+public class FieldMetadata {
+    private final String name;              // &quot;customerId&quot;, &quot;orderNumber&quot; — the physical/logical field name
+    private final String label;             // &quot;Customer&quot;, &quot;Order Number&quot; — what the UI shows
+    private final FieldType type;
+    private final boolean required;
+    private final boolean primaryKey;
+    private final int displayOrder;
+    private final RelationshipMetadata relationship; // null unless type is MANY_TO_ONE / ONE_TO_MANY
+
+    // constructor / getters omitted for brevity
+}
+
+// metadata/RelationshipMetadata.java
+public class RelationshipMetadata {
+    private final String relatedObjectName;  // e.g. &quot;Customer&quot;
+    private final String displayField;       // for MANY_TO_ONE: which field of the related record to show, e.g. &quot;name&quot;
+    private final String mappedByField;      // for ONE_TO_MANY: the MANY_TO_ONE field, on the related object, that points back here
+
+    // constructor / getters omitted for brevity
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// metadata/ObjectMetadata.java
+public class ObjectMetadata {
+    private final String objectName;   // &quot;Customer&quot;, &quot;Order&quot;, &quot;Invoice__c&quot; — unique, used as the API/table identifier
+    private final String label;        // &quot;Customer&quot;, &quot;Sales Order&quot; — what the UI shows
+    private final List&lt;FieldMetadata&gt; fields;
+    private final String origin;       // &quot;CLASS&quot; or &quot;CUSTOM&quot; — purely observational (§22 explains why it must stay that way)
+
+    public FieldMetadata getField(String name) {
+        return fields.stream().filter(f -&gt; f.getName().equals(name)).findFirst()
+            .orElseThrow(() -&gt; new IllegalArgumentException(&quot;No such field: &quot; + name));
+    }
+    // constructor / other getters omitted for brevity
+}
+</code></pre></div>
+<p>This is deliberately close in shape to Django's own <code>Model._meta</code> (the object every <code>ModelAdmin</code> introspects to build its UI) and to Salesforce's Metadata API's <code>DescribeSObjectResult</code> (<code>fields</code>, <code>label</code>, relationship info) — MiniAdmin is reimplementing a well-established pattern, not inventing a new one.</p>
+<hr>
+<h2 id="9-field-types-and-their-ui-widgets">9. Field Types and Their UI Widgets</h2>
+<p>Deciding the widget for a field is a pure function of its <code>FieldType</code> — this table is, in effect, the entire "auto-generate a form" feature, stated once, referenced everywhere:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th><code>FieldType</code></th>
+<th>Default UI widget</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>STRING</code></td>
+<td>Single-line text input</td>
+<td></td>
+</tr>
+<tr>
+<td><code>TEXT</code></td>
+<td>Multi-line textarea</td>
+<td>For longer free text (descriptions, notes)</td>
+</tr>
+<tr>
+<td><code>INTEGER</code> / <code>LONG</code></td>
+<td>Number input</td>
+<td></td>
+</tr>
+<tr>
+<td><code>DOUBLE</code></td>
+<td>Number input, decimal-enabled</td>
+<td></td>
+</tr>
+<tr>
+<td><code>BOOLEAN</code></td>
+<td>Checkbox</td>
+<td></td>
+</tr>
+<tr>
+<td><code>DATE</code></td>
+<td>Date picker</td>
+<td></td>
+</tr>
+<tr>
+<td><code>DATETIME</code></td>
+<td>Date + time picker</td>
+<td></td>
+</tr>
+<tr>
+<td><code>MANY_TO_ONE</code></td>
+<td>Searchable <code>&lt;select&gt;</code> dropdown (§33)</td>
+<td>Options come from the related object's records, shown via <code>displayField</code></td>
+</tr>
+<tr>
+<td><code>ONE_TO_MANY</code></td>
+<td>A read-only related-list panel (§34), never a form input</td>
+<td>This field is never written to directly — it's computed by querying the <em>other</em> side's <code>MANY_TO_ONE</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>§32 turns this table directly into rendering code — naming the mapping explicitly here is what makes that later section a straightforward lookup instead of a pile of special cases.</p>
+<hr>
+<h2 id="10-relationship-metadata-many-to-one-and-one-to-many">10. Relationship Metadata: Many-to-One and One-to-Many</h2>
+<p>A <strong>many-to-one</strong> field (<code>Order.customer</code>) is the "real," stored side: the <code>Order</code> record physically holds a reference to one <code>Customer</code>. A <strong>one-to-many</strong> field (<code>Customer.orders</code>) is its mirror image — "every <code>Order</code> whose <code>customer</code> points at me" — and is never stored on <code>Customer</code> at all; it's computed on read by querying <code>Order</code> for <code>customer = thisCustomerId</code> (§27).</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Customer:
+  orders: ONE_TO_MANY  { relatedObjectName: &quot;Order&quot;, mappedByField: &quot;customer&quot; }
+
+Order:
+  customer: MANY_TO_ONE { relatedObjectName: &quot;Customer&quot;, displayField: &quot;name&quot; }
+</code></pre></div>
+<p>Both class-based (<code>@OneToMany(mappedBy=...)</code>, §12) and UI-based (§21) definitions produce exactly this same <code>RelationshipMetadata</code> shape — which is precisely why §27's "resolve the related records for display" logic, and §34's "render a related-list panel" UI code, only need to be written once.</p>
+<hr>
+<h2 id="11-phase-2-the-metadataregistry">11. Phase 2 — The MetadataRegistry</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// metadata/MetadataRegistry.java
+@Component // a MiniSpring bean, injectable anywhere via @Autowired — see MiniSpring guide §17
+public class MetadataRegistry {
+    private final Map&lt;String, ObjectMetadata&gt; objectsByName = new ConcurrentHashMap&lt;&gt;();
+
+    public void register(ObjectMetadata metadata) {
+        objectsByName.put(metadata.getObjectName(), metadata);
+    }
+
+    public ObjectMetadata get(String objectName) {
+        ObjectMetadata metadata = objectsByName.get(objectName);
+        if (metadata == null) throw new IllegalArgumentException(&quot;No such object: &quot; + objectName);
+        return metadata;
+    }
+
+    public boolean exists(String objectName) { return objectsByName.containsKey(objectName); }
+    public Collection&lt;ObjectMetadata&gt; allObjects() { return objectsByName.values(); }
+}
+</code></pre></div>
+<p>This is structurally identical to <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's <code>SchemaRegistry</code></a> — a single-purpose, in-memory catalog that is the one place "what objects/tables exist" can be answered from. That's not a coincidence: both are the same pattern (a metadata catalog) solving the same problem (many consumers need a consistent view of "what exists") at two different layers of the same overall stack.</p>
+<hr>
+<h2 id="12-phase-3-custom-annotations-for-class-based-models">12. Phase 3 — Custom Annotations for Class-Based Models</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// classmodel/AdminEntity.java
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface AdminEntity {
+    String label() default &quot;&quot;; // defaults to the class's simple name if left blank
+}
+
+// classmodel/AdminField.java
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
+public @interface AdminField {
+    String label() default &quot;&quot;;
+    boolean required() default false;
+    int order() default 0;
+}
+
+// classmodel/AdminId.java
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
+public @interface AdminId { }
+
+// classmodel/ManyToOne.java
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
+public @interface ManyToOne {
+    Class&lt;?&gt; target();       // the related @AdminEntity class
+    String displayField();   // which field of the related record to show in dropdowns/labels (§33)
+}
+
+// classmodel/OneToMany.java
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
+public @interface OneToMany {
+    Class&lt;?&gt; target();
+    String mappedBy();       // the name of the @ManyToOne field, ON the target class, that points back here
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// A worked example that §42 will use end to end
+@AdminEntity(label = &quot;Customer&quot;)
+public class Customer {
+    @AdminId private Long id;
+    @AdminField(label = &quot;Full Name&quot;, required = true, order = 1) private String name;
+    @AdminField(label = &quot;Email&quot;, order = 2) private String email;
+    @OneToMany(target = Order.class, mappedBy = &quot;customer&quot;) private List&lt;Order&gt; orders; // never persisted directly
+}
+
+@AdminEntity(label = &quot;Order&quot;)
+public class Order {
+    @AdminId private Long id;
+    @AdminField(label = &quot;Order Number&quot;, required = true, order = 1) private String orderNumber;
+    @ManyToOne(target = Customer.class, displayField = &quot;name&quot;) private Customer customer;
+    @AdminField(label = &quot;Total&quot;, order = 2) private Double total;
+}
+</code></pre></div>
+<p>This mirrors Django's own <code>models.py</code> almost line for line — a <code>CharField</code>/<code>ForeignKey</code>-style declaration is exactly what <code>@AdminField</code>/<code>@ManyToOne</code> are standing in for, and, like Django, <strong>the class itself is both the domain model and the admin's source of truth</strong> — there's no separate "admin config file" for the default behavior.</p>
+<hr>
+<h2 id="13-phase-4-reflective-metadata-extraction-from-annotated-classes">13. Phase 4 — Reflective Metadata Extraction From Annotated Classes</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// classmodel/ClassModelScanner.java
+@Component
+public class ClassModelScanner {
+
+    public ObjectMetadata extract(Class&lt;?&gt; entityClass) {
+        AdminEntity entityAnnotation = entityClass.getAnnotation(AdminEntity.class);
+        if (entityAnnotation == null) {
+            throw new IllegalArgumentException(entityClass.getName() + &quot; is not annotated with @AdminEntity&quot;);
+        }
+        String objectName = entityClass.getSimpleName();
+        String label = entityAnnotation.label().isBlank() ? objectName : entityAnnotation.label();
+
+        List&lt;FieldMetadata&gt; fields = new ArrayList&lt;&gt;();
+        for (Field field : entityClass.getDeclaredFields()) {
+            fields.add(extractFieldMetadata(field));
+        }
+        fields.sort(Comparator.comparingInt(FieldMetadata::getDisplayOrder));
+
+        return new ObjectMetadata(objectName, label, fields, &quot;CLASS&quot;);
+    }
+
+    private FieldMetadata extractFieldMetadata(Field field) {
+        boolean isId = field.isAnnotationPresent(AdminId.class);
+        ManyToOne manyToOne = field.getAnnotation(ManyToOne.class);
+        OneToMany oneToMany = field.getAnnotation(OneToMany.class);
+        AdminField adminField = field.getAnnotation(AdminField.class);
+
+        if (manyToOne != null) {
+            String relatedName = manyToOne.target().getSimpleName();
+            RelationshipMetadata relationship = new RelationshipMetadata(relatedName, manyToOne.displayField(), null);
+            return new FieldMetadata(field.getName(), relatedName, FieldType.MANY_TO_ONE, false, false, 0, relationship);
+        }
+        if (oneToMany != null) {
+            String relatedName = oneToMany.target().getSimpleName();
+            RelationshipMetadata relationship = new RelationshipMetadata(relatedName, null, oneToMany.mappedBy());
+            return new FieldMetadata(field.getName(), relatedName, FieldType.ONE_TO_MANY, false, false, 0, relationship);
+        }
+        if (isId) {
+            return new FieldMetadata(field.getName(), &quot;ID&quot;, inferScalarType(field), false, true, -1, null);
+        }
+        String label = (adminField != null &amp;&amp; !adminField.label().isBlank()) ? adminField.label() : field.getName();
+        boolean required = adminField != null &amp;&amp; adminField.required();
+        int order = adminField != null ? adminField.order() : 0;
+        return new FieldMetadata(field.getName(), label, inferScalarType(field), required, false, order, null);
+    }
+
+    private FieldType inferScalarType(Field field) {
+        Class&lt;?&gt; t = field.getType();
+        if (t == String.class) return FieldType.STRING;
+        if (t == Long.class || t == long.class) return FieldType.LONG;
+        if (t == Integer.class || t == int.class) return FieldType.INTEGER;
+        if (t == Double.class || t == double.class) return FieldType.DOUBLE;
+        if (t == Boolean.class || t == boolean.class) return FieldType.BOOLEAN;
+        if (t == LocalDate.class) return FieldType.DATE;
+        if (t == LocalDateTime.class) return FieldType.DATETIME;
+        throw new IllegalArgumentException(&quot;Unsupported field type: &quot; + t.getName());
+    }
+}
+</code></pre></div>
+<p>This is the exact same reflective technique <a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring's <code>ComponentScanner</code></a> uses to turn <code>@Component</code>-annotated classes into <code>BeanDefinition</code>s — walk <code>getDeclaredFields()</code>/<code>getAnnotations()</code>, build a plain data object, register it. MiniAdmin isn't introducing a new reflection technique here, only pointing an existing one at a new kind of annotation.</p>
+<hr>
+<h2 id="14-phase-5-registering-class-based-models-as-a-minispring-component">14. Phase 5 — Registering Class-Based Models as a MiniSpring Component</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// classmodel/ClassModelRegistrar.java
+@Component
+public class ClassModelRegistrar {
+    private final ClassModelScanner scanner;
+    private final MetadataRegistry metadataRegistry;
+    private final List&lt;Class&lt;?&gt;&gt; entityClasses; // discovered by scanning the classpath for @AdminEntity, same technique as §13
+
+    @Autowired
+    public ClassModelRegistrar(ClassModelScanner scanner, MetadataRegistry metadataRegistry) {
+        this.scanner = scanner;
+        this.metadataRegistry = metadataRegistry;
+        this.entityClasses = findAllAdminEntityClasses(); // reuses the classpath-walking code from MiniSpring §15
+    }
+
+    @PostConstruct // MiniSpring guide §33-§34 — runs once, right after this bean's dependencies are wired
+    public void registerAllClassModels() {
+        for (Class&lt;?&gt; entityClass : entityClasses) {
+            metadataRegistry.register(scanner.extract(entityClass));
+        }
+    }
+}
+</code></pre></div>
+<p><code>@PostConstruct</code> is doing real, deliberate work here: it guarantees every class-based <code>ObjectMetadata</code> is registered <strong>before</strong> the <code>GenericCrudController</code> (§24) or the admin UI (§28) ever serves a request — the same "resolve everything at startup, fail fast" discipline <a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring's <code>ApplicationContext.refresh()</code></a> already uses for bean wiring, applied here to model metadata instead.</p>
+<hr>
+<h2 id="15-detecting-and-resolving-relationships-between-class-based-models">15. Detecting and Resolving Relationships Between Class-Based Models</h2>
+<p>One subtlety <code>ClassModelScanner</code> (§13) glosses over: <code>Order.customer</code>'s <code>@ManyToOne(target = Customer.class, ...)</code> refers to <code>Customer</code> <strong>by Java <code>Class</code></strong>, but <code>Customer.orders</code>'s <code>@OneToMany(mappedBy = "customer")</code> only knows the <em>field name</em> <code>"customer"</code> — there's no compile-time link forcing these two annotations to agree with each other. A validation pass at registration time catches a mismatch before it becomes a confusing runtime bug in the UI:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// Added to ClassModelRegistrar.registerAllClassModels() (§14), after all objects are registered
+private void validateRelationships() {
+    for (ObjectMetadata object : metadataRegistry.allObjects()) {
+        for (FieldMetadata field : object.getFields()) {
+            if (field.getType() != FieldType.ONE_TO_MANY) continue;
+            RelationshipMetadata rel = field.getRelationship();
+            ObjectMetadata related = metadataRegistry.get(rel.getRelatedObjectName());
+            FieldMetadata backReference = related.getField(rel.getMappedByField()); // throws if missing (§8)
+            if (backReference.getType() != FieldType.MANY_TO_ONE
+                    || !backReference.getRelationship().getRelatedObjectName().equals(object.getObjectName())) {
+                throw new IllegalStateException(
+                    object.getObjectName() + &quot;.&quot; + field.getName() + &quot; mappedBy=\&quot;&quot; + rel.getMappedByField()
+                    + &quot;\&quot; does not point back to &quot; + object.getObjectName());
+            }
+        }
+    }
+}
+</code></pre></div>
+<p>Catching this at startup — not the first time a user opens <code>Customer</code>'s related-orders panel (§34) — is the same "fail at boot, not in production traffic" principle <a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring's eager bean instantiation</a> and <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's schema validation</a> both already commit to.</p>
+<hr>
+<h2 id="16-two-storage-strategies-physical-tables-vs-entity-attribute-value-why-salesforce-uses-eav">16. Two Storage Strategies: Physical Tables vs Entity-Attribute-Value (Why Salesforce Uses EAV)</h2>
+<p>A class-based <code>Customer</code> object has a fixed shape known at compile time — a real table with real <code>name</code>/<code>email</code> columns (§17) is the obvious, efficient choice, and it's exactly what <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's <code>CREATE TABLE</code></a> already supports.</p>
+<p>A UI-defined Custom Object is different in one crucial way: <strong>its shape can change at any moment, from a browser, with no deploy</strong> — someone can click "Add Field" on a live system at 2pm. If every Custom Object were backed by its own real table, adding a field would mean issuing an <code>ALTER TABLE ... ADD COLUMN</code> against a live production table on every single field addition — workable at small scale, but exactly the kind of schema-migration risk (locking, replication lag while the DDL propagates, no easy per-tenant isolation) that a <em>multi-tenant</em> platform serving thousands of orgs, each defining their own objects, cannot take on for every customer's every field click.</p>
+<p>This is, concretely, why Salesforce's real platform does not give every org's every Custom Object its own physical table. Salesforce's actual architecture (publicly documented as the "Universal Data Dictionary") stores <strong>all</strong> custom field values from <strong>every</strong> org in a small number of enormous, generic, pre-allocated tables, and uses metadata to know which generic column means what for which object. MiniAdmin's <code>EavStorage</code> (§19) is a simplified version of exactly that idea:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th><code>PhysicalTableStorage</code> (§17)</th>
+<th><code>EavStorage</code> (§19)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Backing structure</td>
+<td>One real table per object, real typed columns</td>
+<td>One shared table: <code>(object_name, record_id, field_name, field_value)</code></td>
+</tr>
+<tr>
+<td>Adding a field</td>
+<td>Requires <code>ALTER TABLE</code> (or, for MiniAdmin, isn't supported at all for class-based models — you add a field in code and redeploy)</td>
+<td>Just start writing rows with a new <code>field_name</code> — no schema change</td>
+</tr>
+<tr>
+<td>Query performance</td>
+<td>Fast — native columns, native types, indexable directly</td>
+<td>Slower — a "get all fields for this record" query is a self-join or multiple lookups against the shared table</td>
+</tr>
+<tr>
+<td>Used for</td>
+<td>Class-based (<code>@AdminEntity</code>) models</td>
+<td>UI-based Custom Objects</td>
+</tr>
+</tbody>
+</table></div>
+<p>Naming this trade-off explicitly is the point: EAV is not "the modern way to do it" — it's a deliberate trade of query performance for schema agility, taken <strong>only</strong> where that agility is the actual requirement (a field added from a UI, live), which is exactly the condition class-based models don't have.</p>
+<hr>
+<h2 id="17-phase-6-physicaltablestorage-for-class-based-models">17. Phase 6 — PhysicalTableStorage for Class-Based Models</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// storage/ObjectStorageStrategy.java — the interface BOTH storage strategies implement
+public interface ObjectStorageStrategy {
+    String save(ObjectMetadata metadata, Map&lt;String, Object&gt; fieldValues) throws SQLException; // returns the record id
+    Map&lt;String, Object&gt; findById(ObjectMetadata metadata, String id) throws SQLException;
+    List&lt;Map&lt;String, Object&gt;&gt; findAll(ObjectMetadata metadata) throws SQLException;
+    List&lt;Map&lt;String, Object&gt;&gt; findWhere(ObjectMetadata metadata, String fieldName, String value) throws SQLException; // used by §27
+    void deleteById(ObjectMetadata metadata, String id) throws SQLException;
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// storage/PhysicalTableStorage.java
+public class PhysicalTableStorage implements ObjectStorageStrategy {
+    private final MiniConnectionPool pool; // the same pool built in the MiniTomcat companion guide's §32-§34
+
+    public PhysicalTableStorage(MiniConnectionPool pool) { this.pool = pool; }
+
+    @Override
+    public String save(ObjectMetadata metadata, Map&lt;String, Object&gt; fieldValues) throws SQLException {
+        boolean isUpdate = fieldValues.get(&quot;id&quot;) != null;
+        String sql = isUpdate ? buildUpdateSql(metadata) : buildInsertSql(metadata);
+        try (Connection connection = pool.borrow(); PreparedStatement ps = connection.prepareStatement(sql)) {
+            bindParameters(ps, metadata, fieldValues);
+            ps.executeUpdate();
+            return String.valueOf(fieldValues.getOrDefault(&quot;id&quot;, generatedId(ps)));
+        } catch (InterruptedException e) {
+            throw new SQLException(e);
+        }
+    }
+
+    @Override
+    public List&lt;Map&lt;String, Object&gt;&gt; findAll(ObjectMetadata metadata) throws SQLException {
+        String sql = &quot;SELECT * FROM &quot; + metadata.getObjectName(); // the object's real table, created once at CREATE TABLE time (§18)
+        try (Connection connection = pool.borrow(); PreparedStatement ps = connection.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            return mapRows(rs, metadata);
+        } catch (InterruptedException e) {
+            throw new SQLException(e);
+        }
+    }
+    // findById/findWhere/deleteById/buildInsertSql/buildUpdateSql/bindParameters/mapRows omitted for brevity —
+    // straightforward JDBC, one real column per FieldMetadata, exactly like §26 of the TinyDB companion guide.
+}
+</code></pre></div>
+<p><code>PhysicalTableStorage</code> is, deliberately, nothing more than a thin, metadata-driven JDBC repository — it earns its keep entirely from <strong>not being written per entity</strong>: the same class serves <code>Customer</code>, <code>Order</code>, and any future <code>@AdminEntity</code> class, because every SQL statement it builds is derived from <code>ObjectMetadata.getFields()</code>, never from a hard-coded column list.</p>
+<hr>
+<h2 id="18-phase-7-the-custom-object-admin-api-salesforce-style-object-builder">18. Phase 7 — The Custom Object Admin API (Salesforce-Style Object Builder)</h2>
+<p>Before a Custom Object can be defined <em>from the UI</em>, MiniAdmin needs somewhere durable to store that definition — the UI-driven equivalent of a <code>.java</code> file. Two tables, created once via MiniAdmin's own bootstrap SQL, hold this:</p>
+<div class="code-wrap"><span class="code-lang">SQL</span><pre class="code-block"><code>CREATE TABLE admin_object_def (
+    object_name VARCHAR PRIMARY KEY,
+    label VARCHAR
+);
+CREATE TABLE admin_field_def (
+    id VARCHAR PRIMARY KEY,
+    object_name VARCHAR,      -- foreign key, by convention, to admin_object_def
+    field_name VARCHAR,
+    label VARCHAR,
+    field_type VARCHAR,
+    required BOOLEAN,
+    related_object_name VARCHAR,  -- null unless field_type is MANY_TO_ONE/ONE_TO_MANY
+    display_field VARCHAR,
+    mapped_by_field VARCHAR,
+    display_order INT
+);
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// customobject/AdminObjectDefRepository.java
+@Repository
+public class AdminObjectDefRepository {
+    private final MiniConnectionPool pool;
+
+    public void saveObjectDef(String objectName, String label) throws SQLException { /* INSERT INTO admin_object_def */ }
+    public void saveFieldDef(String objectName, FieldMetadata field) throws SQLException { /* INSERT INTO admin_field_def */ }
+    public List&lt;ObjectMetadata&gt; loadAllCustomObjects() throws SQLException {
+        // SELECT from admin_object_def, join admin_field_def, reassemble into ObjectMetadata objects — the
+        // mirror image of ClassModelScanner (§13): that one reads Java annotations, this one reads database rows,
+        // and BOTH produce the exact same ObjectMetadata/FieldMetadata shape (§8).
+        return List.of();
+    }
+}
+</code></pre></div>
+<p>These two tables are themselves ordinary class-based <code>@AdminEntity</code>-shaped data — MiniAdmin's own metadata is stored the same way any application's data would be, just consumed by MiniAdmin itself rather than rendered in its own generated UI.</p>
+<hr>
+<h2 id="19-phase-8-eavstorage-for-ui-defined-custom-objects">19. Phase 8 — EavStorage for UI-Defined Custom Objects</h2>
+<div class="code-wrap"><span class="code-lang">SQL</span><pre class="code-block"><code>CREATE TABLE eav_record (
+    id VARCHAR PRIMARY KEY,
+    object_name VARCHAR
+);
+CREATE TABLE eav_value (
+    record_id VARCHAR,
+    field_name VARCHAR,
+    field_value VARCHAR,       -- everything stored as text; FieldMetadata.type governs how it's parsed back (§25)
+    PRIMARY KEY (record_id, field_name)
+);
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// storage/EavStorage.java
+public class EavStorage implements ObjectStorageStrategy {
+    private final MiniConnectionPool pool;
+
+    @Override
+    public String save(ObjectMetadata metadata, Map&lt;String, Object&gt; fieldValues) throws SQLException {
+        String recordId = (String) fieldValues.getOrDefault(&quot;id&quot;, UUID.randomUUID().toString());
+        try (Connection connection = pool.borrow()) {
+            connection.setAutoCommit(false); // every field write for one record is one atomic transaction
+            try (PreparedStatement upsertRecord = connection.prepareStatement(
+                    &quot;INSERT INTO eav_record (id, object_name) VALUES (?, ?) ON CONFLICT DO NOTHING&quot;)) {
+                upsertRecord.setString(1, recordId);
+                upsertRecord.setString(2, metadata.getObjectName());
+                upsertRecord.executeUpdate();
+            }
+            for (FieldMetadata field : metadata.getFields()) {
+                if (field.getType() == FieldType.ONE_TO_MANY) continue; // never stored — computed on read, §27
+                Object value = fieldValues.get(field.getName());
+                if (value == null) continue;
+                try (PreparedStatement upsertValue = connection.prepareStatement(
+                        &quot;INSERT INTO eav_value (record_id, field_name, field_value) VALUES (?, ?, ?) &quot;
+                        + &quot;ON CONFLICT (record_id, field_name) DO UPDATE SET field_value = ?&quot;)) {
+                    upsertValue.setString(1, recordId);
+                    upsertValue.setString(2, field.getName());
+                    upsertValue.setString(3, String.valueOf(value));
+                    upsertValue.setString(4, String.valueOf(value));
+                    upsertValue.executeUpdate();
+                }
+            }
+            connection.commit();
+            return recordId;
+        } catch (InterruptedException e) {
+            throw new SQLException(e);
+        }
+    }
+
+    @Override
+    public Map&lt;String, Object&gt; findById(ObjectMetadata metadata, String id) throws SQLException {
+        // SELECT field_name, field_value FROM eav_value WHERE record_id = ?  -- one row per field, pivoted
+        // back into a single Map&lt;String,Object&gt; keyed by field name, exactly like a real row would look
+        // to PhysicalTableStorage's caller — GenericRepository (§23) never has to know which strategy answered it.
+        return Map.of();
+    }
+    // findAll/findWhere/deleteById omitted for brevity — findAll in particular needs one query against eav_record
+    // filtered by object_name, then a per-record (or batched) join against eav_value.
+}
+</code></pre></div>
+<p><code>ON CONFLICT ... DO UPDATE</code> — an upsert — is what lets <code>save()</code> handle both "first time this field is set" and "this field already had a value" without the caller needing to know which case applies; adding a brand-new field to a Custom Object later (§21) requires <strong>zero</strong> change to this class, because <code>eav_value</code> never had a fixed set of columns to begin with.</p>
+<hr>
+<h2 id="20-phase-9-the-custom-object-builder-creating-an-object-from-the-ui">20. Phase 9 — The Custom Object Builder: Creating an Object From the UI</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// customobject/CustomObjectService.java
+@Service
+public class CustomObjectService {
+    private final MetadataRegistry metadataRegistry;
+    private final AdminObjectDefRepository objectDefRepository;
+
+    public ObjectMetadata createObject(String objectName, String label) throws SQLException {
+        if (metadataRegistry.exists(objectName)) {
+            throw new IllegalArgumentException(&quot;Object already exists: &quot; + objectName);
+        }
+        FieldMetadata idField = new FieldMetadata(&quot;id&quot;, &quot;ID&quot;, FieldType.STRING, true, true, -1, null);
+        ObjectMetadata metadata = new ObjectMetadata(objectName, label, List.of(idField), &quot;CUSTOM&quot;);
+
+        objectDefRepository.saveObjectDef(objectName, label); // durable — survives a restart (§18)
+        metadataRegistry.register(metadata);                   // visible immediately — no deploy, no restart needed
+        return metadata;
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// customobject/CustomObjectController.java
+@Controller
+@RequestMapping(&quot;/api/admin/objects&quot;)
+public class CustomObjectController {
+    private final CustomObjectService customObjectService;
+
+    @PostMapping(&quot;&quot;)
+    public ResponseEntity&lt;ObjectMetadata&gt; createObject(@RequestBody CreateObjectRequest request) throws SQLException {
+        return ResponseEntity.ok(customObjectService.createObject(request.objectName(), request.label()));
+    }
+    // record CreateObjectRequest(String objectName, String label) {}
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Bash</span><pre class="code-block"><code>curl -X POST http://localhost:8080/api/admin/objects \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;objectName&quot;: &quot;Product&quot;, &quot;label&quot;: &quot;Product&quot;}'
+</code></pre></div>
+<p>The moment that <code>POST</code> returns, <code>Product</code> exists as a real, queryable object — the admin UI's object list (§29) shows it on the next page load, with <strong>no server restart, no deploy, no <code>CREATE TABLE</code></strong> — precisely because <code>EavStorage</code> (§19) never needed a physical table to exist in the first place.</p>
+<hr>
+<h2 id="21-phase-10-adding-fields-to-a-custom-object-without-a-schema-migration">21. Phase 10 — Adding Fields to a Custom Object Without a Schema Migration</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// customobject/CustomObjectService.java — continued
+public ObjectMetadata addField(String objectName, FieldMetadata newField) throws SQLException {
+    ObjectMetadata existing = metadataRegistry.get(objectName);
+    if (!&quot;CUSTOM&quot;.equals(existing.getOrigin())) {
+        throw new IllegalArgumentException(&quot;Cannot add fields to a class-based object at runtime: &quot; + objectName);
+    }
+    List&lt;FieldMetadata&gt; updatedFields = new ArrayList&lt;&gt;(existing.getFields());
+    updatedFields.add(newField);
+    ObjectMetadata updated = new ObjectMetadata(objectName, existing.getLabel(), updatedFields, &quot;CUSTOM&quot;);
+
+    objectDefRepository.saveFieldDef(objectName, newField); // durable
+    metadataRegistry.register(updated);                      // replaces the old ObjectMetadata — visible immediately
+    return updated;
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Bash</span><pre class="code-block"><code>curl -X POST http://localhost:8080/api/admin/objects/Product/fields \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;name&quot;: &quot;price&quot;, &quot;label&quot;: &quot;Price&quot;, &quot;type&quot;: &quot;DOUBLE&quot;, &quot;required&quot;: true}'
+</code></pre></div>
+<p>Compare this to what the same operation would require under <code>PhysicalTableStorage</code>: an <code>ALTER TABLE Product ADD COLUMN price DOUBLE</code>, run against a live table, with all the locking/replication considerations the <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB guide's DDL section</a> discusses for <code>CREATE TABLE</code>. Under <code>EavStorage</code>, adding a field is <strong>only a metadata change</strong> — the very first <code>Product</code> row that sets a <code>price</code> simply inserts a new <code>eav_value</code> row with <code>field_name = 'price'</code>; no existing data, and no existing table structure, is touched at all. This is the concrete payoff of §16's trade-off, not just a claim about it.</p>
+<p><strong>Explicitly guarding against adding fields to a class-based object at runtime</strong> (the <code>IllegalArgumentException</code> above) matters: that would create metadata (<code>Customer.newField</code>) with no matching Java field and no matching table column — a state <code>PhysicalTableStorage</code> (§17) has no way to honor. The check keeps each storage strategy's contract intact rather than letting the two paths silently corrupt each other's assumptions.</p>
+<hr>
+<h2 id="22-unifying-both-paths-into-one-metadataregistry-and-one-objectstoragestrategy-interface">22. Unifying Both Paths Into One MetadataRegistry and One ObjectStorageStrategy Interface</h2>
+<p>With §14 and §20 both calling <code>metadataRegistry.register(...)</code>, and both <code>PhysicalTableStorage</code> and <code>EavStorage</code> implementing the same <code>ObjectStorageStrategy</code> interface (§17), everything built from §23 onward can be written against exactly two abstractions — <code>ObjectMetadata</code> and <code>ObjectStorageStrategy</code> — and genuinely never needs an <code>if (origin.equals("CLASS"))</code> branch anywhere in the CRUD or UI layers:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// The ONE place that decides which storage strategy backs a given object
+@Component
+public class StorageStrategyResolver {
+    private final PhysicalTableStorage physicalTableStorage;
+    private final EavStorage eavStorage;
+
+    public ObjectStorageStrategy resolve(ObjectMetadata metadata) {
+        return &quot;CLASS&quot;.equals(metadata.getOrigin()) ? physicalTableStorage : eavStorage;
+    }
+}
+</code></pre></div>
+<p><code>ObjectMetadata.origin</code> (§8) exists <strong>only</strong> so this one class can make this one decision — every other consumer of <code>ObjectMetadata</code> in this guide (§23's <code>GenericRepository</code>, §24's <code>GenericCrudController</code>, §30–§32's UI rendering) reads <code>objectName</code>, <code>fields</code>, and relationships, and is never given a reason to branch on origin at all. That containment is deliberate: it's the difference between "one clean seam" and "the CLASS/CUSTOM distinction leaking into forty files."</p>
+<hr>
+<h2 id="23-phase-11-a-generic-repository-driven-by-metadata-and-storage-strategy">23. Phase 11 — A Generic Repository Driven by Metadata and Storage Strategy</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// repository/GenericRepository.java
+@Repository
+public class GenericRepository {
+    private final MetadataRegistry metadataRegistry;
+    private final StorageStrategyResolver strategyResolver;
+
+    @Autowired
+    public GenericRepository(MetadataRegistry metadataRegistry, StorageStrategyResolver strategyResolver) {
+        this.metadataRegistry = metadataRegistry;
+        this.strategyResolver = strategyResolver;
+    }
+
+    public String save(String objectName, Map&lt;String, Object&gt; fieldValues) throws SQLException {
+        ObjectMetadata metadata = metadataRegistry.get(objectName);
+        validate(metadata, fieldValues); // §25
+        return strategyResolver.resolve(metadata).save(metadata, fieldValues);
+    }
+
+    public Map&lt;String, Object&gt; findById(String objectName, String id) throws SQLException {
+        ObjectMetadata metadata = metadataRegistry.get(objectName);
+        return strategyResolver.resolve(metadata).findById(metadata, id);
+    }
+
+    public List&lt;Map&lt;String, Object&gt;&gt; findAll(String objectName) throws SQLException {
+        ObjectMetadata metadata = metadataRegistry.get(objectName);
+        return strategyResolver.resolve(metadata).findAll(metadata);
+    }
+
+    public void deleteById(String objectName, String id) throws SQLException {
+        ObjectMetadata metadata = metadataRegistry.get(objectName);
+        strategyResolver.resolve(metadata).deleteById(metadata, id);
+    }
+}
+</code></pre></div>
+<p>This single class is <strong>the entire data-access layer for every object MiniAdmin will ever serve</strong> — there is no <code>CustomerRepository</code>, no <code>OrderRepository</code>, no <code>ProductRepository</code>. Every one of those would, in a hand-written MiniSpring app, look almost identical to every other one (per the <a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring guide's own <code>@Repository</code> examples</a>) — <code>GenericRepository</code> exists specifically because that repetition is exactly what metadata-driven design is for.</p>
+<hr>
+<h2 id="24-phase-12-a-generic-crud-rest-controller-for-any-object">24. Phase 12 — A Generic CRUD REST Controller for Any Object</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// web/GenericCrudController.java
+@Controller
+@RequestMapping(&quot;/api/data/{objectName}&quot;)
+public class GenericCrudController {
+    private final GenericRepository repository;
+
+    @Autowired
+    public GenericCrudController(GenericRepository repository) { this.repository = repository; }
+
+    @GetMapping(&quot;&quot;)
+    public ResponseEntity&lt;List&lt;Map&lt;String, Object&gt;&gt;&gt; list(@PathVariable(&quot;objectName&quot;) String objectName) throws SQLException {
+        return ResponseEntity.ok(repository.findAll(objectName));
+    }
+
+    @GetMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; get(@PathVariable(&quot;objectName&quot;) String objectName,
+                                                     @PathVariable(&quot;id&quot;) String id) throws SQLException {
+        Map&lt;String, Object&gt; record = repository.findById(objectName, id);
+        return record == null ? ResponseEntity.status(404).build() : ResponseEntity.ok(record);
+    }
+
+    @PostMapping(&quot;&quot;)
+    public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; create(@PathVariable(&quot;objectName&quot;) String objectName,
+                                                        @RequestBody Map&lt;String, Object&gt; fieldValues) throws SQLException {
+        String id = repository.save(objectName, fieldValues);
+        return ResponseEntity.ok(repository.findById(objectName, id));
+    }
+
+    @PutMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; update(@PathVariable(&quot;objectName&quot;) String objectName,
+                                                        @PathVariable(&quot;id&quot;) String id,
+                                                        @RequestBody Map&lt;String, Object&gt; fieldValues) throws SQLException {
+        fieldValues.put(&quot;id&quot;, id);
+        repository.save(objectName, fieldValues);
+        return ResponseEntity.ok(repository.findById(objectName, id));
+    }
+
+    @DeleteMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;Void&gt; delete(@PathVariable(&quot;objectName&quot;) String objectName,
+                                        @PathVariable(&quot;id&quot;) String id) throws SQLException {
+        repository.deleteById(objectName, id);
+        return ResponseEntity.noContent().build();
+    }
+}
+</code></pre></div>
+<p>Five <code>@GetMapping</code>/<code>@PostMapping</code>/<code>@PutMapping</code>/<code>@DeleteMapping</code> methods, registered <strong>once</strong>, at <code>/api/data/{objectName}</code>, serve <code>Customer</code>, <code>Order</code>, <code>Product</code>, and every object created after this guide is finished. <code>{objectName}</code> is resolved by <a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring's <code>@PathVariable</code> mechanism</a> exactly like any other path variable — nothing about MiniSpring's routing needed to change to make a <em>variable</em> segment mean "which object," because that was already the framework's job.</p>
+<hr>
+<h2 id="25-phase-13-metadata-driven-validation">25. Phase 13 — Metadata-Driven Validation</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// repository/GenericRepository.java — the validate() method referenced in §23
+private void validate(ObjectMetadata metadata, Map&lt;String, Object&gt; fieldValues) {
+    List&lt;String&gt; errors = new ArrayList&lt;&gt;();
+    for (FieldMetadata field : metadata.getFields()) {
+        if (field.getType() == FieldType.ONE_TO_MANY) continue; // never submitted, never validated as an input
+        Object value = fieldValues.get(field.getName());
+        if (field.isRequired() &amp;&amp; (value == null || value.toString().isBlank())) {
+            errors.add(field.getLabel() + &quot; is required&quot;);
+            continue;
+        }
+        if (value != null &amp;&amp; !matchesType(value, field.getType())) {
+            errors.add(field.getLabel() + &quot; must be a &quot; + field.getType());
+        }
+    }
+    if (!errors.isEmpty()) throw new ValidationException(errors);
+}
+
+private boolean matchesType(Object value, FieldType type) {
+    String s = value.toString();
+    return switch (type) {
+        case INTEGER, LONG -&gt; s.matches(&quot;-?\\d+&quot;);
+        case DOUBLE -&gt; s.matches(&quot;-?\\d+(\\.\\d+)?&quot;);
+        case BOOLEAN -&gt; s.equalsIgnoreCase(&quot;true&quot;) || s.equalsIgnoreCase(&quot;false&quot;);
+        case DATE, DATETIME -&gt; isParsableDate(s, type);
+        default -&gt; true; // STRING/TEXT/MANY_TO_ONE accept any non-blank string here
+    };
+}
+</code></pre></div>
+<p>This is the same "required" this guide already saw once, in <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">MiniSpring's <code>Schema.validate(row)</code></a> — a <code>FieldMetadata.required</code> flag rejecting an invalid write <strong>before</strong> it reaches storage — except here it runs identically for <em>every</em> object, because it reads the requirement from metadata rather than from a hand-written <code>if</code> per entity. §36 reuses this exact same rule set on the client side, so a user sees "Full Name is required" before ever submitting the form, not just after.</p>
+<hr>
+<h2 id="26-phase-14-saving-many-to-one-foreign-keys">26. Phase 14 — Saving Many-to-One Foreign Keys</h2>
+<p>A <code>MANY_TO_ONE</code> field's <em>value</em>, from the UI's perspective, is just the id of the related record — the dropdown (§33) submits <code>{"customer": "17"}</code>, not a nested <code>Customer</code> object. <code>PhysicalTableStorage</code>/<code>EavStorage</code> (§17, §19) already handle this correctly with <strong>no special-casing</strong>, because a foreign key is, at the storage layer, indistinguishable from any other string/id-shaped value:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// PhysicalTableStorage's buildInsertSql (§17) treats a MANY_TO_ONE field exactly like a STRING/LONG column —
+// the column is named after the field (&quot;customer&quot;) and holds the related record's id, nothing more.
+INSERT INTO Order (id, orderNumber, customer, total) VALUES (?, ?, ?, ?)
+--                                    ^^^^^^^^ just the customer's id, e.g. &quot;17&quot;
+</code></pre></div>
+<p>The relationship <em>metadata</em> (§10) only matters at the two points that need to interpret that id as a reference: rendering it as a dropdown pre-selected to the current value (§33), and resolving it into a human-readable label (<code>displayField</code>) instead of showing a raw id in the list view (§30). Storage itself stays completely relationship-agnostic — which is precisely why <code>GenericRepository</code> (§23) never needed a special code path for <code>MANY_TO_ONE</code> fields at all.</p>
+<hr>
+<h2 id="27-phase-15-resolving-one-to-many-related-records-for-display">27. Phase 15 — Resolving One-to-Many Related Records for Display</h2>
+<p>Unlike <code>MANY_TO_ONE</code>, a <code>ONE_TO_MANY</code> field is <strong>never</strong> part of <code>fieldValues</code> on save (§19, §25 both skip it explicitly) — it's computed only when a record is being <em>displayed</em>, by querying the other side:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// web/GenericCrudController.java — a dedicated endpoint for one-to-many related records
+@GetMapping(&quot;/{id}/related/{relatedFieldName}&quot;)
+public ResponseEntity&lt;List&lt;Map&lt;String, Object&gt;&gt;&gt; related(@PathVariable(&quot;objectName&quot;) String objectName,
+                                                           @PathVariable(&quot;id&quot;) String id,
+                                                           @PathVariable(&quot;relatedFieldName&quot;) String relatedFieldName) throws SQLException {
+    ObjectMetadata metadata = metadataRegistry.get(objectName);
+    FieldMetadata field = metadata.getField(relatedFieldName); // e.g. Customer.orders
+    RelationshipMetadata rel = field.getRelationship();
+    // &quot;find every Order whose `customer` field equals this Customer's id&quot; — ObjectStorageStrategy.findWhere (§17)
+    return ResponseEntity.ok(repository.findWhere(rel.getRelatedObjectName(), rel.getMappedByField(), id));
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Bash</span><pre class="code-block"><code>curl http://localhost:8080/api/data/Customer/17/related/orders
+# -&gt; every Order where Order.customer = &quot;17&quot; — Customer.orders itself was never stored anywhere
+</code></pre></div>
+<p>This is the mechanical answer to "how does a one-to-many relationship show up in the UI": it's a <strong>query</strong>, triggered by opening a specific record's detail view (§34), never a stored value — exactly mirroring how Django's admin computes a reverse foreign-key's inline list, and how Salesforce computes a Related List panel.</p>
+<hr>
+<h2 id="28-choosing-the-ui-approach-a-metadata-driven-admin-frontend">28. Choosing the UI Approach: A Metadata-Driven Admin Frontend</h2>
+<p>Django's admin site is server-rendered Python templates that introspect <code>ModelAdmin</code>/<code>Model._meta</code> on every request. MiniAdmin makes a different but equivalent choice: a <strong>single, generic, static HTML+JS admin shell</strong> (<code>admin.html</code>/<code>admin.js</code>) that fetches <code>ObjectMetadata</code> (§29) and record data (§24) as JSON and renders the list/form/dropdown UI <strong>entirely in the browser</strong>, driven by the same metadata every other layer of this guide already uses.</p>
+<p>The reasoning is the same one that shaped every earlier decision in this guide: <strong>write the rendering logic once, against <code>ObjectMetadata</code>, and never again per object.</strong> A server-templated approach (Django's route) would work too — the metadata-to-widget mapping (§9) is identical either way — but a JSON API plus a generic client keeps MiniAdmin's UI reusable by something other than a browser (a native app, a CLI, another service) for free, the same benefit <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's wire protocol</a> got from not being HTML-shaped in the first place.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// web/ObjectMetadataController.java — the endpoint the admin frontend calls before rendering anything
+@Controller
+@RequestMapping(&quot;/api/meta&quot;)
+public class ObjectMetadataController {
+    private final MetadataRegistry metadataRegistry;
+
+    @GetMapping(&quot;/objects&quot;)
+    public ResponseEntity&lt;Collection&lt;ObjectMetadata&gt;&gt; listObjects() {
+        return ResponseEntity.ok(metadataRegistry.allObjects());
+    }
+
+    @GetMapping(&quot;/objects/{objectName}&quot;)
+    public ResponseEntity&lt;ObjectMetadata&gt; getObject(@PathVariable(&quot;objectName&quot;) String objectName) {
+        return ResponseEntity.ok(metadataRegistry.get(objectName));
+    }
+}
+</code></pre></div>
+<hr>
+<h2 id="29-phase-16-the-admin-shell-and-object-navigation">29. Phase 16 — The Admin Shell and Object Navigation</h2>
+<div class="code-wrap"><span class="code-lang">HTML</span><pre class="code-block"><code>&lt;!-- static/admin/admin.html — the entire admin UI lives in this one page --&gt;
+&lt;!doctype html&gt;
+&lt;html&gt;
+&lt;head&gt;&lt;link rel=&quot;stylesheet&quot; href=&quot;admin.css&quot;&gt;&lt;/head&gt;
+&lt;body&gt;
+  &lt;nav id=&quot;object-nav&quot;&gt;&lt;/nav&gt;       &lt;!-- populated from GET /api/meta/objects, §28 --&gt;
+  &lt;main id=&quot;content&quot;&gt;&lt;/main&gt;        &lt;!-- list view (§30), form view (§31), or detail view (§34) --&gt;
+  &lt;script src=&quot;admin.js&quot;&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">JavaScript</span><pre class="code-block"><code>// static/admin/admin.js
+async function renderNav() {
+    const objects = await fetch('/api/meta/objects').then(r =&gt; r.json());
+    const nav = document.getElementById('object-nav');
+    nav.innerHTML = objects.map(o =&gt;
+        `&lt;a href=&quot;#/${o.objectName}&quot; data-object=&quot;${o.objectName}&quot;&gt;${o.label}&lt;/a&gt;`
+    ).join('');
+}
+
+window.addEventListener('hashchange', route);
+window.addEventListener('load', () =&gt; { renderNav(); route(); });
+
+function route() {
+    const [, objectName, id] = location.hash.split('/'); // &quot;#/Customer&quot; or &quot;#/Customer/17&quot;
+    if (!objectName) return;
+    id ? renderDetail(objectName, id) : renderList(objectName); // §30, §34
+}
+</code></pre></div>
+<p>This sidebar is the direct equivalent of Django admin's app index page (the list of registered models) — built from <code>GET /api/meta/objects</code>, it lists <code>Customer</code>, <code>Order</code>, and <code>Product</code> (§20) side by side, with <strong>no code distinguishing which one is class-based and which is a Custom Object</strong>, exactly per §22's design goal.</p>
+<hr>
+<h2 id="30-phase-17-auto-generating-the-list-view">30. Phase 17 — Auto-Generating the List View</h2>
+<div class="code-wrap"><span class="code-lang">JavaScript</span><pre class="code-block"><code>// static/admin/admin.js — continued
+async function renderList(objectName) {
+    const metadata = await fetch(`/api/meta/objects/${objectName}`).then(r =&gt; r.json());
+    const records = await fetch(`/api/data/${objectName}`).then(r =&gt; r.json());
+    const columns = metadata.fields.filter(f =&gt; f.type !== 'ONE_TO_MANY'); // never a list column — §9, §27
+
+    const content = document.getElementById('content');
+    content.innerHTML = `
+        &lt;h1&gt;${metadata.label}&lt;/h1&gt;
+        &lt;button onclick=&quot;location.hash='#/${objectName}/new'&quot;&gt;New ${metadata.label}&lt;/button&gt;
+        &lt;table&gt;
+            &lt;thead&gt;&lt;tr&gt;${columns.map(c =&gt; `&lt;th&gt;${c.label}&lt;/th&gt;`).join('')}&lt;/tr&gt;&lt;/thead&gt;
+            &lt;tbody&gt;${records.map(r =&gt; renderRow(objectName, r, columns)).join('')}&lt;/tbody&gt;
+        &lt;/table&gt;`;
+}
+
+function renderRow(objectName, record, columns) {
+    const cells = columns.map(c =&gt; `&lt;td&gt;${formatCellValue(record[c.name], c)}&lt;/td&gt;`).join('');
+    return `&lt;tr onclick=&quot;location.hash='#/${objectName}/${record.id}'&quot;&gt;${cells}&lt;/tr&gt;`;
+}
+
+function formatCellValue(value, column) {
+    if (column.type === 'BOOLEAN') return value ? 'Yes' : 'No';
+    if (column.type === 'MANY_TO_ONE') return value?.displayLabel ?? value; // resolved server-side, §33
+    return value ?? '';
+}
+</code></pre></div>
+<p>Every column header, every row's cell rendering, and the very existence of a "New" button are all derived from the <code>metadata</code> object fetched a moment earlier — swap <code>Customer</code> for <code>Product</code> in the URL hash and the exact same function renders a completely different table, with zero MiniAdmin code aware that <code>Product</code> exists.</p>
+<hr>
+<h2 id="31-phase-18-auto-generating-the-createedit-form">31. Phase 18 — Auto-Generating the Create/Edit Form</h2>
+<div class="code-wrap"><span class="code-lang">JavaScript</span><pre class="code-block"><code>async function renderForm(objectName, existingRecord) {
+    const metadata = await fetch(`/api/meta/objects/${objectName}`).then(r =&gt; r.json());
+    const fields = metadata.fields.filter(f =&gt; f.type !== 'ONE_TO_MANY'); // computed-only fields never appear as inputs
+
+    const content = document.getElementById('content');
+    content.innerHTML = `
+        &lt;h1&gt;${existingRecord ? 'Edit' : 'New'} ${metadata.label}&lt;/h1&gt;
+        &lt;form id=&quot;record-form&quot;&gt;
+            ${(await Promise.all(fields.map(f =&gt; renderFieldWidget(f, existingRecord)))).join('')}
+            &lt;button type=&quot;submit&quot;&gt;Save&lt;/button&gt;
+        &lt;/form&gt;`;
+
+    document.getElementById('record-form').addEventListener('submit', e =&gt; {
+        e.preventDefault();
+        submitForm(objectName, fields, existingRecord?.id);
+    });
+}
+
+async function submitForm(objectName, fields, existingId) {
+    const formData = new FormData(document.getElementById('record-form'));
+    const fieldValues = Object.fromEntries(fields.map(f =&gt; [f.name, formData.get(f.name)]));
+    if (!validateClientSide(fields, fieldValues)) return; // §36 — mirrors §25's server-side rules
+
+    const url = existingId ? `/api/data/${objectName}/${existingId}` : `/api/data/${objectName}`;
+    const method = existingId ? 'PUT' : 'POST';
+    await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(fieldValues) });
+    location.hash = `#/${objectName}`;
+}
+</code></pre></div>
+<p>§32 fills in <code>renderFieldWidget</code> — the function that turns §9's type-to-widget table into actual <code>&lt;input&gt;</code> markup.</p>
+<hr>
+<h2 id="32-mapping-field-types-to-input-widgets">32. Mapping Field Types to Input Widgets</h2>
+<div class="code-wrap"><span class="code-lang">JavaScript</span><pre class="code-block"><code>// static/admin/admin.js — renderFieldWidget, directly implementing §9's table
+async function renderFieldWidget(field, existingRecord) {
+    const value = existingRecord ? existingRecord[field.name] : '';
+    const requiredAttr = field.required ? 'required' : '';
+    const label = `&lt;label&gt;${field.label}${field.required ? ' *' : ''}&lt;/label&gt;`;
+
+    switch (field.type) {
+        case 'TEXT':
+            return `${label}&lt;textarea name=&quot;${field.name}&quot; ${requiredAttr}&gt;${value}&lt;/textarea&gt;`;
+        case 'BOOLEAN':
+            return `${label}&lt;input type=&quot;checkbox&quot; name=&quot;${field.name}&quot; ${value ? 'checked' : ''}&gt;`;
+        case 'INTEGER': case 'LONG': case 'DOUBLE':
+            return `${label}&lt;input type=&quot;number&quot; name=&quot;${field.name}&quot; value=&quot;${value}&quot; ${requiredAttr}&gt;`;
+        case 'DATE':
+            return `${label}&lt;input type=&quot;date&quot; name=&quot;${field.name}&quot; value=&quot;${value}&quot; ${requiredAttr}&gt;`;
+        case 'DATETIME':
+            return `${label}&lt;input type=&quot;datetime-local&quot; name=&quot;${field.name}&quot; value=&quot;${value}&quot; ${requiredAttr}&gt;`;
+        case 'MANY_TO_ONE':
+            return await renderManyToOneDropdown(field, value); // §33
+        default: // STRING and the primary key field
+            return `${label}&lt;input type=&quot;text&quot; name=&quot;${field.name}&quot; value=&quot;${value}&quot; ${requiredAttr}&gt;`;
+    }
+}
+</code></pre></div>
+<p>This function is, in a very literal sense, §9's table transcribed into code — extending MiniAdmin with a brand-new scalar type (say, <code>EMAIL</code>, rendered as <code>&lt;input type="email"&gt;</code> with built-in browser validation) means adding one row to §9's table and one <code>case</code> here, nowhere else.</p>
+<hr>
+<h2 id="33-phase-19-rendering-many-to-one-fields-as-dropdowns">33. Phase 19 — Rendering Many-to-One Fields as Dropdowns</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// web/LookupController.java — powers the dropdown's option list
+@Controller
+@RequestMapping(&quot;/api/lookup&quot;)
+public class LookupController {
+    private final GenericRepository repository;
+    private final MetadataRegistry metadataRegistry;
+
+    @GetMapping(&quot;/{objectName}&quot;)
+    public ResponseEntity&lt;List&lt;Map&lt;String, String&gt;&gt;&gt; options(@PathVariable(&quot;objectName&quot;) String objectName,
+                                                               @RequestParam(value = &quot;q&quot;, defaultValue = &quot;&quot;) String search) throws SQLException {
+        ObjectMetadata metadata = metadataRegistry.get(objectName);
+        String displayField = inferDisplayField(metadata); // first non-id STRING field, unless overridden (§37)
+        return ResponseEntity.ok(repository.findAll(objectName).stream()
+            .filter(record -&gt; search.isBlank() || String.valueOf(record.get(displayField)).toLowerCase().contains(search.toLowerCase()))
+            .map(record -&gt; Map.of(&quot;id&quot;, String.valueOf(record.get(&quot;id&quot;)), &quot;label&quot;, String.valueOf(record.get(displayField))))
+            .toList());
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">JavaScript</span><pre class="code-block"><code>// static/admin/admin.js — renderManyToOneDropdown
+async function renderManyToOneDropdown(field, currentValue) {
+    const options = await fetch(`/api/lookup/${field.relationship.relatedObjectName}`).then(r =&gt; r.json());
+    const optionTags = options.map(o =&gt;
+        `&lt;option value=&quot;${o.id}&quot; ${o.id === currentValue ? 'selected' : ''}&gt;${o.label}&lt;/option&gt;`
+    ).join('');
+    return `&lt;label&gt;${field.label}&lt;/label&gt;&lt;select name=&quot;${field.name}&quot;&gt;${optionTags}&lt;/select&gt;`;
+}
+</code></pre></div>
+<p>This is the direct answer to "any one-to-many or many-to-one relationship will also be visible on the UI, like the dropdown": <code>Order</code>'s form renders <code>customer</code> as a <code>&lt;select&gt;</code> populated from <code>GET /api/lookup/Customer</code>, showing each customer's <code>name</code> (§8's <code>displayField</code>) instead of a meaningless numeric id — and because <code>LookupController</code> is, like <code>GenericCrudController</code>, driven entirely by <code>{objectName}</code>, the exact same endpoint and the exact same dropdown-rendering code serve <em>any</em> <code>MANY_TO_ONE</code> field on <em>any</em> object.</p>
+<hr>
+<h2 id="34-phase-20-rendering-one-to-many-relationships-as-related-lists">34. Phase 20 — Rendering One-to-Many Relationships as Related Lists</h2>
+<div class="code-wrap"><span class="code-lang">JavaScript</span><pre class="code-block"><code>async function renderDetail(objectName, id) {
+    const metadata = await fetch(`/api/meta/objects/${objectName}`).then(r =&gt; r.json());
+    const record = await fetch(`/api/data/${objectName}/${id}`).then(r =&gt; r.json());
+    await renderForm(objectName, record); // the same form from §31, pre-filled
+
+    const relatedFields = metadata.fields.filter(f =&gt; f.type === 'ONE_TO_MANY');
+    for (const field of relatedFields) {
+        const related = await fetch(`/api/data/${objectName}/${id}/related/${field.name}`).then(r =&gt; r.json()); // §27
+        document.getElementById('content').insertAdjacentHTML('beforeend', renderRelatedListPanel(field, related));
+    }
+}
+
+function renderRelatedListPanel(field, relatedRecords) {
+    return `&lt;section class=&quot;related-list&quot;&gt;
+        &lt;h2&gt;${field.relatedObjectLabel ?? field.name} (${relatedRecords.length})&lt;/h2&gt;
+        &lt;ul&gt;${relatedRecords.map(r =&gt; `&lt;li&gt;${r.id}: ${JSON.stringify(r)}&lt;/li&gt;`).join('')}&lt;/ul&gt;
+    &lt;/section&gt;`;
+}
+</code></pre></div>
+<p>Opening a <code>Customer</code> record now shows an "Orders (3)" panel underneath the edit form, populated by §27's query — this is MiniAdmin's version of a Salesforce Related List or a Django admin <code>TabularInline</code>, and like both of those, it required no field on <code>Customer</code> to be written to, because <code>ONE_TO_MANY</code> was never a storable value (§10, §19) to begin with.</p>
+<hr>
+<h2 id="35-phase-21-wiring-the-ui-to-the-generic-crud-api">35. Phase 21 — Wiring the UI to the Generic CRUD API</h2>
+<p>At this point every piece from §29–§34 composes into the full loop with no gaps: the nav (§29) lists objects from <code>/api/meta/objects</code>; clicking one renders a list (§30) from <code>/api/data/{objectName}</code>; clicking "New" or a row renders a form (§31) whose widgets (§32–§33) are chosen from the same metadata; submitting the form <code>POST</code>s or <code>PUT</code>s to <code>/api/data/{objectName}</code> (§24), which validates (§25) and saves through the correct storage strategy (§22) without the browser ever knowing which one; and opening an existing record additionally renders related-list panels (§34) from a second metadata-driven query (§27). Nothing in this loop mentions <code>Customer</code>, <code>Order</code>, or <code>Product</code> by name anywhere in the JavaScript or the generic Java controllers — every name-specific detail lives entirely in metadata.</p>
+<hr>
+<h2 id="36-phase-22-client-side-validation-mirrored-from-metadata">36. Phase 22 — Client-Side Validation Mirrored From Metadata</h2>
+<div class="code-wrap"><span class="code-lang">JavaScript</span><pre class="code-block"><code>// static/admin/admin.js — validateClientSide, called from submitForm (§31) before the network request fires
+function validateClientSide(fields, fieldValues) {
+    const errors = [];
+    for (const field of fields) {
+        const value = fieldValues[field.name];
+        if (field.required &amp;&amp; (!value || value.trim() === '')) {
+            errors.push(`${field.label} is required`);
+        }
+    }
+    if (errors.length &gt; 0) {
+        alert(errors.join('\n')); // a real UI would render these inline next to each field
+        return false;
+    }
+    return true;
+}
+</code></pre></div>
+<p>This is a deliberately <strong>duplicated</strong> rule set, not a shortcut around §25's server-side validation — the client-side check exists purely for a fast, no-round-trip user experience; §25's server-side check is the one that actually protects data integrity, because the client-side copy can always be bypassed (a direct <code>curl</code> to <code>/api/data/Customer</code>, for instance). Both read from the <em>same</em> <code>required</code> flag in the <em>same</em> <code>ObjectMetadata</code>, so the two checks can never drift into disagreeing with each other about which fields are mandatory.</p>
+<hr>
+<h2 id="37-phase-23-customization-hooks-per-object-ui-configuration">37. Phase 23 — Customization Hooks: Per-Object UI Configuration</h2>
+<p>Everything through §36 produces <em>sensible defaults</em> — the same value proposition Django admin and Flask-Admin make. Real usage always needs to override some of it: hide an internal field, change a column's label, pick a non-default <code>displayField</code>. <code>ObjectUiConfig</code> is the one seam every customization in this guide goes through, rather than each need inventing its own mechanism:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// customization/ObjectUiConfig.java
+public class ObjectUiConfig {
+    private final String objectName;
+    private final Set&lt;String&gt; hiddenFields = new HashSet&lt;&gt;();
+    private final Map&lt;String, String&gt; fieldLabelOverrides = new HashMap&lt;&gt;();
+    private final List&lt;String&gt; listViewColumnOrder = new ArrayList&lt;&gt;(); // empty = use FieldMetadata.displayOrder
+    private final String displayFieldOverride; // used by §33's lookup instead of &quot;first STRING field&quot;
+
+    // fluent builder-style setters, e.g. hideField(String), overrideLabel(String, String) — omitted for brevity
+}
+
+// customization/ObjectUiConfigRegistry.java
+@Component
+public class ObjectUiConfigRegistry {
+    private final Map&lt;String, ObjectUiConfig&gt; configs = new ConcurrentHashMap&lt;&gt;();
+    public void register(ObjectUiConfig config) { configs.put(config.getObjectName(), config); }
+    public ObjectUiConfig getOrDefault(String objectName) {
+        return configs.getOrDefault(objectName, ObjectUiConfig.defaultsFor(objectName));
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// A developer customizes Customer's admin UI with a small, declarative @Component — no generated code touched
+@Component
+public class CustomerUiConfig {
+    @PostConstruct
+    public void configure(ObjectUiConfigRegistry registry) {
+        registry.register(ObjectUiConfig.forObject(&quot;Customer&quot;)
+            .hideField(&quot;internalNotes&quot;)
+            .overrideLabel(&quot;email&quot;, &quot;Email Address&quot;));
+    }
+}
+</code></pre></div>
+<p><code>ObjectMetadataController</code> (§28) and the list/form renderers (§30–§32) simply consult <code>ObjectUiConfigRegistry</code> after reading <code>ObjectMetadata</code>, filtering/relabeling before responding — the generator's output and the customization layer are two separate, composable steps, not one entangled one.</p>
+<hr>
+<h2 id="38-phase-24-custom-field-widgets-and-renderers">38. Phase 24 — Custom Field Widgets and Renderers</h2>
+<p>§32's <code>switch</code> on <code>FieldType</code> covers the defaults; a specific field sometimes needs its <em>own</em> widget regardless of type — a <code>status</code> <code>STRING</code> field that should render as a colored badge dropdown, not a plain text box. A small <code>WidgetRegistry</code>, keyed by <code>objectName.fieldName</code>, lets that override slot in without touching §32 at all:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// customization/WidgetRegistry.java
+@Component
+public class WidgetRegistry {
+    private final Map&lt;String, String&gt; customWidgetTemplates = new ConcurrentHashMap&lt;&gt;(); // &quot;Order.status&quot; -&gt; a JS template id
+
+    public void register(String objectName, String fieldName, String widgetTemplateId) {
+        customWidgetTemplates.put(objectName + &quot;.&quot; + fieldName, widgetTemplateId);
+    }
+    public Optional&lt;String&gt; lookup(String objectName, String fieldName) {
+        return Optional.ofNullable(customWidgetTemplates.get(objectName + &quot;.&quot; + fieldName));
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">JavaScript</span><pre class="code-block"><code>// admin.js — renderFieldWidget (§32) checks the registry FIRST, falling back to the type-based default
+async function renderFieldWidget(field, existingRecord, objectName) {
+    const customWidget = await fetch(`/api/meta/widgets/${objectName}/${field.name}`).then(r =&gt; r.json());
+    if (customWidget.templateId) return renderCustomWidget(customWidget.templateId, field, existingRecord);
+    // ... falls through to §32's type-based switch ...
+}
+</code></pre></div>
+<p>This is the <strong>Strategy pattern</strong> applied to rendering, the same design tool the <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB guide's architecture section</a> used for pluggable indexes and concurrency control: a field's widget is chosen by looking up a strategy, with a well-defined default, rather than by editing the one function that renders every field in the system.</p>
+<hr>
+<h2 id="39-phase-25-custom-actions-on-list-and-detail-views">39. Phase 25 — Custom Actions on List and Detail Views</h2>
+<p>Some operations aren't CRUD at all — "Resend Invoice," "Mark as Shipped." <code>AdminAction</code> is a small extension point that adds a button to a list or detail view without MiniAdmin needing to know what the button does:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// customization/AdminAction.java
+public interface AdminAction {
+    String getLabel();
+    boolean appliesTo(String objectName);
+    void execute(String objectName, String recordId) throws Exception;
+}
+
+@Component
+public class ResendInvoiceAction implements AdminAction {
+    public String getLabel() { return &quot;Resend Invoice&quot;; }
+    public boolean appliesTo(String objectName) { return &quot;Order&quot;.equals(objectName); }
+    public void execute(String objectName, String recordId) { /* application-specific logic */ }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// A generic endpoint exposes whatever actions apply to the object being viewed — the UI just renders buttons for them
+@GetMapping(&quot;/api/meta/objects/{objectName}/actions&quot;)
+public List&lt;String&gt; availableActions(@PathVariable String objectName) {
+    return actions.stream().filter(a -&gt; a.appliesTo(objectName)).map(AdminAction::getLabel).toList();
+}
+</code></pre></div>
+<p>Registering a new <code>AdminAction</code> as a <code>@Component</code> is additive — exactly the Open/Closed shape the <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB guide's SOLID audit</a> argued for: MiniAdmin's generic controllers and UI never change to support a new action, they only ever iterate over whatever's registered.</p>
+<hr>
+<h2 id="40-phase-26-field-level-visibility-and-read-only-rules">40. Phase 26 — Field-Level Visibility and Read-Only Rules</h2>
+<p><code>ObjectUiConfig</code> (§37) already hides a field entirely; a lighter-weight rule — "show <code>createdAt</code>, but never let it be edited" — is a small addition to <code>FieldMetadata</code>'s consumers, not to <code>FieldMetadata</code> itself:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// ObjectUiConfig — one more collection alongside hiddenFields (§37)
+private final Set&lt;String&gt; readOnlyFields = new HashSet&lt;&gt;();
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">JavaScript</span><pre class="code-block"><code>// admin.js — renderFieldWidget (§32), one line added at the top
+if (uiConfig.readOnlyFields.includes(field.name)) {
+    return `&lt;label&gt;${field.label}&lt;/label&gt;&lt;span class=&quot;readonly-value&quot;&gt;${value}&lt;/span&gt;`;
+}
+</code></pre></div>
+<p>A read-only field still appears in the form (unlike a hidden one) and still comes back from <code>GET /api/data/{objectName}/{id}</code> — it simply never renders as an editable input, and the server-side <code>save()</code> path (§23) can additionally reject an incoming change to it, closing the same "don't trust the client" gap §36 already named for required-field validation.</p>
+<hr>
+<h2 id="41-phase-27-a-simple-layout-editor-salesforce-page-layout-style">41. Phase 27 — A Simple Layout Editor (Salesforce Page-Layout-Style)</h2>
+<p>Salesforce's Page Layout editor lets an admin drag fields into sections and reorder them, entirely from the UI, per object. MiniAdmin's version is a small, honestly-scoped slice of that idea: a persisted field <strong>order</strong> and <strong>section grouping</strong>, stored as more metadata, consumed by the exact same form renderer:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// customization/LayoutMetadata.java
+public class LayoutMetadata {
+    public record Section(String title, List&lt;String&gt; fieldNames) { }
+    private final String objectName;
+    private final List&lt;Section&gt; sections;
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// customization/LayoutController.java
+@PutMapping(&quot;/api/admin/objects/{objectName}/layout&quot;)
+public ResponseEntity&lt;Void&gt; saveLayout(@PathVariable String objectName, @RequestBody LayoutMetadata layout) {
+    layoutRegistry.register(layout); // a ConcurrentHashMap-backed registry, same shape as every other registry in this guide
+    return ResponseEntity.noContent().build();
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">JavaScript</span><pre class="code-block"><code>// admin.js — renderForm (§31) groups fields into sections when a layout exists, falls back to a flat list otherwise
+async function renderForm(objectName, existingRecord) {
+    const layout = await fetch(`/api/meta/objects/${objectName}/layout`).then(r =&gt; r.json()).catch(() =&gt; null);
+    const sections = layout ? layout.sections : [{ title: null, fieldNames: metadata.fields.map(f =&gt; f.name) }];
+    // ... render one &lt;fieldset&gt; per section, using §32's renderFieldWidget for each field inside it ...
+}
+</code></pre></div>
+<p>This is deliberately the smallest version of the feature that still demonstrates the pattern — a drag-and-drop editor is a UI-effort problem, not a design problem, once the underlying model ("an object has an ordered list of named sections, each with an ordered list of field names, stored as data") already exists.</p>
+<hr>
+<h2 id="42-full-end-to-end-example-defining-customer-and-order-class-based">42. Full End-to-End Example: Defining Customer and Order (Class-Based)</h2>
+<p>Starting from §12's <code>Customer</code>/<code>Order</code> classes, with no further code:</p>
+<ol>
+<li>On startup, <code>ClassModelRegistrar</code> (§14) scans, extracts, and registers both objects — <code>MetadataRegistry</code> now knows about <code>Customer</code> and <code>Order</code> before the first HTTP request is served.</li>
+<li>Opening <code>/admin/admin.html#/Customer</code> renders a list view (§30) with columns <code>Full Name</code>, <code>Email</code> — pulled from <code>GET /api/meta/objects/Customer</code> and <code>GET /api/data/Customer</code>.</li>
+<li>Clicking "New Customer" renders a form (§31–§32) with a text input for <code>name</code> (marked required, per <code>@AdminField(required = true)</code>) and one for <code>email</code>.</li>
+<li>Saving posts to <code>POST /api/data/Customer</code>, which validates (§25), routes to <code>PhysicalTableStorage</code> (§17, since <code>origin == "CLASS"</code>), and inserts a real row into a real <code>Customer</code> table.</li>
+<li>Opening <code>/admin/admin.html#/Order/new</code> renders <code>customer</code> as a searchable dropdown (§33), populated from <code>GET /api/lookup/Customer</code>, showing each customer's <code>name</code>.</li>
+<li>Opening that same <code>Customer</code> record afterward shows an "Orders (1)" related-list panel (§34), computed by querying <code>Order</code> for <code>customer = thisId</code> (§27) — a field that was never written to <code>Customer</code> at all.</li>
+</ol>
+<hr>
+<h2 id="43-full-end-to-end-example-defining-a-custom-object-from-the-ui">43. Full End-to-End Example: Defining a Custom Object From the UI</h2>
+<p>No Java code, no deploy, starting from a running MiniAdmin instance:</p>
+<ol>
+<li><code>POST /api/admin/objects {"objectName": "Product", "label": "Product"}</code> (§20) — <code>Product</code> now exists, backed by <code>EavStorage</code> (<code>origin == "CUSTOM"</code>).</li>
+<li><code>POST /api/admin/objects/Product/fields {"name": "price", "type": "DOUBLE", "required": true}</code> and a second call for <code>{"name": "sku", "type": "STRING"}</code> (§21) — two fields added, no schema migration, no restart.</li>
+<li>Reloading <code>/admin/admin.html</code> shows "Product" in the nav (§29) — <code>ObjectMetadataController</code> (§28) now returns it alongside <code>Customer</code> and <code>Order</code>, with no code distinguishing it from them.</li>
+<li>Creating a <code>Product</code> record through the auto-generated form (§31) writes two rows into <code>eav_value</code> (<code>field_name = 'price'</code>, <code>field_name = 'sku'</code>) plus one row into <code>eav_record</code> (§19) — no <code>Product</code> table ever existed.</li>
+<li>A third <code>POST /api/admin/objects/Product/fields</code> call, adding <code>{"name": "description", "type": "TEXT"}</code>, takes effect immediately for every <em>future</em> <code>Product</code> record — existing records simply have no <code>eav_value</code> row for <code>description</code> until it's set, which <code>findById</code> (§19) already handles by returning <code>null</code> for a missing field rather than erroring.</li>
+</ol>
+<hr>
+<h2 id="44-tracing-a-create-request-end-to-end">44. Tracing a Create Request End to End</h2>
+<p>Following one <code>POST /api/data/Order</code> submitted from the auto-generated form, through every layer built in this guide:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Browser: submitForm() (§31) serializes the form -&gt; POST /api/data/Order { orderNumber, customer, total }
+   |
+   v
+GenericCrudController.create(&quot;Order&quot;, fieldValues)                              (§24)
+   |
+   v
+GenericRepository.save(&quot;Order&quot;, fieldValues)                                    (§23)
+   |    -&gt; metadataRegistry.get(&quot;Order&quot;)                                        (§11)
+   |    -&gt; validate(metadata, fieldValues)                                      (§25) — rejects a missing orderNumber
+   |    -&gt; strategyResolver.resolve(metadata)                                   (§22) -&gt; PhysicalTableStorage (origin=CLASS)
+   v
+PhysicalTableStorage.save(metadata, fieldValues)                                (§17)
+   |    -&gt; builds &quot;INSERT INTO Order (id, orderNumber, customer, total) VALUES (?, ?, ?, ?)&quot;
+   |    -&gt; customer's value is just the id string the dropdown (§33) submitted  (§26)
+   v
+A real row in a real Order table, via the MiniConnectionPool from the MiniTomcat companion guide
+</code></pre></div>
+<p>The same trace for a <code>Product</code> create request is identical through <code>GenericRepository.save</code> and then diverges at exactly one line — <code>strategyResolver.resolve(metadata)</code> returns <code>EavStorage</code> instead — which is the entire, contained cost of supporting two fundamentally different storage models.</p>
+<hr>
+<h2 id="45-tracing-how-a-many-to-one-dropdown-gets-populated">45. Tracing How a Many-to-One Dropdown Gets Populated</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Browser: renderForm(&quot;Order&quot;, null) (§31) -&gt; renderFieldWidget(customerField, null) (§32)
+   |    -&gt; field.type === 'MANY_TO_ONE' -&gt; renderManyToOneDropdown(field, null)     (§33)
+   v
+GET /api/lookup/Customer
+   |
+   v
+LookupController.options(&quot;Customer&quot;, &quot;&quot;)                                        (§33)
+   |    -&gt; metadataRegistry.get(&quot;Customer&quot;)                                     (§11)
+   |    -&gt; inferDisplayField(metadata) -&gt; &quot;name&quot; (Customer's first STRING field, or ObjectUiConfig's override, §37)
+   |    -&gt; repository.findAll(&quot;Customer&quot;)                                       (§23) -&gt; PhysicalTableStorage.findAll (§17)
+   v
+[{ id: &quot;17&quot;, label: &quot;Alice&quot; }, { id: &quot;18&quot;, label: &quot;Bob&quot; }, ...]
+   |
+   v
+Browser renders &lt;select&gt;&lt;option value=&quot;17&quot;&gt;Alice&lt;/option&gt;...&lt;/select&gt;
+</code></pre></div>
+<p>Every relationship dropdown in the entire generated UI — regardless of which two objects it connects — runs through exactly this one path, because <code>LookupController</code> (like <code>GenericCrudController</code>) takes <code>{objectName}</code> as a path variable rather than being written per relationship.</p>
+<hr>
+<h2 id="46-design-patterns-used-in-miniadmin">46. Design Patterns Used in MiniAdmin</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Applied to</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Strategy</strong></td>
+<td>Choosing storage backend (<code>PhysicalTableStorage</code> vs <code>EavStorage</code>), choosing a field's widget (<code>WidgetRegistry</code>)</td>
+<td>§17/§19/§22, §38</td>
+</tr>
+<tr>
+<td><strong>Facade</strong></td>
+<td><code>GenericRepository</code> hiding <code>MetadataRegistry</code> + <code>ObjectStorageStrategy</code> from every controller</td>
+<td>§23</td>
+</tr>
+<tr>
+<td><strong>Template Method</strong> (implicit)</td>
+<td><code>GenericCrudController</code>'s five HTTP methods define a fixed request-handling shape (resolve metadata → validate → delegate to storage) that every object follows identically</td>
+<td>§24</td>
+</tr>
+<tr>
+<td><strong>Registry</strong></td>
+<td><code>MetadataRegistry</code>, <code>ObjectUiConfigRegistry</code>, <code>WidgetRegistry</code>, the layout registry — every extension point in this guide is "look up by key, fall back to a default"</td>
+<td>§11, §37, §38, §41</td>
+</tr>
+<tr>
+<td><strong>Composite</strong></td>
+<td><code>LayoutMetadata</code>'s sections, each holding an ordered list of fields, rendered recursively into nested <code>&lt;fieldset&gt;</code>s</td>
+<td>§41</td>
+</tr>
+<tr>
+<td><strong>Command-ish plugin object</strong></td>
+<td><code>AdminAction</code> — a self-describing unit of behavior (<code>getLabel</code>, <code>appliesTo</code>, <code>execute</code>) registered as a bean and iterated over generically</td>
+<td>§39</td>
+</tr>
+</tbody>
+</table></div>
+<p>This list intentionally echoes the <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB guide's own design-pattern section</a> — not because every system needs the same patterns, but because "one generic engine, several pluggable strategies, one facade in front of it" is the same underlying shape both guides converge on once "many similar-but-not-identical things" (tables, or objects) needs to be handled without a class-per-thing explosion.</p>
+<hr>
+<h2 id="47-solid-principles-applied-to-miniadmin">47. SOLID Principles Applied to MiniAdmin</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Principle</th>
+<th>Where MiniAdmin honors it</th>
+<th>Where it would bend under real growth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>S</strong>ingle Responsibility</td>
+<td><code>MetadataRegistry</code> only holds metadata; <code>ObjectStorageStrategy</code> implementations only persist; <code>GenericCrudController</code> only translates HTTP to repository calls</td>
+<td><code>GenericRepository.save()</code> both validates <em>and</em> persists — a <code>Validator</code> extracted alongside <code>ObjectStorageStrategy</code> would separate those two jobs as the validation ruleset grows past simple required/type checks</td>
+</tr>
+<tr>
+<td><strong>O</strong>pen/Closed</td>
+<td>Adding a new <code>FieldType</code>, a new <code>AdminAction</code>, or a new storage strategy is additive (§9, §38, §39)</td>
+<td><code>StorageStrategyResolver.resolve()</code> (§22) branches on a hard-coded <code>"CLASS"</code>/<code>"CUSTOM"</code> string — a third storage strategy (e.g. a document-store-backed one) would need a third <code>if</code>, not a plugin registration</td>
+</tr>
+<tr>
+<td><strong>L</strong>iskov Substitution</td>
+<td>Both <code>PhysicalTableStorage</code> and <code>EavStorage</code> honor <code>ObjectStorageStrategy</code>'s contract identically from every caller's point of view (§17, §19, §22)</td>
+<td>Solid as built — the interface was designed narrowly enough (five methods, all CRUD-shaped) that both implementations can genuinely promise the same behavior</td>
+</tr>
+<tr>
+<td><strong>I</strong>nterface Segregation</td>
+<td><code>ObjectStorageStrategy</code>, <code>AdminAction</code>, and <code>MiniFilter</code>-style hooks are all small, single-purpose interfaces</td>
+<td>None identified yet — worth re-checking once <code>ObjectStorageStrategy</code> grows a <code>count()</code>/<code>aggregate()</code> method that <code>EavStorage</code> can't efficiently support, which would be the same "split the interface" story as <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB's ISP discussion</a></td>
+</tr>
+<tr>
+<td><strong>D</strong>ependency Inversion</td>
+<td><code>GenericCrudController</code> depends on <code>GenericRepository</code>, which depends on <code>MetadataRegistry</code>/<code>StorageStrategyResolver</code> — all constructor-injected MiniSpring beans (§14, §23, §24)</td>
+<td>Fully honored — this is, not coincidentally, the exact same constructor-injection discipline <a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring's own <code>@Autowired</code></a> was built to enforce, and MiniAdmin is itself just a set of MiniSpring beans</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="48-common-mistakes">48. Common Mistakes</h2>
+<ul>
+<li><strong>Mistake 1 — Letting <code>origin</code> leak past <code>StorageStrategyResolver</code>.</strong> The moment a second class (a controller, a UI renderer) starts checking <code>if (metadata.getOrigin().equals("CLASS"))</code>, §22's entire containment goal is broken — fix it by adding a method to <code>ObjectStorageStrategy</code> instead of branching on origin elsewhere.</li>
+<li><strong>Mistake 2 — Skipping server-side validation because the client already checks it (§36).</strong> The client-side copy is a UX nicety, never a security boundary — every write must still pass §25's checks, since any HTTP client can bypass the browser entirely.</li>
+<li><strong>Mistake 3 — Storing a <code>ONE_TO_MANY</code> field's "value."</strong> There is no value to store (§10, §19) — a bug that tries to persist <code>Customer.orders</code> directly signals a misunderstanding of the relationship direction, not a missing feature.</li>
+<li><strong>Mistake 4 — Allowing <code>addField</code> on a class-based object (§21).</strong> This creates metadata with no backing table column — guard it explicitly, as §21 does, rather than letting <code>PhysicalTableStorage</code> fail confusingly later.</li>
+<li><strong>Mistake 5 — Building <code>EavStorage.findAll()</code> as N+1 queries per record.</strong> A naive "one query per record to fetch its fields" implementation is correct but scales badly (§50) — batch the <code>eav_value</code> lookup for every record in the result set into one query instead.</li>
+<li><strong>Mistake 6 — A custom widget (§38) or action (§39) that bypasses <code>GenericRepository</code>.</strong> Talking to <code>ObjectStorageStrategy</code> directly from a customization reintroduces the per-object special-casing this entire design was built to avoid.</li>
+<li><strong>Mistake 7 — Treating <code>ObjectUiConfig</code>'s absence as an error instead of a default.</strong> §37's registry must return sensible defaults for any object that hasn't been explicitly configured — most objects, especially freshly created Custom Objects, never will be.</li>
+</ul>
+<hr>
+<h2 id="49-testing-strategy">49. Testing Strategy</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>What to test</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ClassModelScanner</code> (§13)</td>
+<td>An <code>@AdminEntity</code> class with every field type and both relationship annotations produces the expected <code>ObjectMetadata</code></td>
+<td>Unit test with a small fixture class, assert field names/types/relationships</td>
+</tr>
+<tr>
+<td><code>ClassModelRegistrar</code>'s validation (§15)</td>
+<td>A mismatched <code>mappedBy</code> throws at startup, not silently</td>
+<td>Unit test with a deliberately broken pair of fixture classes</td>
+</tr>
+<tr>
+<td><code>EavStorage</code> (§19)</td>
+<td>Save then <code>findById</code> round-trips every field correctly; a missing field returns <code>null</code>, not an error; adding a "new" field name after records already exist doesn't break existing reads</td>
+<td>Integration test against a real (or TinyDB) database</td>
+</tr>
+<tr>
+<td><code>GenericRepository</code> (§23, §25)</td>
+<td>Validation rejects a missing required field for <em>any</em> registered object, not just one hard-coded test entity</td>
+<td>Parameterized test run against every <code>ObjectMetadata</code> currently registered</td>
+</tr>
+<tr>
+<td><code>GenericCrudController</code> (§24)</td>
+<td>Full CRUD round-trip via HTTP for a class-based object AND a Custom Object, asserting both work through the identical endpoint shape</td>
+<td>Integration test hitting <code>/api/data/{objectName}</code> for two different <code>objectName</code>s</td>
+</tr>
+<tr>
+<td><code>LookupController</code> (§33)</td>
+<td>Options are filtered by <code>q</code>, and <code>label</code> reflects the correct <code>displayField</code></td>
+<td>Unit test with a fixture <code>Customer</code> dataset</td>
+</tr>
+<tr>
+<td>End-to-end UI</td>
+<td>Creating a <code>Custom Object</code> from the UI, adding a field, and seeing it appear in a new record's form without a page-framework change</td>
+<td>A browser-driven test (or the manual walkthrough in §43)</td>
+</tr>
+</tbody>
+</table></div>
+<p>The <code>ClassModelRegistrar</code> validation test and the <code>EavStorage</code> round-trip test are the two most likely to catch a real bug early — everything downstream (§23–§45) trusts that metadata is internally consistent and that storage round-trips faithfully.</p>
+<hr>
+<h2 id="50-performance-considerations-at-scale">50. Performance Considerations at Scale</h2>
+<ul>
+<li><strong><code>EavStorage.findAll()</code> is the first thing that gets slow.</strong> A table scan across <code>eav_value</code> filtered by <code>object_name</code> via a join to <code>eav_record</code>, for an object with thousands of records, does not benefit from the same simple indexing a physical table's real columns would — a composite index on <code>(object_name, record_id)</code> in <code>eav_record</code> and <code>(record_id, field_name)</code> in <code>eav_value</code> (already the primary key in §19) is the minimum; a genuinely large Custom Object may need <code>EavStorage</code> to fall back to <code>PhysicalTableStorage</code>-style materialization once its record count crosses a threshold — noted as a real limitation, not solved here.</li>
+<li><strong><code>LookupController.options()</code> (§33) loading every record to filter in Java</strong> (as written) is a correctness-first sketch, not a scalable one — a real implementation pushes the <code>search</code> filter into the SQL <code>WHERE</code> clause so the database, not the JVM, does the filtering, and paginates rather than returning every match.</li>
+<li><strong>The admin UI's related-list panel (§34) issues one extra request per <code>ONE_TO_MANY</code> field on every detail-view load</strong> — acceptable for a handful of relationships per object, worth lazy-loading (only fetch when a user expands the panel) if an object accumulates many reverse relationships.</li>
+<li><strong><code>ClassModelRegistrar</code>'s classpath scan (§14) and <code>@PostConstruct</code> validation (§15) both run once, at startup</strong> — exactly the right place for this cost, mirroring <a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring's own eager-instantiation discipline</a>: pay a fixed cost once at boot rather than a repeated cost per request.</li>
+</ul>
+<hr>
+<h2 id="51-final-architecture">51. Final Architecture</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                     Class-based (@AdminEntity)          UI-based (Custom Object builder)
+                              |                                       |
+                     ClassModelScanner (§13)                CustomObjectService (§20-§21)
+                     ClassModelRegistrar (§14-§15)                    |
+                              +-------------------+-------------------+
+                                                  v
+                                       MetadataRegistry (§11)
+                                                  |
+                              +-------------------+-------------------+
+                              v                                       v
+                    StorageStrategyResolver (§22)          ObjectUiConfigRegistry (§37)
+                              |                              WidgetRegistry (§38)
+                    +---------+---------+                    Layout registry (§41)
+                    v                   v
+        PhysicalTableStorage   EavStorage
+              (§17)              (§19)
+                    +---------+---------+
+                              v
+                    GenericRepository (§23, §25)
+                              |
+              +---------------+---------------+
+              v                               v
+    GenericCrudController (§24)     LookupController (§33)
+    ObjectMetadataController (§28)
+              |
+              v
+    Auto-generated Admin UI (§29-§36)
+    list, form, dropdowns, related lists, custom widgets/actions (§37-§41)
+</code></pre></div>
+<hr>
+<h2 id="52-suggested-v2-enhancements">52. Suggested V2 Enhancements</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Enhancement</th>
+<th>What it adds</th>
+<th>Where it plugs in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Role-based field/object permissions</td>
+<td>"Only admins can see <code>internalNotes</code>," per-role read/write rules</td>
+<td>Extends <code>ObjectUiConfig</code> (§37) and <code>GenericRepository</code>'s validate/save path (§23, §25) with a permission check</td>
+</tr>
+<tr>
+<td>Search and pagination on list views</td>
+<td>Usable list views past a few dozen records</td>
+<td><code>GenericCrudController.list()</code> (§24) gains query parameters, <code>ObjectStorageStrategy.findAll</code> (§17) gains <code>LIMIT</code>/<code>OFFSET</code> support</td>
+</tr>
+<tr>
+<td>Audit history per record</td>
+<td>"Who changed this field, and when" — a Salesforce-standard feature</td>
+<td>A <code>ChangeEventPublisher</code>-style hook (see the <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB guide's change-stream design</a>) attached to every <code>GenericRepository.save()</code> call</td>
+</tr>
+<tr>
+<td>Bulk import/export (CSV)</td>
+<td>Loading many records at once, a common Custom Object workflow</td>
+<td>A new endpoint that streams rows through the same <code>validate()</code>/<code>save()</code> path (§23, §25), one row at a time</td>
+</tr>
+<tr>
+<td>Formula/rollup fields</td>
+<td>A field whose value is computed from related records (e.g. <code>Customer.totalOrderValue</code>), Salesforce's Roll-Up Summary Fields</td>
+<td>A new <code>FieldType.FORMULA</code>, computed at read time the same way <code>ONE_TO_MANY</code> already is (§27)</td>
+</tr>
+<tr>
+<td>Workflow automation (simple triggers)</td>
+<td>"When an Order's status changes to Shipped, send an email" — Salesforce Flow's minimal ancestor</td>
+<td>An <code>AdminAction</code>-shaped hook (§39) invoked automatically on save, rather than only from a UI button</td>
+</tr>
+<tr>
+<td>Many-to-many relationships</td>
+<td>A third relationship type beyond one-to-many/many-to-one</td>
+<td>A join-table-backed <code>FieldType.MANY_TO_MANY</code>, resolved similarly to §27 but via an intermediate table</td>
+</tr>
+<tr>
+<td>Moving EavStorage-backed objects to physical tables at scale</td>
+<td>Escaping §50's EAV performance ceiling once a Custom Object "graduates" to high volume</td>
+<td>A migration tool that reads all <code>eav_value</code> rows for an object and replays them as <code>INSERT</code>s into a newly <code>CREATE TABLE</code>-d physical table, then flips <code>StorageStrategyResolver</code>'s decision for that object</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="53-progressive-interview-question-set">53. Progressive Interview Question Set</h2>
+<p><strong>Level 1 — Metadata fundamentals</strong>
+1. Why does one <code>ObjectMetadata</code>/<code>FieldMetadata</code> shape need to be produced by <em>both</em> the class-based and UI-based paths, rather than each path having its own model?
+2. Walk through what <code>ClassModelScanner</code> does with a <code>@ManyToOne</code> field, step by step.</p>
+<p><strong>Level 2 — Storage strategy</strong>
+3. Why does a UI-defined Custom Object use EAV storage instead of a real table, and what does that trade away?
+4. What would break if a Custom Object were allowed to use <code>PhysicalTableStorage</code>, given how §21 adds fields to it?</p>
+<p><strong>Level 3 — Generic APIs</strong>
+5. Explain how one controller class can correctly serve CRUD for an object it has never seen at compile time.
+6. Why does validation (§25) need to run inside <code>GenericRepository</code>, not just in the browser (§36)?</p>
+<p><strong>Level 4 — Relationships</strong>
+7. Trace exactly what happens, end to end, when a <code>MANY_TO_ONE</code> dropdown is rendered for a brand-new form.
+8. Why is a <code>ONE_TO_MANY</code> field never part of a save request's payload?</p>
+<p><strong>Level 5 — Extensibility</strong>
+9. A team wants to add a <code>FieldType.EMAIL</code> with built-in format validation and a specialized widget. Name every file this guide built that needs to change, and why nothing else does.
+10. How does <code>ObjectUiConfig</code> (§37) avoid becoming a second, competing source of truth alongside <code>ObjectMetadata</code> (§8)?</p>
+<p><strong>Final challenge:</strong> Design the migration path for turning a heavily-used, EAV-backed Custom Object into a physical-table-backed one without downtime — for a system already serving live CRUD traffic against it through <code>GenericRepository</code>. What has to happen in what order, and how does <code>StorageStrategyResolver</code> (§22) need to change to support a mid-flight cutover rather than an instantaneous one?</p>
+<hr>
+<h2 id="54-final-takeaway">54. Final Takeaway</h2>
+<p>Every feature in this guide — the auto-generated list view, the relationship dropdown, the Custom Object builder, the customization hooks — is a consumer or a producer of exactly one shape: <code>ObjectMetadata</code>/<code>FieldMetadata</code> (§8). Class-based models and UI-defined Custom Objects are two different <strong>producers</strong> of that shape; <code>PhysicalTableStorage</code> and <code>EavStorage</code> are two different <strong>strategies</strong> for persisting it; <code>GenericRepository</code>, <code>GenericCrudController</code>, and the admin frontend are <strong>consumers</strong> that were written exactly once and never touched again as new objects, fields, and relationships were added. That's the entire trick behind "define a model, get a UI for free" — not a large amount of generated code, but a small amount of code that reads a description of the model instead of being written against a specific one.</p>
+<p>Layered on top of <a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring's <code>ApplicationContext</code></a> for wiring, <a href="Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide.md">MiniTomcat</a> for the HTTP transport underneath it, and (optionally) <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB</a> for the storage underneath <em>that</em>, MiniAdmin completes this guide series' arc: a request now travels from a browser, through a hand-built web server, into a hand-built dependency-injection container, through a metadata-driven CRUD engine a developer never had to write per entity, and into a hand-built database — with every layer in between built from first principles, and none of it a black box.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Build Your Own CRUD Admin Framework From Scratch — MiniAdmin Step-by-Step Guide.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

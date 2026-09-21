@@ -1,0 +1,2392 @@
+<meta charset="utf-8">
+<title>Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; web server internals guide</div>
+      <h1>Build Your Own Web Server From Scratch — MiniTomcat Step-by-Step Guide</h1>
+      <p class="dek">A step-by-step guide to building an HTTP server and servlet container from scratch in Java &mdash; multithreading, thread pools, ThreadLocal request context, server- and client-side connection pooling, an NIO/virtual-threads look at the C10K problem, a minimal Servlet API, and wiring it all into the MiniSpring IoC container, plus what it would take to run under Spring Boot.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-build-a-web-server-from-scratch-interview-motivation">Why Build a Web Server From Scratch? (Interview Motivation)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-phase-1-tcp-sockets-refresher">Phase 1 — TCP Sockets Refresher</a></li><li class="toc-lvl-2"><a href="#7-phase-2-the-simplest-possible-server">Phase 2 — The Simplest Possible Server</a></li><li class="toc-lvl-2"><a href="#8-anatomy-of-an-http11-request">Anatomy of an HTTP/1.1 Request</a></li><li class="toc-lvl-2"><a href="#9-anatomy-of-an-http11-response">Anatomy of an HTTP/1.1 Response</a></li><li class="toc-lvl-2"><a href="#10-phase-3-parsing-the-request-line-and-headers">Phase 3 — Parsing the Request Line and Headers</a></li><li class="toc-lvl-2"><a href="#11-handling-the-request-body-content-length-vs-chunked">Handling the Request Body: Content-Length vs Chunked</a></li><li class="toc-lvl-2"><a href="#12-phase-4-a-minimal-working-http-server">Phase 4 — A Minimal Working HTTP Server</a></li><li class="toc-lvl-2"><a href="#13-why-single-threaded-fails-under-load">Why Single-Threaded Fails Under Load</a></li><li class="toc-lvl-2"><a href="#14-phase-5-thread-per-connection-model">Phase 5 — Thread-Per-Connection Model</a></li><li class="toc-lvl-2"><a href="#15-the-cost-of-unbounded-threads">The Cost of Unbounded Threads</a></li><li class="toc-lvl-2"><a href="#16-phase-6-introducing-a-thread-pool">Phase 6 — Introducing a Thread Pool</a></li><li class="toc-lvl-2"><a href="#17-threadpoolexecutor-internals">ThreadPoolExecutor Internals</a></li><li class="toc-lvl-2"><a href="#18-sizing-the-pool-core-max-queue-keep-alive">Sizing the Pool: Core, Max, Queue, Keep-Alive</a></li><li class="toc-lvl-2"><a href="#19-bounded-queues-and-rejection-policies">Bounded Queues and Rejection Policies</a></li><li class="toc-lvl-2"><a href="#20-phase-7-wiring-the-thread-pool-into-the-server">Phase 7 — Wiring the Thread Pool Into the Server</a></li><li class="toc-lvl-2"><a href="#21-graceful-shutdown">Graceful Shutdown</a></li><li class="toc-lvl-2"><a href="#22-why-we-need-per-request-context">Why We Need Per-Request Context</a></li><li class="toc-lvl-2"><a href="#23-introducing-threadlocal">Introducing ThreadLocal</a></li><li class="toc-lvl-2"><a href="#24-phase-8-requestcontextholder">Phase 8 — RequestContextHolder</a></li><li class="toc-lvl-2"><a href="#25-threadlocal-and-thread-pools-the-leak-trap">ThreadLocal and Thread Pools: The Leak Trap</a></li><li class="toc-lvl-2"><a href="#26-cleaning-up-tryfinally-and-remove">Cleaning Up: try/finally and remove()</a></li><li class="toc-lvl-2"><a href="#27-http-keep-alive-semantics">HTTP Keep-Alive Semantics</a></li><li class="toc-lvl-2"><a href="#28-phase-9-implementing-keep-alive">Phase 9 — Implementing Keep-Alive</a></li><li class="toc-lvl-2"><a href="#29-idle-connection-timeouts-and-reaping">Idle Connection Timeouts and Reaping</a></li><li class="toc-lvl-2"><a href="#30-two-meanings-of-connection-pool">Two Meanings of "Connection Pool"</a></li><li class="toc-lvl-2"><a href="#31-phase-10-a-generic-object-pool">Phase 10 — A Generic Object Pool</a></li><li class="toc-lvl-2"><a href="#32-connection-pooling-for-the-database-jdbc">Connection Pooling for the Database (JDBC)</a></li><li class="toc-lvl-2"><a href="#33-phase-11-a-minimal-jdbc-connection-pool">Phase 11 — A Minimal JDBC Connection Pool</a></li><li class="toc-lvl-2"><a href="#34-wiring-the-jdbc-pool-into-a-minispring-repository-bean">Wiring the JDBC Pool Into a MiniSpring Repository Bean</a></li><li class="toc-lvl-2"><a href="#35-the-c10k-problem">The C10K Problem</a></li><li class="toc-lvl-2"><a href="#36-introducing-nio-selector-channel-buffer">Introducing NIO: Selector, Channel, Buffer</a></li><li class="toc-lvl-2"><a href="#37-phase-12-optional-a-selector-based-reactor-loop">Phase 12 (Optional) — A Selector-Based Reactor Loop</a></li><li class="toc-lvl-2"><a href="#38-thread-per-connection-vs-reactor-tradeoffs">Thread-Per-Connection vs Reactor — Tradeoffs</a></li><li class="toc-lvl-2"><a href="#39-virtual-threads-as-a-modern-alternative">Virtual Threads as a Modern Alternative</a></li><li class="toc-lvl-2"><a href="#40-phase-12b-swapping-to-virtual-threads">Phase 12b — Swapping to Virtual Threads</a></li><li class="toc-lvl-2"><a href="#41-what-tomcat-actually-is">What Tomcat Actually Is</a></li><li class="toc-lvl-2"><a href="#42-the-servlet-api-in-a-nutshell">The Servlet API in a Nutshell</a></li><li class="toc-lvl-2"><a href="#43-phase-13-designing-miniservlet">Phase 13 — Designing MiniServlet</a></li><li class="toc-lvl-2"><a href="#44-minihttpservletrequest-minihttpservletresponse">MiniHttpServletRequest / MiniHttpServletResponse</a></li><li class="toc-lvl-2"><a href="#45-phase-14-miniservletcontainer-path-routing">Phase 14 — MiniServletContainer (Path Routing)</a></li><li class="toc-lvl-2"><a href="#46-filters-chain-of-responsibility">Filters: Chain of Responsibility</a></li><li class="toc-lvl-2"><a href="#47-listeners-lifecycle-hooks">Listeners: Lifecycle Hooks</a></li><li class="toc-lvl-2"><a href="#48-recap-what-minispring-already-gives-us">Recap: What MiniSpring Already Gives Us</a></li><li class="toc-lvl-2"><a href="#49-where-the-web-server-fits-in-the-minispring-architecture">Where the Web Server Fits in the MiniSpring Architecture</a></li><li class="toc-lvl-2"><a href="#50-phase-15-minidispatcherservlet-bridging-the-two">Phase 15 — MiniDispatcherServlet: Bridging the Two</a></li><li class="toc-lvl-2"><a href="#51-replacing-the-jdk-httpserver-with-minitomcat">Replacing the JDK HttpServer With MiniTomcat</a></li><li class="toc-lvl-2"><a href="#52-full-sample-minitomcat-minispring-end-to-end">Full Sample: MiniTomcat + MiniSpring End-to-End</a></li><li class="toc-lvl-2"><a href="#53-startup-sequence-diagram">Startup Sequence Diagram</a></li><li class="toc-lvl-2"><a href="#54-how-spring-boot-starts-an-embedded-container">How Spring Boot Starts an Embedded Container</a></li><li class="toc-lvl-2"><a href="#55-the-servletwebserverfactory-webserver-spi">The ServletWebServerFactory / WebServer SPI</a></li><li class="toc-lvl-2"><a href="#56-what-it-would-take-to-plug-minitomcat-into-spring-boot">What It Would Take to Plug MiniTomcat Into Spring Boot</a></li><li class="toc-lvl-2"><a href="#57-sample-minitomcatwebserverfactory-wiring-it-into-a-spring-boot-app">Sample: MiniTomcatWebServerFactory (Wiring It Into a Spring Boot App)</a></li><li class="toc-lvl-2"><a href="#58-limitations-vs-real-tomcatjettyundertow">Limitations vs Real Tomcat/Jetty/Undertow</a></li><li class="toc-lvl-2"><a href="#59-verdict-toy-vs-production-ready">Verdict: Toy vs Production-Ready</a></li><li class="toc-lvl-2"><a href="#60-optimization-zero-copy-file-serving">Optimization — Zero-Copy File Serving</a></li><li class="toc-lvl-2"><a href="#61-optimization-output-buffering">Optimization — Output Buffering</a></li><li class="toc-lvl-2"><a href="#62-optimization-reducing-gc-pressure">Optimization — Reducing GC Pressure</a></li><li class="toc-lvl-2"><a href="#63-optimization-caching-routes-and-reflection-metadata">Optimization — Caching Routes and Reflection Metadata</a></li><li class="toc-lvl-2"><a href="#64-thread-pool-tuning-checklist">Thread Pool Tuning Checklist</a></li><li class="toc-lvl-2"><a href="#65-benchmarking-your-server">Benchmarking Your Server</a></li><li class="toc-lvl-2"><a href="#66-thread-safety-checklist-for-the-whole-stack">Thread Safety Checklist for the Whole Stack</a></li><li class="toc-lvl-2"><a href="#67-common-mistakes">Common Mistakes</a></li><li class="toc-lvl-2"><a href="#68-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#69-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#70-final-architecture">Final Architecture</a></li><li class="toc-lvl-2"><a href="#71-suggested-v2-enhancements">Suggested V2 Enhancements</a></li><li class="toc-lvl-2"><a href="#72-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>Goal:</strong> Build a small but real HTTP server — a "MiniTomcat" — from raw TCP sockets, in plain Java, that teaches you exactly what Tomcat/Jetty/Undertow do under the hood: accepting connections, parsing HTTP, running handlers on a thread pool, managing per-request state with <code>ThreadLocal</code>, pooling expensive resources, and finally exposing a Servlet-style API you can plug your own <a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring</a> <code>ApplicationContext</code> into — the same way real Tomcat hosts a real Spring application.</p>
+<p>This guide assumes you already have (or have read) the companion <a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring-Step-by-Step-Guide.md</a>, which built a mini IoC container with <code>@Component</code>/<code>@Autowired</code>/<code>@Controller</code> and a tiny MVC layer running on the JDK's built-in <code>com.sun.net.httpserver.HttpServer</code>. This guide replaces that "toy" HTTP transport with a hand-built one, and explains, piece by piece, the concurrency machinery a real container needs.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<p>We are building <strong>MiniTomcat</strong> — a servlet-container-shaped HTTP server built from <code>java.net.ServerSocket</code> upward. By the end of this guide you will have:</p>
+<ul>
+<li>A raw <strong>TCP accept loop</strong> that speaks enough of HTTP/1.1 to be useful (request line, headers, body, keep-alive).</li>
+<li>A <strong>thread pool</strong> (<code>ThreadPoolExecutor</code>) that turns "one thread per connection" from a liability into a bounded, tunable resource.</li>
+<li>A <strong><code>ThreadLocal</code>-based request context</strong> (<code>RequestContextHolder</code>), the same mechanism Spring's <code>RequestContextHolder</code> and Hibernate's <code>ThreadLocal</code> session both use.</li>
+<li>Two flavors of <strong>connection pool</strong>: reusable server-side sockets (HTTP keep-alive) and a client-side <strong>JDBC connection pool</strong> for the database your controllers talk to.</li>
+<li>An optional <strong>NIO reactor</strong> (<code>Selector</code>) and a look at <strong>virtual threads</strong> as the modern answer to the same scaling problem.</li>
+<li>A minimal <strong>Servlet-style API</strong> (<code>MiniServlet</code>, <code>MiniHttpServletRequest/Response</code>, filters, listeners) — the same shape as <code>jakarta.servlet</code>.</li>
+<li>A <strong><code>MiniDispatcherServlet</code></strong> that bridges MiniTomcat to MiniSpring's <code>ApplicationContext</code> and <code>HandlerMapping</code>, so <code>@GetMapping</code>-annotated controllers run on top of a server you wrote yourself.</li>
+<li>A serious answer to <em>"could I plug this into Spring Boot?"</em> — including what SPI you'd have to implement and why you probably wouldn't ship it.</li>
+</ul>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>TCP accept loop  ----&gt;  Thread Pool  ----&gt;  HTTP Parser  ----&gt;  MiniServletContainer
+(ServerSocket)        (bounded workers)    (request/response)   (path -&gt; Servlet)
+                                                                        |
+                                                                        v
+                                                          MiniDispatcherServlet
+                                                                        |
+                                                                        v
+                                                    MiniSpring ApplicationContext
+                                                    (HandlerMapping -&gt; @Controller)
+</code></pre></div>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to answer, from first principles, not from memory:</p>
+<ul>
+<li>Why does a naive "one thread per connection" server fall over at a few thousand concurrent clients, and what specifically breaks first (stack memory? context switching? file descriptors?)?</li>
+<li>What does <code>ThreadPoolExecutor</code> actually do when its queue is full and all workers are busy?</li>
+<li>Why is <code>ThreadLocal</code> the tool of choice for per-request state in a thread-pooled server, and why is it also a classic memory-leak source in exactly that environment?</li>
+<li>What is the difference between a "connection pool" on the server side (reusing an accepted socket across keep-alive requests) and a "connection pool" on the client side (reusing JDBC connections to a database)?</li>
+<li>Why does NIO's <code>Selector</code> let one thread manage thousands of idle connections, and what do you give up to get that?</li>
+<li>What is a Servlet, really — not "an annotated class," but the actual <code>service(request, response)</code> contract that Tomcat calls?</li>
+<li>What would it take, mechanically, to make Spring Boot start <em>your</em> server instead of Tomcat?</li>
+</ul>
+<hr>
+<h2 id="3-why-build-a-web-server-from-scratch-interview-motivation">3. Why Build a Web Server From Scratch? (Interview Motivation)</h2>
+<blockquote>
+<p><strong>"Design and implement a minimal HTTP server capable of handling concurrent connections efficiently. Explain how you would size a thread pool for it, how you'd avoid resource exhaustion, how you'd store per-request state safely, and how an existing MVC framework (like Spring) would run on top of it."</strong></p>
+</blockquote>
+<p>This is a recurring <strong>senior backend / infrastructure interview question</strong> because, unlike CRUD-app questions, it forces you to reason about:</p>
+<ul>
+<li><strong>Concurrency primitives</strong> (<code>Thread</code>, <code>Runnable</code>, <code>ExecutorService</code>, <code>synchronized</code>, <code>volatile</code>) instead of just calling libraries that hide them.</li>
+<li><strong>Resource bounding</strong> — sockets, threads, and DB connections are all finite; an interviewer wants to see you reach for a <em>pool</em> and a <em>queue</em>, not <code>new Thread()</code> in a loop.</li>
+<li><strong>I/O models</strong> — blocking vs non-blocking, and <em>why</em> a framework picks one over the other for a given workload.</li>
+<li><strong>Protocol literacy</strong> — HTTP is "just text over a socket," and being able to parse it by hand proves you understand what <code>HttpServletRequest</code> is abstracting away.</li>
+<li><strong>Layered API design</strong> — separating "accept bytes" from "route a request" from "run business logic," which is exactly the Tomcat → Servlet → Spring layering in a production stack.</li>
+</ul>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language / JDK</td>
+<td>Java 21 (LTS)</td>
+<td>Gives us virtual threads (<code>Thread.ofVirtual()</code>) for §39–§40 alongside classic <code>ThreadPoolExecutor</code>.</td>
+</tr>
+<tr>
+<td>Sockets</td>
+<td><code>java.net.ServerSocket</code> / <code>Socket</code> (blocking I/O)</td>
+<td>Simplest mental model; matches how Tomcat's default (BIO/NIO) connector historically worked.</td>
+</tr>
+<tr>
+<td>Non-blocking option</td>
+<td><code>java.nio.channels.Selector</code></td>
+<td>For the optional reactor phase (§37).</td>
+</tr>
+<tr>
+<td>Build tool</td>
+<td>Maven</td>
+<td>Matches the MiniSpring companion project so both can live in one multi-module build.</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>JUnit 5 + a raw <code>Socket</code> client in tests</td>
+<td>We are testing wire protocol behavior, not just object graphs.</td>
+</tr>
+<tr>
+<td>No external HTTP/servlet libraries</td>
+<td>—</td>
+<td>The entire point is to see what they do for you.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>minitomcat/
+├── pom.xml
+├── src/main/java/com/example/minitomcat/
+│   ├── server/
+│   │   ├── MiniTomcat.java              // accept loop + lifecycle
+│   │   ├── ServerConfig.java            // port, pool size, timeouts
+│   │   └── ConnectionWorker.java        // Runnable: handles one socket
+│   ├── http/
+│   │   ├── HttpRequest.java
+│   │   ├── HttpRequestParser.java
+│   │   ├── HttpResponse.java
+│   │   ├── HttpMethod.java
+│   │   └── HttpStatus.java
+│   ├── concurrent/
+│   │   ├── ServerThreadPool.java        // wraps ThreadPoolExecutor
+│   │   └── RequestContextHolder.java    // ThreadLocal request context
+│   ├── pool/
+│   │   ├── ObjectPool.java              // generic pool interface
+│   │   ├── BufferPool.java              // pooled byte[]/ByteBuffer
+│   │   └── jdbc/
+│   │       ├── MiniConnectionPool.java
+│   │       └── PooledConnection.java
+│   ├── servlet/
+│   │   ├── MiniServlet.java
+│   │   ├── MiniServletConfig.java
+│   │   ├── MiniServletContext.java
+│   │   ├── MiniHttpServletRequest.java
+│   │   ├── MiniHttpServletResponse.java
+│   │   ├── MiniFilter.java
+│   │   └── MiniServletContainer.java    // path -&gt; servlet routing
+│   ├── bridge/
+│   │   └── MiniDispatcherServlet.java   // MiniTomcat &lt;-&gt; MiniSpring bridge
+│   └── nio/
+│       └── ReactorServer.java           // optional Selector-based server
+└── src/test/java/com/example/minitomcat/
+    ├── HttpRequestParserTest.java
+    ├── ServerThreadPoolTest.java
+    └── EndToEndSocketTest.java
+</code></pre></div>
+<hr>
+<h2 id="6-phase-1-tcp-sockets-refresher">6. Phase 1 — TCP Sockets Refresher</h2>
+<p>Everything a web server does sits on top of two classes: <code>ServerSocket</code> (a listening endpoint bound to a port) and <code>Socket</code> (one accepted TCP connection). <code>ServerSocket.accept()</code> <strong>blocks</strong> until a client connects, then returns a <code>Socket</code> you can read/write like any stream.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// The absolute minimum: bind, accept once, read nothing, write nothing, close.
+try (ServerSocket serverSocket = new ServerSocket(8080)) {
+    System.out.println(&quot;Listening on :8080&quot;);
+    while (true) {
+        Socket client = serverSocket.accept(); // blocks here
+        client.close(); // we'll actually talk to it in the next phase
+    }
+}
+</code></pre></div>
+<p>Three facts drive the rest of this guide:</p>
+<ol>
+<li><code>accept()</code> hands you a <em>new</em> <code>Socket</code> per connection — the <code>ServerSocket</code> never talks to a client directly.</li>
+<li>Reading/writing a <code>Socket</code>'s streams blocks the calling thread until bytes arrive or the buffer drains.</li>
+<li>Nothing stops you from calling <code>accept()</code> again immediately and handling the previous socket on another thread — that single decision is the entire subject of §13–§21.</li>
+</ol>
+<hr>
+<h2 id="7-phase-2-the-simplest-possible-server">7. Phase 2 — The Simplest Possible Server</h2>
+<p>Let's actually respond to a request, still fully single-threaded, still zero HTTP parsing — just enough to prove the socket plumbing works end to end.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class EchoServer {
+    public static void main(String[] args) throws IOException {
+        try (ServerSocket serverSocket = new ServerSocket(8080)) {
+            while (true) {
+                try (Socket client = serverSocket.accept();
+                     BufferedReader in = new BufferedReader(
+                         new InputStreamReader(client.getInputStream()));
+                     OutputStream out = client.getOutputStream()) {
+
+                    String requestLine = in.readLine(); // e.g. &quot;GET / HTTP/1.1&quot;
+                    System.out.println(&quot;Received: &quot; + requestLine);
+
+                    String body = &quot;Hello from EchoServer&quot;;
+                    String response =
+                        &quot;HTTP/1.1 200 OK\r\n&quot; +
+                        &quot;Content-Type: text/plain\r\n&quot; +
+                        &quot;Content-Length: &quot; + body.length() + &quot;\r\n&quot; +
+                        &quot;Connection: close\r\n&quot; +
+                        &quot;\r\n&quot; +
+                        body;
+                    out.write(response.getBytes(StandardCharsets.US_ASCII));
+                    out.flush();
+                }
+            }
+        }
+    }
+}
+</code></pre></div>
+<p>Point this at a browser (<code>http://localhost:8080</code>) and it works — because HTTP/1.1 really is just a text protocol over a socket. The <code>Connection: close</code> header matters: without it, some clients wait for more bytes because they still believe the connection is being kept alive (see §27).</p>
+<hr>
+<h2 id="8-anatomy-of-an-http11-request">8. Anatomy of an HTTP/1.1 Request</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>GET /users/42?verbose=true HTTP/1.1\r\n        &lt;- request line
+Host: localhost:8080\r\n                        &lt;- headers...
+User-Agent: curl/8.4.0\r\n
+Accept: */*\r\n
+Content-Length: 0\r\n
+\r\n                                            &lt;- blank line ends headers
+&lt;optional body bytes, exactly Content-Length long&gt;
+</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Part</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Request line</td>
+<td><code>METHOD SPACE PATH-AND-QUERY SPACE HTTP-VERSION</code>, terminated by <code>\r\n</code>.</td>
+</tr>
+<tr>
+<td>Headers</td>
+<td><code>Name: value\r\n</code>, one per line, case-insensitive names, ends at an empty line.</td>
+</tr>
+<tr>
+<td>Body</td>
+<td>Only present if <code>Content-Length</code> (fixed size) or <code>Transfer-Encoding: chunked</code> (streamed) says so.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Everything downstream — routing, <code>@PathVariable</code>, <code>@RequestParam</code> in MiniSpring — is built by parsing exactly this text.</p>
+<hr>
+<h2 id="9-anatomy-of-an-http11-response">9. Anatomy of an HTTP/1.1 Response</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>HTTP/1.1 200 OK\r\n                             &lt;- status line
+Content-Type: application/json\r\n              &lt;- headers
+Content-Length: 27\r\n
+Connection: keep-alive\r\n
+\r\n
+{&quot;id&quot;:42,&quot;name&quot;:&quot;Alice&quot;}                        &lt;- body, exactly Content-Length bytes
+</code></pre></div>
+<p>The two headers that matter most for <em>this</em> guide are <code>Content-Length</code> (so the client knows exactly when the body ends without closing the socket) and <code>Connection</code> (whether the socket may be reused — see §27–§28).</p>
+<hr>
+<h2 id="10-phase-3-parsing-the-request-line-and-headers">10. Phase 3 — Parsing the Request Line and Headers</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// http/HttpRequest.java
+public class HttpRequest {
+    private final String method;
+    private final String path;
+    private final String queryString;
+    private final String httpVersion;
+    private final Map&lt;String, String&gt; headers;
+    private final byte[] body;
+
+    public HttpRequest(String method, String path, String queryString,
+                        String httpVersion, Map&lt;String, String&gt; headers, byte[] body) {
+        this.method = method;
+        this.path = path;
+        this.queryString = queryString;
+        this.httpVersion = httpVersion;
+        this.headers = headers;
+        this.body = body;
+    }
+
+    public String getMethod() { return method; }
+    public String getPath() { return path; }
+    public String getQueryString() { return queryString; }
+    public String getHeader(String name) { return headers.get(name.toLowerCase()); }
+    public byte[] getBody() { return body; }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// http/HttpRequestParser.java
+public class HttpRequestParser {
+
+    public HttpRequest parse(InputStream rawIn) throws IOException {
+        BufferedInputStream in = new BufferedInputStream(rawIn);
+
+        String requestLine = readLine(in);
+        if (requestLine == null || requestLine.isBlank()) {
+            throw new MalformedRequestException(&quot;Empty request line&quot;);
+        }
+        String[] parts = requestLine.split(&quot; &quot;);
+        if (parts.length != 3) {
+            throw new MalformedRequestException(&quot;Bad request line: &quot; + requestLine);
+        }
+        String method = parts[0];
+        String fullPath = parts[1];
+        String httpVersion = parts[2];
+
+        String path = fullPath;
+        String query = &quot;&quot;;
+        int qIndex = fullPath.indexOf('?');
+        if (qIndex &gt;= 0) {
+            path = fullPath.substring(0, qIndex);
+            query = fullPath.substring(qIndex + 1);
+        }
+
+        Map&lt;String, String&gt; headers = new LinkedHashMap&lt;&gt;();
+        String line;
+        while ((line = readLine(in)) != null &amp;&amp; !line.isEmpty()) {
+            int colon = line.indexOf(':');
+            if (colon &lt; 0) continue; // tolerate malformed header line rather than fail the request
+            String name = line.substring(0, colon).trim().toLowerCase();
+            String value = line.substring(colon + 1).trim();
+            headers.put(name, value);
+        }
+
+        byte[] body = readBody(in, headers);
+        return new HttpRequest(method, path, query, httpVersion, headers, body);
+    }
+
+    /** Reads one CRLF-terminated line without over-reading into the next line — critical for keep-alive. */
+    private String readLine(InputStream in) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        int prev = -1, curr;
+        while ((curr = in.read()) != -1) {
+            if (prev == '\r' &amp;&amp; curr == '\n') {
+                byte[] bytes = buffer.toByteArray();
+                return new String(bytes, 0, bytes.length - 1, StandardCharsets.US_ASCII);
+            }
+            buffer.write(curr);
+            prev = curr;
+        }
+        return buffer.size() == 0 ? null : buffer.toString(StandardCharsets.US_ASCII);
+    }
+
+    private byte[] readBody(InputStream in, Map&lt;String, String&gt; headers) throws IOException {
+        String transferEncoding = headers.get(&quot;transfer-encoding&quot;);
+        if (&quot;chunked&quot;.equalsIgnoreCase(transferEncoding)) {
+            return readChunkedBody(in); // see §11
+        }
+        String contentLengthHeader = headers.get(&quot;content-length&quot;);
+        if (contentLengthHeader == null) return new byte[0];
+
+        int contentLength = Integer.parseInt(contentLengthHeader.trim());
+        byte[] body = new byte[contentLength];
+        int read = 0;
+        while (read &lt; contentLength) {
+            int n = in.read(body, read, contentLength - read);
+            if (n == -1) throw new MalformedRequestException(&quot;Body shorter than Content-Length&quot;);
+            read += n;
+        }
+        return body;
+    }
+
+    private byte[] readChunkedBody(InputStream in) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        while (true) {
+            String sizeLine = readLine(in);
+            int chunkSize = Integer.parseInt(sizeLine.trim(), 16); // chunk size is hex
+            if (chunkSize == 0) {
+                readLine(in); // consume the trailing empty line after the terminating 0-chunk
+                break;
+            }
+            byte[] chunk = new byte[chunkSize];
+            int read = 0;
+            while (read &lt; chunkSize) {
+                int n = in.read(chunk, read, chunkSize - read);
+                if (n == -1) throw new MalformedRequestException(&quot;Truncated chunk body&quot;);
+                read += n;
+            }
+            out.write(chunk);
+            readLine(in); // consume the CRLF that follows every chunk's data
+        }
+        return out.toByteArray();
+    }
+}
+</code></pre></div>
+<p><strong>Why hand-roll <code>readLine</code> instead of <code>BufferedReader.readLine()</code>?</strong> A <code>BufferedReader</code> wraps an <code>InputStreamReader</code> that pulls ahead and buffers <em>decoded characters</em>, which can silently consume bytes that belong to the body (especially a binary or chunked body) before you ever ask for them. Parsing HTTP requires precise control over exactly how many raw bytes have been consumed at every step — this is the same reason real servers implement their own buffered line-reading instead of trusting <code>BufferedReader</code> past the request line.</p>
+<hr>
+<h2 id="11-handling-the-request-body-content-length-vs-chunked">11. Handling the Request Body: Content-Length vs Chunked</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Style</th>
+<th>How the receiver knows where the body ends</th>
+<th>When it's used</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Content-Length: N</code></td>
+<td>Read exactly N bytes.</td>
+<td>Sender knows the full size upfront (e.g. a JSON payload already in memory).</td>
+</tr>
+<tr>
+<td><code>Transfer-Encoding: chunked</code></td>
+<td>Read <code>size\r\ndata\r\n</code> blocks until a <code>0\r\n\r\n</code> terminator.</td>
+<td>Sender is streaming and doesn't know the total size yet (e.g. server-generated output).</td>
+</tr>
+</tbody>
+</table></div>
+<p>A request must not specify both; if it does, most servers (and we do too, by construction above) prefer <code>Transfer-Encoding</code> since it is a hop-by-hop instruction about how to <em>read</em> the wire, while <code>Content-Length</code> is only a hint about total size.</p>
+<hr>
+<h2 id="12-phase-4-a-minimal-working-http-server">12. Phase 4 — A Minimal Working HTTP Server</h2>
+<p>Wiring the parser into the accept loop, still single-threaded:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class MiniTomcatV1 {
+    public static void main(String[] args) throws IOException {
+        HttpRequestParser parser = new HttpRequestParser();
+        try (ServerSocket serverSocket = new ServerSocket(8080)) {
+            while (true) {
+                try (Socket client = serverSocket.accept()) {
+                    handle(client, parser);
+                } catch (IOException e) {
+                    System.err.println(&quot;Connection error: &quot; + e.getMessage());
+                }
+            }
+        }
+    }
+
+    private static void handle(Socket client, HttpRequestParser parser) throws IOException {
+        HttpRequest request = parser.parse(client.getInputStream());
+        String body = &quot;You requested &quot; + request.getMethod() + &quot; &quot; + request.getPath();
+        String response =
+            &quot;HTTP/1.1 200 OK\r\n&quot; +
+            &quot;Content-Type: text/plain\r\n&quot; +
+            &quot;Content-Length: &quot; + body.getBytes(StandardCharsets.UTF_8).length + &quot;\r\n&quot; +
+            &quot;Connection: close\r\n\r\n&quot; + body;
+        client.getOutputStream().write(response.getBytes(StandardCharsets.UTF_8));
+    }
+}
+</code></pre></div>
+<p>Try it with <code>curl -v http://localhost:8080/hello</code> — you now have a hand-rolled HTTP/1.1 server. It is, however, completely serial: while one request is being handled, every other client sits in the OS's TCP accept backlog waiting. That's the problem the rest of the guide solves.</p>
+<hr>
+<h2 id="13-why-single-threaded-fails-under-load">13. Why Single-Threaded Fails Under Load</h2>
+<p><code>ServerSocket.accept()</code> returns one connection at a time, and if the code handling that connection is slow (a database call, a slow client uploading a large body, network jitter), the accept loop can't call <code>accept()</code> again until it's done. Two clients become impossible to serve concurrently — the second waits behind the first even though the CPU is mostly idle.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Client A connects --&gt; handle(A) takes 200ms (waiting on DB) --&gt; accept() can't run --&gt; Client B queues in the OS backlog
+</code></pre></div>
+<p>The backlog isn't infinite either — <code>new ServerSocket(port, backlog)</code> bounds how many pending connections the OS will hold before refusing new ones outright with a connection-reset error.</p>
+<hr>
+<h2 id="14-phase-5-thread-per-connection-model">14. Phase 5 — Thread-Per-Connection Model</h2>
+<p>The obvious fix: hand each accepted socket to its own thread so <code>accept()</code> can loop immediately.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class MiniTomcatThreaded {
+    public static void main(String[] args) throws IOException {
+        HttpRequestParser parser = new HttpRequestParser();
+        try (ServerSocket serverSocket = new ServerSocket(8080)) {
+            while (true) {
+                Socket client = serverSocket.accept();
+                Thread worker = new Thread(() -&gt; handleSafely(client, parser));
+                worker.start(); // fire-and-forget — this is the part we fix next
+            }
+        }
+    }
+
+    private static void handleSafely(Socket client, HttpRequestParser parser) {
+        try (client) {
+            HttpRequest request = parser.parse(client.getInputStream());
+            // ... build and write a response, same as §12 ...
+        } catch (IOException e) {
+            System.err.println(&quot;Worker failed: &quot; + e.getMessage());
+        }
+    }
+}
+</code></pre></div>
+<p>This genuinely fixes concurrency — many clients can now be served in parallel, bounded only by CPU cores and blocking I/O wait time. It also introduces a new failure mode: <strong>nothing bounds how many threads get created.</strong></p>
+<hr>
+<h2 id="15-the-cost-of-unbounded-threads">15. The Cost of Unbounded Threads</h2>
+<p>Every <code>new Thread()</code> costs real, non-trivial resources:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Typical cost per thread</th>
+<th>What happens at scale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stack memory</td>
+<td>~512 KB–1 MB (JVM default <code>-Xss</code>)</td>
+<td>10,000 threads ≈ 5–10 GB of stack space reserved, before any request logic runs.</td>
+</tr>
+<tr>
+<td>OS thread / kernel scheduling</td>
+<td>1 native OS thread per Java platform thread</td>
+<td>Context-switch overhead grows superlinearly as the scheduler juggles more runnable threads than cores.</td>
+</tr>
+<tr>
+<td>File descriptors</td>
+<td>1 per open socket</td>
+<td>The OS has a hard <code>ulimit -n</code>; exceeding it makes <code>accept()</code> itself start throwing.</td>
+</tr>
+<tr>
+<td>GC / safepoint pauses</td>
+<td>Each live thread must reach a safepoint</td>
+<td>More threads can lengthen stop-the-world pause coordination.</td>
+</tr>
+</tbody>
+</table></div>
+<p>A burst of slow or malicious clients (e.g. a client that connects and never sends a request line) can drive thread count to the thousands and take the whole JVM down with <code>OutOfMemoryError: unable to create new native thread</code> — long before CPU is actually the bottleneck. This is precisely why every real container (Tomcat, Jetty, Netty) puts a <strong>bounded thread pool</strong>, not raw <code>new Thread()</code>, between "socket accepted" and "handler runs."</p>
+<hr>
+<h2 id="16-phase-6-introducing-a-thread-pool">16. Phase 6 — Introducing a Thread Pool</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// concurrent/ServerThreadPool.java
+public class ServerThreadPool {
+    private final ThreadPoolExecutor executor;
+
+    public ServerThreadPool(int coreSize, int maxSize, int queueCapacity) {
+        this.executor = new ThreadPoolExecutor(
+            coreSize,
+            maxSize,
+            60L, TimeUnit.SECONDS,                       // idle timeout for threads above coreSize
+            new ArrayBlockingQueue&lt;&gt;(queueCapacity),      // bounded queue — see §19
+            new ThreadFactoryBuilder(&quot;mini-tomcat-worker&quot;),
+            new ThreadPoolExecutor.CallerRunsPolicy()     // rejection policy — see §19
+        );
+    }
+
+    public void submit(Runnable task) {
+        executor.execute(task);
+    }
+
+    public void shutdown() {
+        executor.shutdown();
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// A minimal named-thread factory so worker threads are identifiable in a thread dump.
+class ThreadFactoryBuilder implements ThreadFactory {
+    private final AtomicInteger counter = new AtomicInteger(1);
+    private final String prefix;
+
+    ThreadFactoryBuilder(String prefix) { this.prefix = prefix; }
+
+    @Override
+    public Thread newThread(Runnable r) {
+        Thread t = new Thread(r, prefix + &quot;-&quot; + counter.getAndIncrement());
+        t.setDaemon(false); // non-daemon: let in-flight requests finish before JVM exit
+        return t;
+    }
+}
+</code></pre></div>
+<p>The accept loop no longer spawns threads itself — it just hands work to the pool:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>try (ServerSocket serverSocket = new ServerSocket(8080)) {
+    ServerThreadPool pool = new ServerThreadPool(20, 200, 1000);
+    while (true) {
+        Socket client = serverSocket.accept();
+        pool.submit(() -&gt; handleSafely(client, parser));
+    }
+}
+</code></pre></div>
+<p>Now the <em>number of concurrently running handlers</em> is capped, no matter how many clients connect — excess work waits in the pool's queue instead of spawning unbounded OS threads.</p>
+<hr>
+<h2 id="17-threadpoolexecutor-internals">17. ThreadPoolExecutor Internals</h2>
+<p><code>ThreadPoolExecutor</code> (what <code>Executors.newFixedThreadPool()</code> etc. return under the hood) makes this decision on every <code>execute(task)</code> call:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. If fewer than corePoolSize threads exist -&gt; start a new thread for this task, even if others are idle.
+2. Else if the work queue has room -&gt; enqueue the task; an existing thread will pick it up when free.
+3. Else if fewer than maximumPoolSize threads exist -&gt; start an extra (&quot;non-core&quot;) thread for this task.
+4. Else -&gt; the pool is fully saturated: hand the task to the RejectedExecutionHandler (see §19).
+</code></pre></div>
+<p>This order surprises people: <strong>the pool does not grow past <code>corePoolSize</code> just because the queue has items</strong> — it only grows once the <em>queue is also full</em>. A bounded queue plus this ordering is what gives you predictable backpressure instead of silently unbounded thread growth.</p>
+<hr>
+<h2 id="18-sizing-the-pool-core-max-queue-keep-alive">18. Sizing the Pool: Core, Max, Queue, Keep-Alive</h2>
+<p>There is no universal formula, but a defensible starting point distinguishes CPU-bound from I/O-bound work:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>threads = number_of_cores * (1 + wait_time / compute_time)
+</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Workload</th>
+<th>Rule of thumb</th>
+<th>Reasoning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CPU-bound (hashing, serialization, template rendering)</td>
+<td><code>corePoolSize ≈ CPU cores</code></td>
+<td>More threads than cores just adds context-switch overhead with no extra throughput.</td>
+</tr>
+<tr>
+<td>I/O-bound (DB calls, downstream HTTP, disk)</td>
+<td><code>corePoolSize ≈ cores * (1 + wait/compute)</code></td>
+<td>Threads spend most of their time blocked, not computing — more threads can be <em>in flight</em> concurrently.</td>
+</tr>
+<tr>
+<td><code>maximumPoolSize</code></td>
+<td>A hard ceiling, sized against available memory (<code>maxSize * stackSize</code>) and downstream capacity (e.g. DB pool size — no point running more request threads than your DB pool can serve).</td>
+<td>Prevents an I/O-bound spike from still causing thread explosion.</td>
+</tr>
+<tr>
+<td><code>queueCapacity</code></td>
+<td>Bounded, sized to absorb short bursts (a few seconds of typical traffic) without either rejecting immediately or growing unboundedly.</td>
+<td>An <em>unbounded</em> queue (<code>LinkedBlockingQueue</code> with no capacity) defeats <code>maximumPoolSize</code> entirely — the pool never grows past <code>corePoolSize</code> because step 3 above is never reached.</td>
+</tr>
+<tr>
+<td><code>keepAliveTime</code></td>
+<td>Seconds to a couple of minutes</td>
+<td>How long a non-core thread sits idle before being reclaimed, trading thread-creation cost against idle memory.</td>
+</tr>
+</tbody>
+</table></div>
+<blockquote>
+<p><strong>Interview trap:</strong> "Just increase <code>maximumPoolSize</code>" is not free — it moves the bottleneck downstream (to the database, to a rate-limited API) and reintroduces the exact thread-explosion risk from §15 if the queue is also unbounded. Always size the pool <em>and</em> the queue <em>and</em> whatever the pool calls into, together.</p>
+</blockquote>
+<hr>
+<h2 id="19-bounded-queues-and-rejection-policies">19. Bounded Queues and Rejection Policies</h2>
+<p>When the queue is full and the pool is already at <code>maximumPoolSize</code>, <code>ThreadPoolExecutor</code> must decide what happens to the <em>next</em> submitted task — this is backpressure made concrete:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th><code>RejectedExecutionHandler</code></th>
+<th>Behavior</th>
+<th>When to use it for an HTTP server</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AbortPolicy</code> (default)</td>
+<td>Throws <code>RejectedExecutionException</code> immediately.</td>
+<td>You want the accept loop to know <em>now</em> that the server is saturated, e.g. to immediately return <code>503 Service Unavailable</code>.</td>
+</tr>
+<tr>
+<td><code>CallerRunsPolicy</code></td>
+<td>Runs the task on the <em>calling</em> thread (here, the accept loop itself).</td>
+<td>A simple, effective self-throttle: while the accept thread is busy running an overflow request, it can't call <code>accept()</code> again, naturally slowing new connection intake.</td>
+</tr>
+<tr>
+<td><code>DiscardPolicy</code></td>
+<td>Silently drops the task.</td>
+<td>Almost never appropriate for a server — a dropped HTTP request looks like a hung connection to the client.</td>
+</tr>
+<tr>
+<td><code>DiscardOldestPolicy</code></td>
+<td>Drops the <em>oldest</em> queued task, then retries submission.</td>
+<td>Rarely appropriate for requests (fairness violation — a request that's been waiting longest gets punished), more defensible for a metrics/logging queue.</td>
+</tr>
+</tbody>
+</table></div>
+<p>For MiniTomcat, <code>CallerRunsPolicy</code> (used in §16) combined with a fast, explicit <code>503</code> fallback in the accept loop is the most instructive combination — it demonstrates real backpressure instead of hiding saturation behind an ever-growing queue.</p>
+<hr>
+<h2 id="20-phase-7-wiring-the-thread-pool-into-the-server">20. Phase 7 — Wiring the Thread Pool Into the Server</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class MiniTomcat {
+    private final ServerSocket serverSocket;
+    private final ServerThreadPool pool;
+    private final HttpRequestParser parser = new HttpRequestParser();
+    private volatile boolean running = true;
+
+    public MiniTomcat(int port, int coreThreads, int maxThreads, int queueCapacity) throws IOException {
+        this.serverSocket = new ServerSocket(port);
+        this.pool = new ServerThreadPool(coreThreads, maxThreads, queueCapacity);
+    }
+
+    public void start() {
+        Thread acceptThread = new Thread(this::acceptLoop, &quot;mini-tomcat-acceptor&quot;);
+        acceptThread.start();
+    }
+
+    private void acceptLoop() {
+        while (running) {
+            try {
+                Socket client = serverSocket.accept();
+                pool.submit(new ConnectionWorker(client, parser));
+            } catch (RejectedExecutionException saturated) {
+                // Pool + queue both full and CallerRunsPolicy itself blocked too long — fail fast.
+                writeServiceUnavailableAndClose(/* client */ null);
+            } catch (IOException e) {
+                if (running) System.err.println(&quot;Accept failed: &quot; + e.getMessage());
+            }
+        }
+    }
+
+    public void stop() throws IOException {
+        running = false;
+        serverSocket.close(); // unblocks the pending accept()
+        pool.shutdown();
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// server/ConnectionWorker.java
+public class ConnectionWorker implements Runnable {
+    private final Socket client;
+    private final HttpRequestParser parser;
+
+    public ConnectionWorker(Socket client, HttpRequestParser parser) {
+        this.client = client;
+        this.parser = parser;
+    }
+
+    @Override
+    public void run() {
+        try (client) {
+            HttpRequest request = parser.parse(client.getInputStream());
+            HttpResponse response = MiniServletContainer.getInstance().dispatch(request); // see §45
+            client.getOutputStream().write(response.toBytes());
+        } catch (IOException e) {
+            System.err.println(&quot;Request failed: &quot; + e.getMessage());
+        }
+    }
+}
+</code></pre></div>
+<hr>
+<h2 id="21-graceful-shutdown">21. Graceful Shutdown</h2>
+<p>A production-grade <code>stop()</code> should not just call <code>executor.shutdown()</code> and exit — in-flight requests deserve a chance to finish, and hung ones need a deadline:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public void stop(Duration gracePeriod) throws IOException, InterruptedException {
+    running = false;
+    serverSocket.close();               // 1. stop accepting new connections
+    pool.getExecutor().shutdown();      // 2. reject new submissions, let queued/running tasks finish
+    boolean finished = pool.getExecutor()
+        .awaitTermination(gracePeriod.toMillis(), TimeUnit.MILLISECONDS);
+    if (!finished) {
+        pool.getExecutor().shutdownNow(); // 3. interrupt anything still running past the deadline
+    }
+}
+</code></pre></div>
+<p>This three-step shutdown — <em>stop intake, drain, then force</em> — is the same pattern Kubernetes expects from a container that receives <code>SIGTERM</code>: stop accepting new work immediately, but give existing requests a bounded window to complete before the process is killed.</p>
+<hr>
+<h2 id="22-why-we-need-per-request-context">22. Why We Need Per-Request Context</h2>
+<p>Once requests run on pooled worker threads, a new problem appears: code deep inside a controller or repository (a logging statement, a security check, a <code>@Transactional</code>-style helper) often needs request-scoped data — the current user, a trace/correlation ID, the raw <code>HttpRequest</code> — without every method signature threading it through as an extra parameter.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// Without request context — every layer must pass traceId explicitly, forever
+public User findUser(long id, String traceId) {
+    log.info(&quot;[{}] looking up user {}&quot;, traceId, id);
+    return repository.findById(id, traceId);
+}
+</code></pre></div>
+<p>Since exactly one thread handles exactly one request at a time in the thread-per-request model (§14–§16), <strong>the thread itself</strong> is a natural place to stash that data — as long as two different requests running on the <em>same reused pooled thread</em>, one after another, never see each other's leftovers.</p>
+<hr>
+<h2 id="23-introducing-threadlocal">23. Introducing ThreadLocal</h2>
+<p><code>ThreadLocal&lt;T&gt;</code> gives each thread its own independent copy of a variable — reads and writes from thread A never affect thread B's copy, even though they share the same <code>ThreadLocal</code> instance (the same static field).</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>ThreadLocal&lt;String&gt; currentUser = new ThreadLocal&lt;&gt;();
+
+// Thread A:
+currentUser.set(&quot;alice&quot;);
+System.out.println(currentUser.get()); // &quot;alice&quot;
+
+// Thread B (concurrently):
+currentUser.set(&quot;bob&quot;);
+System.out.println(currentUser.get()); // &quot;bob&quot; — completely independent of thread A's value
+</code></pre></div>
+<p>Internally, every <code>Thread</code> object carries a private <code>ThreadLocalMap</code> keyed by the <code>ThreadLocal</code> instance itself; <code>get()</code>/<code>set()</code> on a <code>ThreadLocal</code> are really "look up my map entry inside <em>this</em> thread's map." No locking is needed, because no two threads ever touch the same map.</p>
+<hr>
+<h2 id="24-phase-8-requestcontextholder">24. Phase 8 — RequestContextHolder</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// concurrent/RequestContextHolder.java
+public final class RequestContextHolder {
+    private static final ThreadLocal&lt;RequestContext&gt; CONTEXT = new ThreadLocal&lt;&gt;();
+
+    private RequestContextHolder() { }
+
+    public static void set(RequestContext context) {
+        CONTEXT.set(context);
+    }
+
+    public static RequestContext get() {
+        RequestContext context = CONTEXT.get();
+        if (context == null) {
+            throw new IllegalStateException(&quot;No request context bound to this thread&quot;);
+        }
+        return context;
+    }
+
+    public static void clear() {
+        CONTEXT.remove(); // see §25 for why this call is not optional
+    }
+}
+
+public class RequestContext {
+    private final String traceId;
+    private final HttpRequest request;
+    private String currentUser; // set later, e.g. by an auth filter
+
+    public RequestContext(String traceId, HttpRequest request) {
+        this.traceId = traceId;
+        this.request = request;
+    }
+    public String getTraceId() { return traceId; }
+    public HttpRequest getRequest() { return request; }
+    public void setCurrentUser(String user) { this.currentUser = user; }
+    public String getCurrentUser() { return currentUser; }
+}
+</code></pre></div>
+<p><code>ConnectionWorker.run()</code> (§20) now binds and unbinds the context around the actual work:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Override
+public void run() {
+    try (client) {
+        HttpRequest request = parser.parse(client.getInputStream());
+        RequestContextHolder.set(new RequestContext(UUID.randomUUID().toString(), request));
+        HttpResponse response = MiniServletContainer.getInstance().dispatch(request);
+        client.getOutputStream().write(response.toBytes());
+    } catch (IOException e) {
+        System.err.println(&quot;Request failed: &quot; + e.getMessage());
+    } finally {
+        RequestContextHolder.clear(); // ALWAYS runs, even on exception — see §25–§26
+    }
+}
+</code></pre></div>
+<p>Now any code running on this thread during this request — no matter how deeply nested — can call <code>RequestContextHolder.get().getTraceId()</code> without a single extra method parameter. This is exactly how Spring's real <code>RequestContextHolder</code> (<code>org.springframework.web.context.request.RequestContextHolder</code>) lets <code>@Autowired HttpServletRequest</code> work inside a singleton-scoped bean.</p>
+<hr>
+<h2 id="25-threadlocal-and-thread-pools-the-leak-trap">25. ThreadLocal and Thread Pools: The Leak Trap</h2>
+<p>A <code>ThreadLocal</code> value's lifetime is tied to the <strong>thread</strong>, not the <strong>request</strong>. In the thread-per-connection model of §14 that was harmless (the thread died with the connection). Once we introduced a <em>pool</em> in §16–§20, worker threads are <strong>reused across many requests</strong> — and that changes everything:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Request 1 runs on worker-thread-7 -&gt; sets RequestContext(traceId=&quot;abc&quot;) -&gt; forgets to clear()
+Worker-thread-7 returns to the pool, waits idle
+Request 2 is submitted, happens to run on worker-thread-7 -&gt; calls RequestContextHolder.get()
+  -&gt; gets Request 1's stale traceId &quot;abc&quot;!  (a correctness bug: cross-request data leakage)
+</code></pre></div>
+<p>Worse, if the <code>RequestContext</code> (or anything it references — a large cached object, a security principal) is never cleared, it stays reachable for as long as the pooled thread lives, i.e. potentially the lifetime of the whole server process — a genuine <strong>memory leak</strong>, because the GC can never collect an object a live thread still references through its <code>ThreadLocalMap</code>.</p>
+<p>This exact failure mode is a classic in application servers that reuse thread pools (Tomcat, Spring, Hibernate's <code>ThreadLocal</code> session) — it's precisely why frameworks are religious about clearing <code>ThreadLocal</code>s at the end of every request.</p>
+<hr>
+<h2 id="26-cleaning-up-tryfinally-and-remove">26. Cleaning Up: try/finally and remove()</h2>
+<p>The fix is the one already shown in §24: <strong>every</strong> code path that sets a <code>ThreadLocal</code> for a request must clear it in a <code>finally</code> block, so it runs whether the request succeeded, threw an exception, or was cut off by a client disconnect.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>RequestContextHolder.set(context);
+try {
+    handleRequest(context);
+} finally {
+    RequestContextHolder.clear(); // guaranteed to run
+}
+</code></pre></div>
+<p>A few supporting rules worth internalizing:</p>
+<ul>
+<li><strong>Never</strong> rely on the <em>next</em> request to overwrite a stale value with <code>set()</code> — an exception thrown before that <code>set()</code> call (e.g. in an auth filter) leaves the stale value in place for a request that never expected it.</li>
+<li>Prefer <code>threadLocal.remove()</code> over <code>threadLocal.set(null)</code> — <code>remove()</code> deletes the map entry entirely; <code>set(null)</code> still leaves an entry (with a <code>null</code> value) referencing the <code>ThreadLocal</code> key, which is a smaller but real difference when many distinct <code>ThreadLocal</code>s are in play.</li>
+<li>If you build a <strong>filter chain</strong> (§46) around the dispatch call, put the <code>clear()</code> in the outermost filter's <code>finally</code>, not inside the innermost handler — that way it runs exactly once per request no matter how many filters short-circuit or throw.</li>
+<li>Tools like static analyzers and even <code>ThreadMXBean</code>-based thread dumps can help catch a <code>ThreadLocal</code> that was set but never cleared, by inspecting a suspiciously large <code>ThreadLocalMap</code> on a long-lived pool thread.</li>
+</ul>
+<hr>
+<h2 id="27-http-keep-alive-semantics">27. HTTP Keep-Alive Semantics</h2>
+<p>Every server so far has closed the socket after one response (<code>Connection: close</code>). Opening a fresh TCP connection per request — the three-way handshake, TLS negotiation if applicable, slow-start — is expensive relative to a tiny request/response pair. HTTP/1.1 makes <strong>persistent connections the default</strong>: unless a <code>Connection: close</code> header says otherwise, both sides keep the socket open and send another request/response pair over it.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Connection stays open:
+  Client -&gt; GET /a  -&gt; Server responds -&gt; (socket stays open)
+  Client -&gt; GET /b  -&gt; Server responds -&gt; (socket stays open)
+  Client -&gt; GET /c  -&gt; Server responds -&gt; ... until either side sends Connection: close, or an idle timeout fires
+</code></pre></div>
+<p>This changes our threading model's job: a worker thread handling a keep-alive connection isn't done after one response — it must loop, parsing another request from the <em>same socket</em>, until the client disconnects or times out.</p>
+<hr>
+<h2 id="28-phase-9-implementing-keep-alive">28. Phase 9 — Implementing Keep-Alive</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Override
+public void run() {
+    try (client) {
+        client.setSoTimeout(idleTimeoutMillis); // see §29
+        while (!client.isClosed()) {
+            HttpRequest request;
+            try {
+                request = parser.parse(client.getInputStream());
+            } catch (SocketTimeoutException idle) {
+                break; // no request arrived within the idle window — close politely
+            } catch (EOFException clientClosed) {
+                break; // client closed its write side — nothing more to read
+            }
+
+            RequestContextHolder.set(new RequestContext(UUID.randomUUID().toString(), request));
+            boolean keepAlive;
+            try {
+                HttpResponse response = MiniServletContainer.getInstance().dispatch(request);
+                keepAlive = shouldKeepAlive(request, response);
+                response.setHeader(&quot;Connection&quot;, keepAlive ? &quot;keep-alive&quot; : &quot;close&quot;);
+                client.getOutputStream().write(response.toBytes());
+                client.getOutputStream().flush();
+            } finally {
+                RequestContextHolder.clear();
+            }
+            if (!keepAlive) break;
+        }
+    } catch (IOException e) {
+        System.err.println(&quot;Connection error: &quot; + e.getMessage());
+    }
+}
+
+private boolean shouldKeepAlive(HttpRequest request, HttpResponse response) {
+    String clientHeader = request.getHeader(&quot;connection&quot;);
+    if (&quot;close&quot;.equalsIgnoreCase(clientHeader)) return false;
+    if (&quot;HTTP/1.0&quot;.equals(request.getHttpVersion())) {
+        // HTTP/1.0 defaults to close unless the client explicitly opts in
+        return &quot;keep-alive&quot;.equalsIgnoreCase(clientHeader);
+    }
+    return true; // HTTP/1.1 defaults to keep-alive
+}
+</code></pre></div>
+<p>Notice the worker thread is now occupied for the <strong>entire lifetime of the connection</strong>, not just one request — which is exactly why keep-alive and thread-pool sizing (§18) are coupled: a busy keep-alive client holds a pool thread hostage even while idle between requests, unless you either give it a short idle timeout (§29) or move to a model where one thread can serve many idle connections (§35–§38).</p>
+<hr>
+<h2 id="29-idle-connection-timeouts-and-reaping">29. Idle Connection Timeouts and Reaping</h2>
+<p><code>Socket.setSoTimeout(millis)</code> makes a blocking read throw <code>SocketTimeoutException</code> after that many milliseconds of no data — without it, a client that opens a connection and never sends anything (deliberately or by a network glitch) parks a worker thread <strong>forever</strong>, one of the simplest denial-of-service vectors against a thread-per-connection server.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>client.setSoTimeout(30_000); // no data for 30s on an idle keep-alive connection -&gt; give up gracefully
+</code></pre></div>
+<p>Two timeouts matter in practice, and real servers set them differently:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Timeout</th>
+<th>Applies to</th>
+<th>Typical value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Idle timeout (between requests on a keep-alive connection)</td>
+<td>Time waiting for the <em>next</em> request line</td>
+<td>Tens of seconds (Tomcat's <code>connectionTimeout</code> / <code>keepAliveTimeout</code> defaults are in this range).</td>
+</tr>
+<tr>
+<td>Request timeout (mid-request)</td>
+<td>Time to fully receive one request or send one response</td>
+<td>Should generally be looser than the idle timeout, or handled separately, so a slow-but-legitimate upload isn't killed by the same clock as an idle keep-alive gap.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="30-two-meanings-of-connection-pool">30. Two Meanings of "Connection Pool"</h2>
+<p>The phrase "connection pool" means two genuinely different things depending on which side of the request you're standing on — mixing them up is a common interview stumble:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Server-side "connection pool"</th>
+<th>Client-side connection pool (e.g. JDBC)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What's being reused</td>
+<td>An <strong>accepted <code>Socket</code></strong> from a browser/client, kept alive across several HTTP requests (§27–§29).</td>
+<td>An <strong>outbound <code>Connection</code></strong> your server opens <em>to</em> something else (a database, another service), reused across several of <em>your own</em> outgoing calls.</td>
+</tr>
+<tr>
+<td>Who initiates reuse</td>
+<td>The remote client, via <code>Connection: keep-alive</code>.</td>
+<td>Your own application code, via a pool object it calls <code>borrow()</code>/<code>return()</code> on.</td>
+</tr>
+<tr>
+<td>What it saves</td>
+<td>Repeated TCP handshakes with browsers.</td>
+<td>Repeated TCP handshakes <strong>and</strong> expensive DB session/auth setup with the database.</td>
+</tr>
+<tr>
+<td>Where it lives in MiniTomcat</td>
+<td><code>ConnectionWorker</code> + keep-alive loop (§28).</td>
+<td><code>MiniConnectionPool</code> (§32–§33), used by MiniSpring <code>@Repository</code> beans.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Both are the same underlying idea — <em>"opening this kind of connection is expensive, so don't throw it away after one use"</em> — applied at two different layers of the same request's journey.</p>
+<hr>
+<h2 id="31-phase-10-a-generic-object-pool">31. Phase 10 — A Generic Object Pool</h2>
+<p>Before building the JDBC-specific pool, it's worth building the reusable shape once, since MiniTomcat needs pooling in more than one place (buffers, parser scratch objects, DB connections):</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// pool/ObjectPool.java
+public interface ObjectPool&lt;T&gt; {
+    T borrow() throws InterruptedException;
+    void release(T item);
+    void close();
+}
+
+// pool/BlockingObjectPool.java — a bounded pool backed by a BlockingQueue
+public class BlockingObjectPool&lt;T&gt; implements ObjectPool&lt;T&gt; {
+    private final BlockingQueue&lt;T&gt; available;
+    private final Supplier&lt;T&gt; factory;
+
+    public BlockingObjectPool(int size, Supplier&lt;T&gt; factory) {
+        this.factory = factory;
+        this.available = new ArrayBlockingQueue&lt;&gt;(size);
+        for (int i = 0; i &lt; size; i++) {
+            available.offer(factory.get()); // pre-warm: create every instance up front
+        }
+    }
+
+    @Override
+    public T borrow() throws InterruptedException {
+        return available.take(); // blocks here if the pool is fully checked out
+    }
+
+    @Override
+    public void release(T item) {
+        available.offer(item); // hand it back for the next borrower
+    }
+
+    @Override
+    public void close() {
+        available.clear();
+    }
+}
+</code></pre></div>
+<p>A <code>BufferPool</code> (pooled reusable <code>byte[]</code> buffers for reading request bodies) is then just <code>new BlockingObjectPool&lt;&gt;(64, () -&gt; new byte[8192])</code> — avoiding a fresh 8 KB allocation (and the GC churn that goes with it) on every single request. The exact same shape, with a different factory, becomes the JDBC connection pool next.</p>
+<hr>
+<h2 id="32-connection-pooling-for-the-database-jdbc">32. Connection Pooling for the Database (JDBC)</h2>
+<p>Opening a JDBC <code>Connection</code> is expensive: TCP handshake to the database, authentication, session setup on the DB server — often tens of milliseconds, dwarfing the actual query. A web server handling many short-lived requests <strong>must not</strong> open a fresh <code>Connection</code> per request; instead it keeps a small pool of already-open, already-authenticated connections and hands them out on demand.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Without pooling: every request pays connection setup cost
+  Request -&gt; new Connection() [~20ms] -&gt; query [~2ms] -&gt; close()   &lt;- 90% of the time is setup!
+
+With pooling: setup cost is paid once, amortized across many requests
+  Request -&gt; pool.borrow() [~0ms, already open] -&gt; query [~2ms] -&gt; pool.release()
+</code></pre></div>
+<hr>
+<h2 id="33-phase-11-a-minimal-jdbc-connection-pool">33. Phase 11 — A Minimal JDBC Connection Pool</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// pool/jdbc/MiniConnectionPool.java
+public class MiniConnectionPool implements ObjectPool&lt;Connection&gt; {
+    private final BlockingQueue&lt;Connection&gt; available;
+    private final Set&lt;Connection&gt; allConnections = ConcurrentHashMap.newKeySet();
+    private final String url, user, password;
+
+    public MiniConnectionPool(String url, String user, String password, int size) throws SQLException {
+        this.url = url; this.user = user; this.password = password;
+        this.available = new ArrayBlockingQueue&lt;&gt;(size);
+        for (int i = 0; i &lt; size; i++) {
+            Connection connection = createRawConnection();
+            allConnections.add(connection);
+            available.offer(connection);
+        }
+    }
+
+    private Connection createRawConnection() throws SQLException {
+        return DriverManager.getConnection(url, user, password);
+    }
+
+    @Override
+    public Connection borrow() throws InterruptedException {
+        Connection connection = available.poll(); // non-blocking first, then wait
+        if (connection == null) {
+            connection = available.take(); // block until one is released — bounded, deliberate backpressure
+        }
+        return wrapAsPooled(connection);
+    }
+
+    /** Wraps close() so callers can use try-with-resources naturally without truly closing the socket. */
+    private Connection wrapAsPooled(Connection real) {
+        return (Connection) Proxy.newProxyInstance(
+            getClass().getClassLoader(),
+            new Class&lt;?&gt;[]{Connection.class},
+            (proxy, method, args) -&gt; {
+                if (&quot;close&quot;.equals(method.getName())) {
+                    release(real); // return to the pool instead of actually closing the socket
+                    return null;
+                }
+                return method.invoke(real, args);
+            });
+    }
+
+    @Override
+    public void release(Connection connection) {
+        available.offer(connection);
+    }
+
+    @Override
+    public void close() {
+        allConnections.forEach(c -&gt; {
+            try { c.close(); } catch (SQLException ignored) { }
+        });
+    }
+}
+</code></pre></div>
+<p><strong>Why the <code>Proxy</code>-based <code>close()</code> trick?</strong> It lets calling code keep writing idiomatic <code>try (Connection c = pool.borrow()) { ... }</code> — the try-with-resources block calls <code>close()</code> exactly as it would on a real connection, but that call is intercepted to mean "return to the pool" instead of "tear down the socket." This is the same illusion real pools like HikariCP maintain: application code never has to know it's holding a pooled wrapper.</p>
+<hr>
+<h2 id="34-wiring-the-jdbc-pool-into-a-minispring-repository-bean">34. Wiring the JDBC Pool Into a MiniSpring Repository Bean</h2>
+<p>Because MiniSpring's <code>DefaultBeanFactory</code> (see the companion guide, <a href="MiniSpring-Step-by-Step-Guide.md">§17</a>) resolves constructor dependencies by type, the pool slots in as an ordinary <code>@Component</code> — no special-casing needed anywhere else in the container:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Component
+public class DataSourceConfig {
+    @Bean // if you added §88's @Bean support; otherwise construct it directly in a @Component's constructor
+    public MiniConnectionPool connectionPool() throws SQLException {
+        return new MiniConnectionPool(
+            &quot;jdbc:postgresql://localhost:5432/pureeats&quot;, &quot;app&quot;, &quot;secret&quot;, /* size */ 10);
+    }
+}
+
+@Repository
+public class JdbcUserRepository implements UserRepository {
+    private final MiniConnectionPool pool;
+
+    @Autowired
+    public JdbcUserRepository(MiniConnectionPool pool) {
+        this.pool = pool;
+    }
+
+    @Override
+    public User findById(long id) {
+        try (Connection connection = pool.borrow();
+             PreparedStatement ps = connection.prepareStatement(&quot;SELECT * FROM users WHERE id = ?&quot;)) {
+            ps.setLong(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? mapRow(rs) : null;
+            }
+        } catch (SQLException | InterruptedException e) {
+            throw new RuntimeException(&quot;Query failed&quot;, e);
+        }
+    }
+    // mapRow(...) omitted for brevity
+}
+</code></pre></div>
+<p>Two pools are now cooperating in the same request: MiniTomcat's server-side socket pool keeps the <em>browser</em> connection alive across requests (§27–§29), while <code>MiniConnectionPool</code> keeps a small set of <em>database</em> connections alive across all requests, for the whole lifetime of the process.</p>
+<hr>
+<h2 id="35-the-c10k-problem">35. The C10K Problem</h2>
+<p>Thread-per-connection plus keep-alive (§28) has a specific weakness: a keep-alive connection that is <strong>idle between requests</strong> still occupies a full pool thread, blocked inside <code>client.getInputStream().read()</code>, doing nothing. Ten thousand slow-polling or idle-but-open clients means ten thousand blocked threads — the exact stack-memory and context-switch costs from §15, just triggered by <em>idleness</em> instead of load.</p>
+<p>This is the classic <strong>C10K problem</strong> (serving ten thousand concurrent connections on one machine): with a blocking-I/O, thread-per-connection model, you eventually run out of threads long before you run out of CPU or bandwidth, because most of those threads are simply parked waiting for the next byte.</p>
+<hr>
+<h2 id="36-introducing-nio-selector-channel-buffer">36. Introducing NIO: Selector, Channel, Buffer</h2>
+<p>Java's NIO package answers this with <strong>non-blocking</strong> I/O and a <strong>readiness-based</strong> event loop:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Blocking I/O (<code>java.io</code>)</th>
+<th>Non-blocking I/O (<code>java.nio</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>socket.getInputStream().read()</code> blocks the calling thread until data arrives.</td>
+<td><code>channel.read(buffer)</code> returns immediately — with 0 bytes if nothing is available yet.</td>
+</tr>
+<tr>
+<td>Needs one thread per connection to stay responsive.</td>
+<td>One thread can ask a <code>Selector</code> <em>"which of these 10,000 channels actually have data ready right now?"</em> and only touch those.</td>
+</tr>
+</tbody>
+</table></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>Selector selector = Selector.open();
+ServerSocketChannel serverChannel = ServerSocketChannel.open();
+serverChannel.bind(new InetSocketAddress(8080));
+serverChannel.configureBlocking(false);
+serverChannel.register(selector, SelectionKey.OP_ACCEPT);
+
+while (true) {
+    selector.select();                                   // blocks only until SOMETHING is ready
+    Iterator&lt;SelectionKey&gt; keys = selector.selectedKeys().iterator();
+    while (keys.hasNext()) {
+        SelectionKey key = keys.next();
+        keys.remove();
+        if (key.isAcceptable()) acceptNewConnection(key, selector);
+        else if (key.isReadable()) readFromConnection(key);
+    }
+}
+</code></pre></div>
+<p>One thread, driven by <code>selector.select()</code>, services <strong>every</strong> ready channel in a tight loop — the "reactor pattern" that Netty, Node.js, and NGINX all build on.</p>
+<hr>
+<h2 id="37-phase-12-optional-a-selector-based-reactor-loop">37. Phase 12 (Optional) — A Selector-Based Reactor Loop</h2>
+<p>A sketch of the read side, enough to see the shape without building a full production reactor:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private void acceptNewConnection(SelectionKey key, Selector selector) throws IOException {
+    ServerSocketChannel serverChannel = (ServerSocketChannel) key.channel();
+    SocketChannel client = serverChannel.accept();
+    client.configureBlocking(false);
+    client.register(selector, SelectionKey.OP_READ, new RequestBuffer()); // per-connection parse state
+}
+
+private void readFromConnection(SelectionKey key) throws IOException {
+    SocketChannel client = (SocketChannel) key.channel();
+    RequestBuffer state = (RequestBuffer) key.attachment();
+
+    ByteBuffer buffer = ByteBuffer.allocate(4096);
+    int bytesRead = client.read(buffer);
+    if (bytesRead == -1) {
+        client.close();
+        return;
+    }
+    buffer.flip();
+    state.append(buffer); // accumulate bytes across possibly many partial reads
+
+    if (state.isCompleteRequest()) {
+        HttpRequest request = state.toHttpRequest();
+        pool.submit(() -&gt; {                          // hand CPU/blocking work back to a worker pool!
+            HttpResponse response = MiniServletContainer.getInstance().dispatch(request);
+            writeResponseNonBlocking(client, response);
+        });
+        state.reset();
+    }
+}
+</code></pre></div>
+<p>The crucial design point: <strong>the reactor thread itself must never block.</strong> A partially-received request is <em>state</em> (<code>RequestBuffer</code>) attached to the <code>SelectionKey</code>, not a paused call stack — because with non-blocking I/O there is no thread sitting inside <code>read()</code> waiting for the rest of the bytes to arrive on a slow connection.</p>
+<hr>
+<h2 id="38-thread-per-connection-vs-reactor-tradeoffs">38. Thread-Per-Connection vs Reactor — Tradeoffs</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Thread-per-connection (§14–§29)</th>
+<th>Reactor / Selector (§36–§37)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mental model</td>
+<td>One thread = one connection's whole lifecycle; code reads top-to-bottom.</td>
+<td>One thread drives many connections; state must be explicit (no call stack to "come back to").</td>
+</tr>
+<tr>
+<td>Idle-connection cost</td>
+<td>One parked thread per idle keep-alive client.</td>
+<td>Near-zero — an idle channel is just an unselected entry in the <code>Selector</code>.</td>
+</tr>
+<tr>
+<td>Code complexity</td>
+<td>Simple, linear, easy to debug with a thread dump.</td>
+<td>Harder: partial reads, explicit per-connection state machines, careful handoff of CPU work to a separate pool.</td>
+</tr>
+<tr>
+<td>CPU-bound work</td>
+<td>Runs inline on the connection's own thread — fine, since that thread isn't needed elsewhere.</td>
+<td>Must be handed off to a worker pool (as in §37) — running it on the reactor thread would stall every other connection.</td>
+</tr>
+<tr>
+<td>Best fit</td>
+<td>Moderate connection counts, request/response-shaped traffic (typical REST APIs).</td>
+<td>Very high connection counts, especially many long-lived/idle connections (chat, long-polling, proxies).</td>
+</tr>
+</tbody>
+</table></div>
+<p>Real servers often <strong>combine</strong> both: a small reactor tier accepts connections and does non-blocking I/O, while actual request handling still runs on a bounded worker pool — exactly the handoff shown at the <code>pool.submit(...)</code> line in §37.</p>
+<hr>
+<h2 id="39-virtual-threads-as-a-modern-alternative">39. Virtual Threads as a Modern Alternative</h2>
+<p>Java 21's <strong>virtual threads</strong> (<code>Thread.ofVirtual()</code>, JEP 444) offer a third option: keep the simple thread-per-connection <em>programming model</em> of §14–§29, but let the JVM itself multiplex many virtual threads onto a small number of OS ("carrier") threads, parking a virtual thread cheaply (not an OS-level block) whenever it hits blocking I/O.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Platform thread-per-connection:  10,000 connections -&gt; 10,000 OS threads -&gt; exhausted stacks/schedulers (§15)
+Virtual thread-per-connection:   10,000 connections -&gt; 10,000 CHEAP virtual threads -&gt; a handful of OS carrier threads
+</code></pre></div>
+<p>This directly attacks the C10K problem (§35) <strong>without</strong> requiring the non-blocking, state-machine style of §36–§38 — ordinary blocking <code>InputStream.read()</code> calls are fine, because blocking a virtual thread doesn't block its carrier OS thread.</p>
+<hr>
+<h2 id="40-phase-12b-swapping-to-virtual-threads">40. Phase 12b — Swapping to Virtual Threads</h2>
+<p>The change to MiniTomcat is almost embarrassingly small — replace the <code>ThreadPoolExecutor</code> from §16 with a virtual-thread-per-task executor:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class ServerThreadPool {
+    private final ExecutorService executor;
+
+    public ServerThreadPool(Mode mode, int coreSize, int maxSize, int queueCapacity) {
+        this.executor = switch (mode) {
+            case PLATFORM_POOL -&gt; new ThreadPoolExecutor(coreSize, maxSize, 60, TimeUnit.SECONDS,
+                new ArrayBlockingQueue&lt;&gt;(queueCapacity));
+            case VIRTUAL_THREADS -&gt; Executors.newVirtualThreadPerTaskExecutor();
+        };
+    }
+
+    public void submit(Runnable task) { executor.execute(task); }
+    public void shutdown() { executor.shutdown(); }
+}
+</code></pre></div>
+<p><strong>What you keep:</strong> the entire blocking-I/O <code>ConnectionWorker</code> from §20/§28 works completely unchanged — no <code>Selector</code>, no partial-read state machine.</p>
+<p><strong>What you give up / must watch for:</strong></p>
+<ul>
+<li>Virtual threads still need a <strong>real, bounded resource somewhere else</strong> in the chain — if every virtual thread ends up contending for the <em>same</em> fixed-size JDBC pool (§33) or the <em>same</em> small set of CPU cores for actual computation, you've just moved the bottleneck, not removed it.</li>
+<li><strong><code>synchronized</code> blocks pin the virtual thread to its carrier</strong> in older JDKs (this was fixed in JDK 24 but is a real caveat on JDK 21/22/23) — a long-held <code>synchronized</code> lock around blocking I/O can quietly reintroduce platform-thread-level contention. Prefer <code>java.util.concurrent.locks.ReentrantLock</code> in code virtual threads will run.</li>
+<li><code>ThreadLocal</code> (§22–§26) still works exactly the same way — each virtual thread gets its own <code>ThreadLocalMap</code> — but with potentially <em>millions</em> of short-lived virtual threads created over a server's lifetime, a <code>ThreadLocal</code> leak (§25) becomes a leak per-request instead of a leak per pooled platform thread, which can make it both less severe per-instance and easier to miss until it's pervasive.</li>
+</ul>
+<hr>
+<h2 id="41-what-tomcat-actually-is">41. What Tomcat Actually Is</h2>
+<p>It's worth being precise about the term: <strong>Tomcat is a Servlet container</strong>, not a web framework. It owns everything this guide has built so far — the socket accept loop, the thread pool, HTTP parsing, keep-alive — and its <em>only</em> contract with application code is the <strong>Servlet API</strong> (<code>jakarta.servlet.Servlet</code>): "give me an object with a <code>service(request, response)</code> method, and I will call it whenever a matching request arrives." Spring MVC's <code>DispatcherServlet</code> is, from Tomcat's point of view, just one more <code>Servlet</code> — a single one that happens to internally do its own routing to <code>@Controller</code> methods.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Tomcat (owns sockets, threads, HTTP parsing)
+   |
+   v
+Servlet API boundary  &lt;-- the ONLY thing app code implements
+   |
+   v
+DispatcherServlet (Spring's one big Servlet)
+   |
+   v
+HandlerMapping -&gt; @Controller method
+</code></pre></div>
+<p>Everything MiniTomcat has built up to this point (§1–§40) is the top box. This section starts building the boundary layer that makes MiniSpring's <code>@Controller</code> beans (or, in principle, real Spring's) pluggable underneath it.</p>
+<hr>
+<h2 id="42-the-servlet-api-in-a-nutshell">42. The Servlet API in a Nutshell</h2>
+<p>The real <code>jakarta.servlet.Servlet</code> interface is small on purpose:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface Servlet {
+    void init(ServletConfig config) throws ServletException;
+    void service(ServletRequest request, ServletResponse response) throws ServletException, IOException;
+    void destroy();
+    ServletConfig getServletConfig();
+    String getServletInfo();
+}
+</code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Called when</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>init(config)</code></td>
+<td>Once, when the container first loads the servlet</td>
+<td>One-time setup (read init params, acquire resources).</td>
+</tr>
+<tr>
+<td><code>service(req, res)</code></td>
+<td>Once per matching HTTP request</td>
+<td>The actual per-request work — this is what <code>HttpServlet.doGet/doPost</code> delegate to.</td>
+</tr>
+<tr>
+<td><code>destroy()</code></td>
+<td>Once, when the container shuts the servlet down</td>
+<td>Release resources acquired in <code>init</code>.</td>
+</tr>
+</tbody>
+</table></div>
+<p><code>ServletConfig</code> carries per-servlet init parameters and a reference to the shared <code>ServletContext</code> — the container-wide object every servlet in the same deployment can reach (attributes, resource lookup, and, in a Spring app, the root <code>ApplicationContext</code> itself, stashed as a <code>ServletContext</code> attribute).</p>
+<hr>
+<h2 id="43-phase-13-designing-miniservlet">43. Phase 13 — Designing MiniServlet</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// servlet/MiniServlet.java
+public interface MiniServlet {
+    void init(MiniServletConfig config) throws Exception;
+    void service(MiniHttpServletRequest request, MiniHttpServletResponse response) throws Exception;
+    void destroy();
+}
+
+// servlet/MiniServletConfig.java
+public class MiniServletConfig {
+    private final String servletName;
+    private final MiniServletContext servletContext;
+    private final Map&lt;String, String&gt; initParams;
+
+    public MiniServletConfig(String servletName, MiniServletContext servletContext, Map&lt;String, String&gt; initParams) {
+        this.servletName = servletName;
+        this.servletContext = servletContext;
+        this.initParams = initParams;
+    }
+    public String getServletName() { return servletName; }
+    public MiniServletContext getServletContext() { return servletContext; }
+    public String getInitParameter(String name) { return initParams.get(name); }
+}
+
+// servlet/MiniServletContext.java — one instance shared by every servlet in the process
+public class MiniServletContext {
+    private final Map&lt;String, Object&gt; attributes = new ConcurrentHashMap&lt;&gt;();
+
+    public void setAttribute(String name, Object value) { attributes.put(name, value); }
+    public Object getAttribute(String name) { return attributes.get(name); }
+}
+</code></pre></div>
+<p>Note the direct parallel with real Tomcat: <code>MiniServletContext.setAttribute(...)</code> is exactly the mechanism used in §51 to publish the MiniSpring <code>ApplicationContext</code> somewhere every servlet (specifically, <code>MiniDispatcherServlet</code>) can retrieve it — mirroring how real Spring's <code>ContextLoaderListener</code> stores the root <code>WebApplicationContext</code> as a <code>ServletContext</code> attribute for <code>DispatcherServlet</code> to pick up.</p>
+<hr>
+<h2 id="44-minihttpservletrequest-minihttpservletresponse">44. MiniHttpServletRequest / MiniHttpServletResponse</h2>
+<p>These wrap the wire-level <code>HttpRequest</code>/<code>HttpResponse</code> from §10/§ (the ones <code>HttpRequestParser</code> produces) behind a friendlier, Servlet-shaped API:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// servlet/MiniHttpServletRequest.java
+public class MiniHttpServletRequest {
+    private final HttpRequest raw;
+    private final Map&lt;String, String&gt; pathVariables = new HashMap&lt;&gt;(); // filled in by routing, §45/§50
+
+    public MiniHttpServletRequest(HttpRequest raw) { this.raw = raw; }
+
+    public String getMethod() { return raw.getMethod(); }
+    public String getPathInfo() { return raw.getPath(); }
+    public String getHeader(String name) { return raw.getHeader(name); }
+    public String getParameter(String name) { return parseQueryParam(raw.getQueryString(), name); }
+    public String getPathVariable(String name) { return pathVariables.get(name); }
+    void setPathVariable(String name, String value) { pathVariables.put(name, value); }
+    public byte[] getBody() { return raw.getBody(); }
+    // parseQueryParam(...) omitted for brevity — splits on '&amp;' and '='
+}
+
+// servlet/MiniHttpServletResponse.java
+public class MiniHttpServletResponse {
+    private int status = 200;
+    private final Map&lt;String, String&gt; headers = new LinkedHashMap&lt;&gt;();
+    private byte[] body = new byte[0];
+
+    public void setStatus(int status) { this.status = status; }
+    public void setHeader(String name, String value) { headers.put(name, value); }
+    public void write(byte[] bytes) { this.body = bytes; }
+    public void writeJson(String json) {
+        setHeader(&quot;Content-Type&quot;, &quot;application/json&quot;);
+        write(json.getBytes(StandardCharsets.UTF_8));
+    }
+
+    HttpResponse toWireResponse() {
+        HttpResponse response = new HttpResponse(status, body);
+        headers.forEach(response::setHeader);
+        response.setHeader(&quot;Content-Length&quot;, String.valueOf(body.length));
+        return response;
+    }
+}
+</code></pre></div>
+<hr>
+<h2 id="45-phase-14-miniservletcontainer-path-routing">45. Phase 14 — MiniServletContainer (Path Routing)</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// servlet/MiniServletContainer.java
+public class MiniServletContainer {
+    private static final MiniServletContainer INSTANCE = new MiniServletContainer();
+    public static MiniServletContainer getInstance() { return INSTANCE; }
+
+    private final Map&lt;String, MiniServlet&gt; pathToServlet = new LinkedHashMap&lt;&gt;(); // insertion order = priority
+    private final MiniServletContext servletContext = new MiniServletContext();
+    private final List&lt;MiniFilter&gt; filters = new ArrayList&lt;&gt;();
+
+    public void register(String pathPattern, MiniServlet servlet, Map&lt;String, String&gt; initParams) {
+        try {
+            servlet.init(new MiniServletConfig(servlet.getClass().getSimpleName(), servletContext, initParams));
+        } catch (Exception e) {
+            throw new RuntimeException(&quot;Servlet init failed for &quot; + pathPattern, e);
+        }
+        pathToServlet.put(pathPattern, servlet);
+    }
+
+    public void addFilter(MiniFilter filter) { filters.add(filter); }
+
+    public MiniServletContext getServletContext() { return servletContext; }
+
+    public HttpResponse dispatch(HttpRequest rawRequest) {
+        MiniHttpServletRequest request = new MiniHttpServletRequest(rawRequest);
+        MiniHttpServletResponse response = new MiniHttpServletResponse();
+
+        MiniServlet servlet = resolve(rawRequest.getPath());
+        if (servlet == null) {
+            response.setStatus(404);
+            response.write(&quot;Not Found&quot;.getBytes(StandardCharsets.UTF_8));
+            return response.toWireResponse();
+        }
+
+        try {
+            runFilterChainThenServlet(0, request, response, servlet);
+        } catch (Exception e) {
+            response.setStatus(500);
+            response.write((&quot;Internal Server Error: &quot; + e.getMessage()).getBytes(StandardCharsets.UTF_8));
+        }
+        return response.toWireResponse();
+    }
+
+    private void runFilterChainThenServlet(int index, MiniHttpServletRequest req,
+                                            MiniHttpServletResponse res, MiniServlet servlet) throws Exception {
+        if (index &lt; filters.size()) {
+            filters.get(index).doFilter(req, res, () -&gt; runFilterChainThenServlet(index + 1, req, res, servlet));
+        } else {
+            servlet.service(req, res);
+        }
+    }
+
+    /** Longest-prefix match — the same basic strategy Tomcat uses for path-mapped servlets. */
+    private MiniServlet resolve(String path) {
+        return pathToServlet.entrySet().stream()
+            .filter(e -&gt; path.startsWith(e.getKey()))
+            .max(Comparator.comparingInt(e -&gt; e.getKey().length()))
+            .map(Map.Entry::getValue)
+            .orElse(null);
+    }
+}
+</code></pre></div>
+<p>This is the container's routing table — mechanically the same idea as <code>web.xml</code>'s <code>&lt;servlet-mapping&gt;</code>, just built in code. In §50, exactly <strong>one</strong> entry gets registered here: <code>/</code> mapped to <code>MiniDispatcherServlet</code>, which then does its <em>own</em>, finer-grained routing via MiniSpring's <code>HandlerMapping</code>.</p>
+<hr>
+<h2 id="46-filters-chain-of-responsibility">46. Filters: Chain of Responsibility</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// servlet/MiniFilter.java
+@FunctionalInterface
+public interface MiniFilterChain {
+    void doFilter() throws Exception;
+}
+
+public interface MiniFilter {
+    void doFilter(MiniHttpServletRequest request, MiniHttpServletResponse response, MiniFilterChain chain) throws Exception;
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// A logging filter — runs before AND after the rest of the chain
+public class LoggingFilter implements MiniFilter {
+    @Override
+    public void doFilter(MiniHttpServletRequest req, MiniHttpServletResponse res, MiniFilterChain chain) throws Exception {
+        long start = System.nanoTime();
+        try {
+            chain.doFilter(); // runs the next filter, or finally the servlet
+        } finally {
+            long tookMs = (System.nanoTime() - start) / 1_000_000;
+            System.out.printf(&quot;%s %s -&gt; %d (%dms)%n&quot;, req.getMethod(), req.getPathInfo(), res.getStatusForLogging(), tookMs);
+        }
+    }
+}
+</code></pre></div>
+<p>This <code>doFilter(request, response, chain)</code> shape <em>is</em> the Chain of Responsibility pattern: each filter decides whether to call <code>chain.doFilter()</code> (continue) or not (short-circuit — e.g. an auth filter rejecting an unauthenticated request without ever reaching the servlet). It is also exactly where §26's <code>RequestContextHolder.clear()</code> belongs — in the outermost filter's <code>finally</code>, so it always runs regardless of which inner filter or servlet threw.</p>
+<hr>
+<h2 id="47-listeners-lifecycle-hooks">47. Listeners: Lifecycle Hooks</h2>
+<p>Real Servlet containers also support <code>ServletContextListener</code> (container startup/shutdown) and <code>HttpSessionListener</code> (session created/destroyed) — hooks that run independent of any single request. A minimal equivalent:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface MiniServletContextListener {
+    void contextInitialized(MiniServletContext context);
+    void contextDestroyed(MiniServletContext context);
+}
+</code></pre></div>
+<p>MiniTomcat calls every registered listener's <code>contextInitialized</code> once, right after building the <code>MiniServletContext</code> and before accepting the first connection — this is precisely the hook real Spring uses (<code>ContextLoaderListener</code>) to build the root <code>ApplicationContext</code> <em>before</em> any servlet's <code>init()</code> runs, guaranteeing beans exist by the time a request arrives. §50 reuses this same ordering for MiniSpring.</p>
+<hr>
+<h2 id="48-recap-what-minispring-already-gives-us">48. Recap: What MiniSpring Already Gives Us</h2>
+<p>The companion guide (<a href="MiniSpring-Step-by-Step-Guide.md">MiniSpring-Step-by-Step-Guide.md</a>) already built everything <em>above</em> the transport layer:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Already built in MiniSpring</th>
+<th>Lives in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MiniApplicationContext</code> — scans <code>@Component</code>/<code>@Service</code>/<code>@Repository</code>/<code>@Controller</code>, wires <code>@Autowired</code> dependencies</td>
+<td>MiniSpring §15, §24</td>
+</tr>
+<tr>
+<td><code>HandlerMapping</code> — a table of <code>(HTTP method, URL pattern) -&gt; (controller bean, method)</code></td>
+<td>MiniSpring §27–§28</td>
+</tr>
+<tr>
+<td><code>@GetMapping</code>/<code>@PostMapping</code>/<code>@PathVariable</code>/<code>@RequestParam</code> handling, argument resolution, JSON serialization</td>
+<td>MiniSpring §12–§13, §63–§65</td>
+</tr>
+<tr>
+<td>A <code>FrontController</code> that previously ran on the JDK's <code>com.sun.net.httpserver.HttpServer</code></td>
+<td>MiniSpring §29–§31</td>
+</tr>
+</tbody>
+</table></div>
+<p>The <strong>only</strong> piece MiniSpring's guide left as a "toy" was the transport: the JDK's built-in <code>HttpServer</code> has no real thread-pool tuning story, no keep-alive control worth mentioning, and no path to plugging into anything else. Everything in <em>this</em> guide up through §47 is a drop-in replacement for that one box.</p>
+<hr>
+<h2 id="49-where-the-web-server-fits-in-the-minispring-architecture">49. Where the Web Server Fits in the MiniSpring Architecture</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    MiniTomcat (this guide, §1–§47)
+                    accept loop -&gt; thread pool -&gt; HTTP parse -&gt; MiniServletContainer
+                                                                        |
+                                                     ONE servlet registered at &quot;/&quot;
+                                                                        v
+                                                        MiniDispatcherServlet (§50)
+                                                                        |
+                                        looks up ApplicationContext from MiniServletContext (§43, §47)
+                                                                        |
+                                                                        v
+                                          MiniSpring's HandlerMapping.resolve(method, path)
+                                                                        |
+                                                                        v
+                                                    Invoke the matched @Controller method
+                                                    (constructor/field-injected beans, resolved
+                                                     ONCE at ApplicationContext startup — MiniSpring §24)
+</code></pre></div>
+<p>Nothing in MiniSpring's <code>ApplicationContext</code>, <code>HandlerMapping</code>, or <code>@Controller</code> classes needs to change at all — they were already written against a plain <code>(HttpRequest) -&gt; HttpResponse</code>-shaped abstraction. Only the <em>transport underneath</em> changes.</p>
+<hr>
+<h2 id="50-phase-15-minidispatcherservlet-bridging-the-two">50. Phase 15 — MiniDispatcherServlet: Bridging the Two</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// bridge/MiniDispatcherServlet.java
+public class MiniDispatcherServlet implements MiniServlet {
+    public static final String APPLICATION_CONTEXT_ATTRIBUTE = &quot;miniSpring.applicationContext&quot;;
+
+    private ApplicationContext applicationContext; // MiniSpring's context interface
+    private HandlerMapping handlerMapping;          // MiniSpring's route table
+
+    @Override
+    public void init(MiniServletConfig config) {
+        // Retrieve the ApplicationContext a listener already built and published (§51) —
+        // the servlet itself never calls new MiniApplicationContext(...) directly, mirroring
+        // how real Spring's DispatcherServlet finds a context a ContextLoaderListener already built.
+        this.applicationContext = (ApplicationContext)
+            config.getServletContext().getAttribute(APPLICATION_CONTEXT_ATTRIBUTE);
+        this.handlerMapping = new HandlerMapping();
+        this.handlerMapping.registerControllers(applicationContext,
+            ((MiniApplicationContext) applicationContext).getBeanFactory());
+    }
+
+    @Override
+    public void service(MiniHttpServletRequest request, MiniHttpServletResponse response) throws Exception {
+        HandlerMethod handler = handlerMapping.find(request.getMethod(), request.getPathInfo());
+        if (handler == null) {
+            response.setStatus(404);
+            response.writeJson(&quot;{\&quot;error\&quot;:\&quot;No handler for &quot; + request.getMethod() + &quot; &quot; + request.getPathInfo() + &quot;\&quot;}&quot;);
+            return;
+        }
+
+        extractPathVariables(handler, request); // populate request.pathVariables from the matched pattern
+
+        Object result = invokeHandler(handler, request);
+        writeResult(response, result);
+    }
+
+    private Object invokeHandler(HandlerMethod handler, MiniHttpServletRequest request) throws Exception {
+        Method method = handler.getMethod();
+        Object[] args = resolveArguments(method, request); // @PathVariable / @RequestParam, MiniSpring §63
+        return method.invoke(handler.getControllerBean(), args);
+    }
+
+    private void writeResult(MiniHttpServletResponse response, Object result) {
+        if (result instanceof ResponseEntity&lt;?&gt; entity) {
+            response.setStatus(entity.getStatus());
+            response.writeJson(JsonSerializer.toJson(entity.getBody()));
+        } else {
+            response.setStatus(200);
+            response.writeJson(JsonSerializer.toJson(result));
+        }
+    }
+
+    @Override
+    public void destroy() { /* no-op: the ApplicationContext outlives this servlet */ }
+
+    // extractPathVariables(...) / resolveArguments(...) reuse the exact logic already built in
+    // MiniSpring's own FrontController (companion guide §31) — only the request/response TYPES differ,
+    // since they now come from MiniHttpServletRequest/Response instead of com.sun.net.httpserver's classes.
+}
+</code></pre></div>
+<p>The entire point of this class is that it is <strong>thin</strong> — it does no business logic and no bean wiring itself. It only translates between two vocabularies: "MiniTomcat's Servlet API" on one side, "MiniSpring's <code>HandlerMapping</code>/<code>ApplicationContext</code>" on the other. That thinness is intentional and mirrors real Spring's <code>DispatcherServlet</code>, which is famously also "just" a translation and delegation layer.</p>
+<hr>
+<h2 id="51-replacing-the-jdk-httpserver-with-minitomcat">51. Replacing the JDK HttpServer With MiniTomcat</h2>
+<p>Two small pieces of wiring finish the integration: a listener that builds the MiniSpring context once at startup, and a <code>main</code> that registers <code>MiniDispatcherServlet</code> at <code>/</code> before starting the accept loop.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class MiniSpringContextListener implements MiniServletContextListener {
+    private final Class&lt;?&gt; appConfigClass;
+    public MiniSpringContextListener(Class&lt;?&gt; appConfigClass) { this.appConfigClass = appConfigClass; }
+
+    @Override
+    public void contextInitialized(MiniServletContext servletContext) {
+        ApplicationContext context = new MiniApplicationContext(appConfigClass); // MiniSpring §24–§25
+        servletContext.setAttribute(MiniDispatcherServlet.APPLICATION_CONTEXT_ATTRIBUTE, context);
+    }
+
+    @Override
+    public void contextDestroyed(MiniServletContext servletContext) { /* no-op */ }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class Application {
+    public static void main(String[] args) throws IOException {
+        MiniServletContainer container = MiniServletContainer.getInstance();
+
+        new MiniSpringContextListener(AppConfig.class).contextInitialized(container.getServletContext());
+        container.addFilter(new LoggingFilter());                                  // §46
+        container.register(&quot;/&quot;, new MiniDispatcherServlet(), Map.of());            // §50
+
+        MiniTomcat server = new MiniTomcat(8080, /* coreThreads */ 20, /* maxThreads */ 200, /* queue */ 1000);
+        server.start(); // §20
+        System.out.println(&quot;MiniTomcat + MiniSpring listening on :8080&quot;);
+    }
+}
+</code></pre></div>
+<p>This is the direct analogue of <code>MiniApplication.run(AppConfig.class, args)</code> from the companion guide's §33/§70 — except the HTTP transport underneath is now the server built in <em>this</em> guide, with real thread-pool tuning, keep-alive, and connection pooling, instead of the JDK's built-in one.</p>
+<hr>
+<h2 id="52-full-sample-minitomcat-minispring-end-to-end">52. Full Sample: MiniTomcat + MiniSpring End-to-End</h2>
+<p>Putting every piece together with a concrete controller, exactly like the companion guide's demo app (§72), now running on MiniTomcat:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Repository
+public class UserRepository {
+    private final MiniConnectionPool pool; // §33
+    @Autowired
+    public UserRepository(MiniConnectionPool pool) { this.pool = pool; }
+
+    public User findById(long id) { /* ... JDBC via pool.borrow(), §34 ... */ return new User(id, &quot;Alice&quot;); }
+}
+
+@Service
+public class UserService {
+    private final UserRepository repository;
+    @Autowired
+    public UserService(UserRepository repository) { this.repository = repository; }
+    public User getUser(long id) { return repository.findById(id); }
+}
+
+@Controller
+@RequestMapping(&quot;/users&quot;)
+public class UserController {
+    private final UserService userService;
+    @Autowired
+    public UserController(UserService userService) { this.userService = userService; }
+
+    @GetMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;User&gt; getUser(@PathVariable(&quot;id&quot;) long id) {
+        User user = userService.getUser(id);
+        return user == null ? ResponseEntity.status(404).build() : ResponseEntity.ok(user);
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>curl http://localhost:8080/users/42
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Request flow for the curl above:
+  MiniTomcat accept loop (§20) -&gt; ConnectionWorker on pool thread (§16)
+    -&gt; RequestContextHolder.set(...) (§24)
+    -&gt; MiniServletContainer.dispatch() (§45) -&gt; LoggingFilter (§46) -&gt; MiniDispatcherServlet.service() (§50)
+       -&gt; HandlerMapping.find(&quot;GET&quot;, &quot;/users/42&quot;) -&gt; UserController.getUser(42)
+          -&gt; UserService.getUser(42) -&gt; UserRepository.findById(42) -&gt; pool.borrow() (§33) -&gt; SQL query
+       &lt;- ResponseEntity&lt;User&gt; &lt;- JSON serialized &lt;- MiniHttpServletResponse
+    -&gt; RequestContextHolder.clear() (§26, always runs)
+  &lt;- HTTP/1.1 200 OK { &quot;id&quot;: 42, &quot;name&quot;: &quot;Alice&quot; } written back over the (possibly kept-alive) socket
+</code></pre></div>
+<p>Every concept from §1–§51 appears somewhere on this one request's path — that end-to-end trace is the single best artifact to walk an interviewer through.</p>
+<hr>
+<h2 id="53-startup-sequence-diagram">53. Startup Sequence Diagram</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Application.main()
+  |
+  1. MiniSpringContextListener.contextInitialized()
+  |     -&gt; new MiniApplicationContext(AppConfig.class)     [MiniSpring §24]
+  |          -&gt; ComponentScanner.scan(basePackage)          [MiniSpring §15]
+  |          -&gt; DefaultBeanFactory eagerly instantiates ALL beans, wiring @Autowired  [MiniSpring §24]
+  |     -&gt; servletContext.setAttribute(&quot;miniSpring.applicationContext&quot;, context)
+  |
+  2. container.register(&quot;/&quot;, new MiniDispatcherServlet(), ...)
+  |     -&gt; MiniDispatcherServlet.init(config)
+  |          -&gt; reads the ApplicationContext back out of servletContext
+  |          -&gt; builds HandlerMapping by scanning @Controller beans   [MiniSpring §27]
+  |
+  3. new MiniTomcat(port, coreThreads, maxThreads, queueCapacity)
+  |     -&gt; new ServerSocket(port).bind(...)
+  |     -&gt; new ServerThreadPool(...)                        [§16]
+  |
+  4. server.start() -&gt; acceptLoop() runs on its own thread, forever, until stop()
+</code></pre></div>
+<p>Notice step 1 fully completes — <strong>every</strong> bean is constructed and wired — before step 4 ever calls <code>accept()</code>. This mirrors MiniSpring's own "eager instantiation at <code>refresh()</code>" design (companion guide §24): a broken <code>@Autowired</code> wiring fails the process at startup, never partway through serving live traffic.</p>
+<hr>
+<h2 id="54-how-spring-boot-starts-an-embedded-container">54. How Spring Boot Starts an Embedded Container</h2>
+<p>When a real Spring Boot app calls <code>SpringApplication.run(...)</code>, one of the things that happens (for a web application) is that a <code>ServletWebServerApplicationContext</code> asks a <strong><code>ServletWebServerFactory</code></strong> bean to produce a <strong><code>WebServer</code></strong>, then calls <code>webServer.start()</code>. Spring Boot ships three implementations out of the box:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Factory bean</th>
+<th>Produces</th>
+<th>Backing library</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TomcatServletWebServerFactory</code></td>
+<td>A <code>WebServer</code> wrapping an embedded Tomcat <code>Connector</code></td>
+<td>Apache Tomcat (<code>tomcat-embed-core</code>)</td>
+</tr>
+<tr>
+<td><code>JettyServletWebServerFactory</code></td>
+<td>A <code>WebServer</code> wrapping embedded Jetty</td>
+<td>Eclipse Jetty</td>
+</tr>
+<tr>
+<td><code>UndertowServletWebServerFactory</code></td>
+<td>A <code>WebServer</code> wrapping embedded Undertow</td>
+<td>Undertow</td>
+</tr>
+</tbody>
+</table></div>
+<p>Whichever one is on the classpath (and not excluded) gets auto-configured. Critically, Spring Boot itself doesn't care <em>how</em> the server accepts sockets or schedules threads — it only cares that the resulting object satisfies two small interfaces.</p>
+<hr>
+<h2 id="55-the-servletwebserverfactory-webserver-spi">55. The ServletWebServerFactory / WebServer SPI</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// org.springframework.boot.web.server (real Spring Boot interfaces, shown for reference)
+public interface WebServer {
+    void start() throws WebServerException;
+    void stop() throws WebServerException;
+    int getPort();
+}
+
+public interface ServletWebServerFactory {
+    WebServer getWebServer(ServletContextInitializer... initializers);
+}
+</code></pre></div>
+<p><code>ServletContextInitializer</code> is the hook Spring Boot uses to register its <em>own</em> servlets, filters, and listeners (including the one that ultimately registers <code>DispatcherServlet</code>) onto whatever <code>ServletContext</code> the container provides — the factory's job is to call each initializer with a real <code>ServletContext</code> before starting the server, so Spring's machinery gets wired into it exactly the way it would be wired into Tomcat.</p>
+<hr>
+<h2 id="56-what-it-would-take-to-plug-minitomcat-into-spring-boot">56. What It Would Take to Plug MiniTomcat Into Spring Boot</h2>
+<p>Conceptually, three things:</p>
+<ol>
+<li><strong>A real <code>jakarta.servlet.ServletContext</code> implementation</strong>, not <code>MiniServletContext</code> (§43) — Spring's <code>ServletContextInitializer</code>s expect the <em>actual</em> servlet API type, with methods like <code>addServlet(...)</code>, <code>addFilter(...)</code>, <code>getAttribute(...)</code>, <code>getInitParameter(...)</code>, and dozens more.</li>
+<li><strong>A real <code>HttpServletRequest</code>/<code>HttpServletResponse</code> implementation</strong> on top of MiniTomcat's parsed <code>HttpRequest</code>/<code>HttpResponse</code> (§10, §44) — not <code>MiniHttpServletRequest</code>/<code>Response</code>, but the full <code>jakarta.servlet.http</code> interfaces, including things this guide never implemented: multipart file upload parsing, <code>HttpSession</code> support, async request handling (<code>startAsync()</code>), cookies, locale negotiation, and more.</li>
+<li><strong>A <code>ServletWebServerFactory</code> + <code>WebServer</code></strong> that:
+   - builds your real <code>ServletContext</code>,
+   - calls every <code>ServletContextInitializer</code> Spring Boot hands it (this is how <code>DispatcherServlet</code> itself gets registered — Spring Boot never talks to your accept loop directly),
+   - starts MiniTomcat's accept loop (§20) as <code>start()</code>,
+   - calls the three-step graceful shutdown (§21) as <code>stop()</code>.</li>
+</ol>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// Sketch only — a REAL implementation needs the full jakarta.servlet surface, not MiniServlet's subset
+public class MiniTomcatWebServerFactory implements ServletWebServerFactory {
+    private int port = 8080;
+
+    @Override
+    public WebServer getWebServer(ServletContextInitializer... initializers) {
+        RealServletContext servletContext = new RealServletContext(); // jakarta.servlet.ServletContext impl
+        for (ServletContextInitializer initializer : initializers) {
+            try {
+                initializer.onStartup(servletContext); // this is where DispatcherServlet gets addServlet()'d
+            } catch (ServletException e) {
+                throw new WebServerException(&quot;Startup initializer failed&quot;, e);
+            }
+        }
+        MiniTomcat server = new MiniTomcat(port, /* ... */);
+        return new MiniTomcatWebServer(server, servletContext);
+    }
+
+    public void setPort(int port) { this.port = port; }
+}
+
+public class MiniTomcatWebServer implements WebServer {
+    private final MiniTomcat server;
+    public MiniTomcatWebServer(MiniTomcat server, RealServletContext ctx) { this.server = server; /* wire ctx into dispatch */ }
+    @Override public void start() { server.start(); }
+    @Override public void stop() { /* graceful shutdown, §21 */ }
+    @Override public int getPort() { return server.getPort(); }
+}
+</code></pre></div>
+<p>Registering it is the last, small piece — a <code>@Bean</code> that shadows Boot's auto-configured Tomcat factory:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Configuration
+public class MiniTomcatConfig {
+    @Bean
+    public ServletWebServerFactory servletWebServerFactory() {
+        MiniTomcatWebServerFactory factory = new MiniTomcatWebServerFactory();
+        factory.setPort(8080);
+        return factory;
+    }
+}
+</code></pre></div>
+<p>With that bean present (and the Tomcat starter excluded from the classpath so there's no ambiguity), <code>SpringApplication.run(MyApp.class, args)</code> would start <strong>your</strong> accept loop instead of embedded Tomcat's, and real <code>DispatcherServlet</code> would run on top of it.</p>
+<hr>
+<h2 id="57-sample-minitomcatwebserverfactory-wiring-it-into-a-spring-boot-app">57. Sample: MiniTomcatWebServerFactory (Wiring It Into a Spring Boot App)</h2>
+<div class="code-wrap"><span class="code-lang">XML</span><pre class="code-block"><code>&lt;!-- pom.xml — depend on spring-boot-starter-web but EXCLUDE embedded Tomcat --&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+    &lt;artifactId&gt;spring-boot-starter-web&lt;/artifactId&gt;
+    &lt;exclusions&gt;
+        &lt;exclusion&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-tomcat&lt;/artifactId&gt;
+        &lt;/exclusion&gt;
+    &lt;/exclusions&gt;
+&lt;/dependency&gt;
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@SpringBootApplication
+public class MyApp {
+    public static void main(String[] args) {
+        SpringApplication.run(MyApp.class, args); // now boots MiniTomcatWebServerFactory's WebServer
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@RestController
+public class HelloController {
+    @GetMapping(&quot;/hello&quot;)
+    public String hello() { return &quot;Hello from real Spring Boot, running on MiniTomcat!&quot;; }
+}
+</code></pre></div>
+<p>If steps 1–3 in §56 are implemented faithfully enough, this ordinary-looking <code>@RestController</code> runs unmodified — proof that the Servlet API boundary really is the <em>entire</em> contract between a framework and its container.</p>
+<hr>
+<h2 id="58-limitations-vs-real-tomcatjettyundertow">58. Limitations vs Real Tomcat/Jetty/Undertow</h2>
+<p>Being honest about the gap is the difference between a great learning exercise and a false sense of "production-ready":</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Real Tomcat</th>
+<th>MiniTomcat as built in this guide</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HTTP/1.1 correctness (edge cases: malformed headers, pipelining, <code>100-continue</code>, header size limits)</td>
+<td>Battle-tested against two decades of real-world clients</td>
+<td>Handles the common cases shown here; many edge cases unhandled</td>
+</tr>
+<tr>
+<td>HTTPS/TLS</td>
+<td>Full <code>SSLContext</code>/ALPN support</td>
+<td>Not built in this guide (see §71)</td>
+</tr>
+<tr>
+<td>HTTP/2, WebSockets</td>
+<td>Supported</td>
+<td>Not built in this guide (see §71)</td>
+</tr>
+<tr>
+<td>Security hardening</td>
+<td>Slow-loris mitigation, request smuggling defenses, header injection protections, years of CVE fixes</td>
+<td>None of this — this server should never face untrusted traffic directly</td>
+</tr>
+<tr>
+<td>Full Servlet spec (async, multipart, sessions, <code>web.xml</code>, JSP)</td>
+<td>Complete</td>
+<td>Only the minimal subset in §41–§47</td>
+</tr>
+<tr>
+<td>Observability</td>
+<td>JMX metrics, access logs, connector-level stats</td>
+<td>None built here</td>
+</tr>
+<tr>
+<td>Battle-testing</td>
+<td>Millions of production deployments</td>
+<td>A teaching project</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>The honest verdict:</strong> building this teaches you <em>what</em> Tomcat does and <em>why</em> each piece exists — invaluable for interviews and for reading Tomcat/Spring source code with real comprehension. It should not replace Tomcat/Jetty/Undertow behind any traffic you don't fully control.</p>
+<hr>
+<h2 id="59-verdict-toy-vs-production-ready">59. Verdict: Toy vs Production-Ready</h2>
+<p>A simple checklist for judging any "build your own X" project, applied here:</p>
+<ul>
+<li>✅ Correct for the happy path and the failure modes explicitly discussed in this guide (timeouts, backpressure, malformed request lines).</li>
+<li>✅ Demonstrates the real architectural boundary (Servlet API) that lets frameworks and containers evolve independently.</li>
+<li>❌ Not hardened against adversarial input (a fuzzed request line, a client that sends gigabytes without a <code>Content-Length</code>, slow-loris-style partial headers).</li>
+<li>❌ Missing huge swaths of the Servlet spec real frameworks quietly depend on (sessions, async, multipart).</li>
+<li>❌ No security review, no fuzzing, no years of CVEs fixed by a community.</li>
+</ul>
+<p>Use it exactly as intended: as a teaching vehicle and a portfolio/interview artifact, deployed at most behind a trusted internal boundary or in a sandbox — not as <code>webServerFactory</code> in anything customer-facing.</p>
+<hr>
+<h2 id="60-optimization-zero-copy-file-serving">60. Optimization — Zero-Copy File Serving</h2>
+<p>If MiniTomcat ever serves static files, the naive path — <code>FileInputStream</code> into a <code>byte[]</code>, then <code>OutputStream.write(byte[])</code> — copies the file's bytes from kernel space to a JVM buffer, then back to kernel space for the socket write: two copies that never needed to touch application memory at all.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// Naive: two extra copies through JVM heap memory
+byte[] data = Files.readAllBytes(path);
+socketOutputStream.write(data);
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// Zero-copy: the kernel transfers bytes directly from the file to the socket
+try (FileChannel fileChannel = FileChannel.open(path, StandardOpenOption.READ)) {
+    SocketChannel socketChannel = client.getChannel(); // requires NIO-based sockets, §36
+    long position = 0, size = fileChannel.size();
+    while (position &lt; size) {
+        position += fileChannel.transferTo(position, size - position, socketChannel);
+    }
+}
+</code></pre></div>
+<p><code>FileChannel.transferTo</code> maps to the OS's <code>sendfile()</code> syscall where available — the data path becomes "disk → kernel buffer → socket buffer," skipping the JVM heap entirely. This is exactly how Tomcat's NIO connector serves static resources efficiently.</p>
+<hr>
+<h2 id="61-optimization-output-buffering">61. Optimization — Output Buffering</h2>
+<p>Writing a response in many small <code>OutputStream.write()</code> calls (one per header line, for instance) issues one system call per write, each with real overhead. Wrapping the socket's output stream in a <code>BufferedOutputStream</code> — and, more importantly, building the full response into one contiguous <code>byte[]</code> before a single <code>write()</code> call — collapses that to one syscall per response:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public byte[] toBytes() {
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream(256 + body.length);
+    buffer.writeBytes(statusLine().getBytes(StandardCharsets.US_ASCII));
+    headers.forEach((name, value) -&gt;
+        buffer.writeBytes((name + &quot;: &quot; + value + &quot;\r\n&quot;).getBytes(StandardCharsets.US_ASCII)));
+    buffer.writeBytes(&quot;\r\n&quot;.getBytes(StandardCharsets.US_ASCII));
+    buffer.writeBytes(body);
+    return buffer.toByteArray(); // ONE array, written with ONE client.getOutputStream().write(...) call
+}
+</code></pre></div>
+<p>The same principle applies on the read side: <code>BufferedInputStream</code> around the raw socket stream (already used in §10's parser) batches many small <code>read()</code> syscalls from the OS into fewer, larger ones.</p>
+<hr>
+<h2 id="62-optimization-reducing-gc-pressure">62. Optimization — Reducing GC Pressure</h2>
+<p>A server handling thousands of requests per second allocates constantly — every one of those allocations is eventually garbage-collected, and GC pauses directly hurt tail latency. Three concrete levers, all already seeded elsewhere in this guide:</p>
+<ul>
+<li><strong>Pool reusable buffers</strong> (§31's <code>BufferPool</code>) instead of <code>new byte[8192]</code> per request — the same allocation-avoidance idea as connection pooling, applied to memory instead of sockets/connections.</li>
+<li><strong>Avoid intermediate <code>String</code> churn</strong> in the hot parsing path — <code>HttpRequestParser</code> (§10) already reads directly from the byte stream rather than, say, reading the entire request into one giant <code>String</code> and calling <code>.split(...)</code> on it repeatedly, which would allocate many short-lived array and string objects per request.</li>
+<li><strong>Reuse <code>HttpRequest</code>/response builder objects</strong> across keep-alive iterations on the same connection where safe, instead of constructing a fresh object graph per request — with care not to reintroduce the <code>ThreadLocal</code>-style stale-data bug from §25 by forgetting to reset every field.</li>
+</ul>
+<hr>
+<h2 id="63-optimization-caching-routes-and-reflection-metadata">63. Optimization — Caching Routes and Reflection Metadata</h2>
+<p>MiniSpring's own companion guide already identifies this exact optimization for the DI container (§80–§81 there: caching reflection metadata instead of re-walking annotations on every <code>getBean()</code> call). The same principle applies at this layer:</p>
+<ul>
+<li><code>MiniServletContainer.resolve(path)</code> (§45) does a linear scan with a <code>startsWith</code> check on every request — fine for a handful of servlets, but worth replacing with a <strong>trie or sorted-prefix structure</strong> once you have dozens of path patterns, so lookup is <code>O(log n)</code> or better instead of <code>O(n)</code>.</li>
+<li><code>MiniDispatcherServlet</code>'s <code>HandlerMapping.find(method, path)</code> (§50) is exactly the same shape of problem as MiniSpring's <code>HandlerMapping</code> (companion guide §27–§28) — cache the compiled path-pattern-to-regex conversion once at startup (already implicit in that guide's design) rather than re-deriving it per request.</li>
+<li>Constructor/field injection metadata (which fields are <code>@Autowired</code>, which constructor to call) is already resolved once per bean at <code>ApplicationContext</code> startup in MiniSpring (companion guide §24), not per request — this web server layer should hold itself to the same standard: anything derivable purely from a <code>Class</code> object belongs in a cache built once, not recomputed on the request path.</li>
+</ul>
+<hr>
+<h2 id="64-thread-pool-tuning-checklist">64. Thread Pool Tuning Checklist</h2>
+<p>A concrete checklist to work through before calling any thread-pool configuration "done," tying together §16–§21 and §39–§40:</p>
+<ol>
+<li>Classify the workload: CPU-bound, I/O-bound, or mixed (§18's core formula needs this answer first).</li>
+<li>Set <code>corePoolSize</code>/<code>maximumPoolSize</code> from that classification, then load-test and adjust — formulas are a starting point, not a guarantee.</li>
+<li>Bound the queue (§19) — an unbounded queue silently defeats <code>maximumPoolSize</code> and hides overload until an <code>OutOfMemoryError</code>.</li>
+<li>Pick a rejection policy deliberately (§19) — know what a client experiences when the server is saturated (a fast <code>503</code>? A <code>CallerRunsPolicy</code>-induced slowdown?).</li>
+<li>Set socket-level timeouts (§29) so a slow/idle/malicious client can't hold a thread hostage forever.</li>
+<li>Confirm every downstream resource pool (the JDBC pool, §33) is sized <em>with</em> the thread pool in mind — more request threads than your DB pool can serve just moves queueing from the thread pool to the database driver.</li>
+<li>Verify graceful shutdown (§21) actually drains in-flight work within your deployment platform's shutdown grace period (e.g. Kubernetes' <code>terminationGracePeriodSeconds</code>).</li>
+<li>If idle-connection count, not CPU, is the actual bottleneck, reconsider whether §36's reactor model or §39's virtual threads is a better fit than tuning a platform-thread pool further.</li>
+</ol>
+<hr>
+<h2 id="65-benchmarking-your-server">65. Benchmarking Your Server</h2>
+<p>Configuration changes are only meaningful if you can measure their effect. Two widely-used HTTP load generators work well against MiniTomcat:</p>
+<div class="code-wrap"><span class="code-lang">Bash</span><pre class="code-block"><code># wrk: high-throughput HTTP benchmarking tool
+wrk -t4 -c200 -d30s http://localhost:8080/users/42
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Bash</span><pre class="code-block"><code># ApacheBench: simpler, good for a quick sanity check
+ab -n 10000 -c 100 http://localhost:8080/users/42
+</code></pre></div>
+<p>What to read from the output, and what it tells you about the sections above:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>What it reveals</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Requests/sec (throughput)</td>
+<td>Whether the thread pool (§18) and downstream JDBC pool (§33) are sized adequately for the offered load.</td>
+</tr>
+<tr>
+<td>p50/p99/p999 latency</td>
+<td>Tail latency spikes often point to GC pauses (§62), queueing at a saturated thread pool (§17, §19), or idle-timeout misconfiguration (§29).</td>
+</tr>
+<tr>
+<td>Connection errors / resets</td>
+<td>Backlog exhaustion (§13) or a rejection policy (§19) kicking in — expected under deliberate overload testing, alarming otherwise.</td>
+</tr>
+<tr>
+<td>Behavior as concurrency (<code>-c</code>) scales past thread pool size</td>
+<td>This is where you directly observe the backpressure behavior chosen in §19 — watch latency climb smoothly (<code>CallerRunsPolicy</code>) vs errors appear abruptly (<code>AbortPolicy</code>).</td>
+</tr>
+</tbody>
+</table></div>
+<p>Always benchmark keep-alive (<code>wrk</code>'s default) and non-keep-alive (<code>-H "Connection: close"</code>) separately — they exercise completely different parts of this guide (§27–§29 vs a fresh accept+handshake per request) and can produce very different throughput numbers for the same server.</p>
+<hr>
+<h2 id="66-thread-safety-checklist-for-the-whole-stack">66. Thread Safety Checklist for the Whole Stack</h2>
+<p>Every shared, mutable piece of state introduced in this guide needs an explicit answer to "how is this safe under concurrent worker threads?" — walking through them:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Shared state</th>
+<th>Safety mechanism</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ServerThreadPool</code> (§16)</td>
+<td>The executor's internal queue and worker set</td>
+<td><code>ThreadPoolExecutor</code> is internally thread-safe — no extra locking needed by us.</td>
+</tr>
+<tr>
+<td><code>RequestContextHolder</code> (§24)</td>
+<td>The <code>ThreadLocal</code> map</td>
+<td>Safe by construction — each thread only ever sees its own entry.</td>
+</tr>
+<tr>
+<td><code>MiniConnectionPool</code> (§33)</td>
+<td>The <code>available</code> queue of connections</td>
+<td><code>ArrayBlockingQueue</code> is thread-safe; <code>Proxy</code>-wrapped <code>close()</code> always returns to the same safe queue.</td>
+</tr>
+<tr>
+<td><code>MiniServletContainer.pathToServlet</code> (§45)</td>
+<td>The route table</td>
+<td>Populated once at startup (§53) before <code>accept()</code> ever runs, then only <strong>read</strong> concurrently — no writes during traffic means no locking needed.</td>
+</tr>
+<tr>
+<td><code>MiniServletContext</code> attributes (§43)</td>
+<td><code>ConcurrentHashMap</code></td>
+<td>Explicitly chosen for safe concurrent <code>get</code>/<code>set</code> from any request thread.</td>
+</tr>
+<tr>
+<td>A <code>@Controller</code>/<code>@Service</code>/<code>@Repository</code> bean itself</td>
+<td>Any mutable instance field it declares</td>
+<td><strong>Not automatically safe</strong> — beans are singletons (MiniSpring companion guide §23) shared by every concurrent request; mutable instance state on a bean is a bug unless deliberately synchronized.</td>
+</tr>
+</tbody>
+</table></div>
+<p>That last row is the one developers most often get wrong when moving from a single-threaded toy server to a real concurrent one: a singleton <code>@Service</code> with a plain (non-thread-safe) instance field silently corrupts data under concurrent load, with no exception to warn you.</p>
+<hr>
+<h2 id="67-common-mistakes">67. Common Mistakes</h2>
+<ul>
+<li><strong>Mistake 1 — Unbounded thread creation.</strong> <code>new Thread(...)</code> per connection with no pool (§14) works in a demo and falls over under real concurrency (§15).</li>
+<li><strong>Mistake 2 — Unbounded queues.</strong> A <code>LinkedBlockingQueue</code> with no capacity behind a <code>ThreadPoolExecutor</code> defeats <code>maximumPoolSize</code> (§17) and turns overload into a slow-motion <code>OutOfMemoryError</code> instead of visible backpressure.</li>
+<li><strong>Mistake 3 — Forgetting <code>ThreadLocal.remove()</code>.</strong> The single most common source of cross-request data leakage and memory growth in a pooled-thread server (§25–§26).</li>
+<li><strong>Mistake 4 — No socket timeout.</strong> A client that opens a connection and sends nothing parks a worker thread forever (§29) — a trivial denial-of-service vector.</li>
+<li><strong>Mistake 5 — Mixing up the two connection pools.</strong> Sizing the JDBC pool (§33) without regard to the HTTP thread pool's <code>maximumPoolSize</code> (§18), or vice versa, just moves the bottleneck between them instead of removing it.</li>
+<li><strong>Mistake 6 — Blocking the reactor thread.</strong> In a <code>Selector</code>-based server (§36–§37), running a slow database call directly on the event-loop thread stalls <em>every</em> connection it manages, not just the current one.</li>
+<li><strong>Mistake 7 — Mutable state on a singleton bean.</strong> Treating a <code>@Service</code>/<code>@Controller</code> like a per-request object when it is actually shared by every concurrent request (§66).</li>
+<li><strong>Mistake 8 — Reading the body with a <code>BufferedReader</code>/<code>InputStreamReader</code> past the headers.</strong> Character-decoding buffering can silently consume raw bytes that belong to a binary or chunked body (§10).</li>
+<li><strong>Mistake 9 — No graceful shutdown.</strong> Killing the process with active requests in flight instead of the three-step drain in §21, causing client-visible errors during every deploy.</li>
+<li><strong>Mistake 10 — Assuming <code>synchronized</code> is free on virtual threads.</strong> A <code>synchronized</code> block that wraps blocking I/O can pin a virtual thread to its carrier on pre-JDK-24 runtimes, quietly reintroducing platform-thread-level contention (§40).</li>
+</ul>
+<hr>
+<h2 id="68-testing-strategy">68. Testing Strategy</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>What to test</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HttpRequestParser</code> (§10–§11)</td>
+<td>Well-formed requests, missing <code>Content-Length</code>, chunked bodies, malformed request lines, header edge cases (folded headers, duplicate headers)</td>
+<td>Pure unit tests — feed a hand-built <code>InputStream</code> (e.g. <code>ByteArrayInputStream</code>) of raw bytes, assert the parsed <code>HttpRequest</code>.</td>
+</tr>
+<tr>
+<td><code>ServerThreadPool</code> sizing/rejection (§16–§19)</td>
+<td>Behavior when the queue fills: does the configured <code>RejectedExecutionHandler</code> actually run?</td>
+<td>Unit test with a tiny pool (<code>core=1, max=1, queue=1</code>) and submit blocking tasks to force saturation deterministically.</td>
+</tr>
+<tr>
+<td><code>RequestContextHolder</code> (§24–§26)</td>
+<td>No leakage across two "requests" run sequentially on the same thread</td>
+<td>Unit test: set a context, clear it, assert <code>get()</code> throws <code>IllegalStateException</code> afterward.</td>
+</tr>
+<tr>
+<td><code>MiniConnectionPool</code> (§33)</td>
+<td>Borrowed connections are distinct; <code>close()</code> returns to the pool instead of really closing; pool blocks correctly when exhausted</td>
+<td>Unit test against an embedded/in-memory database (e.g. H2) so no real network dependency is needed.</td>
+</tr>
+<tr>
+<td>Keep-alive loop (§28–§29)</td>
+<td>Multiple requests over one socket; idle timeout actually fires and closes cleanly</td>
+<td>Integration test: open a raw <code>Socket</code> in the test, write two requests back-to-back, assert two responses come back over the same connection.</td>
+</tr>
+<tr>
+<td>End-to-end (§52)</td>
+<td>The full MiniTomcat + MiniSpring path for a real <code>@Controller</code></td>
+<td>Integration test: start <code>Application.main</code>-equivalent on a random port, hit it with a real HTTP client, assert the JSON body.</td>
+</tr>
+</tbody>
+</table></div>
+<p>The keep-alive and end-to-end tests are the ones most guides skip, and the ones most likely to catch the interaction bugs this guide is really about — a unit test on the parser in isolation cannot catch a <code>ThreadLocal</code> leaking across two requests sharing a pooled thread.</p>
+<hr>
+<h2 id="69-progressive-interview-question-set">69. Progressive Interview Question Set</h2>
+<p><strong>Level 1 — Sockets &amp; HTTP</strong>
+1. Walk through what happens, byte by byte, from <code>ServerSocket.accept()</code> returning to the first line of the HTTP request being available to your code.
+2. Why can't you safely use <code>BufferedReader.readLine()</code> for the entire request, headers and body included?</p>
+<p><strong>Level 2 — Concurrency</strong>
+3. What breaks first in a thread-per-connection server under heavy load — and at roughly what scale, on typical hardware?
+4. Trace exactly what <code>ThreadPoolExecutor.execute()</code> does when <code>corePoolSize</code> is full, the queue has room, and later, when the queue is <em>also</em> full.
+5. Why is an unbounded queue a footgun even though it looks like it "just works" under a load test that doesn't push it hard enough to notice?</p>
+<p><strong>Level 3 — ThreadLocal</strong>
+6. Why does <code>ThreadLocal</code> become dangerous specifically once a thread <em>pool</em> is introduced, when it was harmless in the pure thread-per-connection model?
+7. What's the difference between <code>threadLocal.set(null)</code> and <code>threadLocal.remove()</code>, and why does it matter at scale?</p>
+<p><strong>Level 4 — Pooling</strong>
+8. Explain the difference between the server's HTTP keep-alive "connection pool" and a JDBC connection pool — what is each one saving you, mechanically?
+9. Why does a JDBC connection pool's <code>close()</code> method not actually close the underlying socket?</p>
+<p><strong>Level 5 — I/O models</strong>
+10. Why does NIO's <code>Selector</code> let one thread handle thousands of idle connections where a thread-per-connection model can't?
+11. If virtual threads solve the same scaling problem as NIO without a state-machine rewrite, why would you ever still choose a <code>Selector</code>-based reactor?</p>
+<p><strong>Level 6 — Servlet API &amp; Integration</strong>
+12. What, precisely, is the contract between Tomcat and a <code>Servlet</code>? Where does that contract end and framework-specific behavior (like Spring MVC's <code>@Controller</code> routing) begin?
+13. What would you have to implement to make Spring Boot start your own server instead of embedded Tomcat, and why is that a nontrivial amount of work even though the <em>idea</em> is simple?</p>
+<p><strong>Final challenge:</strong> Design a rate limiter that sits in front of <code>MiniServletContainer.dispatch()</code> (§45) as a <code>MiniFilter</code> (§46), bounded by both requests-per-second <em>and</em> total in-flight requests, that must not itself become a source of <code>ThreadLocal</code> leaks or thread-pool starvation. Explain your data structure choice and where each lock (if any) lives.</p>
+<hr>
+<h2 id="70-final-architecture">70. Final Architecture</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                              +----------------------------+
+                              |         Application         |
+                              |  .main() / Application.run  |
+                              +---------------+--------------+
+                                              |
+                    starts                    | registers
+        +--------------------------+          v
+        |  MiniSpringContextListener|  +----------------------------+
+        |  builds ApplicationContext|-&gt;|     MiniServletContext      |
+        +--------------------------+  |  (shared attributes, §43)   |
+                                       +---------------+--------------+
+                                                       |
+                                                       v
+                                       +----------------------------+
+                                       |    MiniServletContainer     |
+                                       |  path -&gt; Servlet routing    |
+                                       |  filter chain (§46)         |
+                                       +---------------+--------------+
+                                                       |  &quot;/&quot;
+                                                       v
+                                       +----------------------------+
+                                       |    MiniDispatcherServlet    |
+                                       |  bridges to HandlerMapping  |
+                                       +---------------+--------------+
+                                                       |
+                                                       v
+                                       +----------------------------+
+                                       | MiniSpring HandlerMapping   |
+                                       | -&gt; @Controller method       |
+                                       +---------------+--------------+
+                                                       |
+                             +-------------------------+-------------------------+
+                             |                                                   |
+                     @Service / business logic                        @Repository -&gt; MiniConnectionPool (§33)
+                                                                                   -&gt; Database
+
+              Underneath all of the above, for every request:
+    ServerSocket.accept() -&gt; ServerThreadPool (§16) -&gt; ConnectionWorker (§20)
+        -&gt; RequestContextHolder.set/clear (§24, §26) wraps the entire dispatch
+        -&gt; HttpRequestParser (§10) / HttpResponse.toBytes() (§61) at the wire boundary
+</code></pre></div>
+<hr>
+<h2 id="71-suggested-v2-enhancements">71. Suggested V2 Enhancements</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Enhancement</th>
+<th>What it adds</th>
+<th>Where it plugs in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TLS/HTTPS</td>
+<td>Wrap the accepted <code>Socket</code> in an <code>SSLSocket</code> (<code>SSLServerSocketFactory</code>), negotiate the handshake before handing off to <code>HttpRequestParser</code></td>
+<td><code>MiniTomcat</code>'s accept loop, §20</td>
+</tr>
+<tr>
+<td>HTTP/2</td>
+<td>Binary framing, multiplexed streams over one connection, HPACK header compression</td>
+<td>Would replace §8–§11's text-based parser entirely for <code>h2</code> connections</td>
+</tr>
+<tr>
+<td>WebSockets</td>
+<td>An <code>Upgrade: websocket</code> handshake detected in <code>HttpRequestParser</code>, then handing the raw socket off to a persistent, bidirectional frame reader/writer instead of the request/response loop</td>
+<td>A new servlet type alongside <code>MiniServlet</code> (§43), registered like any other path</td>
+</tr>
+<tr>
+<td>Response compression</td>
+<td>Detect <code>Accept-Encoding: gzip</code>, wrap the outgoing body in a <code>GZIPOutputStream</code> above a size threshold</td>
+<td><code>MiniHttpServletResponse.toWireResponse()</code>, §44</td>
+</tr>
+<tr>
+<td>Real Servlet spec coverage</td>
+<td><code>HttpSession</code>, multipart uploads, async <code>startAsync()</code></td>
+<td>Needed for the Spring Boot integration path in §56 to be genuinely complete</td>
+</tr>
+<tr>
+<td>Metrics/observability</td>
+<td>Request counters, latency histograms, thread-pool queue depth exposed via JMX or a <code>/metrics</code> endpoint</td>
+<td>A <code>MiniFilter</code> (§46) plus periodic polling of <code>ThreadPoolExecutor.getActiveCount()</code>/<code>getQueue().size()</code></td>
+</tr>
+<tr>
+<td>Access logging</td>
+<td>Structured request logs (method, path, status, latency, remote address)</td>
+<td>Extend <code>LoggingFilter</code> (§46)</td>
+</tr>
+<tr>
+<td>Config externalization</td>
+<td>Port, pool sizes, timeouts read from a properties file instead of hardcoded constructor arguments</td>
+<td>Mirrors MiniSpring companion guide §44's <code>@ConfigurationProperties</code></td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="72-final-takeaway">72. Final Takeaway</h2>
+<p>A production container like Tomcat is not one clever trick — it is the disciplined layering of a handful of ideas this guide built one at a time: <strong>bound every resource</strong> (threads in §16–§19, connections in §29 and §33, queues in §19), <strong>isolate per-request state correctly</strong> (<code>ThreadLocal</code>, §22–§26), <strong>separate the transport from the framework</strong> with a narrow contract (the Servlet API, §41–§47), and <strong>fail predictably</strong> under overload rather than silently (backpressure and rejection policies, §19; timeouts, §29; graceful shutdown, §21).</p>
+<p>Once you've built MiniTomcat and wired MiniSpring on top of it (§48–§53), you have, in miniature, the exact same three-layer stack every real Spring Boot application runs on: <strong>container → Servlet API → framework</strong>. Understanding <em>why</em> each boundary is drawn where it is — not just that <code>@GetMapping</code> works — is the actual interview signal this whole exercise is built to produce.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Build Your Own Web Server From Scratch &mdash; MiniTomcat Step-by-Step Guide.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

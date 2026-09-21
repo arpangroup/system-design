@@ -1,0 +1,1185 @@
+<meta charset="utf-8">
+<title>Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; concurrency internals guide</div>
+      <h1>Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide</h1>
+      <p class="dek">A step-by-step guide to building a thread-safe hash map from scratch in plain Java — from a single-threaded baseline, through Hashtable-style full locking and Java 7's segment-based lock striping, to Java 8's per-bucket locking with CAS, covering the Java Memory Model, volatile, CAS, treeification, concurrent resizing, and striped size counters.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-build-this-interview-motivation">Why Build This? (Interview Motivation)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-phase-1-the-bucket-array-and-the-node">Phase 1 — The Bucket Array and the Node</a></li><li class="toc-lvl-2"><a href="#7-hashing-from-hashcode-to-a-bucket-index">Hashing: From hashCode() to a Bucket Index</a></li><li class="toc-lvl-2"><a href="#8-why-we-spread-re-hash-the-hash-code">Why We Spread (Re-Hash) the Hash Code</a></li><li class="toc-lvl-2"><a href="#9-phase-2-get-put-and-remove-on-a-single-threaded-map">Phase 2 — get(), put(), and remove() on a Single-Threaded Map</a></li><li class="toc-lvl-2"><a href="#10-collision-resolution-separate-chaining">Collision Resolution: Separate Chaining</a></li><li class="toc-lvl-2"><a href="#11-load-factor-and-resizing-when-and-why">Load Factor and Resizing: When and Why</a></li><li class="toc-lvl-2"><a href="#12-phase-3-implementing-resize">Phase 3 — Implementing resize()</a></li><li class="toc-lvl-2"><a href="#13-race-conditions-on-a-shared-bucket-array">Race Conditions on a Shared Bucket Array</a></li><li class="toc-lvl-2"><a href="#14-the-classic-java-7-hashmap-resize-infinite-loop-bug">The Classic Java 7 HashMap Resize Infinite-Loop Bug</a></li><li class="toc-lvl-2"><a href="#15-lost-updates-two-threads-one-put-one-missing-entry">Lost Updates: Two Threads, One put(), One Missing Entry</a></li><li class="toc-lvl-2"><a href="#16-why-just-add-synchronized-to-everything-is-correct-but-slow-hashtables-approach">Why "Just Add synchronized to Everything" Is Correct But Slow (Hashtable's Approach)</a></li><li class="toc-lvl-2"><a href="#17-coarse-grained-locking-and-the-throughput-ceiling">Coarse-Grained Locking and the Throughput Ceiling</a></li><li class="toc-lvl-2"><a href="#18-the-java-memory-model-in-three-rules">The Java Memory Model in Three Rules</a></li><li class="toc-lvl-2"><a href="#19-the-volatile-keyword-visibility-without-atomicity">The volatile Keyword: Visibility Without Atomicity</a></li><li class="toc-lvl-2"><a href="#20-why-a-bucket-array-reference-must-be-volatile">Why a Bucket Array Reference Must Be volatile</a></li><li class="toc-lvl-2"><a href="#21-compare-and-swap-cas-the-hardware-primitive">Compare-And-Swap (CAS): The Hardware Primitive</a></li><li class="toc-lvl-2"><a href="#22-using-cas-instead-of-a-lock-for-the-uncontended-case">Using CAS Instead of a Lock for the Uncontended Case</a></li><li class="toc-lvl-2"><a href="#23-synchronized-blocks-what-they-actually-guarantee">synchronized Blocks: What They Actually Guarantee</a></li><li class="toc-lvl-2"><a href="#24-deadlock-livelock-and-lock-ordering">Deadlock, Livelock, and Lock Ordering</a></li><li class="toc-lvl-2"><a href="#25-the-segment-a-mini-hash-table-with-its-own-lock">The Segment: A Mini Hash Table With Its Own Lock</a></li><li class="toc-lvl-2"><a href="#26-phase-4-implementing-a-segment">Phase 4 — Implementing a Segment</a></li><li class="toc-lvl-2"><a href="#27-routing-a-key-to-its-segment">Routing a Key to Its Segment</a></li><li class="toc-lvl-2"><a href="#28-why-splitting-into-n-segments-gives-up-to-n-way-write-concurrency">Why Splitting Into N Segments Gives (Up To) N-Way Write Concurrency</a></li><li class="toc-lvl-2"><a href="#29-phase-5-assembling-segments-into-a-concurrenthashmap">Phase 5 — Assembling Segments Into a ConcurrentHashMap</a></li><li class="toc-lvl-2"><a href="#30-the-cost-of-lock-striping-fixed-concurrency-level-per-segment-resize">The Cost of Lock Striping: Fixed Concurrency Level, Per-Segment Resize</a></li><li class="toc-lvl-2"><a href="#31-why-java-8-abandoned-segments-for-per-bin-locking">Why Java 8 Abandoned Segments for Per-Bin Locking</a></li><li class="toc-lvl-2"><a href="#32-phase-6-the-node-and-the-volatile-fields-that-make-it-safe">Phase 6 — The Node and the volatile Fields That Make It Safe</a></li><li class="toc-lvl-2"><a href="#33-phase-7-a-cas-based-insert-into-an-empty-bucket">Phase 7 — A CAS-Based Insert Into an Empty Bucket</a></li><li class="toc-lvl-2"><a href="#34-phase-8-synchronized-on-the-buckets-first-node-for-a-non-empty-bucket">Phase 8 — synchronized on the Bucket's First Node for a Non-Empty Bucket</a></li><li class="toc-lvl-2"><a href="#35-why-locking-the-first-node-is-enough-to-protect-the-whole-bucket">Why Locking the First Node Is Enough to Protect the Whole Bucket</a></li><li class="toc-lvl-2"><a href="#36-phase-9-get-without-any-locking-at-all">Phase 9 — get() Without Any Locking At All</a></li><li class="toc-lvl-2"><a href="#37-why-get-can-be-lock-free-reasoning-about-visibility">Why get() Can Be Lock-Free: Reasoning About Visibility</a></li><li class="toc-lvl-2"><a href="#38-why-a-long-linked-chain-bucket-is-a-denial-of-service-risk">Why a Long Linked-Chain Bucket Is a Denial-of-Service Risk</a></li><li class="toc-lvl-2"><a href="#39-treeification-threshold-and-untreeification-threshold">Treeification Threshold and Untreeification Threshold</a></li><li class="toc-lvl-2"><a href="#40-phase-10-converting-a-bin-to-a-red-black-tree">Phase 10 — Converting a Bin to a Red-Black Tree</a></li><li class="toc-lvl-2"><a href="#41-treenode-locking-a-reader-writer-lock-per-tree-bin">TreeNode Locking: A Reader-Writer Lock Per Tree Bin</a></li><li class="toc-lvl-2"><a href="#42-why-resizing-is-the-hardest-part-of-a-concurrent-hash-map">Why Resizing Is the Hardest Part of a Concurrent Hash Map</a></li><li class="toc-lvl-2"><a href="#43-the-forwardingnode-a-marker-for-this-bucket-has-moved">The ForwardingNode: A Marker for "This Bucket Has Moved"</a></li><li class="toc-lvl-2"><a href="#44-phase-11-splitting-a-bucket-during-resize">Phase 11 — Splitting a Bucket During Resize</a></li><li class="toc-lvl-2"><a href="#45-cooperative-resizing-helping-threads-assist-the-transfer">Cooperative Resizing: Helping Threads Assist the Transfer</a></li><li class="toc-lvl-2"><a href="#46-phase-12-implementing-transfer">Phase 12 — Implementing transfer()</a></li><li class="toc-lvl-2"><a href="#47-what-happens-to-a-getput-that-arrives-mid-resize">What Happens to a get()/put() That Arrives Mid-Resize</a></li><li class="toc-lvl-2"><a href="#48-why-a-single-volatile-counter-doesnt-scale">Why a Single volatile Counter Doesn't Scale</a></li><li class="toc-lvl-2"><a href="#49-striped-counters-the-countercell-technique-longadders-idea">Striped Counters: The CounterCell Technique (LongAdder's Idea)</a></li><li class="toc-lvl-2"><a href="#50-phase-13-implementing-size-via-striped-counters">Phase 13 — Implementing size() via Striped Counters</a></li><li class="toc-lvl-2"><a href="#51-compute-computeifabsent-merge-atomicity-without-a-global-lock">compute(), computeIfAbsent(), merge(): Atomicity Without a Global Lock</a></li><li class="toc-lvl-2"><a href="#52-phase-14-implementing-computeifabsent-correctly">Phase 14 — Implementing computeIfAbsent() Correctly</a></li><li class="toc-lvl-2"><a href="#53-weakly-consistent-iterators-what-guarantee-you-actually-get">Weakly Consistent Iterators: What Guarantee You Actually Get</a></li><li class="toc-lvl-2"><a href="#54-why-concurrenthashmap-never-throws-concurrentmodificationexception">Why ConcurrentHashMap Never Throws ConcurrentModificationException</a></li><li class="toc-lvl-2"><a href="#55-phase-15-implementing-a-weakly-consistent-iterator">Phase 15 — Implementing a Weakly Consistent Iterator</a></li><li class="toc-lvl-2"><a href="#56-full-worked-example-concurrent-putgetresize-traced-step-by-step">Full Worked Example: Concurrent Put/Get/Resize Traced Step by Step</a></li><li class="toc-lvl-2"><a href="#57-final-architecture">Final Architecture</a></li><li class="toc-lvl-2"><a href="#58-common-mistakes">Common Mistakes</a></li><li class="toc-lvl-2"><a href="#59-testing-strategy-for-concurrent-code">Testing Strategy for Concurrent Code</a></li><li class="toc-lvl-2"><a href="#60-benchmarking-throughput-under-contention">Benchmarking: Throughput Under Contention</a></li><li class="toc-lvl-2"><a href="#61-design-patterns-used">Design Patterns Used</a></li><li class="toc-lvl-2"><a href="#62-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#63-suggested-v2-enhancements">Suggested V2 Enhancements</a></li><li class="toc-lvl-2"><a href="#64-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>Goal:</strong> Build a thread-safe hash map from scratch, in plain Java, that ends up architecturally close to the real <code>java.util.concurrent.ConcurrentHashMap</code> — starting from a single-threaded <code>HashMap</code>, through the <em>wrong but instructive</em> full-lock approach (<code>Hashtable</code>'s design), through <strong>lock striping</strong> (Java 7's <code>Segment</code>-based <code>ConcurrentHashMap</code>), and finally to <strong>per-bucket locking with CAS for the uncontended path</strong> (the real Java 8+ redesign) — deriving <em>why</em> each step exists from a concrete concurrency bug the previous step has.</p>
+<p>This guide assumes working knowledge of Java generics and basic multithreading (<code>Thread</code>, <code>synchronized</code>) but explains every concurrency primitive (CAS, <code>volatile</code>, the Java Memory Model) from first principles — you should not need outside references to follow the derivations.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<p>We are building <strong>MiniConcurrentMap</strong> — a hash map that is safe to read and write from many threads at once, without serializing every operation behind one global lock. By the end of this guide you will have:</p>
+<ul>
+<li>A correct <strong>single-threaded</strong> hash map (bucket array, separate chaining, resize) — the baseline everything else modifies.</li>
+<li>A working demonstration of <strong>exactly how</strong> a plain <code>HashMap</code> breaks under concurrent access, including the infamous Java 7 resize infinite-loop bug.</li>
+<li>A <strong>lock-striped</strong> map (Java 7 <code>ConcurrentHashMap</code>'s <code>Segment</code> design) — one lock per <em>segment</em> of the table, giving genuine concurrent writes.</li>
+<li>A <strong>per-bucket-locked, CAS-accelerated</strong> map (the real Java 8+ redesign) — no lock at all for the common case (inserting into an empty bucket), a <code>synchronized</code> block scoped to a <em>single bucket</em> otherwise.</li>
+<li><strong>Treeification</strong> — converting a badly-collided bucket's linked list into a red-black tree, exactly as real <code>ConcurrentHashMap</code> does, to bound worst-case lookup time.</li>
+<li><strong>Concurrent, cooperative resizing</strong> — multiple threads splitting the table together, safely, without a stop-the-world pause.</li>
+<li>Correct <strong>size counting</strong> under contention (why a single shared counter doesn't scale, and the striped-counter fix), and correct <strong>atomic compound operations</strong> (<code>computeIfAbsent</code>, <code>merge</code>) that a naive "get then put" implementation gets wrong.</li>
+</ul>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Single-threaded HashMap (§6-§12)
+        |
+        v
+&quot;Just synchronize everything&quot; — Hashtable-style (§16-§17)  &lt;- correct, but serializes ALL access
+        |
+        v
+Lock striping — Segment[] , one lock per segment (§25-§30)  &lt;- N-way concurrency, N fixed at construction
+        |
+        v
+Per-bucket locking + CAS — Java 8+ design (§31-§47)  &lt;- concurrency scales with TABLE SIZE, not a fixed N
+        |
+        v
++ Treeification (§38-§41) + Striped counters (§48-§50) + Weakly consistent iteration (§53-§55)
+</code></pre></div>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to answer, from first principles:</p>
+<ul>
+<li>Exactly what goes wrong, mechanically, when two threads call <code>put()</code> on a plain <code>HashMap</code> at the same time — not just "it's not thread-safe," but the actual corrupted state that results.</li>
+<li>Why <code>Hashtable</code>'s "synchronize every method" approach is <em>correct</em> but throughput-limited, and what specifically it serializes that doesn't need to be.</li>
+<li>What "lock striping" means, why it bounds concurrency at a fixed number of segments, and why Java 8 replaced it.</li>
+<li>What a CAS (compare-and-swap) instruction actually does at the hardware level, and why it lets <code>ConcurrentHashMap</code> insert into an empty bucket with no lock at all.</li>
+<li>Why <code>volatile</code> is necessary but not sufficient for the table array and node fields, and what specific bug appears if you leave it out.</li>
+<li>How resizing can happen <em>while other threads are reading and writing the map</em>, without either corrupting data or blocking every other thread.</li>
+<li>Why <code>ConcurrentHashMap</code>'s iterators never throw <code>ConcurrentModificationException</code>, and what "weakly consistent" actually promises (and doesn't promise) as a result.</li>
+</ul>
+<hr>
+<h2 id="3-why-build-this-interview-motivation">3. Why Build This? (Interview Motivation)</h2>
+<blockquote>
+<p><strong>"Implement a thread-safe hash map. Explain the tradeoffs between locking the entire map, locking segments of it, and locking individual buckets. Then explain how you would resize the table without blocking every other thread, and how <code>size()</code> can be computed correctly and efficiently under concurrent modification."</strong></p>
+</blockquote>
+<p>This is a <strong>staple senior/staff Java interview question</strong> because it forces you to reason about several distinct concurrency ideas at once, each individually common in interviews but rarely combined:</p>
+<ul>
+<li><strong>Lock granularity</strong> — the direct tradeoff between "easy to prove correct" (one big lock) and "scales with contention" (many small locks), made concrete rather than abstract.</li>
+<li><strong>Lock-free programming</strong> — CAS as an alternative to locking for the specific case where it's sufficient (an empty slot), and knowing precisely which case that is.</li>
+<li><strong>The Java Memory Model</strong> — why <code>volatile</code> exists, what "happens-before" means, and why getting this wrong produces bugs that only appear under real concurrent load, never in a single-threaded test.</li>
+<li><strong>Amortized/cooperative algorithms</strong> — resizing an enormous table without a stop-the-world pause is the same shape of problem as concurrent garbage collection or online index rebuilding.</li>
+<li><strong>Correct concurrent counting</strong> — why <code>size()</code> on a highly concurrent structure is a genuinely hard problem, not a one-line <code>AtomicInteger</code> fix.</li>
+</ul>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language / JDK</td>
+<td>Java 21</td>
+<td><code>VarHandle</code> gives modern, explicit access to volatile reads/CAS (§21); <code>synchronized</code>/<code>Thread</code> cover everything else.</td>
+</tr>
+<tr>
+<td>Concurrency primitives</td>
+<td><code>java.lang.invoke.VarHandle</code> (CAS, volatile get/set), <code>synchronized</code></td>
+<td>The same primitives (in spirit — real <code>ConcurrentHashMap</code> predates <code>VarHandle</code> and uses <code>sun.misc.Unsafe</code>) that back the real implementation.</td>
+</tr>
+<tr>
+<td>No external concurrency libraries</td>
+<td>—</td>
+<td>The entire point is to build the primitives real <code>java.util.concurrent</code> classes are built from, not to call them.</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>JUnit 5 + a hand-rolled multi-threaded stress harness</td>
+<td>Concurrency bugs are probabilistic — a single-threaded unit test cannot catch a race condition; §59 builds a harness that actually can, most of the time.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>miniconcurrentmap/
+├── src/main/java/com/example/miniconcurrentmap/
+│   ├── singlethreaded/
+│   │   ├── Node.java
+│   │   └── SimpleHashMap.java
+│   ├── segmented/
+│   │   ├── Segment.java
+│   │   └── SegmentedConcurrentMap.java
+│   ├── bucketlocked/
+│   │   ├── Node.java                  // volatile val/next, hash field
+│   │   ├── TreeNode.java              // red-black tree node, §40
+│   │   ├── TreeBin.java               // reader-writer lock wrapper around a tree, §41
+│   │   ├── ForwardingNode.java        // resize marker, §43
+│   │   ├── CounterCell.java           // striped counter, §49
+│   │   └── MiniConcurrentMap.java     // the main class
+│   └── bench/
+│       └── ThroughputBenchmark.java
+└── src/test/java/com/example/miniconcurrentmap/
+    ├── SimpleHashMapTest.java
+    ├── ConcurrentStressTest.java
+    ├── ResizeUnderLoadTest.java
+    └── WeaklyConsistentIteratorTest.java
+</code></pre></div>
+<hr>
+<h2 id="6-phase-1-the-bucket-array-and-the-node">6. Phase 1 — The Bucket Array and the Node</h2>
+<p>Every hash map, concurrent or not, starts from the same idea: an array of <strong>buckets</strong>, where a key's hash code decides which bucket it lives in, and each bucket holds a small collection (here, a linked list) of the entries that landed there.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// singlethreaded/Node.java
+public class Node&lt;K, V&gt; {
+    final int hash;
+    final K key;
+    V val;
+    Node&lt;K, V&gt; next; // separate chaining — colliding keys form a linked list within one bucket
+
+    Node(int hash, K key, V val, Node&lt;K, V&gt; next) {
+        this.hash = hash; this.key = key; this.val = val; this.next = next;
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// singlethreaded/SimpleHashMap.java
+public class SimpleHashMap&lt;K, V&gt; {
+    private Node&lt;K, V&gt;[] table;
+    private int size;
+    private static final int DEFAULT_CAPACITY = 16;
+    private static final float LOAD_FACTOR = 0.75f;
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public SimpleHashMap() {
+        table = (Node&lt;K, V&gt;[]) new Node[DEFAULT_CAPACITY];
+    }
+}
+</code></pre></div>
+<hr>
+<h2 id="7-hashing-from-hashcode-to-a-bucket-index">7. Hashing: From hashCode() to a Bucket Index</h2>
+<p>A key's <code>hashCode()</code> is an arbitrary 32-bit integer — it can be negative, and its range has no relationship to the table's current size. Turning it into a valid array index needs two steps: make it non-negative, then fold it into range.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private int bucketIndex(int hash, int tableLength) {
+    return (hash &amp; (tableLength - 1)); // tableLength is ALWAYS a power of two — see why below
+}
+</code></pre></div>
+<p><code>hash &amp; (tableLength - 1)</code> is a bitwise trick that's exactly equivalent to <code>hash % tableLength</code>, but only when <code>tableLength</code> is a power of two — because a power of two's binary representation is a single <code>1</code> bit followed by zeros, so <code>tableLength - 1</code> is a solid run of <code>1</code> bits (a "mask") that keeps exactly the low bits of <code>hash</code> and zeroes the rest, which is precisely what modulo-by-a-power-of-two does. A bitwise AND is markedly cheaper than a modulo (<code>%</code>) operation, which is why every real hash map implementation — this one included — constrains its table size to powers of two specifically to unlock this optimization.</p>
+<hr>
+<h2 id="8-why-we-spread-re-hash-the-hash-code">8. Why We Spread (Re-Hash) the Hash Code</h2>
+<p>Using <code>key.hashCode()</code> directly has a subtle problem: <code>bucketIndex</code> only looks at the <strong>low bits</strong> of the hash (per §7's masking trick) — if many keys' hash codes differ only in their <em>high</em> bits (a realistic scenario for some hash function implementations, notably <code>Integer.hashCode()</code> for values that are multiples of the table size), they'd all collide into the same bucket despite having "different" hash codes overall.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private int spread(int hashCode) {
+    return hashCode ^ (hashCode &gt;&gt;&gt; 16); // mix the high 16 bits into the low 16 bits via XOR
+}
+</code></pre></div>
+<p>XOR-ing the hash code with its own upper half folds high-bit entropy down into the low bits <code>bucketIndex</code> actually consults — a cheap way to substantially reduce collisions caused by poor-quality or adversarially-crafted hash codes, and exactly the technique real <code>HashMap</code>/<code>ConcurrentHashMap</code> use (their actual <code>spread()</code> method is this exact line).</p>
+<hr>
+<h2 id="9-phase-2-get-put-and-remove-on-a-single-threaded-map">9. Phase 2 — get(), put(), and remove() on a Single-Threaded Map</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public V get(K key) {
+    int idx = bucketIndex(spread(key.hashCode()), table.length);
+    for (Node&lt;K, V&gt; node = table[idx]; node != null; node = node.next) {
+        if (node.key.equals(key)) return node.val;
+    }
+    return null;
+}
+
+public V put(K key, V value) {
+    int hash = spread(key.hashCode());
+    int idx = bucketIndex(hash, table.length);
+    for (Node&lt;K, V&gt; node = table[idx]; node != null; node = node.next) {
+        if (node.key.equals(key)) {
+            V old = node.val;
+            node.val = value;
+            return old;
+        }
+    }
+    table[idx] = new Node&lt;&gt;(hash, key, value, table[idx]); // prepend — O(1), no need to walk to the tail
+    size++;
+    if (size &gt; table.length * LOAD_FACTOR) resize(); // §11-§12
+    return null;
+}
+
+public V remove(K key) {
+    int idx = bucketIndex(spread(key.hashCode()), table.length);
+    Node&lt;K, V&gt; prev = null;
+    for (Node&lt;K, V&gt; node = table[idx]; node != null; prev = node, node = node.next) {
+        if (node.key.equals(key)) {
+            if (prev == null) table[idx] = node.next; else prev.next = node.next;
+            size--;
+            return node.val;
+        }
+    }
+    return null;
+}
+</code></pre></div>
+<p>Every one of these methods reads and mutates shared state (<code>table</code>, a bucket's linked list, <code>size</code>) with <strong>zero synchronization</strong> — completely correct for one thread, and, as §13 makes concrete, actively dangerous the moment a second thread calls any of these concurrently.</p>
+<hr>
+<h2 id="10-collision-resolution-separate-chaining">10. Collision Resolution: Separate Chaining</h2>
+<p>The linked list at each bucket (§6's <code>Node.next</code>) is called <strong>separate chaining</strong> — as opposed to <em>open addressing</em> (probing for a different empty slot in the array itself when a collision occurs). Chaining is what real <code>HashMap</code>/<code>ConcurrentHashMap</code> use, for a reason that becomes directly relevant to concurrency: a chain is a small, <strong>independent</strong> data structure per bucket, which is exactly the unit of granularity §34's bucket-level locking will lock — open addressing, where one key's probe sequence can wander through many other keys' "home" slots, has no such clean per-bucket boundary to lock.</p>
+<hr>
+<h2 id="11-load-factor-and-resizing-when-and-why">11. Load Factor and Resizing: When and Why</h2>
+<p>As more entries are added to a fixed-size table, chains get longer, and <code>get</code>/<code>put</code>'s "walk the chain" cost degrades from O(1) toward O(n). The <strong>load factor</strong> (default <code>0.75</code>) is the threshold — <code>size / capacity</code> — past which the table doubles in size and every existing entry is redistributed into the new, larger table, shortening chains back down.</p>
+<hr>
+<h2 id="12-phase-3-implementing-resize">12. Phase 3 — Implementing resize()</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@SuppressWarnings(&quot;unchecked&quot;)
+private void resize() {
+    Node&lt;K, V&gt;[] oldTable = table;
+    Node&lt;K, V&gt;[] newTable = (Node&lt;K, V&gt;[]) new Node[oldTable.length * 2];
+    for (Node&lt;K, V&gt; head : oldTable) {
+        Node&lt;K, V&gt; node = head;
+        while (node != null) {
+            Node&lt;K, V&gt; next = node.next;                                  // save BEFORE we mutate node.next below
+            int newIdx = bucketIndex(node.hash, newTable.length);
+            node.next = newTable[newIdx];                                  // re-link into the new table's bucket
+            newTable[newIdx] = node;
+            node = next;
+        }
+    }
+    table = newTable;
+}
+</code></pre></div>
+<p>Saving <code>next</code> <strong>before</strong> overwriting <code>node.next</code> is not optional — reusing the existing <code>Node</code> objects (rather than allocating fresh copies) is a nice efficiency win, but it means the very field you're about to overwrite is also the field you need to know where to walk next. §14 shows exactly what happens when two threads run a version of this loop concurrently without protection.</p>
+<hr>
+<h2 id="13-race-conditions-on-a-shared-bucket-array">13. Race Conditions on a Shared Bucket Array</h2>
+<p>Two threads calling <code>put()</code> on the <em>same bucket</em> at the <em>same time</em> (§9) can both read <code>table[idx]</code> before either writes back their new node — both then compute <code>new Node&lt;&gt;(hash, key, value, table[idx])</code> from the <em>same</em> stale head, and both write <code>table[idx] = ...</code>. Whichever write happens last <strong>wins</strong>, silently discarding the other thread's insert — a <strong>lost update</strong>, with no exception, no warning, and no way to detect after the fact that it happened. This is the single most common concrete failure mode of using a plain <code>HashMap</code> from multiple threads, and it can go unnoticed for a long time precisely because it requires an unlucky interleaving to manifest.</p>
+<hr>
+<h2 id="14-the-classic-java-7-hashmap-resize-infinite-loop-bug">14. The Classic Java 7 HashMap Resize Infinite-Loop Bug</h2>
+<p>A more dramatic failure, famous enough to be a standing interview question on its own: Java 7's <code>HashMap.resize()</code> rebuilt each bucket's chain by <strong>prepending</strong> nodes to the new bucket in the <em>same order</em> it walked the old one — which, done carelessly, <strong>reverses</strong> the chain's order on every resize. If two threads both call <code>resize()</code> concurrently on the same map, one thread's half-completed pointer rewiring can be interleaved with the other's, producing a <strong>circular linked list</strong> — <code>A.next = B</code> and <code>B.next = A</code>, with no <code>null</code> terminator at all. A subsequent <code>get()</code> call that walks into that cycle <strong>loops forever</strong>, pegging a CPU core at 100% with no exception and no crash — often the very first symptom that alerts a team to the bug, in production, under load. Java 8 changed the resize algorithm's node-splitting order specifically to no longer reverse chains (a partial mitigation), but the deeper lesson stands: <strong>no version of unsynchronized resize is safe under concurrent modification</strong> — the fix is never a cleverer single-threaded algorithm, it's genuine concurrency control, which is what §25 onward builds.</p>
+<hr>
+<h2 id="15-lost-updates-two-threads-one-put-one-missing-entry">15. Lost Updates: Two Threads, One put(), One Missing Entry</h2>
+<p>A minimal reproduction of §13's lost-update bug, useful as a first stress test once §25's <code>SegmentedConcurrentMap</code> exists to compare against:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>SimpleHashMap&lt;Integer, Integer&gt; map = new SimpleHashMap&lt;&gt;();
+int threadCount = 8, insertsPerThread = 10_000;
+ExecutorService pool = Executors.newFixedThreadPool(threadCount);
+CountDownLatch done = new CountDownLatch(threadCount);
+for (int t = 0; t &lt; threadCount; t++) {
+    final int base = t * insertsPerThread;
+    pool.submit(() -&gt; {
+        for (int i = 0; i &lt; insertsPerThread; i++) map.put(base + i, base + i);
+        done.countDown();
+    });
+}
+done.await();
+// Expected: map.size() == threadCount * insertsPerThread
+// Actual, run repeatedly: a smaller number, different each run — lost updates, and/or a hung thread from §14's cycle
+</code></pre></div>
+<p>Every key in this test is <strong>unique</strong> across threads — there's no logical reason for any insert to be lost. The failures that appear anyway are the concurrency bugs in §13–§14 made visible, not a flaw in the test.</p>
+<hr>
+<h2 id="16-why-just-add-synchronized-to-everything-is-correct-but-slow-hashtables-approach">16. Why "Just Add synchronized to Everything" Is Correct But Slow (Hashtable's Approach)</h2>
+<p>The simplest fix: wrap every public method's body in <code>synchronized</code>, exactly as <code>java.util.Hashtable</code> (predating <code>ConcurrentHashMap</code> by years) does:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public synchronized V get(K key) { /* same body as §9 */ }
+public synchronized V put(K key, V value) { /* same body as §9 */ }
+public synchronized V remove(K key) { /* same body as §9 */ }
+</code></pre></div>
+<p>This is <strong>genuinely correct</strong> — a <code>synchronized</code> method acquires the map's intrinsic lock for its entire duration, so no two threads can ever be inside <code>get</code>/<code>put</code>/<code>remove</code> at the same time, which eliminates every race condition in §13–§15 by construction. The problem isn't correctness — it's that this lock is <strong>one single lock for the entire map</strong>: a <code>put()</code> to bucket 3 and a completely unrelated <code>get()</code> on bucket 47 are forced to run one after another, even though they touch entirely disjoint memory and have no actual reason to conflict.</p>
+<hr>
+<h2 id="17-coarse-grained-locking-and-the-throughput-ceiling">17. Coarse-Grained Locking and the Throughput Ceiling</h2>
+<p>Under this design, <strong>throughput cannot exceed what one thread, running alone, could achieve</strong> — adding more CPU cores or more concurrent threads makes zero difference to peak throughput once the lock is the bottleneck, because every operation is fully serialized regardless of how many threads are waiting. This is the concrete cost §16 is naming, and the entire motivation for everything from §25 onward: <strong>the correctness §16 provides is not in question — only its granularity is.</strong> Every subsequent design in this guide keeps §16's core guarantee (no two conflicting operations run concurrently) while shrinking <em>what counts as conflicting</em> from "the entire map" down to progressively smaller, more precise units.</p>
+<hr>
+<h2 id="18-the-java-memory-model-in-three-rules">18. The Java Memory Model in Three Rules</h2>
+<p>Before building anything finer-grained than §16's single lock, three facts about how Java actually executes concurrent code are load-bearing for everything that follows:</p>
+<ol>
+<li><strong>Each CPU core may cache a variable's value locally</strong>, and a write from one thread is not guaranteed to be visible to another thread just because it "already happened" in wall-clock time — without explicit synchronization, a reading thread may see a stale, cached value indefinitely.</li>
+<li><strong>The compiler and CPU are allowed to reorder instructions</strong> that don't affect single-threaded correctness — code that looks sequential in source order may not execute in that order from another thread's point of view, unless a memory barrier prevents it.</li>
+<li><strong><code>synchronized</code>, <code>volatile</code>, and <code>java.util.concurrent.atomic</code>/<code>VarHandle</code> operations each establish a "happens-before" relationship</strong> — a guarantee that a write before the synchronization point is visible to a read after it, on another thread. Without one of these, there is <strong>no</strong> visibility guarantee at all, regardless of how "obviously" a write should be seen.</li>
+</ol>
+<p>Every design decision from §19 onward — marking a field <code>volatile</code>, choosing exactly what a <code>synchronized</code> block spans — is a decision about <strong>which</strong> happens-before relationship to establish, and where.</p>
+<hr>
+<h2 id="19-the-volatile-keyword-visibility-without-atomicity">19. The volatile Keyword: Visibility Without Atomicity</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private volatile Node&lt;K, V&gt;[] table;
+</code></pre></div>
+<p><code>volatile</code> guarantees two things, and <strong>only</strong> two things: every read of the field sees the most recent write from <em>any</em> thread (visibility, per §18's rule 1), and reads/writes of that field cannot be reordered relative to surrounding code (per rule 2). It does <strong>not</strong> make a compound operation atomic — <code>volatileCounter++</code> is still a read, an increment, and a write as three separate steps, and two threads can still interleave those three steps and lose an update, exactly as in §13, even though the field itself is <code>volatile</code>. This distinction — visibility versus atomicity — is the single most common point of confusion about <code>volatile</code>, and getting it wrong is precisely how a "volatile size counter" (§48) turns out not to solve the concurrent-counting problem at all.</p>
+<hr>
+<h2 id="20-why-a-bucket-array-reference-must-be-volatile">20. Why a Bucket Array Reference Must Be volatile</h2>
+<p>When §12's <code>resize()</code> runs, it builds an entirely new array and reassigns the <code>table</code> field to point at it. Without <code>volatile</code> on <code>table</code>, another thread's <code>get()</code> — reading <code>table</code> with no synchronization of its own — has <strong>no guarantee</strong> of ever observing that reassignment; it could keep reading the old, stale array reference forever (per §18's rule 1), silently missing every entry that only exists in the new table. Marking <code>table</code> <code>volatile</code> guarantees that once <code>resize()</code> publishes the new array reference, every subsequent read by any thread sees it — the foundational visibility guarantee every design from §25 onward depends on.</p>
+<hr>
+<h2 id="21-compare-and-swap-cas-the-hardware-primitive">21. Compare-And-Swap (CAS): The Hardware Primitive</h2>
+<p><strong>CAS</strong> is a single, hardware-supported atomic instruction (<code>cmpxchg</code> on x86) with the semantics: <em>"if the memory location currently holds the expected value, atomically replace it with a new value and report success; otherwise, change nothing and report failure."</em> Critically, this check-and-set happens as <strong>one indivisible hardware operation</strong> — no other thread can observe or interleave with it partway through, which is exactly what makes it usable as a building block for lock-free algorithms.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// java.lang.invoke.VarHandle — a modern, explicit way to issue a CAS
+private static final VarHandle TABLE_SLOT; // set up once via VarHandle.compareAndSet-capable array access
+
+boolean casTabAt(Node&lt;K, V&gt;[] table, int index, Node&lt;K, V&gt; expected, Node&lt;K, V&gt; newValue) {
+    return TABLE_SLOT.compareAndSet(table, index, expected, newValue);
+}
+</code></pre></div>
+<p>The classic use: "insert into this array slot <strong>only if</strong> it's still <code>null</code>" — read the current value, compute the new node, then CAS it in with <code>expected = null</code>. If another thread beat you to it, the CAS fails (the slot is no longer <code>null</code>), and you find out <strong>immediately</strong>, without ever having taken a lock at all.</p>
+<hr>
+<h2 id="22-using-cas-instead-of-a-lock-for-the-uncontended-case">22. Using CAS Instead of a Lock for the Uncontended Case</h2>
+<p>CAS's real payoff is specific and narrow: it's cheap and effective <strong>exactly when contention is low</strong> — the common case of "insert a brand-new key into an empty bucket" almost never has two threads racing for the <em>same</em> bucket at the <em>same</em> instant, so a CAS almost always succeeds on the first try, with none of a lock's overhead (no OS-level thread parking, no context switch if uncontended). Under <strong>high</strong> contention, repeated CAS failures and retries can actually cost <em>more</em> than a lock would have — which is precisely why §34's design uses CAS <strong>only</strong> for the empty-bucket case and falls back to a real <code>synchronized</code> block the moment a bucket already has an entry in it (i.e., the moment genuine contention on that specific bucket becomes plausible).</p>
+<hr>
+<h2 id="23-synchronized-blocks-what-they-actually-guarantee">23. synchronized Blocks: What They Actually Guarantee</h2>
+<p><code>synchronized(lockObject) { ... }</code> guarantees <strong>mutual exclusion</strong> (only one thread executes the block, for a given <code>lockObject</code>, at a time) <strong>and</strong> a happens-before relationship (§18's rule 3) — everything a thread wrote before releasing the lock is visible to the next thread that acquires it. The granularity is entirely up to <em>what object you synchronize on</em> — <code>synchronized</code> on <code>this</code> (§16) locks out the whole object; <code>synchronized</code> on a single bucket's first node (§34) locks out only operations on that one bucket. The keyword's mechanics never change; only the scope of what's being protected does.</p>
+<hr>
+<h2 id="24-deadlock-livelock-and-lock-ordering">24. Deadlock, Livelock, and Lock Ordering</h2>
+<p>Locking more than one thing at once introduces a new failure mode this guide must design around from §25 onward: <strong>deadlock</strong>, where thread A holds lock 1 and waits for lock 2, while thread B holds lock 2 and waits for lock 1 — neither can ever proceed. The standard defenses, both used implicitly in the designs that follow:</p>
+<ul>
+<li><strong>Never hold more than one bucket/segment lock at a time</strong> — §29's <code>SegmentedConcurrentMap</code> and §34's per-bucket locking both acquire exactly one lock per operation, never nested, which makes deadlock structurally impossible regardless of ordering.</li>
+<li><strong>When an operation genuinely must touch two locks</strong> (§46's resize, which must coordinate an old bucket and its destination in the new table), always acquire them in a <strong>fixed, consistent order</strong> across every thread — the classic fix for the "two locks, opposite order" deadlock shape, and the reason §46's transfer logic processes buckets by increasing index rather than in an arbitrary order.</li>
+</ul>
+<hr>
+<h2 id="25-the-segment-a-mini-hash-table-with-its-own-lock">25. The Segment: A Mini Hash Table With Its Own Lock</h2>
+<p><strong>Lock striping</strong> (Java 7's <code>ConcurrentHashMap</code> design) generalizes §16's single lock into <strong>N independent locks</strong>, by splitting the table into N <strong>segments</strong> — each segment is a small, self-contained hash table (its own bucket array) guarded by its own lock. A key is routed to exactly one segment (deterministically, by another slice of its hash code), so two keys in <em>different</em> segments can be written to concurrently, genuinely in parallel, with zero coordination between them.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// segmented/Segment.java
+public class Segment&lt;K, V&gt; {
+    private final ReentrantLock lock = new ReentrantLock();
+    private volatile Node&lt;K, V&gt;[] table; // volatile — §20's reasoning applies per-segment now, not globally
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    Segment(int initialCapacity) { table = (Node&lt;K, V&gt;[]) new Node[initialCapacity]; }
+
+    V put(int hash, K key, V value) {
+        lock.lock();                          // ONLY this segment's operations block each other
+        try {
+            int idx = hash &amp; (table.length - 1);
+            for (Node&lt;K, V&gt; node = table[idx]; node != null; node = node.next) {
+                if (node.key.equals(key)) { V old = node.val; node.val = value; return old; }
+            }
+            table[idx] = new Node&lt;&gt;(hash, key, value, table[idx]);
+            return null;
+        } finally {
+            lock.unlock();                    // ALWAYS in a finally — an exception must never leave the lock held
+        }
+    }
+}
+</code></pre></div>
+<p>Each <code>Segment</code> is, on its own, exactly a smaller version of §16's fully-synchronized map — the innovation is entirely in <em>how many</em> of these independent, separately-locked units exist side by side.</p>
+<hr>
+<h2 id="26-phase-4-implementing-a-segment">26. Phase 4 — Implementing a Segment</h2>
+<p>A complete <code>Segment</code> needs <code>get</code>/<code>remove</code> alongside §25's <code>put</code>, following the identical pattern — lock, operate, unlock in a <code>finally</code>:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>V get(int hash, K key) {
+    // Deliberately NO lock here — see §29's note on why a lock-free read is still safe against a
+    // volatile table and volatile Node fields, the same reasoning §36 develops in full for the bucket-locked design.
+    Node&lt;K, V&gt;[] tab = table;
+    int idx = hash &amp; (tab.length - 1);
+    for (Node&lt;K, V&gt; node = tab[idx]; node != null; node = node.next) {
+        if (node.key.equals(key)) return node.val;
+    }
+    return null;
+}
+
+V remove(int hash, K key) {
+    lock.lock();
+    try {
+        int idx = hash &amp; (table.length - 1);
+        Node&lt;K, V&gt; prev = null;
+        for (Node&lt;K, V&gt; node = table[idx]; node != null; prev = node, node = node.next) {
+            if (node.key.equals(key)) {
+                if (prev == null) table[idx] = node.next; else prev.next = node.next;
+                return node.val;
+            }
+        }
+        return null;
+    } finally {
+        lock.unlock();
+    }
+}
+</code></pre></div>
+<hr>
+<h2 id="27-routing-a-key-to-its-segment">27. Routing a Key to Its Segment</h2>
+<p>A key's hash needs to be split into two independent pieces: <strong>which segment</strong> it belongs to, and <strong>which bucket within that segment</strong>. Using different bits of the hash for each avoids the two decisions from being correlated (which would defeat the point of spreading load across segments):</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// segmented/SegmentedConcurrentMap.java
+private final Segment&lt;K, V&gt;[] segments;
+private final int segmentMask; // segments.length - 1, segments.length is a power of two, same reasoning as §7
+
+private Segment&lt;K, V&gt; segmentFor(int hash) {
+    int segmentHash = hash &gt;&gt;&gt; (32 - segmentShift); // use the HIGH bits for segment selection
+    return segments[segmentHash &amp; segmentMask];
+}
+</code></pre></div>
+<p>Using the <strong>high</strong> bits for segment selection and letting each segment's own <code>table.length - 1</code> mask (§7) consume the <strong>low</strong> bits for its internal bucket index means the two decisions draw from non-overlapping parts of the hash — two keys landing in the same segment are still well-distributed across that segment's own buckets.</p>
+<hr>
+<h2 id="28-why-splitting-into-n-segments-gives-up-to-n-way-write-concurrency">28. Why Splitting Into N Segments Gives (Up To) N-Way Write Concurrency</h2>
+<p>If keys are reasonably well distributed across segments (which §27's hash-splitting aims for), N threads writing to N <em>different</em> segments run <strong>fully in parallel</strong> — no shared lock, no waiting. The realistic ceiling is exactly <code>min(threadCount, segmentCount)</code>: more threads than segments means some threads <em>must</em> contend for the same segment's lock (two keys hashing to the same segment, regardless of how many threads exist), and more segments than active threads provides no additional benefit, since there's no contention left to relieve. This is why Java 7's <code>ConcurrentHashMap</code> exposed a <code>concurrencyLevel</code> constructor parameter — a hint for "how many threads do you expect to write concurrently," used to size the segment array.</p>
+<hr>
+<h2 id="29-phase-5-assembling-segments-into-a-concurrenthashmap">29. Phase 5 — Assembling Segments Into a ConcurrentHashMap</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// segmented/SegmentedConcurrentMap.java
+public class SegmentedConcurrentMap&lt;K, V&gt; {
+    private final Segment&lt;K, V&gt;[] segments;
+    private final int segmentMask, segmentShift;
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public SegmentedConcurrentMap(int concurrencyLevel) {
+        int segmentCount = tableSizeFor(concurrencyLevel); // rounds up to the next power of two — §7's constraint, again
+        this.segmentMask = segmentCount - 1;
+        this.segmentShift = 32 - Integer.numberOfTrailingZeros(segmentCount);
+        this.segments = new Segment[segmentCount];
+        for (int i = 0; i &lt; segmentCount; i++) segments[i] = new Segment&lt;&gt;(16);
+    }
+
+    public V put(K key, V value) {
+        int hash = spread(key.hashCode()); // §8
+        return segmentFor(hash).put(hash, key, value);
+    }
+
+    public V get(K key) {
+        int hash = spread(key.hashCode());
+        return segmentFor(hash).get(hash, key);
+    }
+    // remove(...), segmentFor(...) — §27
+}
+</code></pre></div>
+<p>Every public method is now a two-step dispatch: find the right <code>Segment</code> (a pure hash computation, no locking), then delegate to that segment's own, independently-locked implementation. This is the entire lock-striping design — deliberately no more complex than that, and precisely why it was the production <code>ConcurrentHashMap</code> design for over a decade (Java 5 through 7) before Java 8's redesign.</p>
+<hr>
+<h2 id="30-the-cost-of-lock-striping-fixed-concurrency-level-per-segment-resize">30. The Cost of Lock Striping: Fixed Concurrency Level, Per-Segment Resize</h2>
+<p>Two real limitations, both of which motivate §31's redesign directly:</p>
+<ul>
+<li><strong>The number of segments is fixed at construction</strong> (<code>concurrencyLevel</code>, §29). Guess too low, and you've recreated §17's bottleneck at a smaller scale once real concurrent load exceeds your guess; guess too high, and you've allocated more table arrays and lock objects than the workload will ever use.</li>
+<li><strong>Each segment resizes independently</strong> (§12's algorithm, run per-segment) — which avoids a single enormous stop-the-world resize, but means segments can end up wildly different sizes over time if keys don't distribute perfectly evenly, and a hot segment's resize still fully blocks <em>that</em> segment's traffic while it runs, even though every other segment stays available.</li>
+</ul>
+<p>Both limitations trace back to the same root cause: <strong>the unit of locking (a whole segment, containing many buckets) is coarser than it needs to be.</strong> §31 removes segments entirely and locks individual buckets directly — the concurrency granularity becomes "however many buckets the table currently has," which grows automatically with the table itself, with no <code>concurrencyLevel</code> guess required.</p>
+<hr>
+<h2 id="31-why-java-8-abandoned-segments-for-per-bin-locking">31. Why Java 8 Abandoned Segments for Per-Bin Locking</h2>
+<p>Java 8's <code>ConcurrentHashMap</code> rewrite eliminates <code>Segment</code> entirely: there is <strong>one</strong> table, and the lock for a given operation is <strong>the first <code>Node</code> in the bucket that operation touches</strong> — no separate lock object per bucket even needs to be allocated, since every bucket already has a natural, unique object (its head node) to synchronize on. This gives concurrency granularity equal to the <strong>number of buckets</strong> (which is always at least as large as, and typically far larger than, any reasonable <code>concurrencyLevel</code> would have been) — and it grows automatically every time the table resizes, with no separate "segment resize" concept needed at all. The remaining sections in this part (§32–§37) build this design piece by piece.</p>
+<hr>
+<h2 id="32-phase-6-the-node-and-the-volatile-fields-that-make-it-safe">32. Phase 6 — The Node and the volatile Fields That Make It Safe</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// bucketlocked/Node.java
+public class Node&lt;K, V&gt; {
+    final int hash;
+    final K key;
+    volatile V val;          // volatile: a get() on another thread must see a just-completed put()'s value
+    volatile Node&lt;K, V&gt; next; // volatile: a get() walking the chain must see a just-linked node
+
+    Node(int hash, K key, V val, Node&lt;K, V&gt; next) {
+        this.hash = hash; this.key = key; this.val = val; this.next = next;
+    }
+}
+</code></pre></div>
+<p>Compare this to §6's single-threaded <code>Node</code> — <code>val</code> and <code>next</code> are now <code>volatile</code>. This single change is what makes §36's <strong>lock-free <code>get()</code></strong> correct: without it, a <code>get()</code> reading <code>val</code>/<code>next</code> with no synchronization of its own would have no visibility guarantee (§18's rule 1) into a concurrent <code>put()</code>'s write, <code>volatile</code> or not on the surrounding array.</p>
+<hr>
+<h2 id="33-phase-7-a-cas-based-insert-into-an-empty-bucket">33. Phase 7 — A CAS-Based Insert Into an Empty Bucket</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// bucketlocked/MiniConcurrentMap.java
+public V put(K key, V value) {
+    int hash = spread(key.hashCode());
+    Node&lt;K, V&gt;[] tab = table;
+    int idx = (tab.length - 1) &amp; hash;
+
+    Node&lt;K, V&gt; first = tabAt(tab, idx); // volatile read — §21's VarHandle-based accessor
+    if (first == null) {
+        Node&lt;K, V&gt; newNode = new Node&lt;&gt;(hash, key, value, null);
+        if (casTabAt(tab, idx, null, newNode)) {  // §21 — CAS: only succeeds if the bucket is STILL empty
+            addCount(1);                          // §50 — striped counter, not a plain increment
+            return null;
+        }
+        // CAS failed: another thread inserted first. Fall through to §34's synchronized path below.
+    }
+    return putIntoExistingBucket(tab, idx, hash, key, value); // §34
+}
+</code></pre></div>
+<p>For the extremely common case of inserting a brand-new key whose bucket happens to be empty, this path <strong>never takes a lock at all</strong> — exactly §22's "CAS wins when contention is low" argument, applied to the specific operation where it pays off most: the first insert into any given bucket.</p>
+<hr>
+<h2 id="34-phase-8-synchronized-on-the-buckets-first-node-for-a-non-empty-bucket">34. Phase 8 — synchronized on the Bucket's First Node for a Non-Empty Bucket</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private V putIntoExistingBucket(Node&lt;K, V&gt;[] tab, int idx, int hash, K key, V value) {
+    Node&lt;K, V&gt; first = tabAt(tab, idx);
+    synchronized (first) {                        // lock scoped to THIS bucket's head node — nothing else
+        if (tabAt(tab, idx) != first) return putIntoExistingBucket(table, idx, hash, key, value); // re-check, §35
+        for (Node&lt;K, V&gt; node = first; ; node = node.next) {
+            if (node.hash == hash &amp;&amp; node.key.equals(key)) {
+                V old = node.val;
+                node.val = value;                  // volatile write — visible to a concurrent get(), §36
+                return old;
+            }
+            if (node.next == null) {
+                node.next = new Node&lt;&gt;(hash, key, value, null); // volatile write publishes the new node
+                addCount(1);
+                return null;
+            }
+        }
+    }
+}
+</code></pre></div>
+<p><code>synchronized (first)</code> — locking on the bucket's <em>first node object itself</em>, not on some separate, purpose-built lock — is the detail that makes per-bucket locking essentially free to set up: no extra <code>Lock</code> object needs to be allocated or tracked per bucket, because the bucket's own head node already is a unique, stable-while-locked object to synchronize on.</p>
+<hr>
+<h2 id="35-why-locking-the-first-node-is-enough-to-protect-the-whole-bucket">35. Why Locking the First Node Is Enough to Protect the Whole Bucket</h2>
+<p>The re-check <code>if (tabAt(tab, idx) != first)</code> immediately inside the <code>synchronized</code> block in §34 is not defensive paranoia — it closes a real race: between reading <code>first</code> (before the <code>synchronized</code> block) and actually acquiring the lock on it, <strong>another thread could have already changed the bucket's head</strong> (e.g. a resize in progress, §43, replaces the head with a <code>ForwardingNode</code>, or another <code>put</code> on an empty-<em>again</em> bucket raced ahead). Locking an object that is no longer actually the bucket's current head protects nothing — the re-check detects that stale situation and retries from scratch (<code>tabAt</code> again, fresh), rather than proceeding under a false assumption about what's actually being protected.</p>
+<hr>
+<h2 id="36-phase-9-get-without-any-locking-at-all">36. Phase 9 — get() Without Any Locking At All</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public V get(Object key) {
+    int hash = spread(key.hashCode());
+    Node&lt;K, V&gt;[] tab = table;                  // volatile read of the field — §20
+    Node&lt;K, V&gt; node = tabAt(tab, (tab.length - 1) &amp; hash); // volatile read of the array slot — §21's accessor
+    for (; node != null; node = node.next) {   // volatile read of `next` each step — §32
+        if (node.hash == hash &amp;&amp; node.key.equals(key)) return node.val; // volatile read of `val` — §32
+    }
+    return null;
+}
+</code></pre></div>
+<p>Not one <code>synchronized</code> block, not one CAS, not one <code>Lock</code> — and yet this is <strong>fully correct</strong> under arbitrary concurrent <code>put</code>/<code>remove</code>/resize activity from other threads. §37 explains precisely why that's true rather than a lucky accident.</p>
+<hr>
+<h2 id="37-why-get-can-be-lock-free-reasoning-about-visibility">37. Why get() Can Be Lock-Free: Reasoning About Visibility</h2>
+<p><code>get()</code>'s correctness rests entirely on <strong>every field it reads being <code>volatile</code></strong> (<code>table</code> itself, §20; each array slot via the CAS-capable accessor, §21; <code>Node.val</code>/<code>Node.next</code>, §32) — each read is guaranteed, by the Java Memory Model (§18's rule 3, applied to volatile reads/writes specifically), to observe the most recently <em>completed</em> write to that same field from any thread, no matter which thread wrote it or when. <code>get()</code> never needs to <em>prevent</em> a concurrent write from happening (which is what a lock is for) — it only needs to see a <strong>consistent, fully-formed</strong> version of whatever it reads, and <code>volatile</code> alone guarantees exactly that for individual field reads. What <code>get()</code> explicitly does <strong>not</strong> get is a guarantee of seeing the <em>very latest</em> write if one is racing concurrently — it might see the bucket's state from just before or just after a concurrent <code>put()</code> completes, but never a <strong>torn</strong>, half-written, or otherwise corrupted node. That specific, narrower guarantee — "always consistent, not necessarily the newest" — is precisely what §53's "weakly consistent" iteration terminology also describes, and it's sufficient for a hash map's <code>get()</code> to be correct without ever blocking.</p>
+<hr>
+<h2 id="38-why-a-long-linked-chain-bucket-is-a-denial-of-service-risk">38. Why a Long Linked-Chain Bucket Is a Denial-of-Service Risk</h2>
+<p>Under a poor-quality (or <strong>adversarially crafted</strong> — a real, documented attack against naive hash maps accepting untrusted keys, such as HTTP request parameters) hash function, many keys can collide into the <em>same</em> bucket, degrading that bucket's <code>get</code>/<code>put</code> from O(1) toward O(n) as its chain grows. Worse, under §34's per-bucket locking, a very long chain means the <code>synchronized</code> block held while traversing it is held for <strong>longer</strong>, directly increasing contention on that one bucket specifically — a pathological bucket doesn't just slow down its own lookups, it becomes a lock-contention hotspot for everything hashing there.</p>
+<hr>
+<h2 id="39-treeification-threshold-and-untreeification-threshold">39. Treeification Threshold and Untreeification Threshold</h2>
+<p>Real <code>ConcurrentHashMap</code> (and this guide's version) converts a bucket's linked list into a <strong>red-black tree</strong> once it exceeds <code>TREEIFY_THRESHOLD</code> (8) entries <strong>and</strong> the overall table has at least <code>MIN_TREEIFY_CAPACITY</code> (64) buckets — bounding worst-case lookup within that one bucket to O(log n) instead of O(n). The second condition matters: if the <em>table itself</em> is still small, a bucket with 8+ entries more likely indicates the table simply hasn't grown enough yet (§11) rather than a genuinely pathological hash distribution — in that case, <strong>resizing the whole table</strong> (which naturally redistributes entries into more buckets) is preferred over treeifying one bucket. Symmetrically, <code>UNTREEIFY_THRESHOLD</code> (6) converts a tree bin back into a plain list if enough entries are removed — a tree's fixed overhead per node isn't worth paying once the collision problem it was solving no longer exists.</p>
+<hr>
+<h2 id="40-phase-10-converting-a-bin-to-a-red-black-tree">40. Phase 10 — Converting a Bin to a Red-Black Tree</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// bucketlocked/TreeNode.java — extends the linked-list Node with tree structure
+public class TreeNode&lt;K, V&gt; extends Node&lt;K, V&gt; {
+    TreeNode&lt;K, V&gt; parent, left, right;
+    boolean red;
+    TreeNode(int hash, K key, V val, Node&lt;K, V&gt; next) { super(hash, key, val, next); }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// Triggered from putIntoExistingBucket (§34) once a bucket's chain length crosses TREEIFY_THRESHOLD
+private void treeifyBin(Node&lt;K, V&gt;[] tab, int idx) {
+    if (tab.length &lt; MIN_TREEIFY_CAPACITY) { resize(); return; } // §39's second condition — grow instead, if the table itself is still small
+    Node&lt;K, V&gt; head = tabAt(tab, idx);
+    synchronized (head) {                                        // same locking discipline as §34 — one bucket at a time
+        TreeBin&lt;K, V&gt; treeBin = TreeBin.buildFrom(head);         // walks the linked list, inserts each node into a new red-black tree
+        setTabAt(tab, idx, treeBin);                              // the bucket's head is now a TreeBin, not a plain Node
+    }
+}
+</code></pre></div>
+<p>The tree is ordered by hash code (with a tie-breaking rule for equal hashes, since a red-black tree needs a total order, and raw hash equality doesn't guarantee key equality) — <code>get()</code>/<code>put()</code> on a treeified bucket walk down the tree by comparing hash values instead of scanning a list linearly.</p>
+<hr>
+<h2 id="41-treenode-locking-a-reader-writer-lock-per-tree-bin">41. TreeNode Locking: A Reader-Writer Lock Per Tree Bin</h2>
+<p>A single <code>synchronized</code> per operation (§34's model) is a poor fit for a tree bin specifically: <strong>tree rebalancing</strong> (rotations after an insert/delete, standard red-black tree maintenance) can temporarily leave the tree in a state that's unsafe for a concurrent reader to traverse, but the <em>vast majority</em> of tree-bin operations are reads that don't need to block each other at all. <code>TreeBin</code> therefore wraps its tree in a lightweight <strong>reader-writer lock built from a few <code>volatile</code> fields and CAS</strong>, not <code>java.util.concurrent.locks.ReentrantReadWriteLock</code> (too heavyweight for this purpose): readers proceed lock-free unless a writer is actively rebalancing, in which case they fall back to a plain linked-list-style traversal of the tree bin's nodes (still correct, just temporarily not benefiting from the tree's O(log n) shape) rather than blocking outright. This is a genuinely advanced piece of the real implementation — worth knowing this refinement exists and <em>why</em> (reads should almost never block, even during a rare rebalance), without needing to reproduce its full bit-flag-based lock state machine to understand the core lesson: <strong>the locking strategy for a data structure should match how that specific structure is actually used</strong>, exactly as §34's per-node lock and §41's reader-biased lock are two different answers to that same question, applied to two different bucket shapes.</p>
+<hr>
+<h2 id="42-why-resizing-is-the-hardest-part-of-a-concurrent-hash-map">42. Why Resizing Is the Hardest Part of a Concurrent Hash Map</h2>
+<p>§12's single-threaded <code>resize()</code> assumes nothing else touches the table while it runs. Under real concurrent load, a resize must tolerate — correctly — <strong>other threads calling <code>get</code>, <code>put</code>, and <code>remove</code> on the table while the resize is still in progress</strong>, and ideally should let <strong>multiple threads help perform the resize simultaneously</strong>, rather than one thread doing all the work while every other thread simply blocks and waits.</p>
+<hr>
+<h2 id="43-the-forwardingnode-a-marker-for-this-bucket-has-moved">43. The ForwardingNode: A Marker for "This Bucket Has Moved"</h2>
+<p>The mechanism that makes concurrent resizing possible: once a bucket's contents have been split and copied into the new (larger) table, its slot in the <strong>old</strong> table is replaced with a special sentinel node — a <code>ForwardingNode</code> — whose only job is to redirect any thread that still finds it to the new table instead.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// bucketlocked/ForwardingNode.java
+public class ForwardingNode&lt;K, V&gt; extends Node&lt;K, V&gt; {
+    final Node&lt;K, V&gt;[] newTable;
+    ForwardingNode(Node&lt;K, V&gt;[] newTable) {
+        super(MOVED, null, null, null); // MOVED is a reserved, impossible-for-a-real-key hash value, e.g. -1
+        this.newTable = newTable;
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// get() (§36), extended to follow a ForwardingNode transparently
+public V get(Object key) {
+    int hash = spread(key.hashCode());
+    Node&lt;K, V&gt;[] tab = table;
+    Node&lt;K, V&gt; node = tabAt(tab, (tab.length - 1) &amp; hash);
+    while (node != null) {
+        if (node instanceof ForwardingNode&lt;K, V&gt; fwd) {
+            tab = fwd.newTable;                             // follow the redirect — transparent to the caller
+            node = tabAt(tab, (tab.length - 1) &amp; hash);
+            continue;
+        }
+        if (node.hash == hash &amp;&amp; node.key.equals(key)) return node.val;
+        node = node.next;
+    }
+    return null;
+}
+</code></pre></div>
+<p>A <code>get()</code> that lands on a <code>ForwardingNode</code> simply follows it to the new table and keeps looking — the resize is <strong>entirely invisible</strong> to a reader beyond this one redirect check, which is why §36's lock-free read path survives a concurrent resize without any special-casing beyond recognizing this one sentinel type.</p>
+<hr>
+<h2 id="44-phase-11-splitting-a-bucket-during-resize">44. Phase 11 — Splitting a Bucket During Resize</h2>
+<p>Each old bucket's entries split into exactly <strong>two</strong> destination buckets in the new (double-sized) table — determined by a single additional bit of the hash that the old table's smaller mask didn't consider:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// One old bucket's entries always split into newTab[idx] and newTab[idx + oldCapacity] — never anywhere else
+private void splitBucket(Node&lt;K, V&gt;[] oldTab, Node&lt;K, V&gt;[] newTab, int idx) {
+    Node&lt;K, V&gt; head = tabAt(oldTab, idx);
+    synchronized (head) {                                    // same per-bucket lock discipline as every other mutation
+        Node&lt;K, V&gt; lowHead = null, lowTail = null;            // entries staying at the SAME index in the new table
+        Node&lt;K, V&gt; highHead = null, highTail = null;          // entries moving to index + oldCapacity
+        for (Node&lt;K, V&gt; node = head; node != null; node = node.next) {
+            if ((node.hash &amp; oldTab.length) == 0) {           // the new, higher bit of the hash is 0 -&gt; stays &quot;low&quot;
+                if (lowTail == null) lowHead = node; else lowTail.next = node;
+                lowTail = node;
+            } else {                                          // the new bit is 1 -&gt; moves &quot;high&quot;
+                if (highTail == null) highHead = node; else highTail.next = node;
+                highTail = node;
+            }
+        }
+        if (lowTail != null) lowTail.next = null;
+        if (highTail != null) highTail.next = null;
+        setTabAt(newTab, idx, lowHead);
+        setTabAt(newTab, idx + oldTab.length, highHead);
+        setTabAt(oldTab, idx, new ForwardingNode&lt;&gt;(newTab));   // §43 — old slot now redirects here
+    }
+}
+</code></pre></div>
+<p>Splitting into exactly two destinations (never scattering entries across many new buckets) is why resizing can be done <strong>bucket by bucket, independently</strong> — each old bucket's split is a self-contained unit of work, needing no coordination with any other old bucket's split, which is exactly what makes §45's cooperative multi-threaded resize possible.</p>
+<hr>
+<h2 id="45-cooperative-resizing-helping-threads-assist-the-transfer">45. Cooperative Resizing: Helping Threads Assist the Transfer</h2>
+<p>Rather than one thread performing every bucket's split while every other thread blocks, real <code>ConcurrentHashMap</code> lets <strong>any thread that calls <code>put</code>/<code>get</code> during a resize notice one is in progress and help</strong>, by claiming a range of not-yet-transferred old buckets and running §44's <code>splitBucket</code> on them. A shared, atomically-updated "next bucket index to claim" counter is what lets multiple threads divide the transfer work without duplicating effort or missing a bucket.</p>
+<hr>
+<h2 id="46-phase-12-implementing-transfer">46. Phase 12 — Implementing transfer()</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private final AtomicInteger transferIndex = new AtomicInteger();
+
+private void transfer(Node&lt;K, V&gt;[] oldTab, Node&lt;K, V&gt;[] newTab) {
+    int stride = 16; // each &quot;claim&quot; covers a batch of buckets, not just one — reduces contention on transferIndex itself
+    int bound;
+    int start;
+    while ((start = transferIndex.getAndAdd(-stride)) &gt; 0) { // claim a range by DECREMENTING a shared counter atomically
+        bound = Math.max(0, start - stride);
+        for (int i = start - 1; i &gt;= bound; i--) {
+            if (i &lt; oldTab.length &amp;&amp; !(tabAt(oldTab, i) instanceof ForwardingNode)) {
+                splitBucket(oldTab, newTab, i); // §44 — this thread does the actual work for these buckets
+            }
+        }
+    }
+    // Once transferIndex reaches (or passes) zero, every bucket has been claimed by SOME thread — resize is complete
+    // for the buckets this thread was responsible for; a final CAS on a shared &quot;size control&quot; field (omitted here for
+    // brevity) determines which single thread is responsible for publishing the new table as the map's `table` field.
+}
+</code></pre></div>
+<p>Batching claims into a <code>stride</code> of 16 buckets at a time, rather than CAS-ing the counter once per bucket, is a direct application of §22's lesson: reduce how often multiple threads contend for the <em>same</em> piece of shared, frequently-updated state (<code>transferIndex</code> here), even though each individual claim is itself still perfectly correct at a stride of 1 — batching is a throughput optimization layered on top of correctness, not a correctness requirement itself.</p>
+<hr>
+<h2 id="47-what-happens-to-a-getput-that-arrives-mid-resize">47. What Happens to a get()/put() That Arrives Mid-Resize</h2>
+<ul>
+<li><strong>A <code>get()</code></strong> either finds the key in the old table's not-yet-transferred bucket (fine — nothing has changed yet), or finds a <code>ForwardingNode</code> and follows it into the new table (§43 — transparent), or finds the key already migrated into the new table directly if the caller's own <code>table</code> field read happened to observe the swap. Every one of these outcomes is correct; none of them require the <code>get()</code> to know a resize is happening at all.</li>
+<li><strong>A <code>put()</code></strong> that lands on an untransferred bucket proceeds exactly as §33–§34 describe, against the <em>old</em> table — perfectly safe, since that bucket hasn't been touched by the resize yet. A <code>put()</code> that lands on a bucket already replaced by a <code>ForwardingNode</code> recognizes it (the same check <code>get()</code> does) and <strong>helps transfer</strong> that portion of the resize (§45) before retrying its own operation against the new table — turning a would-be blocked thread into a useful contributor to finishing the resize faster.</li>
+</ul>
+<hr>
+<h2 id="48-why-a-single-volatile-counter-doesnt-scale">48. Why a Single volatile Counter Doesn't Scale</h2>
+<p>The obvious approach to tracking size — <code>private volatile long count; count++</code> on every insert — fails for exactly the reason §19 already named: <code>count++</code> is not one operation, it's read-increment-write, and <code>volatile</code> guarantees <em>visibility</em> of each individual read/write, not <em>atomicity</em> of the whole sequence. Two threads incrementing concurrently can both read the same value before either writes back, losing an increment — the counter itself becomes a second, independent source of the exact §13 bug this entire guide has been eliminating from the map's actual data.</p>
+<p>A <code>synchronized</code> increment or an <code>AtomicLong.incrementAndGet()</code> <em>would</em> be correct — but at high thread counts, they become a <strong>new, single bottleneck</strong> of their own: every one of potentially thousands of concurrent <code>put</code>/<code>remove</code> calls across every bucket in the whole table ends up serialized on this one shared counter, even though the actual data mutations they're counting are, per §31–§37, wonderfully parallel.</p>
+<hr>
+<h2 id="49-striped-counters-the-countercell-technique-longadders-idea">49. Striped Counters: The CounterCell Technique (LongAdder's Idea)</h2>
+<p>The fix — the same idea behind <code>java.util.concurrent.atomic.LongAdder</code> — is to stop pretending the count needs to live in one place at all. Instead, maintain an <strong>array of counter cells</strong>, and let each thread update whichever cell it can claim with the <em>least</em> contention (typically, one derived from a per-thread hash, so different threads tend to land on different cells); the true count is only ever computed on demand, as the <strong>sum across all cells</strong>, which is needed far less often than individual increments happen.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// bucketlocked/CounterCell.java — padded to avoid false sharing between adjacent cells on the same cache line
+public class CounterCell {
+    volatile long value;
+    CounterCell(long initial) { this.value = initial; }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private volatile long baseCount;              // the fast path: used when there's no contention at all
+private volatile CounterCell[] counterCells;   // allocated lazily, only once contention on baseCount is actually detected
+</code></pre></div>
+<hr>
+<h2 id="50-phase-13-implementing-size-via-striped-counters">50. Phase 13 — Implementing size() via Striped Counters</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private void addCount(long delta) {
+    // Fast path: try to CAS the shared base counter directly — cheap, and correct when uncontended
+    if (BASECOUNT.compareAndSet(this, baseCount, baseCount + delta)) return;
+
+    // Fallback: contention detected on baseCount -&gt; use (or lazily create) a per-thread-ish counter cell instead
+    CounterCell[] cells = counterCells;
+    if (cells == null) cells = initializeCounterCells();
+    int cellIndex = ThreadLocalRandom.current().nextInt() &amp; (cells.length - 1); // spread threads across cells
+    CounterCell cell = cells[cellIndex];
+    long current = cell.value;
+    if (!CELL_VALUE.compareAndSet(cell, current, current + delta)) {
+        addCount(delta); // this specific cell was contended too — retry (a different random cell, likely, next time)
+    }
+}
+
+public long mappingCount() {
+    long sum = baseCount;
+    CounterCell[] cells = counterCells;
+    if (cells != null) {
+        for (CounterCell cell : cells) sum += cell.value; // only summed on demand — size() is the RARE operation here
+    }
+    return sum; // may be very slightly stale under concurrent modification — see §53's &quot;weakly consistent&quot; discussion
+}
+</code></pre></div>
+<p>The core trade-off, stated plainly: <strong>writes become cheap and scalable</strong> (each thread usually only contends with a small fraction of other threads, on whichever cell it happens to land on) <strong>at the cost of reads becoming more expensive</strong> (summing potentially many cells instead of reading one field) — exactly the right trade for a counter that's incremented on every single write but read comparatively rarely, which is the actual access pattern a hash map's size counter has.</p>
+<hr>
+<h2 id="51-compute-computeifabsent-merge-atomicity-without-a-global-lock">51. compute(), computeIfAbsent(), merge(): Atomicity Without a Global Lock</h2>
+<p>A naive "check then act" implementation of <code>computeIfAbsent</code> — <code>if (map.get(key) == null) map.put(key, compute(key))</code> — has a <strong>race condition</strong> even on a fully thread-safe map: two threads can both call <code>get</code>, both see <code>null</code>, and both proceed to compute and insert, with one insert silently overwriting the other (or, worse, the "compute" function running twice when the contract implies it should run at most once per key). A <strong>correct</strong> <code>computeIfAbsent</code> must perform the check-and-insert as a single atomic step relative to other operations on <em>that specific key</em> — which, conveniently, is exactly what §34's per-bucket <code>synchronized</code> block already provides, if the computation is done <em>inside</em> that same locked region rather than before it.</p>
+<hr>
+<h2 id="52-phase-14-implementing-computeifabsent-correctly">52. Phase 14 — Implementing computeIfAbsent() Correctly</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public V computeIfAbsent(K key, Function&lt;K, V&gt; mappingFunction) {
+    int hash = spread(key.hashCode());
+    Node&lt;K, V&gt;[] tab = table;
+    int idx = (tab.length - 1) &amp; hash;
+
+    Node&lt;K, V&gt; first = tabAt(tab, idx);
+    if (first == null) {
+        // Even the &quot;empty bucket&quot; fast path (§33) can't just CAS blindly here — the mapping function
+        // must run at most once, so a temporary placeholder-and-lock approach (or, as real ConcurrentHashMap
+        // does, a reservation node) is needed even in the &quot;no contention yet&quot; case. Simplified here to a lock:
+        synchronized (tab) { /* re-check under a coarser lock scoped to this rare path only, then compute + CAS in */ }
+    }
+    return computeIfAbsentInExistingBucket(tab, idx, hash, key, mappingFunction); // synchronized(first), same as §34
+}
+
+private V computeIfAbsentInExistingBucket(Node&lt;K, V&gt;[] tab, int idx, int hash, K key, Function&lt;K, V&gt; mappingFunction) {
+    Node&lt;K, V&gt; first = tabAt(tab, idx);
+    synchronized (first) {
+        for (Node&lt;K, V&gt; node = first; node != null; node = node.next) {
+            if (node.hash == hash &amp;&amp; node.key.equals(key)) return node.val; // already present — mappingFunction NEVER called
+        }
+        V computed = mappingFunction.apply(key);       // computed WHILE HOLDING the bucket's lock
+        if (computed != null) {
+            appendNode(tab, idx, new Node&lt;&gt;(hash, key, computed, null));
+            addCount(1);
+        }
+        return computed;
+    }
+}
+</code></pre></div>
+<p>Calling <code>mappingFunction.apply(key)</code> <strong>while still holding the bucket's lock</strong> is the detail that makes this correct rather than merely convenient — it guarantees no other thread can concurrently insert a value for the same key between "checked, not present" and "inserted the computed value," which is exactly the race a naive get-then-put implementation cannot close. The real cost of this correctness: <code>mappingFunction</code> runs while holding a lock, so a slow or blocking mapping function directly extends how long <em>that one bucket</em> is unavailable to other threads — a documented, deliberate constraint on what kind of function is safe to pass to <code>computeIfAbsent</code> in production code.</p>
+<hr>
+<h2 id="53-weakly-consistent-iterators-what-guarantee-you-actually-get">53. Weakly Consistent Iterators: What Guarantee You Actually Get</h2>
+<p>An iterator over <code>MiniConcurrentMap</code> makes a specific, narrower promise than a single-threaded map's iterator: it will <strong>never</strong> throw an exception due to concurrent modification, it is <strong>guaranteed</strong> to reflect the state of the map at some valid point in time for each element it returns (never a torn/corrupted node, per §37's reasoning), but it offers <strong>no guarantee</strong> about whether a concurrent insert or removal that happens <em>during</em> the iteration will or won't be reflected in what the iterator subsequently returns — it might see it, might not, and either outcome is considered correct.</p>
+<hr>
+<h2 id="54-why-concurrenthashmap-never-throws-concurrentmodificationexception">54. Why ConcurrentHashMap Never Throws ConcurrentModificationException</h2>
+<p>A single-threaded <code>HashMap</code>'s iterator uses a <code>modCount</code> field, incremented on every structural change, checked on every <code>next()</code> call — if it doesn't match what the iterator expects, <code>ConcurrentModificationException</code> is thrown (a <strong>fail-fast</strong> design, appropriate when concurrent modification during iteration always indicates a bug). A concurrent map rejects that design entirely: concurrent modification during iteration is an <strong>expected, routine</strong> occurrence, not a bug — throwing an exception for it would make the map effectively unusable under the exact concurrent access pattern it exists to support. §53's weaker guarantee is the deliberate trade that makes iteration usable at all on a structure other threads are actively mutating.</p>
+<hr>
+<h2 id="55-phase-15-implementing-a-weakly-consistent-iterator">55. Phase 15 — Implementing a Weakly Consistent Iterator</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class WeaklyConsistentIterator implements Iterator&lt;Map.Entry&lt;K, V&gt;&gt; {
+    private Node&lt;K, V&gt;[] currentTable;
+    private int bucketIndex;
+    private Node&lt;K, V&gt; nextNode;
+
+    WeaklyConsistentIterator() {
+        this.currentTable = table; // a single volatile read at construction time — §20 — this snapshot may go stale, and that's fine (§53)
+        advanceToNextNonEmptyBucket();
+    }
+
+    @Override
+    public boolean hasNext() { return nextNode != null; }
+
+    @Override
+    public Map.Entry&lt;K, V&gt; next() {
+        Node&lt;K, V&gt; node = nextNode;
+        if (node instanceof ForwardingNode) { // the table this iterator started with was mid-resize — follow it, §43
+            currentTable = ((ForwardingNode&lt;K, V&gt;) node).newTable;
+            advanceToNextNonEmptyBucket();
+            return next(); // retry against the new table
+        }
+        Map.Entry&lt;K, V&gt; entry = Map.entry(node.key, node.val); // a SNAPSHOT of val — a later concurrent update won't retroactively change it
+        nextNode = node.next;
+        if (nextNode == null) { bucketIndex++; advanceToNextNonEmptyBucket(); }
+        return entry;
+    }
+
+    private void advanceToNextNonEmptyBucket() {
+        while (nextNode == null &amp;&amp; bucketIndex &lt; currentTable.length) {
+            nextNode = tabAt(currentTable, bucketIndex);
+            if (nextNode == null) bucketIndex++;
+        }
+    }
+}
+</code></pre></div>
+<p>No <code>modCount</code>, no exception path at all — every read (<code>tabAt</code>, <code>node.next</code>, <code>node.val</code>) is a plain volatile read exactly like <code>get()</code>'s (§36–§37), which is precisely why this iterator needs no special coordination with concurrent writers: it's built from the same lock-free-but-consistent building blocks the rest of the read path already relies on.</p>
+<hr>
+<h2 id="56-full-worked-example-concurrent-putgetresize-traced-step-by-step">56. Full Worked Example: Concurrent Put/Get/Resize Traced Step by Step</h2>
+<p>Tracing two threads, <code>T1</code> calling <code>put("a", 1)</code> and <code>T2</code> calling <code>put("b", 2)</code>, where both keys happen to hash into the <em>same</em> bucket, while the table happens to be resizing concurrently:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>T1: put(&quot;a&quot;, 1)                              T2: put(&quot;b&quot;, 2)                            Resize thread: transfer()
+  hash(&quot;a&quot;) -&gt; bucket 5                        hash(&quot;b&quot;) -&gt; bucket 5 (collision with &quot;a&quot;)
+  tabAt(tab, 5) -&gt; ForwardingNode!              tabAt(tab, 5) -&gt; ForwardingNode!            splitBucket(oldTab, newTab, 5)
+  follow to newTab (§43)                        follow to newTab (§43)                        synchronized(oldHead) { ... }
+  tabAt(newTab, 5') -&gt; null                                                                    setTabAt(oldTab, 5, FWD)
+  CAS insert &quot;a&quot; into newTab[5'] (§33)                                                          &lt;- races with T1/T2 above;
+    SUCCEEDS (uncontended CAS)                  tabAt(newTab, 5') -&gt; Node(&quot;a&quot;) now!              whichever happens first,
+                                                 CAS insert &quot;b&quot; fails (bucket no longer empty)    T1/T2 correctly either
+                                                 falls back to synchronized(first) (§34)          see the FWD or the
+                                                 appends &quot;b&quot; after &quot;a&quot; in newTab[5']              already-split new bucket
+  addCount(1) — striped counter (§50)           addCount(1) — likely a DIFFERENT cell (§49)
+</code></pre></div>
+<p>Every one of the mechanisms built in this guide appears in this one trace: hash routing (§7–§8), the <code>ForwardingNode</code> redirect (§43), CAS for the uncontended case (§33), <code>synchronized</code>-on-first-node for the contended case (§34), and striped counting (§49–§50) — and at no point do T1 and T2 ever block each other on a lock that spans more than the one bucket they both happen to collide on.</p>
+<hr>
+<h2 id="57-final-architecture">57. Final Architecture</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                         MiniConcurrentMap
+                                 |
+              +------------------+------------------+
+              v                                     v
+    volatile Node&lt;K,V&gt;[] table (§20)        AtomicInteger transferIndex (§46)
+              |                                     |
+    +---------+---------+                  cooperative resize (§42-§47)
+    v                   v                           |
+Empty bucket:      Non-empty bucket:                v
+CAS insert (§33)   synchronized(first) (§34)   ForwardingNode (§43)
+    |                   |                      splitBucket (§44)
+    v                   v
+  (bucket grows into a red-black tree past TREEIFY_THRESHOLD, §38-§41)
+              |
+              v
+    get() / iterator — all lock-free, volatile-read-based (§36-§37, §53-§55)
+              |
+              v
+    size tracking via striped CounterCells (§48-§50)
+    compute/computeIfAbsent — atomic via the SAME per-bucket lock (§51-§52)
+</code></pre></div>
+<hr>
+<h2 id="58-common-mistakes">58. Common Mistakes</h2>
+<ul>
+<li><strong>Mistake 1 — Assuming a "concurrent" collection makes every compound operation atomic.</strong> <code>if (!map.containsKey(k)) map.put(k, v)</code> is still a race on <code>MiniConcurrentMap</code>/<code>ConcurrentHashMap</code> alike — only <code>computeIfAbsent</code> (§51–§52), <code>putIfAbsent</code>, and similar single-call atomic methods actually close that gap.</li>
+<li><strong>Mistake 2 — Forgetting <code>volatile</code> on <code>Node.val</code>/<code>Node.next</code> (§32).</strong> Produces a map that "usually" works in testing (single-threaded or lightly-loaded runs rarely expose it) and intermittently returns stale or missing values under real concurrent load — one of the hardest classes of bug to reproduce on demand.</li>
+<li><strong>Mistake 3 — Calling a slow or blocking function inside <code>computeIfAbsent</code> (§52).</strong> Directly extends how long that bucket's lock is held, potentially stalling every other thread that happens to hash to the same bucket.</li>
+<li><strong>Mistake 4 — Locking more than one bucket at a time.</strong> Reopens the deadlock risk §24 warns about — every design in this guide (§25's segments, §34's per-bucket lock, §44's per-bucket split) deliberately acquires exactly one lock per operation.</li>
+<li><strong>Mistake 5 — A single shared counter for <code>size()</code> (§48).</strong> Correct, but turns a highly concurrent map's every single write into a contention point on one field — exactly the bottleneck §49's striped counters exist to remove.</li>
+<li><strong>Mistake 6 — Treating <code>mappingCount()</code>/<code>size()</code> as exact under concurrent modification.</strong> It's a best-effort snapshot (§50) — correct code should not assume <code>size()</code> called twice in a row, with concurrent writers active, returns consistent or monotonically increasing values.</li>
+<li><strong>Mistake 7 — Skipping the <code>first != tabAt(tab, idx)</code> re-check after acquiring a bucket lock (§35).</strong> Locks an object that may no longer be the bucket's actual current head, protecting nothing.</li>
+</ul>
+<hr>
+<h2 id="59-testing-strategy-for-concurrent-code">59. Testing Strategy for Concurrent Code</h2>
+<p>Concurrency bugs are inherently probabilistic — a test that passes ten times in a row has not proven correctness, only failed to get unlucky. A meaningfully useful test suite leans on this asymmetry rather than fighting it:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Test</th>
+<th>What it checks</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>High-thread-count insert stress test (§15's pattern)</td>
+<td>No lost updates: final size equals total unique keys inserted</td>
+<td>Many threads inserting disjoint key ranges concurrently, assert <code>size()</code> afterward, repeat many times in CI to raise the odds of catching a rare interleaving</td>
+</tr>
+<tr>
+<td>Concurrent resize under load</td>
+<td>Every key inserted before, during, and after a forced resize is retrievable afterward</td>
+<td>Insert enough keys to trigger several resizes while concurrently reading/writing from other threads throughout</td>
+</tr>
+<tr>
+<td><code>computeIfAbsent</code> single-invocation guarantee</td>
+<td>The mapping function runs <strong>exactly once</strong> per key, even under concurrent calls for the same key from many threads</td>
+<td>Many threads call <code>computeIfAbsent</code> for the <em>same</em> key simultaneously; assert the mapping function's invocation counter is exactly 1</td>
+</tr>
+<tr>
+<td>Deadlock absence</td>
+<td>The test suite itself completes within a timeout, never hangs</td>
+<td>Wrap concurrent stress tests in a bounded <code>awaitTermination</code>; a hang is a <code>Deadlock</code> finding, not a slow pass</td>
+</tr>
+<tr>
+<td>Iterator weak consistency (§53)</td>
+<td>Iteration completes without exception despite concurrent modification; every element returned was genuinely present at some point</td>
+<td>Iterate while another thread concurrently inserts/removes; assert no exception, and that returned entries are a subset of "keys present at some point during the run"</td>
+</tr>
+<tr>
+<td><code>jcstress</code>-style low-level checks (advanced)</td>
+<td>Actual memory-visibility bugs the JIT/CPU reordering could otherwise expose only rarely</td>
+<td>The OpenJDK <code>jcstress</code> harness is purpose-built for exactly this — a worthwhile mention for taking <code>volatile</code>/CAS correctness claims beyond "ran fine in my stress test"</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="60-benchmarking-throughput-under-contention">60. Benchmarking: Throughput Under Contention</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>// bench/ThroughputBenchmark.java — comparing all four designs built in this guide under identical load
+public static void main(String[] args) throws InterruptedException {
+    for (var mapSupplier : List.of(
+            (Supplier&lt;Object&gt;) SimpleHashMap::new,             // §6-§12, wrapped in one external lock for a fair baseline
+            (Supplier&lt;Object&gt;) () -&gt; new SegmentedConcurrentMap&lt;&gt;(16),
+            (Supplier&lt;Object&gt;) MiniConcurrentMap::new)) {
+        // ... run N threads, each doing a mix of get/put/remove for a fixed duration, measure total ops/sec ...
+    }
+}
+</code></pre></div>
+<p>What the results should show, and why: the fully-locked baseline's throughput <strong>plateaus</strong> almost immediately as thread count increases past 1–2 (§17's ceiling); the segmented map's throughput scales <strong>up to roughly its segment count</strong>, then plateaus (§28); the per-bucket-locked map continues scaling substantially further, because its effective concurrency unit (a bucket) vastly outnumbers any reasonable segment count and grows with the table itself. Seeing this as an actual measured curve, not just an assertion, is what makes §30 and §31's design arguments concrete rather than theoretical.</p>
+<hr>
+<h2 id="61-design-patterns-used">61. Design Patterns Used</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Applied to</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Strategy</strong> (implicit)</td>
+<td>Choosing CAS vs <code>synchronized</code> per operation, based on whether the target bucket is empty</td>
+<td>§33-§34</td>
+</tr>
+<tr>
+<td><strong>Sentinel/Null Object</strong></td>
+<td><code>ForwardingNode</code> — a special <code>Node</code> subtype that redirects rather than storing a real entry</td>
+<td>§43</td>
+</tr>
+<tr>
+<td><strong>Composite</strong></td>
+<td><code>TreeBin</code> wrapping a red-black tree behind the same <code>Node</code>-shaped interface a plain bucket head presents</td>
+<td>§40-§41</td>
+</tr>
+<tr>
+<td><strong>Striping</strong></td>
+<td>Splitting one hot piece of shared state (a lock in §25, a counter in §49) into many independently-contended pieces</td>
+<td>§25-§30, §48-§50</td>
+</tr>
+<tr>
+<td><strong>Template Method</strong> (implicit)</td>
+<td>Every mutating operation follows the same shape: hash, locate bucket, try CAS, fall back to lock-and-traverse</td>
+<td>§33-§34, §52</td>
+</tr>
+</tbody>
+</table></div>
+<p>Striping (segments <em>and</em> counters) is the single idea doing the most conceptual work in this entire guide — reducing contention by increasing the number of independently-lockable/independently-updatable units is the mechanism behind both the map's core write path and its size-tracking, applied to two different kinds of shared state.</p>
+<hr>
+<h2 id="62-progressive-interview-question-set">62. Progressive Interview Question Set</h2>
+<p><strong>Level 1 — The core problem</strong>
+1. Trace exactly what corrupted state results from two threads calling <code>put()</code> on a plain <code>HashMap</code> at the same time, for the same bucket.
+2. Why is <code>Hashtable</code>'s "synchronize everything" approach correct but throughput-limited?</p>
+<p><strong>Level 2 — Locking granularity</strong>
+3. Explain lock striping, and why the number of segments is a fixed ceiling on write concurrency.
+4. Why does Java 8's <code>ConcurrentHashMap</code> lock individual buckets instead of segments?</p>
+<p><strong>Level 3 — Memory visibility</strong>
+5. What does <code>volatile</code> guarantee, and — precisely — what does it <em>not</em> guarantee?
+6. Why can <code>get()</code> be implemented with zero locking, and what specifically makes that safe?</p>
+<p><strong>Level 4 — CAS and lock-free programming</strong>
+7. What does a CAS instruction do, atomically, at the hardware level?
+8. Why does <code>ConcurrentHashMap</code> use CAS only for empty-bucket insertion and fall back to <code>synchronized</code> otherwise, rather than using CAS everywhere?</p>
+<p><strong>Level 5 — Resizing</strong>
+9. Walk through what a <code>ForwardingNode</code> is for, and what a <code>get()</code> does when it encounters one.
+10. Why can a bucket's contents always be split into exactly two destination buckets during a resize, never more?
+11. What does it mean for a resize to be "cooperative," and why is that better than one thread doing all the work?</p>
+<p><strong>Level 6 — Correctness at the edges</strong>
+12. Why is <code>if (!map.containsKey(k)) map.put(k, v)</code> still a race condition on a "thread-safe" map, and how does <code>computeIfAbsent</code> close it?
+13. What does "weakly consistent" mean for an iterator, and why doesn't <code>ConcurrentHashMap</code> throw <code>ConcurrentModificationException</code>?
+14. Why doesn't a single <code>volatile</code> counter correctly and efficiently track <code>size()</code> under high write concurrency?</p>
+<p><strong>Final challenge:</strong> A workload's keys are highly skewed — 90% of all <code>put</code>/<code>get</code> calls target the same 10 keys out of millions. Explain exactly which part of this guide's design (bucket locking? treeification? striped counters?) helps least under this specific access pattern, and sketch what additional mechanism you would add to address the actual bottleneck this workload creates.</p>
+<hr>
+<h2 id="63-suggested-v2-enhancements">63. Suggested V2 Enhancements</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Enhancement</th>
+<th>What it adds</th>
+<th>Where it plugs in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>putIfAbsent</code>/<code>remove(key, value)</code>/<code>replace(key, oldValue, newValue)</code></td>
+<td>The full atomic compound-operation surface real <code>ConcurrentHashMap</code> exposes</td>
+<td>Each follows §52's "compute inside the bucket lock" pattern with a different check/action</td>
+</tr>
+<tr>
+<td>Bulk operations (<code>forEach</code>, <code>search</code>, <code>reduce</code> with parallelism thresholds)</td>
+<td>Data-parallel operations across the whole map, splitting work by table region</td>
+<td>Built on top of §55's iteration machinery, parallelized across bucket ranges the way §46's resize already splits work</td>
+</tr>
+<tr>
+<td><code>ConcurrentHashMap.KeySetView</code>-style live views</td>
+<td>A <code>Set&lt;K&gt;</code> view backed by the same map, without copying</td>
+<td>A thin adapter over the existing iterator (§55) and <code>remove</code>/<code>put</code> paths</td>
+</tr>
+<tr>
+<td>NUMA-aware striping</td>
+<td>Reducing cross-socket cache-line traffic on very large multi-socket machines</td>
+<td>Extending §49's striping to prefer counter cells local to the calling thread's NUMA node</td>
+</tr>
+<tr>
+<td>A lock-free skip-list variant (<code>ConcurrentSkipListMap</code>-style)</td>
+<td>Ordered iteration and range queries, which a hash-based structure cannot offer</td>
+<td>An entirely different structure, not an extension of this one — worth knowing it exists as the answer to "I need concurrency <em>and</em> sorted order"</td>
+</tr>
+<tr>
+<td>Off-heap / memory-mapped storage</td>
+<td>Handling a map larger than JVM heap comfortably allows</td>
+<td>Replacing <code>Node</code> references with offsets into an off-heap buffer, with CAS operating on that buffer directly</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="64-final-takeaway">64. Final Takeaway</h2>
+<p>Every step in this guide is the same move, applied at a different scale: <strong>take a piece of shared, mutable state that's currently protected by one lock (or one plain field), and ask whether it can instead be split into many independently-protected pieces</strong> — a table into segments (§25), a segment into individual buckets (§31), a size counter into striped cells (§49). The correctness argument at each step never changes (mutual exclusion for writers on colliding operations, visibility for readers via <code>volatile</code>) — only the <strong>granularity</strong> at which that argument is applied gets progressively finer, buying more real concurrency at each step, right up to the point (a single bucket, a single counter cell) where finer granularity stops paying for itself. Real <code>java.util.concurrent.ConcurrentHashMap</code> is, underneath its considerable production-hardened detail, exactly this same sequence of decisions — and having derived each one yourself is what turns "it's a concurrent hash map, it's just thread-safe" into an answer you can actually defend, line by line, in an interview or a design review.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>
