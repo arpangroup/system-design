@@ -1,0 +1,945 @@
+<meta charset="utf-8">
+<title>Design a Tic-Tac-Toe Game — HLD, LLD, and Class Design From Scratch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow); transition:background .15s,transform .1s;
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; system design guide</div>
+      <h1>Design a Tic-Tac-Toe Game — HLD, LLD, and Class Design From Scratch</h1>
+      <p class="dek">A complete, step-by-step system design walkthrough for a Tic-Tac-Toe game system &mdash; efficient bitmask win detection, a state machine that structurally prevents illegal moves, a shared game engine serving both local pass-and-play and server-authoritative networked multiplayer, a pluggable AI strategy hierarchy from random play to unbeatable minimax to a self-trained Q-learning agent, score management and leaderboards, and prize-bearing contest design with anti-cheat &mdash; framed as a live interview with follow-up questions at every step.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-the-interview-framed">Why This Matters (The Interview, Framed)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-step-1-clarifying-requirements-before-designing-anything">Step 1 — Clarifying Requirements Before Designing Anything</a></li><li class="toc-lvl-2"><a href="#7-functional-requirements">Functional Requirements</a></li><li class="toc-lvl-2"><a href="#8-non-functional-requirements">Non-Functional Requirements</a></li><li class="toc-lvl-2"><a href="#9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</a></li><li class="toc-lvl-2"><a href="#10-identifying-the-core-domain-entities">Identifying the Core Domain Entities</a></li><li class="toc-lvl-2"><a href="#11-high-level-architecture-overview">High-Level Architecture Overview</a></li><li class="toc-lvl-2"><a href="#12-follow-up-question-2-how-do-you-represent-the-board-so-win-checking-is-cheap-not-a-nested-loop-scan-every-move">Follow-up Question 2 — "How Do You Represent the Board So Win-Checking Is Cheap, Not a Nested-Loop Scan Every Move?"</a></li><li class="toc-lvl-2"><a href="#13-efficient-board-representation-and-win-detection">Efficient Board Representation and Win Detection</a></li><li class="toc-lvl-2"><a href="#14-implementing-the-board-and-win-checker">Implementing the Board and Win Checker</a></li><li class="toc-lvl-2"><a href="#15-follow-up-question-3-how-do-you-model-turn-taking-and-prevent-an-illegal-move">Follow-up Question 3 — "How Do You Model Turn-Taking and Prevent an Illegal Move?"</a></li><li class="toc-lvl-2"><a href="#16-modeling-game-state-as-a-state-machine">Modeling Game State as a State Machine</a></li><li class="toc-lvl-2"><a href="#17-implementing-game-state-transitions">Implementing Game State Transitions</a></li><li class="toc-lvl-2"><a href="#18-class-diagram-the-core-game-engine">Class Diagram: The Core Game Engine</a></li><li class="toc-lvl-2"><a href="#19-follow-up-question-4-how-do-you-support-local-pass-and-play-and-networked-multiplayer-without-duplicating-game-logic">Follow-up Question 4 — "How Do You Support Local Pass-and-Play AND Networked Multiplayer Without Duplicating Game Logic?"</a></li><li class="toc-lvl-2"><a href="#20-separating-game-engine-from-transport-local-vs-networked-play">Separating Game Engine from Transport: Local vs. Networked Play</a></li><li class="toc-lvl-2"><a href="#21-implementing-a-networked-multiplayer-session">Implementing a Networked Multiplayer Session</a></li><li class="toc-lvl-2"><a href="#22-follow-up-question-5-two-networked-moves-arrive-at-nearly-the-same-time-how-do-you-prevent-both-being-applied">Follow-up Question 5 — "Two Networked Moves Arrive at Nearly the Same Time. How Do You Prevent Both Being Applied?"</a></li><li class="toc-lvl-2"><a href="#23-turn-authority-and-move-validation-on-the-server">Turn Authority and Move Validation on the Server</a></li><li class="toc-lvl-2"><a href="#24-follow-up-question-6-how-do-you-plug-in-an-ai-opponent-without-the-game-engine-caring-whether-its-playing-a-human-or-an-ai">Follow-up Question 6 — "How Do You Plug In an AI Opponent Without the Game Engine Caring Whether It's Playing a Human or an AI?"</a></li><li class="toc-lvl-2"><a href="#25-designing-the-ai-as-a-pluggable-strategy">Designing the AI as a Pluggable Strategy</a></li><li class="toc-lvl-2"><a href="#26-follow-up-question-7-whats-the-simplest-ai-and-whats-wrong-with-it">Follow-up Question 7 — "What's the Simplest AI, and What's Wrong With It?"</a></li><li class="toc-lvl-2"><a href="#27-strategy-1-random-move-selection">Strategy 1: Random Move Selection</a></li><li class="toc-lvl-2"><a href="#28-follow-up-question-8-how-do-you-make-an-ai-that-at-least-blocks-obvious-losses">Follow-up Question 8 — "How Do You Make an AI That at Least Blocks Obvious Losses?"</a></li><li class="toc-lvl-2"><a href="#29-strategy-2-heuristicrule-based-ai">Strategy 2: Heuristic/Rule-Based AI</a></li><li class="toc-lvl-2"><a href="#30-follow-up-question-9-how-do-you-build-an-ai-that-literally-cannot-lose">Follow-up Question 9 — "How Do You Build an AI That Literally Cannot Lose?"</a></li><li class="toc-lvl-2"><a href="#31-strategy-3-minimax-with-alpha-beta-pruning">Strategy 3: Minimax with Alpha-Beta Pruning</a></li><li class="toc-lvl-2"><a href="#32-implementing-minimax">Implementing Minimax</a></li><li class="toc-lvl-2"><a href="#33-follow-up-question-10-the-prompt-says-train-an-ai-player-minimax-doesnt-need-training-what-does-training-actually-mean-here">Follow-up Question 10 — "The Prompt Says 'Train' an AI Player. Minimax Doesn't Need Training — What Does 'Training' Actually Mean Here?"</a></li><li class="toc-lvl-2"><a href="#34-reinforcement-learning-framing-tic-tac-toe-as-a-learning-problem">Reinforcement Learning: Framing Tic-Tac-Toe as a Learning Problem</a></li><li class="toc-lvl-2"><a href="#35-follow-up-question-11-design-the-actual-training-loop-self-play-reward-exploration">Follow-up Question 11 — "Design the Actual Training Loop — Self-Play, Reward, Exploration"</a></li><li class="toc-lvl-2"><a href="#36-implementing-q-learning-via-self-play">Implementing Q-Learning via Self-Play</a></li><li class="toc-lvl-2"><a href="#37-follow-up-question-12-minimax-is-already-perfect-why-bother-training-an-rl-agent-at-all">Follow-up Question 12 — "Minimax Is Already Perfect. Why Bother Training an RL Agent at All?"</a></li><li class="toc-lvl-2"><a href="#38-why-train-an-rl-agent-when-a-perfect-solver-already-exists">Why Train an RL Agent When a Perfect Solver Already Exists</a></li><li class="toc-lvl-2"><a href="#39-class-diagram-ai-strategies">Class Diagram: AI Strategies</a></li><li class="toc-lvl-2"><a href="#40-follow-up-question-13-how-do-you-track-scores-across-many-games-and-many-players">Follow-up Question 13 — "How Do You Track Scores Across Many Games and Many Players?"</a></li><li class="toc-lvl-2"><a href="#41-score-management-and-leaderboards">Score Management and Leaderboards</a></li><li class="toc-lvl-2"><a href="#42-implementing-the-score-repository">Implementing the Score Repository</a></li><li class="toc-lvl-2"><a href="#43-follow-up-question-14-how-do-you-support-a-contest-with-a-prize-across-a-match-series">Follow-up Question 14 — "How Do You Support a Contest With a Prize, Across a Match Series?"</a></li><li class="toc-lvl-2"><a href="#44-designing-match-series-and-contests">Designing Match Series and Contests</a></li><li class="toc-lvl-2"><a href="#45-implementing-contest-and-prize-distribution">Implementing Contest and Prize Distribution</a></li><li class="toc-lvl-2"><a href="#46-follow-up-question-15-how-do-you-prevent-cheating-in-a-prize-money-contest">Follow-up Question 15 — "How Do You Prevent Cheating in a Prize-Money Contest?"</a></li><li class="toc-lvl-2"><a href="#47-contest-integrity-server-authoritative-validation-and-anti-cheat">Contest Integrity: Server-Authoritative Validation and Anti-Cheat</a></li><li class="toc-lvl-2"><a href="#48-capacity-estimation-concurrent-matches-and-matchmaking">Capacity Estimation: Concurrent Matches and Matchmaking</a></li><li class="toc-lvl-2"><a href="#49-full-worked-example-one-networked-match-traced-end-to-end">Full Worked Example: One Networked Match, Traced End to End</a></li><li class="toc-lvl-2"><a href="#50-final-architecture-diagram">Final Architecture Diagram</a></li><li class="toc-lvl-2"><a href="#51-design-patterns-used-throughout-this-guide">Design Patterns Used Throughout This Guide</a></li><li class="toc-lvl-2"><a href="#52-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#53-common-mistakes-when-building-this-yourself">Common Mistakes When Building This Yourself</a></li><li class="toc-lvl-2"><a href="#54-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#55-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#56-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#57-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Player X / Player O (human or AI) --move--&gt; [ Game Engine ] --validates, applies--&gt; Board
+                                                    |
+                                             [ Win/Draw Checker ]
+                                                    |
+                                        [ Score Repository ] &lt;--updates--&gt; Leaderboard
+                                                    |
+                                        [ Match/Contest Manager ] --prize awarded at series end--&gt;</code></pre></div>
+<p>Tic-Tac-Toe looks trivial, but a <em>system</em> built around it — one supporting local pass-and-play, real-time networked multiplayer, multiple AI opponents (from a random-move novice to a mathematically unbeatable player), a trainable learning agent, persistent score tracking, and prize-bearing contests — is a genuinely rich object-oriented and distributed-systems design exercise. This guide builds one from scratch: an efficient board representation with cheap win detection, a clean separation between the game engine and its transport layer (local vs. networked), a pluggable AI strategy hierarchy (random, heuristic, minimax, and a self-trained reinforcement-learning agent), score/leaderboard management, and match/contest design with prize distribution and anti-cheat considerations.</p>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide, you will be able to:</p>
+<ul><li>Represent a Tic-Tac-Toe board so that checking for a win is a cheap, constant-time operation rather than a repeated nested-loop scan.</li><li>Model game state as an explicit state machine, making illegal moves (playing out of turn, playing an occupied cell, playing after the game has ended) structurally rejected rather than merely checked after the fact.</li><li>Separate the game engine's pure rules from its transport layer, so the identical engine serves both local pass-and-play and real-time networked multiplayer.</li><li>Design a pluggable AI strategy hierarchy — random, rule-based heuristic, minimax with alpha-beta pruning, and a self-trained Q-learning agent — behind one common interface.</li><li>Explain precisely what "training" means for a solved game like Tic-Tac-Toe, and design a real self-play training loop (state representation, reward shaping, exploration vs. exploitation).</li><li>Design score tracking, leaderboards, and prize-bearing match/contest structures, including the server-authoritative validation a real-money contest requires.</li><li>Apply SOLID principles and recognizable design patterns (Strategy, State, Factory, Observer) to keep the system extensible without modifying already-tested code.</li></ul>
+<hr>
+<h2 id="3-why-this-matters-the-interview-framed">3. Why This Matters (The Interview, Framed)</h2>
+<p>"Design Tic-Tac-Toe" is a deceptively rich interview question specifically because the game's rules are trivial enough that a candidate has no excuse to hide weak design behind incidental complexity — every design choice (state modeling, strategy pluggability, network/local separation) is fully visible and fully judged on its own merits. Extending it with AI opponents, training, and prize contests turns a toy exercise into a genuine tour through classic design patterns, a real (if small-scale) reinforcement-learning problem, and real distributed-systems concerns (turn authority, anti-cheat) that show up in every larger multiplayer system too. This guide frames the design as a live interview: each major decision is preceded by the clarifying question that should have prompted it, and each design step is immediately followed by the hardest question a good interviewer asks next.</p>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table><thead><tr><th>Concern</th><th>Choice</th><th>Why</th></tr></thead><tbody><tr><td>Language (design)</td><td>Java 21</td><td>Sealed interfaces and records model board/state/move precisely; exhaustive <code>switch</code> keeps state transitions compiler-checked</td></tr><tr><td>Runnable artifact</td><td>HTML5 Canvas + vanilla JavaScript</td><td>Single-file, dependency-free, playable directly in a browser — matches the guide's own worked examples exactly</td></tr><tr><td>Win detection</td><td>Bitmask representation</td><td>O(1) win check via a precomputed mask table, instead of repeated nested-loop scans</td></tr><tr><td>Minimax AI</td><td>Minimax with alpha-beta pruning</td><td>The mathematically correct way to build a provably unbeatable player for a small, fully-observable game like this</td></tr><tr><td>Trainable AI</td><td>Tabular Q-learning via self-play</td><td>Tic-Tac-Toe's state space (~5,478 legal, reachable states) is small enough for an exact table, making the RL concepts fully visible without needing function approximation</td></tr><tr><td>Networked multiplayer</td><td>WebSocket, server-authoritative</td><td>Real-time turn exchange with the server as the single source of truth for move legality (<a href="#22-follow-up-question-5-two-networked-moves-arrive-at-nearly-the-same-time-how-do-you-prevent-both-being-applied">§22-23</a>)</td></tr></tbody></table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>tic-tac-toe/
+├── src/main/java/com/example/tictactoe/
+│   ├── domain/
+│   │   └── Board.java, Move.java, Player.java, GameResult.java        // §10, §14
+│   ├── engine/
+│   │   ├── GameState.java (State pattern)                              // §16-17
+│   │   └── GameEngine.java                                             // §17, §20
+│   ├── transport/
+│   │   ├── LocalGameSession.java                                       // §20
+│   │   └── NetworkedGameSession.java (WebSocket)                       // §21, §23
+│   ├── ai/
+│   │   ├── AiStrategy.java (Strategy interface)                        // §25
+│   │   ├── RandomStrategy.java                                         // §27
+│   │   ├── HeuristicStrategy.java                                      // §29
+│   │   ├── MinimaxStrategy.java                                        // §32
+│   │   └── QLearningAgent.java, QLearningTrainer.java                  // §36
+│   ├── score/
+│   │   └── ScoreRepository.java, Leaderboard.java                      // §42
+│   └── contest/
+│       ├── MatchSeries.java, Contest.java                              // §44
+│       └── ContestValidator.java (anti-cheat)                          // §47
+├── src/test/java/com/example/tictactoe/
+│   ├── WinDetectionTest.java
+│   ├── MinimaxUnbeatableTest.java
+│   └── QLearningConvergenceTest.java
+└── artifact/
+    └── tic-tac-toe.html   -- the runnable canvas game, §1's worked design made playable</code></pre></div>
+<hr>
+<h2 id="6-step-1-clarifying-requirements-before-designing-anything">6. Step 1 — Clarifying Requirements Before Designing Anything</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Design Tic-Tac-Toe."</em></p></blockquote>
+<p>Even for a game this simple, the intentionally open prompt needs narrowing: is this purely local pass-and-play, or does it need real-time networked multiplayer? How many AI difficulty levels, and does "AI" mean a hardcoded algorithm, a genuinely trained learning agent, or both? Does score tracking persist across sessions, and is there a leaderboard? Does "contest with a winning prize" imply real money (with all the integrity/anti-cheat obligations that brings) or just a virtual badge/points? The answers reshape which parts of the design carry real weight — a request specifically naming multiplayer, AI training, and prize contests (as this one does) is signaling that the interesting design surface is well beyond the game's trivial rules.</p>
+<hr>
+<h2 id="7-functional-requirements">7. Functional Requirements</h2>
+<ul><li><strong>Play a standard 3x3 Tic-Tac-Toe game</strong> between two players (human or AI), enforcing turn order and legal moves.</li><li><strong>Detect a win, loss, or draw</strong> immediately upon the move that produces it.</li><li><strong>Support local pass-and-play</strong> on a single device, and <strong>networked multiplayer</strong> between two remote players.</li><li><strong>Support multiple AI opponents</strong> at different strength levels, selectable by the human player.</li><li><strong>Support training an AI agent</strong> via self-play, with observable training progress.</li><li><strong>Track scores</strong> (wins/losses/draws) per player, persisted across sessions, with a leaderboard.</li><li><strong>Support a match/contest mode</strong>: a best-of-N series between two players (or a bracket among many), culminating in a prize awarded to the overall winner.</li></ul>
+<hr>
+<h2 id="8-non-functional-requirements">8. Non-Functional Requirements</h2>
+<ul><li><strong>Correctness of game rules</strong>: an illegal move (wrong turn, occupied cell, move after game end) must be structurally rejected, never silently accepted.</li><li><strong>Low latency for local play and AI moves</strong>: a human player should never perceive a noticeable delay waiting for an AI's move, even at the highest (minimax) difficulty.</li><li><strong>Real-time responsiveness for networked play</strong>: a move made by one player should be reflected on the opponent's screen within a fraction of a second under normal network conditions.</li><li><strong>Fairness and integrity for prize contests</strong>: the server, not either client, must be the single source of truth for which moves are legal and who won — a client can never be trusted to self-report a win in a contest with a real prize.</li><li><strong>Extensibility</strong>: adding a new AI strategy or a new contest format should require adding new code, not modifying the existing game engine or transport layer.</li><li><strong>Bounded state for the learning agent</strong>: the trainable AI's internal representation must not grow unboundedly — Tic-Tac-Toe's small, fully-enumerable state space makes this achievable exactly, not just approximately.</li></ul>
+<hr>
+<h2 id="9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">9. Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Name the core domain concepts before you draw any architecture."</em></p></blockquote>
+<ul><li><strong>Board</strong> — the 3x3 grid of cells, each empty or occupied by X/O.</li><li><strong>Move</strong> — a single placement: which player, which cell, at what point in the game's sequence.</li><li><strong>Game State</strong> — the game's current phase (in progress, X won, O won, draw) — an explicit, closed set of values, not an inferred condition re-derived on every check.</li><li><strong>Player</strong> — a participant, human or AI, identified by a symbol (X or O) and, for scoring purposes, a persistent identity.</li><li><strong>AI Strategy</strong> — the pluggable decision-making behind an AI player's move selection.</li><li><strong>Match Series / Contest</strong> — a sequence of individual games between (or among) players, aggregated into a result that determines a prize winner.</li></ul>
+<hr>
+<h2 id="10-identifying-the-core-domain-entities">10. Identifying the Core Domain Entities</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public enum Symbol { X, O }
+public enum GameResult { IN_PROGRESS, X_WINS, O_WINS, DRAW }
+
+public record Move(Symbol player, int cellIndex, int moveNumber) { } // cellIndex: 0-8
+
+public class Board {
+    private final Symbol[] cells = new Symbol[9]; // null = empty
+    private int moveCount = 0;
+
+    public boolean isEmpty(int cellIndex) { return cells[cellIndex] == null; }
+    public void place(int cellIndex, Symbol player) { cells[cellIndex] = player; moveCount++; }
+    public Symbol at(int cellIndex) { return cells[cellIndex]; }
+    public boolean isFull() { return moveCount == 9; }
+}
+
+public record Player(String playerId, String displayName, Symbol symbol, boolean isAi) { }</code></pre></div>
+<p>Encoding <code>GameResult</code> as its own enum, rather than inferring "is the game over" from repeatedly re-scanning the board on every query, is the same discipline this series has applied to spot/ticket lifecycles and rate-limit decisions elsewhere: compute the fact once, at the moment it becomes true, and carry it forward as an explicit value rather than re-derived state.</p>
+<hr>
+<h2 id="11-high-level-architecture-overview">11. High-Level Architecture Overview</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    +------------------------+
+Human/AI move ---&gt;|      GameEngine          |
+                    |  validate, apply, check |
+                    +-----------+--------------+
+                          |               |
+                +---------+       +---------+
+                v                          v
+      +------------------+     +------------------------+
+      | LocalGameSession   |     | NetworkedGameSession    |
+      | (same-device        |     | (WebSocket, server-      |
+      |  pass-and-play)     |     |  authoritative, §21-23) |
+      +------------------+     +------------------------+
+                                                |
+                          +---------------------+---------------------+
+                          v                                           v
+              +------------------------+                +------------------------+
+              |    ScoreRepository       |                |   MatchSeries/Contest    |
+              |    Leaderboard           |                |   Prize distribution      |
+              +------------------------+                +------------------------+</code></pre></div>
+<p><code>GameEngine</code> is deliberately the single place game rules live — both <code>LocalGameSession</code> and <code>NetworkedGameSession</code> call the exact same engine to validate and apply a move, differing only in <em>where the move came from</em> and <em>how the result is communicated back</em>, which is precisely what <a href="#19-follow-up-question-4-how-do-you-support-local-pass-and-play-and-networked-multiplayer-without-duplicating-game-logic">§19-20</a>'s follow-up question is about.</p>
+<hr>
+<h2 id="12-follow-up-question-2-how-do-you-represent-the-board-so-win-checking-is-cheap-not-a-nested-loop-scan-every-move">12. Follow-up Question 2 — "How Do You Represent the Board So Win-Checking Is Cheap, Not a Nested-Loop Scan Every Move?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A naive win-check loops over all 8 possible winning lines (3 rows, 3 columns, 2 diagonals), checking 3 cells each, after every single move. What's a cheaper approach?"</em></p></blockquote>
+<p>Represent each player's occupied cells as a 9-bit <strong>bitmask</strong> (one bit per cell), and precompute all 8 winning-line bitmasks once, at startup. Checking for a win after a move becomes a single bitwise AND between the player's current mask and each winning-line mask, compared for equality — a handful of cheap integer operations, replacing repeated cell-by-cell comparisons, and trivially fast even though Tic-Tac-Toe's scale never actually demands this optimization for correctness (it's included here because the <em>technique</em> — bitmask state, precomputed pattern table — generalizes to many larger board-game and combinatorial-search problems where it genuinely matters).</p>
+<hr>
+<h2 id="13-efficient-board-representation-and-win-detection">13. Efficient Board Representation and Win Detection</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Cell indices:        Winning line bitmasks (bit i set = cell i is part of this line):
+   0 | 1 | 2          Rows:    0b000000111, 0b000111000, 0b111000000
+  -----------         Columns: 0b001001001, 0b010010010, 0b100100100
+   3 | 4 | 5          Diagonals: 0b100010001, 0b001010100
+  -----------
+   6 | 7 | 8
+
+Player X occupies cells {0, 4, 8} (a diagonal)  -&gt;  xMask = 0b100010001
+Check: (xMask &amp; diagonalMask) == diagonalMask   -&gt;  TRUE -- X has won</code></pre></div>
+<p>Maintaining one integer bitmask <strong>per player</strong> (rather than a single combined board representation requiring 2 bits per cell to distinguish X/O/empty) keeps the win check itself a single-operand comparison — no need to first extract which player occupies a given line's cells before comparing.</p>
+<hr>
+<h2 id="14-implementing-the-board-and-win-checker">14. Implementing the Board and Win Checker</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class Board {
+    private static final int[] WINNING_MASKS = {
+        0b000000111, 0b000111000, 0b111000000,  // rows
+        0b001001001, 0b010010010, 0b100100100,  // columns
+        0b100010001, 0b001010100                 // diagonals
+    };
+
+    private int xMask = 0;
+    private int oMask = 0;
+    private int moveCount = 0;
+
+    public void place(int cellIndex, Symbol player) {
+        int bit = 1 &lt;&lt; cellIndex;
+        if (player == Symbol.X) xMask |= bit; else oMask |= bit;
+        moveCount++;
+    }
+
+    public boolean hasWon(Symbol player) {
+        int mask = (player == Symbol.X) ? xMask : oMask;
+        for (int winMask : WINNING_MASKS) {
+            if ((mask &amp; winMask) == winMask) return true; // O(1) per line, 8 lines total -- constant work
+        }
+        return false;
+    }
+
+    public boolean isFull() { return moveCount == 9; }
+    public boolean isOccupied(int cellIndex) { return ((xMask | oMask) &amp; (1 &lt;&lt; cellIndex)) != 0; }
+}</code></pre></div>
+<p><code>isOccupied</code> reuses the same bitmask representation for move legality checking — <code>xMask | oMask</code> cheaply gives "every occupied cell, regardless of which player," which is exactly what <a href="#16-modeling-game-state-as-a-state-machine">§16-17</a>'s move-validation logic needs before ever attempting to place a piece.</p>
+<hr>
+<h2 id="15-follow-up-question-3-how-do-you-model-turn-taking-and-prevent-an-illegal-move">15. Follow-up Question 3 — "How Do You Model Turn-Taking and Prevent an Illegal Move?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"What stops a player from moving twice in a row, playing on an occupied cell, or playing after the game has already ended?"</em></p></blockquote>
+<p>By making the game's current phase an explicit <strong>state machine</strong>, exactly the same technique this series' Parking Lot guide used for spot lifecycles (§29-30 there) — a <code>GameState</code> object encodes precisely which operations are legal from the current phase, so calling "make a move" while the state is already <code>X_WINS</code> or <code>DRAW</code> is a structurally rejected operation, not a bug waiting for a missing <code>if</code> check somewhere in the engine.</p>
+<hr>
+<h2 id="16-modeling-game-state-as-a-state-machine">16. Modeling Game State as a State Machine</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>IN_PROGRESS --(a move completes a line for the mover)--&gt; {X_WINS | O_WINS}
+IN_PROGRESS --(a move fills the board with no winner)--&gt; DRAW
+IN_PROGRESS --(a legal move, game continues)--&gt; IN_PROGRESS (still, just the turn advances)
+
+Illegal, structurally prevented:
+  X_WINS.applyMove(...)   -- the game has already concluded, no further moves are legal
+  IN_PROGRESS.applyMove(move from the WRONG player) -- turn order violated
+  IN_PROGRESS.applyMove(move on an ALREADY-OCCUPIED cell) -- cell legality violated</code></pre></div>
+<p>Every terminal state (<code>X_WINS</code>, <code>O_WINS</code>, <code>DRAW</code>) simply doesn't expose a legal further transition — precisely the same structural-impossibility principle the Parking Lot guide's <code>SpotState</code> used, applied here to a game's turn sequence instead of a physical spot's occupancy.</p>
+<hr>
+<h2 id="17-implementing-game-state-transitions">17. Implementing Game State Transitions</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface GameState {
+    GameState applyMove(Board board, Move move); // returns the NEW state, or throws if illegal
+}
+
+public class InProgressState implements GameState {
+    @Override
+    public GameState applyMove(Board board, Move move) {
+        if (board.isOccupied(move.cellIndex())) {
+            throw new IllegalMoveException("Cell " + move.cellIndex() + " is already occupied");
+        }
+        board.place(move.cellIndex(), move.player());
+        if (board.hasWon(move.player())) {
+            return move.player() == Symbol.X ? new XWinsState() : new OWinsState();
+        }
+        if (board.isFull()) {
+            return new DrawState();
+        }
+        return this; // game continues, still IN_PROGRESS
+    }
+}
+
+public class XWinsState implements GameState {
+    @Override
+    public GameState applyMove(Board board, Move move) {
+        throw new IllegalStateException("Game has already ended: X wins");
+    }
+}
+
+public class GameEngine {
+    private GameState currentState = new InProgressState();
+    private final Board board = new Board();
+
+    public void makeMove(Move move) {
+        currentState = currentState.applyMove(board, move); // delegates the TRANSITION to the state itself
+    }
+}</code></pre></div>
+<p><code>GameEngine</code> itself contains no <code>if (gameOver) { throw ... }</code> check anywhere — it simply delegates every move to whichever <code>GameState</code> it currently holds, and that state object either performs the transition or throws, exactly mirroring the delegation structure the Parking Lot guide's <code>ParkingSpot.markOccupied()</code> used for its own state machine.</p>
+<hr>
+<h2 id="18-class-diagram-the-core-game-engine">18. Class Diagram: The Core Game Engine</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+------------------------+        +------------------------+
+|       GameEngine         |-------&gt;|        Board             |
+|  makeMove(move)          |       |  place(), hasWon(),      |
+|  currentState: GameState |       |  isOccupied(), isFull()  |
++-----------+--------------+        +------------------------+
+            |
+            v
++------------------------+
+|       GameState           |
+|    &lt;&lt;interface&gt;&gt;          |
+|  applyMove(board, move)   |
++-----------+--------------+
+      ^      ^      ^      ^
++----------+ +--------+ +--------+ +--------+
+|InProgress| | XWins  | | OWins  | | Draw   |
+|State     | | State  | | State  | | State  |
++----------+ +--------+ +--------+ +--------+</code></pre></div>
+<p>This diagram is deliberately small — the entire rules engine for Tic-Tac-Toe fits in two classes and a four-state machine — which is exactly the point of using this game as a teaching vehicle: the design <em>patterns</em> on display (State, and Strategy in <a href="#25-designing-the-ai-as-a-pluggable-strategy">§25</a> onward) are fully visible without being obscured by incidental domain complexity.</p>
+<hr>
+<h2 id="19-follow-up-question-4-how-do-you-support-local-pass-and-play-and-networked-multiplayer-without-duplicating-game-logic">19. Follow-up Question 4 — "How Do You Support Local Pass-and-Play AND Networked Multiplayer Without Duplicating Game Logic?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"The rules are identical either way — only WHERE a move comes from, and HOW the result gets communicated, differ. How do you avoid writing the win/turn logic twice?"</em></p></blockquote>
+<p>By keeping <code>GameEngine</code> (<a href="#17-implementing-game-state-transitions">§17-18</a>) completely ignorant of <em>where</em> a <code>Move</code> originated or <em>who</em> needs to be told about the result — it only ever validates and applies moves against its own state machine. A thin <strong>transport layer</strong> sits on top: <code>LocalGameSession</code> reads both players' moves from the same device's input and re-renders the same local board; <code>NetworkedGameSession</code> receives a move from one client, applies it to the <em>same</em> <code>GameEngine</code>, and relays the result to the other client over the network — neither transport implementation contains a single line of game-rule logic itself.</p>
+<hr>
+<h2 id="20-separating-game-engine-from-transport-local-vs-networked-play">20. Separating Game Engine from Transport: Local vs. Networked Play</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>LocalGameSession:
+  Player 1 clicks a cell --&gt; Move --&gt; GameEngine.makeMove(move) --&gt; re-render board on the SAME screen
+  Player 2 clicks a cell --&gt; Move --&gt; GameEngine.makeMove(move) --&gt; re-render board on the SAME screen
+
+NetworkedGameSession:
+  Player 1's client sends Move over WebSocket --&gt; SERVER's GameEngine.makeMove(move)
+                                                        |
+                                        broadcast the resulting board state to BOTH clients
+  Player 2's client sends Move over WebSocket --&gt; SERVER's GameEngine.makeMove(move)
+                                                        |
+                                        broadcast the resulting board state to BOTH clients</code></pre></div>
+<p>The critical architectural difference is <em>where</em> <code>GameEngine</code> actually runs: in <code>LocalGameSession</code>, it can safely run on the player's own device since there's no other party to defraud; in <code>NetworkedGameSession</code>, it <strong>must</strong> run on the server (<a href="#22-follow-up-question-5-two-networked-moves-arrive-at-nearly-the-same-time-how-do-you-prevent-both-being-applied">§22-23</a>), because a client-side engine could be tampered with to report a false result — a distinction that becomes existential once real prizes are on the line (<a href="#43-follow-up-question-14-how-do-you-support-a-contest-with-a-prize-across-a-match-series">§43-47</a>).</p>
+<hr>
+<h2 id="21-implementing-a-networked-multiplayer-session">21. Implementing a Networked Multiplayer Session</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class NetworkedGameSession {
+    private final GameEngine engine; // runs SERVER-SIDE, authoritative
+    private final WebSocketConnection playerXConnection;
+    private final WebSocketConnection playerOConnection;
+
+    public void onMoveReceived(WebSocketConnection sender, Move move) {
+        Symbol expectedSymbol = (sender == playerXConnection) ? Symbol.X : Symbol.O;
+        if (move.player() != expectedSymbol) {
+            sender.sendError("You cannot submit a move for the other player's symbol");
+            return;
+        }
+        try {
+            engine.makeMove(move); // the SAME GameEngine class as LocalGameSession -- zero duplicated rules
+            broadcastBoardState();
+        } catch (IllegalMoveException | IllegalStateException e) {
+            sender.sendError(e.getMessage());
+        }
+    }
+
+    private void broadcastBoardState() {
+        BoardSnapshot snapshot = engine.currentSnapshot();
+        playerXConnection.send(snapshot);
+        playerOConnection.send(snapshot);
+    }
+}</code></pre></div>
+<p>Notice <code>NetworkedGameSession</code> imports and calls the <em>exact same</em> <code>GameEngine</code> class <code>LocalGameSession</code> would — the only genuinely new logic here is connection/identity bookkeeping (which socket is X, which is O) and broadcasting, which is precisely the intended payoff of <a href="#19-follow-up-question-4-how-do-you-support-local-pass-and-play-and-networked-multiplayer-without-duplicating-game-logic">§19</a>'s separation.</p>
+<hr>
+<h2 id="22-follow-up-question-5-two-networked-moves-arrive-at-nearly-the-same-time-how-do-you-prevent-both-being-applied">22. Follow-up Question 5 — "Two Networked Moves Arrive at Nearly the Same Time. How Do You Prevent Both Being Applied?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Network jitter means two moves — one from each player — could arrive at the server within milliseconds of each other. What stops both from being applied, out of turn order?"</em></p></blockquote>
+<p><code>GameEngine</code>'s own state machine already structurally prevents this — <code>InProgressState.applyMove</code> (<a href="#17-implementing-game-state-transitions">§17</a>) rejects a move from the wrong player before it ever touches the board, so even if both moves arrive nearly simultaneously, whichever one the server's single-threaded (or per-session-locked) processing handles first transitions the engine's internal turn expectation, and the second move is rejected by the <em>same</em> validation logic already in place, not by any new mechanism specifically built for network timing.</p>
+<hr>
+<h2 id="23-turn-authority-and-move-validation-on-the-server">23. Turn Authority and Move Validation on the Server</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Server processes moves for a SINGLE session strictly sequentially (either via a single-threaded
+event loop per session, or a lock scoped to that one session) -- this is a SMALL-SCALE echo of
+the Rate Limiter guide's atomic check-and-decrement requirement (§35 there): the "read current
+state, validate, apply" sequence for one game session must not be split across two overlapping
+operations, or the exact same class of race condition reappears.
+
+Move from Player O arrives while it's actually X's turn (network reordering, or a buggy/
+malicious client) --&gt; InProgressState.applyMove() rejects it via the SAME turn-order check
+already built into §17's state machine -- no separate "networked-only" validation path needed.</code></pre></div>
+<p>This is a small but important insight: the server doesn't need a <em>separate</em> anti-cheat-specific validation layer for turn order — the game engine's own correctness (already required for local play) is exactly the mechanism that also defeats a malicious or buggy networked client, as long as the server, not either client, is the one actually running it.</p>
+<hr>
+<h2 id="24-follow-up-question-6-how-do-you-plug-in-an-ai-opponent-without-the-game-engine-caring-whether-its-playing-a-human-or-an-ai">24. Follow-up Question 6 — "How Do You Plug In an AI Opponent Without the Game Engine Caring Whether It's Playing a Human or an AI?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"From the engine's point of view, should there be any difference between a human's move and an AI's move?"</em></p></blockquote>
+<p>None at all, and that's the correct design: an AI opponent is simply something that produces a <code>Move</code> given the current <code>Board</code> — exactly the same shape as a human clicking a cell and the client packaging that click into a <code>Move</code>. <code>GameEngine.makeMove(move)</code> never needs an <code>if (isAiTurn)</code> branch anywhere; a thin adapter asks the AI strategy for its move and submits it through the identical code path a human's move would take.</p>
+<hr>
+<h2 id="25-designing-the-ai-as-a-pluggable-strategy">25. Designing the AI as a Pluggable Strategy</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface AiStrategy {
+    int selectMove(Board board, Symbol aiSymbol); // returns a cellIndex, 0-8
+}
+
+public class AiPlayer {
+    private final AiStrategy strategy;
+    private final Symbol symbol;
+
+    public Move decideMove(Board board, int moveNumber) {
+        int cellIndex = strategy.selectMove(board, symbol);
+        return new Move(symbol, cellIndex, moveNumber);
+    }
+}</code></pre></div>
+<p>Every AI difficulty level — from a novice random-mover to an unbeatable minimax solver to a self-trained learning agent — implements this identical <code>AiStrategy</code> interface, which is the textbook <strong>Strategy</strong> pattern applied directly: swapping difficulty levels is a configuration change, never a change to <code>AiPlayer</code>, <code>GameEngine</code>, or either transport session.</p>
+<hr>
+<h2 id="26-follow-up-question-7-whats-the-simplest-ai-and-whats-wrong-with-it">26. Follow-up Question 7 — "What's the Simplest AI, and What's Wrong With It?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Implement the simplest possible AI opponent. What's its obvious weakness?"</em></p></blockquote>
+<p>The simplest correct <code>AiStrategy</code> implementation picks uniformly at random among the currently-empty cells — trivial to implement, and genuinely useful as a true "easy" difficulty for a beginner or a child, but it has no concept of blocking an imminent opponent win or taking an imminent win of its own, meaning it will happily lose games it could have easily won or blocked, purely by chance.</p>
+<hr>
+<h2 id="27-strategy-1-random-move-selection">27. Strategy 1: Random Move Selection</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class RandomStrategy implements AiStrategy {
+    private final Random random = new Random();
+
+    @Override
+    public int selectMove(Board board, Symbol aiSymbol) {
+        List&lt;Integer&gt; emptyCells = board.emptyCellIndices();
+        return emptyCells.get(random.nextInt(emptyCells.size()));
+    }
+}</code></pre></div>
+<p>This is deliberately the <em>entire</em> implementation — no board evaluation, no lookahead — which is precisely why it's the correct choice for an "Easy" difficulty tier: a genuinely weak opponent, not an artificially handicapped strong one.</p>
+<hr>
+<h2 id="28-follow-up-question-8-how-do-you-make-an-ai-that-at-least-blocks-obvious-losses">28. Follow-up Question 8 — "How Do You Make an AI That at Least Blocks Obvious Losses?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A slightly better AI should at least take an immediate winning move if one exists, and block the opponent's immediate winning move otherwise. Design that."</em></p></blockquote>
+<p>A small, fixed <strong>priority-ordered rule list</strong>, checked in order on every move: (1) if the AI has an immediate winning move available, take it; (2) otherwise, if the opponent has an immediate winning move available, block it; (3) otherwise, fall back to a simple positional preference (center, then corners, then edges — the classic Tic-Tac-Toe heuristic ordering). This produces a noticeably stronger, still-beatable "Medium" difficulty without the computational cost of a full lookahead search.</p>
+<hr>
+<h2 id="29-strategy-2-heuristicrule-based-ai">29. Strategy 2: Heuristic/Rule-Based AI</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class HeuristicStrategy implements AiStrategy {
+    private static final int[] POSITIONAL_PRIORITY = {4, 0, 2, 6, 8, 1, 3, 5, 7}; // center, corners, edges
+
+    @Override
+    public int selectMove(Board board, Symbol aiSymbol) {
+        Optional&lt;Integer&gt; winningMove = findWinningMove(board, aiSymbol);
+        if (winningMove.isPresent()) return winningMove.get();
+
+        Symbol opponent = (aiSymbol == Symbol.X) ? Symbol.O : Symbol.X;
+        Optional&lt;Integer&gt; blockingMove = findWinningMove(board, opponent);
+        if (blockingMove.isPresent()) return blockingMove.get();
+
+        for (int cell : POSITIONAL_PRIORITY) {
+            if (board.isEmpty(cell)) return cell;
+        }
+        throw new IllegalStateException("No empty cell found on a non-full board");
+    }
+
+    private Optional&lt;Integer&gt; findWinningMove(Board board, Symbol player) {
+        for (int cell : board.emptyCellIndices()) {
+            Board hypothetical = board.copy();
+            hypothetical.place(cell, player);
+            if (hypothetical.hasWon(player)) return Optional.of(cell);
+        }
+        return Optional.empty();
+    }
+}</code></pre></div>
+<p><code>findWinningMove</code> is reused for <strong>both</strong> the "can I win" check and the "must I block" check, simply called with a different <code>player</code> argument — a small but instructive example of not duplicating logic just because it's being used for two conceptually different purposes (offense vs. defense) within the same strategy.</p>
+<hr>
+<h2 id="30-follow-up-question-9-how-do-you-build-an-ai-that-literally-cannot-lose">30. Follow-up Question 9 — "How Do You Build an AI That Literally Cannot Lose?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Design a 'Hard' AI that is provably unbeatable — not just strong, but mathematically guaranteed to never lose."</em></p></blockquote>
+<p>By exhaustively exploring the game tree: <strong>minimax</strong> recursively simulates every possible sequence of remaining moves from the current position, assuming both players play optimally (the AI maximizes its own outcome, the opponent minimizes it — hence the name), and picks the move leading to the best guaranteed outcome. Because Tic-Tac-Toe's entire game tree is small enough to fully explore (at most 9! ≈ 362,880 move sequences, far fewer in practice once illegal continuations are pruned), minimax doesn't need to approximate anything — it computes the mathematically optimal move with certainty, which is precisely why an AI built this way can be proven to never lose (it will win or draw every game, depending on how well the opponent plays).</p>
+<hr>
+<h2 id="31-strategy-3-minimax-with-alpha-beta-pruning">31. Strategy 3: Minimax with Alpha-Beta Pruning</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>minimax(board, depth, isMaximizing):
+  if board.hasWon(AI_SYMBOL): return +10 - depth   -- prefer WINNING SOONER (higher score for shallower wins)
+  if board.hasWon(OPPONENT_SYMBOL): return -10 + depth -- prefer LOSING LATER, if a loss is somehow forced
+  if board.isFull(): return 0                       -- a draw
+
+  if isMaximizing (AI's turn):
+    best = -infinity
+    for each empty cell: simulate AI's move, best = max(best, minimax(..., depth+1, false))
+    return best
+  else (opponent's turn):
+    best = +infinity
+    for each empty cell: simulate opponent's move, best = min(best, minimax(..., depth+1, true))
+    return best</code></pre></div>
+<p>Subtracting/adding <code>depth</code> from the terminal scores is the detail that makes minimax prefer winning <strong>as quickly as possible</strong> and, if a loss is somehow unavoidable, delaying it as long as possible — without this adjustment, minimax would still play optimally in terms of win/loss/draw outcome, but could pick an unnecessarily slow path to an already-guaranteed win, which looks strange (and occasionally exploitable against a human opponent hoping for a mistake) even though it's technically still correct.</p>
+<hr>
+<h2 id="32-implementing-minimax">32. Implementing Minimax</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class MinimaxStrategy implements AiStrategy {
+
+    @Override
+    public int selectMove(Board board, Symbol aiSymbol) {
+        int bestScore = Integer.MIN_VALUE;
+        int bestCell = -1;
+        for (int cell : board.emptyCellIndices()) {
+            Board hypothetical = board.copy();
+            hypothetical.place(cell, aiSymbol);
+            int score = minimax(hypothetical, 1, false, aiSymbol, Integer.MIN_VALUE, Integer.MAX_VALUE);
+            if (score &gt; bestScore) { bestScore = score; bestCell = cell; }
+        }
+        return bestCell;
+    }
+
+    private int minimax(Board board, int depth, boolean isMaximizing, Symbol aiSymbol, int alpha, int beta) {
+        Symbol opponent = (aiSymbol == Symbol.X) ? Symbol.O : Symbol.X;
+        if (board.hasWon(aiSymbol)) return 10 - depth;
+        if (board.hasWon(opponent)) return depth - 10;
+        if (board.isFull()) return 0;
+
+        if (isMaximizing) {
+            int best = Integer.MIN_VALUE;
+            for (int cell : board.emptyCellIndices()) {
+                Board next = board.copy();
+                next.place(cell, aiSymbol);
+                best = Math.max(best, minimax(next, depth + 1, false, aiSymbol, alpha, beta));
+                alpha = Math.max(alpha, best);
+                if (beta &lt;= alpha) break; // PRUNE -- the opponent already has a better option elsewhere, stop exploring
+            }
+            return best;
+        } else {
+            int best = Integer.MAX_VALUE;
+            for (int cell : board.emptyCellIndices()) {
+                Board next = board.copy();
+                next.place(cell, opponent);
+                best = Math.min(best, minimax(next, depth + 1, true, aiSymbol, alpha, beta));
+                beta = Math.min(beta, best);
+                if (beta &lt;= alpha) break; // PRUNE, symmetric to the maximizing branch above
+            }
+            return best;
+        }
+    }
+}</code></pre></div>
+<p>Alpha-beta pruning (the <code>if (beta &lt;= alpha) break</code> lines) doesn't change minimax's outcome at all — the move it selects is provably identical to unpruned minimax — it only skips exploring branches that a rational opponent would never actually allow to be reached, cutting the number of positions evaluated dramatically without sacrificing any correctness.</p>
+<hr>
+<h2 id="33-follow-up-question-10-the-prompt-says-train-an-ai-player-minimax-doesnt-need-training-what-does-training-actually-mean-here">33. Follow-up Question 10 — "The Prompt Says 'Train' an AI Player. Minimax Doesn't Need Training — What Does 'Training' Actually Mean Here?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"You've built a perfect, unbeatable AI with zero training. So what is there left to 'train'? Isn't this already solved?"</em></p></blockquote>
+<p>Minimax is a <strong>solver</strong> — it computes the correct move by exhaustive search, encoding no accumulated experience at all; ask it the same question twice and it re-derives the identical answer from scratch every time. <strong>Training</strong> means something categorically different: building an agent that <strong>improves its move selection through repeated experience</strong> (playing many games, observing outcomes, adjusting its future behavior accordingly) rather than through exhaustive real-time search — the correct framing for "training" here is <strong>reinforcement learning</strong>, where an agent learns a policy from self-play rather than being handed one by an algorithm.</p>
+<hr>
+<h2 id="34-reinforcement-learning-framing-tic-tac-toe-as-a-learning-problem">34. Reinforcement Learning: Framing Tic-Tac-Toe as a Learning Problem</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>State:   the current board configuration (which cells are X, O, or empty) -- ~5,478 legal,
+         reachable states exist for Tic-Tac-Toe (a small enough number to store EXACTLY,
+         in a table, rather than needing a neural network or other function approximator)
+Action:  which empty cell to play next
+Reward:  +1 for a win, -1 for a loss, 0 for a draw or a non-terminal move
+Policy:  a mapping from (state, action) -&gt; an estimated VALUE of taking that action in that
+         state -- the agent's own learned "opinion" about how good each possible move is</code></pre></div>
+<p>Framing the problem this way is what makes Tic-Tac-Toe an ideal <strong>teaching</strong> example for reinforcement learning specifically: the state space is small enough to represent exactly (a genuine, exact lookup table, not an approximation), so every core RL concept (state, action, reward, policy, exploration) is fully visible without the added complexity a larger game would require (function approximation, neural networks) to even get off the ground.</p>
+<hr>
+<h2 id="35-follow-up-question-11-design-the-actual-training-loop-self-play-reward-exploration">35. Follow-up Question 11 — "Design the Actual Training Loop — Self-Play, Reward, Exploration"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Walk me through one full training loop, end to end — how does the agent actually improve?"</em></p></blockquote>
+<p>The agent plays a large number of complete games <strong>against itself</strong> (or against a mix of itself and other strategies), and after every move, updates its estimate of that move's value based on the eventual outcome — using the standard <strong>Q-learning</strong> update rule, which nudges the estimated value of the move just taken toward the actual reward received plus a discounted estimate of the best move available from the resulting position. Critically, the agent must <strong>not</strong> always pick its currently-best-known move during training (that would let it converge prematurely on a mediocre policy it never explores past) — an <strong>epsilon-greedy</strong> exploration policy has it pick a random move some fraction of the time, gradually reducing that fraction as training progresses.</p>
+<hr>
+<h2 id="36-implementing-q-learning-via-self-play">36. Implementing Q-Learning via Self-Play</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class QLearningAgent implements AiStrategy {
+    private final Map&lt;String, double[]&gt; qTable = new HashMap&lt;&gt;(); // boardKey -&gt; value per cell (NaN if illegal)
+    private double epsilon = 0.1; // exploration rate, tuned down over training (§37 shows the training loop itself)
+
+    @Override
+    public int selectMove(Board board, Symbol aiSymbol) {
+        if (ThreadLocalRandom.current().nextDouble() &lt; epsilon) {
+            List&lt;Integer&gt; emptyCells = board.emptyCellIndices();
+            return emptyCells.get(ThreadLocalRandom.current().nextInt(emptyCells.size())); // EXPLORE
+        }
+        return bestKnownMove(board); // EXPLOIT the current policy
+    }
+
+    private int bestKnownMove(Board board) {
+        double[] values = qTable.computeIfAbsent(board.canonicalKey(), k -&gt; new double[9]);
+        int best = -1;
+        double bestValue = Double.NEGATIVE_INFINITY;
+        for (int cell : board.emptyCellIndices()) {
+            if (values[cell] &gt; bestValue) { bestValue = values[cell]; best = cell; }
+        }
+        return best;
+    }
+}
+
+public class QLearningTrainer {
+    private static final double LEARNING_RATE = 0.3;
+    private static final double DISCOUNT = 0.9;
+
+    public void trainSelfPlay(QLearningAgent agent, int episodes) {
+        for (int episode = 0; episode &lt; episodes; episode++) {
+            List&lt;StateActionPair&gt; history = new ArrayList&lt;&gt;();
+            Board board = new Board();
+            GameState state = new InProgressState();
+            Symbol currentTurn = Symbol.X;
+
+            while (state instanceof InProgressState) {
+                int cell = agent.selectMove(board, currentTurn);
+                history.add(new StateActionPair(board.canonicalKey(), cell));
+                state = state.applyMove(board, new Move(currentTurn, cell, history.size()));
+                currentTurn = (currentTurn == Symbol.X) ? Symbol.O : Symbol.X;
+            }
+
+            double finalReward = rewardFor(state); // +1 win, -1 loss, 0 draw, FROM THE TRAINING AGENT's perspective
+            backpropagateRewards(agent, history, finalReward); // update EVERY move made this game, discounted by recency
+        }
+    }
+}</code></pre></div>
+<p><code>backpropagateRewards</code> is where the actual learning happens: the <em>final</em> game outcome is known only at the very end, but every move made throughout the game contributed to it, so the reward is propagated <strong>backward</strong> through the game's move history, with the <code>DISCOUNT</code> factor making moves closer to the actual win/loss count more strongly than early, more speculative moves — precisely how Q-learning turns a single win/loss signal into a gradually-refined value estimate for every position visited along the way.</p>
+<hr>
+<h2 id="37-follow-up-question-12-minimax-is-already-perfect-why-bother-training-an-rl-agent-at-all">37. Follow-up Question 12 — "Minimax Is Already Perfect. Why Bother Training an RL Agent at All?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"You already have a provably unbeatable AI from minimax. What's the actual justification for building a trained agent as well?"</em></p></blockquote>
+<p>Three genuine reasons, none of which are about raw strength (minimax already wins that comparison unconditionally): (1) <strong>pedagogical value</strong> — an RL agent visibly <em>improving</em> over training episodes is a much richer, more demonstrable teaching tool than a solver that's simply always already correct; (2) <strong>tunable imperfection</strong> — a partially-trained agent naturally plays at an <em>intermediate</em> strength between "Easy" random play and "Hard" unbeatable minimax, giving a genuinely distinct difficulty tier that isn't just minimax with artificial randomness bolted on; (3) <strong>generality of the technique</strong> — the exact same self-play/reward/exploration framework scales (with function approximation replacing the exact lookup table) to games far too large for exhaustive minimax, making Tic-Tac-Toe a low-stakes place to learn the technique correctly before applying it somewhere minimax genuinely isn't an option.</p>
+<hr>
+<h2 id="38-why-train-an-rl-agent-when-a-perfect-solver-already-exists">38. Why Train an RL Agent When a Perfect Solver Already Exists</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    Strength            Determinism           Teaching value
+Minimax           Provably unbeatable   Always identical,     Low (no learning to observe --
+                                         no learning involved   it's simply always already correct)
+
+Q-Learning        Depends on training    Improves visibly       High (win-rate against a fixed
+(partially        episodes -- tunable    over episodes,          opponent climbs over training,
+ trained)         intermediate strength  genuinely "learns"      directly demonstrable)</code></pre></div>
+<p>This table is the honest answer to "why not just always use minimax": minimax and a trained agent are solving two <strong>different problems</strong> — "what is the objectively correct move" versus "how does an agent get better through experience" — and a system offering AI difficulty tiers benefits from having both, for genuinely different reasons.</p>
+<hr>
+<h2 id="39-class-diagram-ai-strategies">39. Class Diagram: AI Strategies</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+------------------------+
+|       AiStrategy          |
+|    &lt;&lt;interface&gt;&gt;          |
+|  selectMove(board, symbol)|
++-----------+--------------+
+      ^      ^      ^      ^
++----------+ +-----------+ +-----------+ +------------------------+
+| Random   | | Heuristic | | Minimax   | | QLearningAgent          |
+| Strategy | | Strategy  | | Strategy  | | (trained via            |
+|          | |           | |           | |  QLearningTrainer, §36) |
++----------+ +-----------+ +-----------+ +------------------------+
+
+                    +------------------------+
+                    |      AiPlayer            |
+                    |  decideMove(board, ...)  |
+                    |  strategy: AiStrategy    |
+                    +------------------------+</code></pre></div>
+<p>All four difficulty tiers slot into the identical <code>AiPlayer</code>/<code>AiStrategy</code> structure introduced in <a href="#25-designing-the-ai-as-a-pluggable-strategy">§25</a> — a new difficulty (or an entirely new algorithm, e.g., Monte Carlo tree search) is added by implementing one interface, never by modifying <code>AiPlayer</code>, <code>GameEngine</code>, or either transport session.</p>
+<hr>
+<h2 id="40-follow-up-question-13-how-do-you-track-scores-across-many-games-and-many-players">40. Follow-up Question 13 — "How Do You Track Scores Across Many Games and Many Players?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A single game's result is easy. How do you turn that into persistent, per-player win/loss/draw records and a leaderboard?"</em></p></blockquote>
+<p>Every completed game (regardless of whether it was local, networked, against another human, or against an AI) should emit a single, immutable <strong>game result event</strong> — winner (or draw), both players' identities, timestamp — that a <code>ScoreRepository</code> durably records and incrementally folds into each player's running totals, exactly the same "compute once, persist immediately, never re-derive" discipline this series has applied to every other guide's event-sourced state.</p>
+<hr>
+<h2 id="41-score-management-and-leaderboards">41. Score Management and Leaderboards</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>GameEngine reaches a terminal state (X_WINS/O_WINS/DRAW)
+        |
+        v
+ScoreRepository.recordResult(playerX, playerO, result)
+        |
+        +--&gt; playerX's record: wins/losses/draws counters incremented appropriately
+        +--&gt; playerO's record: wins/losses/draws counters incremented appropriately
+        |
+        v
+Leaderboard: a read-optimized VIEW over all players' records, sorted by win count
+             (or a more nuanced rating, e.g. win percentage weighted by games played)</code></pre></div>
+<p>Separating the <strong>write path</strong> (recording one game's result, which happens once per completed game) from the <strong>read path</strong> (rendering a leaderboard, which happens far more often, every time any player views it) mirrors the same read/write-path separation the Parking Lot guide's §43 and the Real-Time Analytics Platform guide's hot/cold store split both already established: frequent reads should never be served by re-scanning or re-aggregating from the write-side records on every request.</p>
+<hr>
+<h2 id="42-implementing-the-score-repository">42. Implementing the Score Repository</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class ScoreRepository {
+    private final Map&lt;String, PlayerRecord&gt; recordsByPlayerId = new ConcurrentHashMap&lt;&gt;();
+
+    public void recordResult(Player playerX, Player playerO, GameResult result) {
+        PlayerRecord xRecord = recordsByPlayerId.computeIfAbsent(playerX.playerId(), id -&gt; new PlayerRecord(id));
+        PlayerRecord oRecord = recordsByPlayerId.computeIfAbsent(playerO.playerId(), id -&gt; new PlayerRecord(id));
+
+        switch (result) {
+            case X_WINS -&gt; { xRecord.incrementWins(); oRecord.incrementLosses(); }
+            case O_WINS -&gt; { oRecord.incrementWins(); xRecord.incrementLosses(); }
+            case DRAW -&gt; { xRecord.incrementDraws(); oRecord.incrementDraws(); }
+            case IN_PROGRESS -&gt; throw new IllegalArgumentException("Cannot record an unfinished game");
+        }
+    }
+
+    public List&lt;PlayerRecord&gt; leaderboard(int topN) {
+        return recordsByPlayerId.values().stream()
+            .sorted(Comparator.comparingInt(PlayerRecord::wins).reversed())
+            .limit(topN)
+            .toList();
+    }
+}</code></pre></div>
+<p>Rejecting <code>IN_PROGRESS</code> results explicitly (rather than silently no-oping) is a small but deliberate defensive detail — it converts a caller's genuine bug (recording a score before the game actually ended) into an immediate, loud failure rather than a silently-corrupted leaderboard that would be far harder to trace back to its cause later.</p>
+<hr>
+<h2 id="43-follow-up-question-14-how-do-you-support-a-contest-with-a-prize-across-a-match-series">43. Follow-up Question 14 — "How Do You Support a Contest With a Prize, Across a Match Series?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Instead of a single game, design a 'best of 5' match series between two players, where the overall series winner receives a prize."</em></p></blockquote>
+<p>A <code>MatchSeries</code> aggregates a configured number of individual games between the same two players, tracking each game's result and determining an overall winner once one player reaches the majority threshold (e.g., 3 wins out of a best-of-5) — reusing <code>GameEngine</code> unchanged for every individual game within the series, since a series is simply a sequence of otherwise-ordinary games with an additional aggregation layer on top, not a different kind of game.</p>
+<hr>
+<h2 id="44-designing-match-series-and-contests">44. Designing Match Series and Contests</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class MatchSeries {
+    private final Player playerA;
+    private final Player playerB;
+    private final int gamesToWin; // e.g., 3 for a best-of-5 series
+    private int playerAWins = 0;
+    private int playerBWins = 0;
+    private final List&lt;GameResult&gt; completedGames = new ArrayList&lt;&gt;();
+
+    public void recordGameResult(GameResult result) {
+        completedGames.add(result);
+        if (result == GameResult.X_WINS) playerAWins++;   // assuming playerA is always X for this series
+        else if (result == GameResult.O_WINS) playerBWins++;
+    }
+
+    public Optional&lt;Player&gt; seriesWinner() {
+        if (playerAWins &gt;= gamesToWin) return Optional.of(playerA);
+        if (playerBWins &gt;= gamesToWin) return Optional.of(playerB);
+        return Optional.empty(); // series still in progress
+    }
+}
+
+public class Contest {
+    private final BigDecimal prizePool;
+    private final MatchSeries series;
+
+    public void distributePrizeIfComplete(PrizeLedger ledger) {
+        series.seriesWinner().ifPresent(winner -&gt; ledger.credit(winner.playerId(), prizePool));
+    }
+}</code></pre></div>
+<p><code>Contest</code> deliberately holds a reference to <code>MatchSeries</code> rather than reimplementing win-counting itself — the prize-distribution concern is layered cleanly on top of the already-correct series logic, exactly the same compositional relationship this series has used repeatedly (a Decorator or a thin wrapper adding one new concern over an already-correct lower layer) rather than duplicating logic across the two.</p>
+<hr>
+<h2 id="45-implementing-contest-and-prize-distribution">45. Implementing Contest and Prize Distribution</h2>
+<p>The <code>PrizeLedger.credit(...)</code> call above is the one operation in this entire guide that must be treated with the same rigor as an actual financial transaction — it should be idempotent (crediting the same completed series twice must not double-pay), auditable (every credit permanently logged with the series/contest ID that justified it), and executed exactly once per concluded contest, typically enforced via the same <strong>Idempotency-Key</strong>-style mechanism this series' REST API guide detailed in its own §48-50: the contest's own ID serves as the idempotency key, so a retried or duplicated "distribute prize" call recognizes it has already paid out and does not pay again.</p>
+<hr>
+<h2 id="46-follow-up-question-15-how-do-you-prevent-cheating-in-a-prize-money-contest">46. Follow-up Question 15 — "How Do You Prevent Cheating in a Prize-Money Contest?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Real money is now on the line. What stops a player from tampering with their client to report a fake win?"</em></p></blockquote>
+<p>Precisely the principle already established back in <a href="#20-separating-game-engine-from-transport-local-vs-networked-play">§20-23</a>: <strong>the server, never either client, is the sole source of truth for game state and results</strong> — a contest-mode game must run its <code>GameEngine</code> server-side, with each client only ever sending proposed moves and receiving authoritative board state back, exactly like <code>NetworkedGameSession</code>. A client claiming "I won" with no corresponding server-validated sequence of legal moves reaching a genuine terminal state is simply never trusted, structurally, not merely detected after the fact by a separate anti-cheat check.</p>
+<hr>
+<h2 id="47-contest-integrity-server-authoritative-validation-and-anti-cheat">47. Contest Integrity: Server-Authoritative Validation and Anti-Cheat</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>UNTRUSTED (never do this for a real-money contest):
+  Client plays a full game locally --&gt; client sends "I WON" to the server --&gt; server pays out
+  -- a modified client can simply SEND A FALSE CLAIM, no actual game required
+
+TRUSTED (this guide's design):
+  Every move is sent to and VALIDATED by the server's own GameEngine (§21-23)
+  The server's OWN GameState reaching X_WINS/O_WINS is the ONLY thing that can trigger
+  MatchSeries.recordGameResult() and, eventually, Contest.distributePrizeIfComplete()
+  -- a client can send whatever it wants, but only a genuinely legal, server-validated
+     sequence of moves can ever produce a payable result</code></pre></div>
+<p>This is the same architectural lesson the Rate Limiter guide's distributed coordination (§32-35 there) and this guide's own <a href="#22-follow-up-question-5-two-networked-moves-arrive-at-nearly-the-same-time-how-do-you-prevent-both-being-applied">§22-23</a> already established, applied to its highest-stakes form: <strong>whatever a client reports about itself is data, not fact, the instant real value depends on the outcome</strong> — the server must independently derive the result from validated inputs, never accept a client's self-reported conclusion.</p>
+<hr>
+<h2 id="48-capacity-estimation-concurrent-matches-and-matchmaking">48. Capacity Estimation: Concurrent Matches and Matchmaking</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Assume: 100,000 concurrent networked games at peak, each session holding a tiny amount of state
+        (a Board's two integer bitmasks, a GameState reference, two connection handles)
+
+Memory per session ≈ 200 bytes (board + state + metadata) --&gt; 100,000 * 200 bytes = 20 MB total
+  -- trivially small; a single well-provisioned server process can hold every active session's
+     state in memory simultaneously, with capacity to spare for orders of magnitude more sessions
+
+Move throughput: even at a (generously high) 10 moves/sec per active session, 100,000 sessions
+  generate only 1,000,000 moves/sec platform-wide -- each move's processing cost (bitmask update,
+  8-line win check) is on the order of nanoseconds, so CPU is never the bottleneck; the actual
+  limiting factor at real scale is WebSocket connection count and network I/O, not game logic.</code></pre></div>
+<p>Tic-Tac-Toe's absolute computational cheapness means this design's scaling story is almost entirely about connection/session management infrastructure (matchmaking queues, WebSocket connection pooling) rather than anything intrinsic to the game logic itself — a deliberate contrast with this series' other guides (the Analytics Platform, the Rate Limiter), where the domain logic itself was the primary scaling concern.</p>
+<hr>
+<h2 id="49-full-worked-example-one-networked-match-traced-end-to-end">49. Full Worked Example: One Networked Match, Traced End to End</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. Player Alice (human) and Player Bob (human) are matched into a NetworkedGameSession,
+   server-side GameEngine created with a fresh InProgressState and empty Board (§21)
+2. Alice's client sends Move(X, cellIndex=4, moveNumber=1) over WebSocket
+3. Server: NetworkedGameSession.onMoveReceived validates Alice is indeed playing X (§21)
+4. Server: GameEngine.makeMove delegates to InProgressState.applyMove -- cell 4 was empty,
+   legal -- board.place(4, X) updates the bitmask, no win yet, board not full -- state stays
+   IN_PROGRESS (§17)
+5. Server broadcasts the updated board snapshot to BOTH Alice's and Bob's clients (§21)
+6. ... several more moves alternate, each following the identical steps 2-5 ...
+7. Bob's move at cellIndex=6 completes a diagonal for O -- InProgressState.applyMove detects
+   board.hasWon(O) -- returns a NEW OWinsState (§16-17)
+8. Server broadcasts the final board snapshot, now tagged with result=O_WINS
+9. ScoreRepository.recordResult(alice, bob, O_WINS) -- Bob's win count increments, Alice's
+   loss count increments (§42)
+10. If this game was part of an active MatchSeries: MatchSeries.recordGameResult(O_WINS) --
+    Bob's series win count increments; if this reaches the gamesToWin threshold, Contest.
+    distributePrizeIfComplete() credits Bob's PrizeLedger exactly once (§44-45)</code></pre></div>
+<p>Every mechanism introduced by a follow-up question in this guide appears somewhere in this one match's trace — the state machine, server-authoritative validation, score recording, and prize distribution are not independent, optional features, they are the actual steps one real networked, prize-bearing match passes through in this design.</p>
+<hr>
+<h2 id="50-final-architecture-diagram">50. Final Architecture Diagram</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Alice's client &lt;--WebSocket--&gt; [ NetworkedGameSession ] &lt;--WebSocket--&gt; Bob's client
+                                          |
+                                +---------v---------+
+                                |     GameEngine       |
+                                | GameState + Board    |
+                                +---------+---------+
+                                          |
+                          +---------------+---------------+
+                          v                                 v
+              +------------------------+       +------------------------+
+              |    ScoreRepository       |       |   MatchSeries / Contest |
+              |    Leaderboard           |       |   PrizeLedger            |
+              +------------------------+       +------------------------+
+
+(Local/offline mode, structurally identical GameEngine, no network layer:)
+Human/AI move --&gt; [ LocalGameSession ] --&gt; [ GameEngine ] --&gt; ScoreRepository (local persistence)
+                          ^
+                          |
+                 [ AiPlayer -&gt; AiStrategy: Random | Heuristic | Minimax | QLearningAgent ]</code></pre></div>
+<hr>
+<h2 id="51-design-patterns-used-throughout-this-guide">51. Design Patterns Used Throughout This Guide</h2>
+<ul><li><strong>State</strong> — <code>GameState</code> (<a href="#16-modeling-game-state-as-a-state-machine">§16-17</a>) encodes exactly which move transitions are legal from the current phase, structurally preventing illegal moves rather than relying on scattered runtime checks.</li><li><strong>Strategy</strong> — <code>AiStrategy</code> (<a href="#25-designing-the-ai-as-a-pluggable-strategy">§25-39</a>: random, heuristic, minimax, Q-learning) is a single swappable interface behind which every AI difficulty tier lives, interchangeable via configuration alone.</li><li><strong>Facade</strong> — <code>GameEngine</code> hides board mutation, win detection, and state transition behind a single <code>makeMove</code> entry point both transport layers and both AI adapters depend on.</li><li><strong>Adapter</strong> — the thin <code>AiPlayer</code> wrapper adapts an <code>AiStrategy</code>'s move selection into the exact same <code>Move</code> shape a human client submits, letting <code>GameEngine</code> treat both uniformly (<a href="#24-follow-up-question-6-how-do-you-plug-in-an-ai-opponent-without-the-game-engine-caring-whether-its-playing-a-human-or-an-ai">§24-25</a>).</li><li><strong>Repository</strong> — <code>ScoreRepository</code> and <code>PrizeLedger</code> each encapsulate their own persistence and aggregation concerns behind a narrow, purpose-specific interface.</li></ul>
+<hr>
+<h2 id="52-solid-principles-applied">52. SOLID Principles Applied</h2>
+<ul><li><strong>Single Responsibility</strong> — <code>Board</code> only tracks cell occupancy and win detection; <code>GameState</code> only encodes legal transitions; <code>ScoreRepository</code> only aggregates results — none of the three knows how to do the others' job, even though <code>GameEngine</code> composes the first two on every move.</li><li><strong>Open/Closed</strong> — adding a new AI difficulty (or a new contest format) means implementing one interface, never modifying <code>GameEngine</code>, either transport session, or <code>MatchSeries</code>.</li><li><strong>Liskov Substitution</strong> — every <code>AiStrategy</code> implementation must honestly return a legal, currently-empty cell index from <code>selectMove</code>, so <code>AiPlayer</code> can compose any of them interchangeably without special-casing a particular strategy.</li><li><strong>Interface Segregation</strong> — <code>AiStrategy</code> exposes exactly one method, so a trivial <code>RandomStrategy</code> isn't forced to depend on concepts (Q-tables, alpha-beta bounds) only more elaborate strategies actually need.</li><li><strong>Dependency Inversion</strong> — both <code>LocalGameSession</code> and <code>NetworkedGameSession</code> depend only on the <code>GameEngine</code> class's public contract, never reimplementing rules themselves, so the exact same rules engine serves both transports without duplication.</li></ul>
+<hr>
+<h2 id="53-common-mistakes-when-building-this-yourself">53. Common Mistakes When Building This Yourself</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>MISTAKE                                                CORRECT APPROACH (this guide's section)
+Re-scanning all 8 winning lines cell-by-cell every move  Precomputed bitmask win detection (§12-14)
+A boolean isGameOver flag with scattered if-checks        Explicit State pattern with legal transitions (§16-17)
+Duplicating game rules in both local and networked code   One GameEngine, two thin transport layers (§19-21)
+Trusting a client's self-reported win in a networked game Server-authoritative GameEngine (§22-23)
+Special-casing AI moves differently from human moves      AiPlayer produces the same Move shape (§24-25)
+Confusing "unbeatable" (minimax) with "trained" (RL)       Understand solving vs. learning are different (§33-34)
+Letting an RL agent always exploit during training         Epsilon-greedy exploration (§35-36)
+Paying out a contest prize based on a client's claim        Server derives the result independently (§46-47)</code></pre></div>
+<hr>
+<h2 id="54-testing-strategy">54. Testing Strategy</h2>
+<ul><li><strong>Win detection tests</strong> — verify every one of the 8 winning-line bitmasks correctly triggers <code>hasWon</code>, and that a non-winning configuration correctly does not.</li><li><strong>State machine tests</strong> — assert every illegal transition (move after game end, move on an occupied cell, move out of turn) throws, and every legal transition produces the correct resulting state.</li><li><strong>Minimax correctness tests</strong> — play the minimax strategy against itself and assert every game ends in a draw (the mathematically guaranteed outcome for two optimal Tic-Tac-Toe players); play it against every other strategy and assert it never loses.</li><li><strong>Q-learning convergence tests</strong> — train an agent for a large number of self-play episodes and assert its win rate against a fixed heuristic opponent measurably improves over the course of training, confirming the learning loop is actually learning, not merely running.</li><li><strong>Contest integrity tests</strong> — simulate a client submitting an illegal move sequence or a forged "I won" claim directly to the server, and assert the server's own <code>GameEngine</code> state (not the client's claim) is the only thing that can trigger prize distribution.</li></ul>
+<hr>
+<h2 id="55-suggested-future-enhancements">55. Suggested Future Enhancements</h2>
+<ul><li><strong>Larger board variants</strong> (4x4, 5x5 with a run-of-4 to win) — the bitmask technique from <a href="#12-follow-up-question-2-how-do-you-represent-the-board-so-win-checking-is-cheap-not-a-nested-loop-scan-every-move">§12-14</a> extends naturally to a wider integer type, though minimax's exhaustive search (<a href="#30-follow-up-question-9-how-do-you-build-an-ai-that-literally-cannot-lose">§30-32</a>) would need a depth limit and a heuristic evaluation function once the game tree grows too large to fully explore.</li><li><strong>ELO-style rating</strong> instead of raw win counts, so the leaderboard (<a href="#41-score-management-and-leaderboards">§41-42</a>) reflects opponent strength, not just win volume.</li><li><strong>Bracket-style tournaments</strong> among many players, generalizing the two-player <code>MatchSeries</code> (<a href="#44-designing-match-series-and-contests">§44</a>) into a multi-round elimination structure.</li><li><strong>Spectator mode</strong> for networked matches, broadcasting board state to read-only observers in addition to the two active players.</li><li><strong>Neural-network function approximation</strong> replacing the Q-learning agent's exact table (<a href="#36-implementing-q-learning-via-self-play">§36</a>) — directly relevant once this guide's techniques are applied to a board too large to enumerate exactly, per <a href="#37-follow-up-question-12-minimax-is-already-perfect-why-bother-training-an-rl-agent-at-all">§37</a>'s third justification for training at all.</li></ul>
+<hr>
+<h2 id="56-progressive-interview-question-set">56. Progressive Interview Question Set</h2>
+<p>For an interviewer using this guide to run a structured round, in increasing difficulty:</p>
+<ol><li>Design a board representation and win-check that avoids scanning all 8 lines cell-by-cell on every move. (<a href="#12-follow-up-question-2-how-do-you-represent-the-board-so-win-checking-is-cheap-not-a-nested-loop-scan-every-move">§12-14</a>)</li><li>Model the game's lifecycle so an illegal move (wrong turn, occupied cell, move after game end) is structurally rejected. (<a href="#15-follow-up-question-3-how-do-you-model-turn-taking-and-prevent-an-illegal-move">§15-17</a>)</li><li>Design the game engine so the identical rules serve both local pass-and-play and real-time networked multiplayer. (<a href="#19-follow-up-question-4-how-do-you-support-local-pass-and-play-and-networked-multiplayer-without-duplicating-game-logic">§19-21</a>)</li><li>Design an AI opponent that is provably unbeatable, and explain precisely why it can be proven so. (<a href="#30-follow-up-question-9-how-do-you-build-an-ai-that-literally-cannot-lose">§30-32</a>)</li><li>The prompt asks you to "train" an AI. What does that actually mean for a fully-solved game like this, and how would you implement it? (<a href="#33-follow-up-question-10-the-prompt-says-train-an-ai-player-minimax-doesnt-need-training-what-does-training-actually-mean-here">§33-36</a>)</li><li>If minimax is already unbeatable, what's the actual justification for also building a trained learning agent? (<a href="#37-follow-up-question-12-minimax-is-already-perfect-why-bother-training-an-rl-agent-at-all">§37-38</a>)</li><li>Design a prize-bearing contest across a match series, and explain specifically how you prevent a malicious client from claiming a false win. (<a href="#43-follow-up-question-14-how-do-you-support-a-contest-with-a-prize-across-a-match-series">§43-47</a>)</li><li>Estimate the resource cost of supporting 100,000 concurrent networked games, and identify the actual bottleneck at that scale. (<a href="#48-capacity-estimation-concurrent-matches-and-matchmaking">§48</a>)</li></ol>
+<hr>
+<h2 id="57-final-takeaway">57. Final Takeaway</h2>
+<p>Every hard decision in this guide traces back to one recurring idea: <strong>keep the small number of truly hard problems isolated behind narrow interfaces, so the trivial parts of the system never have to know about them</strong> — <code>GameEngine</code> doesn't know or care whether a move came from a human, a minimax solver, or a Q-learning agent (<a href="#24-follow-up-question-6-how-do-you-plug-in-an-ai-opponent-without-the-game-engine-caring-whether-its-playing-a-human-or-an-ai">§24-25</a>); neither transport layer reimplements game rules (<a href="#19-follow-up-question-4-how-do-you-support-local-pass-and-play-and-networked-multiplayer-without-duplicating-game-logic">§19-21</a>); and no client, however sophisticated its tampering, can influence a result the server itself didn't independently derive (<a href="#46-follow-up-question-15-how-do-you-prevent-cheating-in-a-prize-money-contest">§46-47</a>). Tic-Tac-Toe's trivial rules make every one of these boundaries fully visible — which is exactly why building the <em>system</em> around it, not merely the game, is worth taking seriously.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Design a Tic-Tac-Toe Game — HLD, LLD, and Class Design From Scratch.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

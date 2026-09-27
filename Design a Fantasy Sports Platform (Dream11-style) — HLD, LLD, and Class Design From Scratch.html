@@ -1,0 +1,669 @@
+<meta charset="utf-8">
+<title>Design a Fantasy Sports Platform (Dream11-style) — HLD, LLD, and Class Design From Scratch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow); transition:background .15s,transform .1s;
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; system design guide</div>
+      <h1>Design a Fantasy Sports Platform (Dream11-style) — HLD, LLD, and Class Design From Scratch</h1>
+      <p class="dek">A complete, step-by-step system design walkthrough for a fantasy sports platform in the style of Dream11 &mdash; the contest-slot overbooking race and the wallet double-spend race closed with the same atomic-reservation pattern this series has applied to seats and cash, a scoring fan-out pipeline that turns one real-world match event into point deltas across millions of already-submitted teams within seconds, a Redis-sorted-set leaderboard that stays ranked without re-sorting on every write, kickoff-time contest locking that stays correct regardless of scheduler drift, and exactly-once prize payout that survives a mid-run crash &mdash; framed as a live interview with follow-up questions at every step.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-the-interview-framed">Why This Matters (The Interview, Framed)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">Follow-up Question 1: What Are the Core Nouns Here, Before We Draw Any Boxes?</a></li><li class="toc-lvl-2"><a href="#7-functional-requirements">Functional Requirements</a></li><li class="toc-lvl-2"><a href="#8-non-functional-requirements">Non-Functional Requirements</a></li><li class="toc-lvl-2"><a href="#9-follow-up-question-2-why-model-the-teamcontest-lifecycle-as-an-explicit-state-machine-instead-of-a-status-column">Follow-up Question 2: Why Model the Team/Contest Lifecycle as an Explicit State Machine Instead of a Status Column?</a></li><li class="toc-lvl-2"><a href="#10-identifying-the-core-domain-entities">Identifying the Core Domain Entities</a></li><li class="toc-lvl-2"><a href="#11-high-level-architecture-overview">High-Level Architecture Overview</a></li><li class="toc-lvl-2"><a href="#12-follow-up-question-3-how-do-you-model-the-contest-lifecycle-and-why-isnt-open-and-locked-enough">Follow-up Question 3: How Do You Model the Contest Lifecycle, and Why Isn't "Open" and "Locked" Enough?</a></li><li class="toc-lvl-2"><a href="#13-the-contest-lifecycle-as-a-state-machine">The Contest Lifecycle as a State Machine</a></li><li class="toc-lvl-2"><a href="#14-implementing-the-state-pattern-for-contest-lifecycle">Implementing the State Pattern for Contest Lifecycle</a></li><li class="toc-lvl-2"><a href="#15-class-diagram-the-contest-lifecycle-core">Class Diagram: The Contest Lifecycle Core</a></li><li class="toc-lvl-2"><a href="#16-follow-up-question-4-how-do-you-enforce-a-salary-cap-and-role-composition-without-hardcoding-one-sports-rules">Follow-up Question 4: How Do You Enforce a Salary Cap and Role Composition Without Hardcoding One Sport's Rules?</a></li><li class="toc-lvl-2"><a href="#17-team-selection-as-a-pluggable-rule-set">Team Selection as a Pluggable Rule Set</a></li><li class="toc-lvl-2"><a href="#18-implementing-the-lineup-validator">Implementing the Lineup Validator</a></li><li class="toc-lvl-2"><a href="#19-follow-up-question-5-a-contest-has-exactly-10000-spots-and-40000-users-click-join-in-the-final-second-before-lock-what-happens">Follow-up Question 5: A Contest Has Exactly 10,000 Spots and 40,000 Users Click "Join" in the Final Second Before Lock — What Happens?</a></li><li class="toc-lvl-2"><a href="#20-contest-entry-as-an-atomic-slot-reservation">Contest Entry as an Atomic Slot Reservation</a></li><li class="toc-lvl-2"><a href="#21-implementing-the-full-atomic-contest-entry-service">Implementing the Full Atomic Contest-Entry Service</a></li><li class="toc-lvl-2"><a href="#22-follow-up-question-6-the-same-user-joins-two-contests-from-two-devices-at-the-same-instant-can-their-wallet-go-negative">Follow-up Question 6: The Same User Joins Two Contests From Two Devices at the Same Instant — Can Their Wallet Go Negative?</a></li><li class="toc-lvl-2"><a href="#23-wallet-ledger-and-preventing-double-spend">Wallet Ledger and Preventing Double-Spend</a></li><li class="toc-lvl-2"><a href="#24-implementing-the-atomic-wallet-debit">Implementing the Atomic Wallet Debit</a></li><li class="toc-lvl-2"><a href="#25-follow-up-question-7-a-popular-player-hits-a-match-winning-six-how-does-that-one-event-reach-millions-of-teams-scores-within-seconds">Follow-up Question 7: A Popular Player Hits a Match-Winning Six — How Does That One Event Reach Millions of Teams' Scores Within Seconds?</a></li><li class="toc-lvl-2"><a href="#26-live-scoring-ingestion-and-the-fan-out-pipeline">Live Scoring Ingestion and the Fan-out Pipeline</a></li><li class="toc-lvl-2"><a href="#27-implementing-the-scoring-event-pipeline">Implementing the Scoring Event Pipeline</a></li><li class="toc-lvl-2"><a href="#28-follow-up-question-8-a-contest-has-20-million-entries-how-do-you-keep-it-correctly-ranked-without-re-sorting-on-every-point-change">Follow-up Question 8: A Contest Has 20 Million Entries — How Do You Keep It Correctly Ranked Without Re-Sorting on Every Point Change?</a></li><li class="toc-lvl-2"><a href="#29-real-time-leaderboard-design">Real-Time Leaderboard Design</a></li><li class="toc-lvl-2"><a href="#30-implementing-the-leaderboard-update-path">Implementing the Leaderboard Update Path</a></li><li class="toc-lvl-2"><a href="#31-class-diagram-scoring-and-leaderboard-flow">Class Diagram: Scoring and Leaderboard Flow</a></li><li class="toc-lvl-2"><a href="#32-follow-up-question-9-what-happens-if-a-match-kicks-off-a-few-seconds-late-does-contest-lock-timing-drift-too">Follow-up Question 9: What Happens If a Match Kicks Off a Few Seconds Late — Does Contest Lock Timing Drift, Too?</a></li><li class="toc-lvl-2"><a href="#33-contest-locking-and-late-join-prevention">Contest Locking and Late-Join Prevention</a></li><li class="toc-lvl-2"><a href="#34-follow-up-question-10-the-match-is-abandoned-mid-innings-due-to-rain-what-happens-to-every-entry-fee-and-every-lineup">Follow-up Question 10: The Match Is Abandoned Mid-Innings Due to Rain — What Happens to Every Entry Fee and Every Lineup?</a></li><li class="toc-lvl-2"><a href="#35-offlinedegraded-mode-and-fail-safe-defaults">Offline/Degraded Mode and Fail-Safe Defaults</a></li><li class="toc-lvl-2"><a href="#36-follow-up-question-11-the-match-ends-payout-runs-and-then-the-payout-job-crashes-halfway-through-20-million-entries-what-happens-on-restart">Follow-up Question 11: The Match Ends, Payout Runs, and Then the Payout Job Crashes Halfway Through 20 Million Entries — What Happens on Restart?</a></li><li class="toc-lvl-2"><a href="#37-prize-distribution-as-an-idempotent-operation">Prize Distribution as an Idempotent Operation</a></li><li class="toc-lvl-2"><a href="#38-implementing-payout-idempotency-storage">Implementing Payout Idempotency Storage</a></li><li class="toc-lvl-2"><a href="#39-follow-up-question-12-how-do-you-support-multiple-transaction-types-entry-fees-winnings-deposits-withdrawals-refunds-without-a-wallet-god-object">Follow-up Question 12: How Do You Support Multiple Transaction Types (Entry Fees, Winnings, Deposits, Withdrawals, Refunds) Without a Wallet God-Object?</a></li><li class="toc-lvl-2"><a href="#40-implementing-pluggable-transaction-strategies">Implementing Pluggable Transaction Strategies</a></li><li class="toc-lvl-2"><a href="#41-deposit-handling-and-provisional-crediting">Deposit Handling and Provisional Crediting</a></li><li class="toc-lvl-2"><a href="#42-capacity-estimation-fan-out-volume-and-leaderboard-read-load">Capacity Estimation: Fan-out Volume and Leaderboard Read Load</a></li><li class="toc-lvl-2"><a href="#43-follow-up-question-13-how-do-you-support-a-private-invite-only-contest-among-a-group-of-friends">Follow-up Question 13: How Do You Support a Private, Invite-Only Contest Among a Group of Friends?</a></li><li class="toc-lvl-2"><a href="#44-private-contests-and-invite-code-handling">Private Contests and Invite-Code Handling</a></li><li class="toc-lvl-2"><a href="#45-follow-up-question-14-how-do-you-stop-one-person-from-registering-500-accounts-to-enter-the-same-head-to-head-contest-against-themselves">Follow-up Question 14: How Do You Stop One Person From Registering 500 Accounts to Enter the Same Head-to-Head Contest Against Themselves?</a></li><li class="toc-lvl-2"><a href="#46-fraud-signal-detection">Fraud Signal Detection</a></li><li class="toc-lvl-2"><a href="#47-full-worked-example-one-contest-traced-end-to-end">Full Worked Example: One Contest Traced End to End</a></li><li class="toc-lvl-2"><a href="#48-final-architecture-diagram">Final Architecture Diagram</a></li><li class="toc-lvl-2"><a href="#49-design-patterns-used-throughout-this-guide">Design Patterns Used Throughout This Guide</a></li><li class="toc-lvl-2"><a href="#50-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#51-common-mistakes-when-building-this-yourself">Common Mistakes When Building This Yourself</a></li><li class="toc-lvl-2"><a href="#52-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#53-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#54-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#55-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<h2 id="1-what-we-are-building">1. What We Are Building</h2><p>A fantasy sports platform in the style of Dream11: users create virtual teams by drafting real athletes from an upcoming real-world match under a fixed salary cap, join paid or free contests built around that match, and are ranked on a live leaderboard driven by the athletes' real match performance, converted into fantasy points by a scoring engine. Winners are paid out from the contest's prize pool once the match — and the scoring it depends on — is finalized.</p><p>This system sits at the intersection of four genuinely hard problems that don't normally show up together: real-money correctness (a wallet that must never be double-spent or double-paid), a hard real-time deadline (a contest must lock at kickoff, to the second, no exceptions), a massive fan-out write problem (one six-wicket over or one hat-trick must ripple into millions of already-submitted teams' scores within seconds), and a live-ranking problem (a leaderboard of those millions of teams must stay continuously, correctly sorted while it is being hammered by that same fan-out).</p><p>We will build this from first principles: define the domain model, design the contest-entry and wallet-debit paths so they are provably race-free, design the scoring fan-out and leaderboard update paths so they scale, and design contest locking and payout so they are exactly-once even across process crashes and retries.</p><hr><h2 id="2-learning-objectives">2. Learning Objectives</h2><p>By the end of this guide, you should be able to:</p><ul><li>Model a multi-stage lifecycle (draft team → join contest → match live → match finalized → payout) as an explicit state machine, and explain why each transition must be guarded.</li><li>Design a lineup validator that enforces a salary cap and role-composition rules as pluggable, sport-specific strategies rather than hardcoded conditionals.</li><li>Identify and fix the "contest overbooking" race — many users joining a fixed-size contest at once — using the same atomic-reservation family of techniques this series has used for seat booking and cash dispensing.</li><li>Identify and fix wallet double-spend under concurrent contest joins, and explain why this is the same underlying problem as overbooking, solved with the same tool, applied to a different resource.</li><li>Design a scoring fan-out pipeline that converts one real-world event (a wicket, a goal, a touchdown) into point updates across millions of fantasy teams without recomputing every team's full score from scratch on every event.</li><li>Design a real-time leaderboard that stays correctly ranked under continuous high-volume score updates, without re-sorting the entire contest on every point change.</li><li>Explain why contest locking at kickoff and prize payout after finalization both need an idempotency guarantee, and design both so a retried or duplicated trigger cannot lock twice or pay out twice.</li></ul><hr><h2 id="3-why-this-matters-the-interview-framed">3. Why This Matters (The Interview, Framed)</h2><p>Interviewers reach for "design Dream11" or "design a fantasy sports app" because it looks like a CRUD product on the surface — pick some players, join a contest, see a leaderboard — but every one of those three steps hides a real distributed-systems problem once you ask "what happens at scale, under concurrency, with real money involved?"</p><blockquote><p><strong>Interviewer:</strong> <em>"Walk me through what happens when a user hits 'Join Contest.' What could possibly go wrong?"</em></p></blockquote><p>A junior answer describes a form submission. A strong answer immediately identifies two independent race conditions living in that one click: the contest might have exactly one spot left and thousands of users might click "Join" in the same second (an overbooking race), and the same user's wallet balance might be read and debited by two concurrent requests from two devices (a double-spend race). Recognizing that "Join Contest" is actually two atomicity problems wearing one UI button is the entire signal this question is designed to surface.</p><p>The rest of the system rewards the same instinct: "how does the leaderboard update live" is really "how do you fan out one write to millions of readers without falling over," and "how do you pay out winners" is really "how do you guarantee an exactly-once financial transfer against a process that might crash mid-payout and get retried." We'll build the system so every one of these questions has a concrete, defensible answer instead of a hand-wave.</p><hr><h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2><div class="table-wrap"><table><thead><tr><th>Layer</th><th>Choice</th><th>Why</th></tr></thead><tbody><tr><td>API layer</td><td>REST + WebSocket (or SSE)</td><td>REST for team creation and contest joins; a push channel for live leaderboard and score updates, since polling millions of clients every few seconds does not scale.</td></tr><tr><td>Contest/lineup service</td><td>Java / Kotlin (Spring Boot) or Go</td><td>Strong typing suits the salary-cap and role-validation rule engine; both ecosystems have mature transactional-database drivers.</td></tr><tr><td>Wallet ledger</td><td>PostgreSQL (or any strongly-consistent RDBMS)</td><td>Real money demands ACID transactions and durable, auditable writes — this is not a place for eventual consistency.</td></tr><tr><td>Contest/team metadata</td><td>PostgreSQL</td><td>Relational integrity between users, teams, lineups, and contests; foreign keys catch a whole class of bugs for free.</td></tr><tr><td>Live scoring ingestion</td><td>Kafka (or equivalent log-based queue)</td><td>A durable, ordered, replayable log of raw match events is the only sane source of truth for a fan-out pipeline — replay is how you recover from a downstream bug without re-scraping the match.</td></tr><tr><td>Fantasy point computation</td><td>Stream processor (Flink / Kafka Streams) or a dedicated scoring service</td><td>Converts raw match events into per-player fantasy-point deltas exactly once per event, independent of how many teams drafted that player.</td></tr><tr><td>Leaderboard store</td><td>Redis (sorted sets)</td><td>A sorted set gives O(log N) rank updates and O(log N + K) range queries — exactly the two operations a live leaderboard needs, without re-sorting anything.</td></tr><tr><td>Cache</td><td>Redis</td><td>Player stats, contest metadata, and lineup snapshots are read far more often than written.</td></tr><tr><td>Object storage</td><td>S3-compatible</td><td>Player photos, team logos, downloadable contest reports.</td></tr><tr><td>Notification/push</td><td>FCM / APNS + a pub/sub fan-out layer</td><td>Score-change and contest-result push notifications at fantasy-sports scale are themselves a fan-out problem, layered on top of the leaderboard fan-out.</td></tr></tbody></table></div><hr><h2 id="5-project-structure">5. Project Structure</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>fantasy-sports/
+├── api/
+│   ├── TeamController.java
+│   ├── ContestController.java
+│   ├── WalletController.java
+│   └── LeaderboardController.java
+├── domain/
+│   ├── User.java
+│   ├── Player.java
+│   ├── Match.java
+│   ├── FantasyTeam.java
+│   ├── LineupSlot.java
+│   ├── Contest.java
+│   ├── ContestEntry.java
+│   └── WalletAccount.java
+├── lineup/
+│   ├── LineupValidator.java                  -- §17
+│   ├── SalaryCapRule.java                    -- §17
+│   ├── RoleCompositionRule.java               -- §17
+│   └── SportRuleSet.java                     -- §17
+├── contest/
+│   ├── ContestLifecycle.java                 -- §13-14
+│   ├── ContestState.java                     -- §13
+│   ├── AtomicContestEntryService.java         -- §20-21
+│   └── ContestLockScheduler.java             -- §32-33
+├── wallet/
+│   ├── WalletLedger.java                     -- §23-24
+│   └── WalletTransaction.java                -- §23
+├── scoring/
+│   ├── MatchEventConsumer.java                -- §26-27
+│   ├── FantasyPointCalculator.java            -- §26
+│   └── ScoringRuleSet.java                    -- §26
+├── leaderboard/
+│   ├── LeaderboardService.java                -- §29-30
+│   └── RankUpdatePublisher.java               -- §29
+├── payout/
+│   ├── PayoutProcessor.java                   -- §35-36
+│   └── PayoutIdempotencyStore.java            -- §36
+└── fraud/
+    └── FraudSignalService.java                -- §40</code></pre></div><hr><h2 id="6-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">6. Follow-up Question 1: What Are the Core Nouns Here, Before We Draw Any Boxes?</h2><blockquote><p><strong>Interviewer:</strong> <em>"Before you design anything, what are the core entities in a fantasy sports platform?"</em></p></blockquote><p>Naming them precisely up front avoids a common failure mode: conflating a "player" (a real athlete) with a "user" (a person using the app), or conflating a "contest" (a specific prize-pool competition) with a "match" (the underlying real-world sporting event that many contests can be built around). Get the nouns right and the rest of the design falls out of their relationships.</p><hr><h2 id="7-functional-requirements">7. Functional Requirements</h2><ul><li>Users can browse upcoming real-world matches and view the available contests built around each match.</li><li>Users can create a fantasy team for a match by selecting a fixed number of real athletes, subject to a salary cap and role-composition rules (e.g., minimum wicketkeepers, minimum bowlers).</li><li>Users can join one or more contests with a created team, provided each contest has an open slot and the user's wallet balance covers the entry fee.</li><li>Contests automatically lock at the match's kickoff time; no team can be created, edited, or entered into a contest after lock.</li><li>Once the match is live, athletes' real performance is converted into fantasy points in near-real-time, and every entered team's total score reflects those points within seconds.</li><li>Users can view a live, continuously-updating leaderboard for any contest they've entered, ranked by total fantasy points, with deterministic tie-breaking.</li><li>Once the match is finalized, prize money is distributed to winning entries according to the contest's payout structure, exactly once per entry.</li><li>Users can view their wallet balance and full transaction history (deposits, entry-fee debits, winnings credits, withdrawals).</li><li>Private contests support invite-only entry via a shareable code.</li></ul><hr><h2 id="8-non-functional-requirements">8. Non-Functional Requirements</h2><ul><li><strong>Correctness over availability for money</strong>: a wallet debit or credit must never be lost, duplicated, or applied against a stale balance, even under concurrent requests or a mid-operation crash.</li><li><strong>Contest slot exactness</strong>: a contest advertised as having N spots must never accept more than N entries, even under a burst of simultaneous join requests at deadline.</li><li><strong>Low-latency fan-out</strong>: a scoring event affecting a widely-drafted player must be reflected in every affected team's score within a few seconds, even when millions of teams have drafted that player.</li><li><strong>Leaderboard read scalability</strong>: leaderboard reads (rank + nearby entries) must stay fast even for a contest with tens of millions of entries, and even while writes are arriving continuously.</li><li><strong>Exactly-once side effects</strong>: contest locking and prize payout must each happen exactly once, regardless of retries, duplicate triggers, or process restarts.</li><li><strong>Auditability</strong>: every wallet movement must be reconstructable after the fact from an immutable ledger, for dispute resolution and regulatory reporting.</li></ul><hr><h2 id="9-follow-up-question-2-why-model-the-teamcontest-lifecycle-as-an-explicit-state-machine-instead-of-a-status-column">9. Follow-up Question 2: Why Model the Team/Contest Lifecycle as an Explicit State Machine Instead of a Status Column?</h2><blockquote><p><strong>Interviewer:</strong> <em>"Why not just add a <code>status</code> string column to the contest table and check it in application code wherever you need to?"</em></p></blockquote><p>A free-form status string lets any code path assign any value at any time — nothing stops a bug from re-opening a locked contest or joining a finalized one. An explicit state machine makes illegal transitions a compile-time or first-line-of-code impossibility rather than a hoped-for convention, and it gives every downstream reader (the entry service, the scoring pipeline, the payout processor) one unambiguous place to ask "is this contest still joinable right now?"</p><hr><h2 id="10-identifying-the-core-domain-entities">10. Identifying the Core Domain Entities</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>User            -- a registered account with a wallet
+Player          -- a real athlete participating in a real Match
+Match           -- a real-world sporting fixture (two teams, a kickoff time)
+FantasyTeam     -- one user's drafted lineup of Players for one Match
+LineupSlot      -- one Player's assigned role-slot within a FantasyTeam
+Contest         -- a prize-pool competition built around one Match
+ContestEntry    -- one FantasyTeam entered into one Contest
+WalletAccount   -- one user's real-money balance and transaction ledger
+MatchEvent      -- one raw scoring-relevant event from the live Match (a wicket, a goal)
+PlayerScore     -- one Player's cumulative fantasy points for one Match, derived from MatchEvents</code></pre></div><p>The relationship that trips people up first: a <code>FantasyTeam</code> is created once per user per match, but that same team can be entered into <em>many</em> contests (a "mega contest" and a "head-to-head" contest built around the identical match). This is why <code>ContestEntry</code> is its own entity rather than a foreign key on <code>FantasyTeam</code> — the team is the athlete selection, the entry is the act of risking money on that selection inside one specific contest.</p><hr><h2 id="11-high-level-architecture-overview">11. High-Level Architecture Overview</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                     ┌─────────────────┐
+                     │   Client Apps    │
+                     └────────┬─────────┘
+                              │
+                    ┌─────────▼──────────┐
+                    │     API Gateway     │
+                    └──┬────────┬────────┘
+             ┌─────────┘        └──────────┐
+   ┌─────────▼─────────┐          ┌────────▼─────────┐
+   │  Team &amp; Lineup Svc  │          │  Contest Entry Svc │
+   │  (§17-18)           │          │  (§20-21)          │
+   └─────────┬─────────┘          └────────┬─────────┘
+             │                              │
+             │                    ┌─────────▼─────────┐
+             │                    │   Wallet Ledger DB  │
+             │                    │   (§23-24)          │
+             │                    └────────────────────┘
+             │
+   ┌─────────▼──────────────────────────────────────────┐
+   │              Contest / Team Metadata DB              │
+   └───────────────────────────────────────────────────────┘
+
+  Live match feed provider
+          │
+  ┌───────▼────────┐     ┌──────────────────┐     ┌────────────────────┐
+  │  Match Event Log │────▶│ Fantasy Point     │────▶│  Leaderboard Store  │
+  │  (Kafka) (§26)   │     │ Calculator (§26-27)│     │  (Redis) (§29-30)   │
+  └──────────────────┘     └──────────────────┘     └─────────┬──────────┘
+                                                                │
+                                                       ┌────────▼─────────┐
+                                                       │  WebSocket / SSE   │
+                                                       │  Fan-out to Clients│
+                                                       └────────────────────┘</code></pre></div><p>The split that matters most: the write path for <em>money and lineups</em> (top half — strongly consistent, relational) is architecturally separate from the write path for <em>live scores</em> (bottom half — a log-based, massively fanned-out pipeline). They only meet at the leaderboard, which reads contest-entry data once at join time and otherwise only consumes score deltas. Mixing these two paths into one database would force the money path to inherit the scoring path's write volume, or force the scoring path to inherit the money path's strict consistency latency — neither is acceptable.</p><hr><h2 id="12-follow-up-question-3-how-do-you-model-the-contest-lifecycle-and-why-isnt-open-and-locked-enough">12. Follow-up Question 3: How Do You Model the Contest Lifecycle, and Why Isn't "Open" and "Locked" Enough?</h2><blockquote><p><strong>Interviewer:</strong> <em>"What states does a contest actually go through, end to end?"</em></p></blockquote><p>"Open" and "locked" describes joining, but the contest keeps existing — and keeps needing correct behavior — long after it locks: it must accept live scoring updates while the match is in progress, stop accepting them once the match ends, and pay out exactly once after that. Collapsing all of that into two states forces every one of those later phases to be inferred from side information (is the match over? has payout run yet?) instead of being a first-class fact anyone can check.</p><hr><h2 id="13-the-contest-lifecycle-as-a-state-machine">13. The Contest Lifecycle as a State Machine</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>   ┌────────┐  join opens  ┌────────┐  kickoff time   ┌────────┐  match ends  ┌─────────────┐  payout runs  ┌──────────┐
+   │ CREATED │────────────▶│  OPEN   │───────────────▶│ LOCKED  │─────────────▶│ FINALIZING   │──────────────▶│ COMPLETED │
+   └────────┘              └────────┘                 └────────┘              └─────────────┘               └──────────┘
+                                                            │                        │
+                                                            │ match abandoned/washed │
+                                                            ▼                        ▼
+                                                       ┌──────────┐            ┌───────────┐
+                                                       │ CANCELLED │◀───────────│  DISPUTED  │
+                                                       └──────────┘            └───────────┘</code></pre></div><ul><li><strong>CREATED</strong> — the contest exists but isn't yet visible for entry (used for scheduled pre-launch).</li><li><strong>OPEN</strong> — accepting <code>ContestEntry</code> creations, subject to slot availability and wallet balance.</li><li><strong>LOCKED</strong> — kickoff has passed; no new entries, no lineup edits on existing entries. Scoring updates still flow in and the leaderboard still updates live.</li><li><strong>FINALIZING</strong> — the match has ended; scores are settling (some sports have post-match score corrections, e.g., an umpire review overturning a decision minutes after play). Payout has not yet run.</li><li><strong>COMPLETED</strong> — payout has run exactly once; entries and final standings are now immutable history.</li><li><strong>CANCELLED</strong> — the match was abandoned or washed out before a result; every entry fee is refunded via the same wallet ledger used for debits.</li><li><strong>DISPUTED</strong> — a scoring or result dispute is under manual review; payout is held until resolved, then the contest returns to FINALIZING.</li></ul><p>Every transition is one-directional except DISPUTED→FINALIZING, and every service in the system checks this state — never a boolean flag — before acting.</p><hr><h2 id="14-implementing-the-state-pattern-for-contest-lifecycle">14. Implementing the State Pattern for Contest Lifecycle</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public enum ContestState {
+    CREATED, OPEN, LOCKED, FINALIZING, DISPUTED, COMPLETED, CANCELLED
+}
+
+public class Contest {
+    private final String contestId;
+    private final String matchId;
+    private ContestState state;
+    private final int totalSlots;
+    private int filledSlots;
+
+    private static final Map&lt;ContestState, Set&lt;ContestState&gt;&gt; ALLOWED_TRANSITIONS = Map.of(
+        ContestState.CREATED,    Set.of(ContestState.OPEN, ContestState.CANCELLED),
+        ContestState.OPEN,       Set.of(ContestState.LOCKED, ContestState.CANCELLED),
+        ContestState.LOCKED,     Set.of(ContestState.FINALIZING, ContestState.CANCELLED),
+        ContestState.FINALIZING, Set.of(ContestState.DISPUTED, ContestState.COMPLETED),
+        ContestState.DISPUTED,   Set.of(ContestState.FINALIZING)
+    );
+
+    public synchronized void transitionTo(ContestState next) {
+        Set&lt;ContestState&gt; allowed = ALLOWED_TRANSITIONS.getOrDefault(state, Set.of());
+        if (!allowed.contains(next)) {
+            throw new IllegalStateException("Cannot go from " + state + " to " + next);
+        }
+        this.state = next;
+    }
+
+    public boolean isJoinable() {
+        return state == ContestState.OPEN &amp;&amp; filledSlots &lt; totalSlots;
+    }
+}</code></pre></div><p>Every write path — entry creation, lineup edits, scoring ingestion, payout — calls a narrow, purpose-built check (<code>isJoinable()</code>, <code>isAcceptingScoreUpdates()</code>, <code>isPayable()</code>) rather than comparing <code>state</code> directly, so the <em>meaning</em> of a state lives in exactly one place even though many services need to ask about it.</p><hr><h2 id="15-class-diagram-the-contest-lifecycle-core">15. Class Diagram: The Contest Lifecycle Core</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>┌────────────────────┐        ┌─────────────────────┐
+│      Contest         │◀──────│    ContestEntry       │
+│ ─────────────────── │  1   * │ ──────────────────── │
+│ contestId            │        │ entryId               │
+│ matchId               │        │ contestId             │
+│ state: ContestState   │        │ teamId                │
+│ totalSlots            │        │ userId                │
+│ filledSlots           │        │ enteredAt             │
+│ entryFeeCents         │        │ finalRank             │
+│ prizeStructure        │        │ prizeCents            │
+│ transitionTo()        │        └─────────────────────┘
+│ isJoinable()          │
+└──────────┬───────────┘
+           │
+           │ built around
+           ▼
+┌────────────────────┐        ┌─────────────────────┐
+│       Match          │◀──────│      FantasyTeam       │
+│ ─────────────────── │  1   * │ ──────────────────── │
+│ matchId               │        │ teamId                │
+│ kickoffTime           │        │ userId                │
+│ status                │        │ matchId               │
+└────────────────────┘        │ lineup: List&lt;LineupSlot&gt;│
+                                └─────────────────────┘</code></pre></div><hr><h2 id="16-follow-up-question-4-how-do-you-enforce-a-salary-cap-and-role-composition-without-hardcoding-one-sports-rules">16. Follow-up Question 4: How Do You Enforce a Salary Cap and Role Composition Without Hardcoding One Sport's Rules?</h2><blockquote><p><strong>Interviewer:</strong> <em>"Cricket needs a wicketkeeper and bowlers; football needs a goalkeeper and a formation. How do you avoid an <code>if (sport == CRICKET)</code> mess?"</em></p></blockquote><p>Every sport shares the same <em>shape</em> of rule — a total budget constraint plus a set of minimum/maximum counts per role — even though the actual numbers differ per sport. That shape is exactly what the Strategy pattern is for: one <code>LineupValidator</code> interface, one <code>SportRuleSet</code> per sport supplying the numbers, and zero sport-specific conditionals anywhere in the validation logic itself.</p><hr><h2 id="17-team-selection-as-a-pluggable-rule-set">17. Team Selection as a Pluggable Rule Set</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface SportRuleSet {
+    int squadSize();
+    long salaryCapCents();
+    Map&lt;PlayerRole, IntRange&gt; roleCountConstraints();   // e.g. WICKETKEEPER -&gt; [1,1]
+    int maxPlayersFromOneRealTeam();                    // avoid an all-one-side lineup
+}
+
+public class CricketRuleSet implements SportRuleSet {
+    public int squadSize() { return 11; }
+    public long salaryCapCents() { return 10_000_00; }
+    public Map&lt;PlayerRole, IntRange&gt; roleCountConstraints() {
+        return Map.of(
+            PlayerRole.WICKETKEEPER, new IntRange(1, 1),
+            PlayerRole.BATSMAN,      new IntRange(3, 6),
+            PlayerRole.ALL_ROUNDER,  new IntRange(1, 4),
+            PlayerRole.BOWLER,       new IntRange(3, 6)
+        );
+    }
+    public int maxPlayersFromOneRealTeam() { return 7; }
+}</code></pre></div><hr><h2 id="18-implementing-the-lineup-validator">18. Implementing the Lineup Validator</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class LineupValidator {
+    private final SportRuleSet rules;
+
+    public ValidationResult validate(List&lt;LineupSlot&gt; lineup) {
+        if (lineup.size() != rules.squadSize()) {
+            return ValidationResult.fail("Squad must have exactly " + rules.squadSize() + " players");
+        }
+        long totalCost = lineup.stream().mapToLong(s -&gt; s.player().priceCents()).sum();
+        if (totalCost &gt; rules.salaryCapCents()) {
+            return ValidationResult.fail("Over salary cap by " + (totalCost - rules.salaryCapCents()) + " cents");
+        }
+        Map&lt;PlayerRole, Long&gt; roleCounts = lineup.stream()
+            .collect(Collectors.groupingBy(s -&gt; s.player().role(), Collectors.counting()));
+        for (var entry : rules.roleCountConstraints().entrySet()) {
+            long count = roleCounts.getOrDefault(entry.getKey(), 0L);
+            if (!entry.getValue().contains(count)) {
+                return ValidationResult.fail(entry.getKey() + " count " + count + " outside allowed range");
+            }
+        }
+        Map&lt;String, Long&gt; perRealTeamCounts = lineup.stream()
+            .collect(Collectors.groupingBy(s -&gt; s.player().realTeamId(), Collectors.counting()));
+        if (perRealTeamCounts.values().stream().anyMatch(c -&gt; c &gt; rules.maxPlayersFromOneRealTeam())) {
+            return ValidationResult.fail("Too many players from a single real-world team");
+        }
+        return ValidationResult.ok();
+    }
+}</code></pre></div><p>A new sport means writing one new <code>SportRuleSet</code> implementation — the validator, the API contract, and every caller stay untouched. This is the Open/Closed Principle earning its keep, not just a textbook label.</p><hr><h2 id="19-follow-up-question-5-a-contest-has-exactly-10000-spots-and-40000-users-click-join-in-the-final-second-before-lock-what-happens">19. Follow-up Question 5: A Contest Has Exactly 10,000 Spots and 40,000 Users Click "Join" in the Final Second Before Lock — What Happens?</h2><blockquote><p><strong>Interviewer:</strong> <em>"How do you make sure exactly 10,000 — not 10,004, not 9,998 — entries get created?"</em></p></blockquote><p>This is the identical structural problem this series has already solved twice: the BookMyShow guide's seat-double-booking race, and the ATM guide's account-overdraft race. A naive "check remaining slots, then insert an entry" is a check-then-act race — under concurrency, many requests can all read "1 slot left" before any of them writes, and all of them proceed. The fix is the same family of tools applied to a new resource: a fixed pool of contest slots instead of seats or cash.</p><hr><h2 id="20-contest-entry-as-an-atomic-slot-reservation">20. Contest Entry as an Atomic Slot Reservation</h2><p>The safest and simplest fix here is an <strong>atomic decrement-with-floor</strong> — a single database statement that both checks and reserves a slot in one indivisible operation, so no interleaving of two requests can ever observe a stale count:</p><div class="code-wrap"><span class="code-lang">SQL</span><pre class="code-block"><code>UPDATE contest
+SET filled_slots = filled_slots + 1
+WHERE contest_id = :contestId
+  AND state = 'OPEN'
+  AND filled_slots &lt; total_slots;
+-- if this UPDATE affects 0 rows, the contest was full (or not open) -- reject the join
+-- if it affects 1 row, this request legitimately won the last slot -- proceed to create the ContestEntry</code></pre></div><p>This works because the <code>WHERE filled_slots &lt; total_slots</code> condition and the <code>+1</code> write happen inside one atomic statement evaluated by the database against the <em>current</em> row — there is no gap between reading the count and writing it for another concurrent transaction to land in. Exactly the same principle as the ATM guide's <code>AtomicInteger.updateAndGet</code> and BookMyShow's <code>SELECT ... FOR UPDATE</code>, expressed as a single conditional <code>UPDATE</code>.</p><hr><h2 id="21-implementing-the-full-atomic-contest-entry-service">21. Implementing the Full Atomic Contest-Entry Service</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class AtomicContestEntryService {
+    public EntryResult joinContest(String contestId, String userId, String teamId, long entryFeeCents) {
+        int rowsUpdated = jdbcTemplate.update(
+            "UPDATE contest SET filled_slots = filled_slots + 1 " +
+            "WHERE contest_id = ? AND state = 'OPEN' AND filled_slots &lt; total_slots",
+            contestId
+        );
+        if (rowsUpdated == 0) {
+            return EntryResult.failed("Contest is full or no longer open");
+        }
+        WalletDebitResult debit = walletLedger.debit(userId, entryFeeCents, "contest_entry:" + contestId);
+        if (!debit.success()) {
+            jdbcTemplate.update(
+                "UPDATE contest SET filled_slots = filled_slots - 1 WHERE contest_id = ?", contestId
+            );
+            return EntryResult.failed("Insufficient wallet balance");
+        }
+        contestEntryRepository.save(new ContestEntry(contestId, userId, teamId, Instant.now()));
+        return EntryResult.success();
+    }
+}</code></pre></div><p>Notice the slot is reserved <em>before</em> the wallet is touched, and released back if the debit fails — the same reserve-then-confirm shape the ATM guide used for cash, applied here to a contest slot instead of a cassette note. The next section handles the wallet debit itself, which has its own, independent race to close.</p><hr><h2 id="22-follow-up-question-6-the-same-user-joins-two-contests-from-two-devices-at-the-same-instant-can-their-wallet-go-negative">22. Follow-up Question 6: The Same User Joins Two Contests From Two Devices at the Same Instant — Can Their Wallet Go Negative?</h2><blockquote><p><strong>Interviewer:</strong> <em>"Balance is $500. Two devices each try to join a $400 contest at the same moment. What stops both from succeeding?"</em></p></blockquote><p>This is a second, independent race hiding in the same button click — even with the contest-slot race fixed, a naive wallet debit (<code>read balance, check sufficient, write new balance</code>) is itself a check-then-act race. Two concurrent debits can each read the pre-debit $500, each see "sufficient," and each write a new balance computed from that same stale $500 — leaving the account at $100 instead of correctly being rejected once at -$300. This is not a variant of the slot race — it's the <em>exact same class of bug</em>, applied to a different piece of shared state, and it needs the exact same style of fix.</p><hr><h2 id="23-wallet-ledger-and-preventing-double-spend">23. Wallet Ledger and Preventing Double-Spend</h2><p>The wallet balance is never trusted as a mutable field to read-then-write. Instead, every debit is an atomic conditional update, guarded by the balance itself, mirroring <a href="#20-contest-entry-as-an-atomic-slot-reservation">§20</a>'s <code>filled_slots</code> guard exactly:</p><div class="code-wrap"><span class="code-lang">SQL</span><pre class="code-block"><code>UPDATE wallet_account
+SET balance_cents = balance_cents - :amountCents
+WHERE user_id = :userId
+  AND balance_cents &gt;= :amountCents;
+-- 0 rows affected -&gt; insufficient funds, reject
+-- 1 row affected   -&gt; debit succeeded atomically</code></pre></div><p>Every debit and credit is additionally recorded as an immutable row in a <code>wallet_transaction</code> ledger table — the <code>balance_cents</code> column is a cached, always-recomputable projection of that ledger, never the sole source of truth. If the cached balance and the ledger's sum ever disagree, the ledger wins and the balance is repaired from it; this is what makes the system auditable rather than merely "usually correct."</p><hr><h2 id="24-implementing-the-atomic-wallet-debit">24. Implementing the Atomic Wallet Debit</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class WalletLedger {
+    public WalletDebitResult debit(String userId, long amountCents, String reference) {
+        int rowsUpdated = jdbcTemplate.update(
+            "UPDATE wallet_account SET balance_cents = balance_cents - ? " +
+            "WHERE user_id = ? AND balance_cents &gt;= ?",
+            amountCents, userId, amountCents
+        );
+        if (rowsUpdated == 0) {
+            return WalletDebitResult.insufficientFunds();
+        }
+        transactionRepository.save(new WalletTransaction(
+            userId, -amountCents, reference, TransactionType.DEBIT, Instant.now()
+        ));
+        return WalletDebitResult.success();
+    }
+
+    public void credit(String userId, long amountCents, String reference) {
+        jdbcTemplate.update(
+            "UPDATE wallet_account SET balance_cents = balance_cents + ? WHERE user_id = ?",
+            amountCents, userId
+        );
+        transactionRepository.save(new WalletTransaction(
+            userId, amountCents, reference, TransactionType.CREDIT, Instant.now()
+        ));
+    }
+}</code></pre></div><p>Credits never need the conditional guard — there's no "insufficient" case for adding money — but they still write an immutable ledger row, for the same audit reason. Combined with <a href="#21-implementing-the-full-atomic-contest-entry-service">§21</a>'s atomic slot reservation, a "Join Contest" click is now backed by two independently race-free atomic operations instead of one racy button press.</p><hr><h2 id="25-follow-up-question-7-a-popular-player-hits-a-match-winning-six-how-does-that-one-event-reach-millions-of-teams-scores-within-seconds">25. Follow-up Question 7: A Popular Player Hits a Match-Winning Six — How Does That One Event Reach Millions of Teams' Scores Within Seconds?</h2><blockquote><p><strong>Interviewer:</strong> <em>"Ten million teams have drafted this player. One event happens. How do you avoid ten million database writes, or ten million re-reads of the full match state?"</em></p></blockquote><p>The naive approach — on every match event, recompute every affected team's total score from scratch by re-reading all of that team's players' full stats — does an amount of work proportional to (events) × (teams containing the affected player), which is untenable at fantasy-sports scale. The fix is to separate "what changed" from "who is affected," and only touch the second set with a small, precomputed <em>delta</em>, never a full recomputation.</p><hr><h2 id="26-live-scoring-ingestion-and-the-fan-out-pipeline">26. Live Scoring Ingestion and the Fan-out Pipeline</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code> Live match feed          Kafka topic           Fantasy Point            Kafka topic            Leaderboard
+ provider                 "match-events"         Calculator               "player-score-deltas"   Update Consumer
+ ┌─────────────┐         ┌─────────────┐        ┌─────────────────┐      ┌─────────────────┐     ┌───────────────┐
+ │ "Player X    │────────▶│  raw event   │───────▶│ apply scoring     │─────▶│ PlayerX: +8 pts   │────▶│ for every team  │
+ │  hits six"   │         │  (ordered,   │        │ rules -&gt; point    │      │  (delta, not      │     │ that drafted    │
+ │              │         │  durable)    │        │ delta for Player X│      │   absolute score) │     │ Player X, add   │
+ └─────────────┘         └─────────────┘        └─────────────────┘      └─────────────────┘     │ +8 to their     │
+                                                                                                     │ cached total    │
+                                                                                                     └───────────────┘</code></pre></div><p>The critical design choice: the <code>FantasyPointCalculator</code> computes <strong>one delta per player per event</strong> — not one update per affected team. "Which teams drafted Player X" is answered by a precomputed, indexed lookup (<code>player_id -&gt; [team_id, ...]</code>), built once when each team is created, not recomputed per event. Applying the delta to every affected team's cached total is then a bulk, embarrassingly-parallel fan-out — the expensive "who is affected" join happened once at team-creation time, not once per event.</p><hr><h2 id="27-implementing-the-scoring-event-pipeline">27. Implementing the Scoring Event Pipeline</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class FantasyPointCalculator {
+    public void onMatchEvent(MatchEvent event) {
+        ScoringRuleSet rules = scoringRuleSetFor(event.sport());
+        int pointDelta = rules.pointsFor(event.eventType(), event.magnitude());
+        PlayerScoreDelta delta = new PlayerScoreDelta(event.playerId(), event.matchId(), pointDelta, event.eventId());
+        scoreDeltaTopic.publish(delta);
+    }
+}
+
+public class LeaderboardUpdateConsumer {
+    public void onPlayerScoreDelta(PlayerScoreDelta delta) {
+        List&lt;String&gt; affectedTeamIds = teamsByPlayerIndex.lookup(delta.playerId(), delta.matchId());
+        for (String teamId : affectedTeamIds) {
+            List&lt;String&gt; contestIds = entriesByTeamIndex.lookup(teamId);
+            for (String contestId : contestIds) {
+                leaderboardService.incrementScore(contestId, teamId, delta.pointDelta());  // §30
+            }
+        }
+    }
+}</code></pre></div><p><code>event.eventId()</code> is carried through end to end specifically so this pipeline can be made idempotent (<a href="#29-real-time-leaderboard-design">§29</a>'s reconciliation pattern generalizes here too) — a redelivered Kafka message must add its point delta exactly once, never twice, which means the leaderboard increment itself must be de-duplicated per <code>eventId</code> per team, not just per event.</p><hr><h2 id="28-follow-up-question-8-a-contest-has-20-million-entries-how-do-you-keep-it-correctly-ranked-without-re-sorting-on-every-point-change">28. Follow-up Question 8: A Contest Has 20 Million Entries — How Do You Keep It Correctly Ranked Without Re-Sorting on Every Point Change?</h2><blockquote><p><strong>Interviewer:</strong> <em>"Every few seconds thousands of point deltas land. How does 'show me rank 1 through 100' stay fast?"</em></p></blockquote><p>Re-sorting 20 million rows on every incoming delta is obviously wrong, but so is the subtler mistake of running an <code>ORDER BY score DESC LIMIT 100</code> SQL query against a relational table on every leaderboard read — that query re-sorts a meaningful fraction of the table on every single read, and reads vastly outnumber writes on a leaderboard. What's needed is a data structure that keeps itself incrementally sorted as it's written, so a read is just "look at the front" rather than "re-derive the order."</p><hr><h2 id="29-real-time-leaderboard-design">29. Real-Time Leaderboard Design</h2><p>A <strong>sorted set</strong> (Redis <code>ZSET</code>, or an equivalent skip-list-backed structure) is exactly this data structure: every member (a <code>teamId</code>) has a score, the structure is always kept in score order internally, and both the update and the range-read operations are O(log N) — neither one requires touching the other N-1 members.</p><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>ZINCRBY contest:{contestId}:leaderboard  8  team:{teamId}     -- O(log N) incremental update
+ZREVRANGE contest:{contestId}:leaderboard 0 99 WITHSCORES     -- O(log N + 100) top-100 read
+ZREVRANK contest:{contestId}:leaderboard team:{teamId}         -- O(log N) "what's my rank" read</code></pre></div><p>Deterministic tie-breaking (two teams on the exact same point total) is handled by encoding a tiebreaker into the score itself rather than leaving ties to be broken arbitrarily by the data structure — e.g. <code>score = (points * 1_000_000) - entryTimestampSeconds</code>, so earlier entries rank higher on a tie, and the comparison stays a single numeric compare with no secondary sort step.</p><hr><h2 id="30-implementing-the-leaderboard-update-path">30. Implementing the Leaderboard Update Path</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class LeaderboardService {
+    public void incrementScore(String contestId, String teamId, int pointDelta) {
+        String key = "contest:" + contestId + ":leaderboard";
+        redis.zIncrBy(key, pointDelta, "team:" + teamId);
+        rankUpdatePublisher.publishDelta(contestId, teamId, pointDelta);  // fan out to live WebSocket subscribers
+    }
+
+    public List&lt;LeaderboardEntry&gt; topN(String contestId, int n) {
+        String key = "contest:" + contestId + ":leaderboard";
+        return redis.zRevRangeWithScores(key, 0, n - 1).stream()
+            .map(LeaderboardEntry::fromRedisTuple)
+            .toList();
+    }
+
+    public long rankOf(String contestId, String teamId) {
+        String key = "contest:" + contestId + ":leaderboard";
+        return redis.zRevRank(key, "team:" + teamId);
+    }
+}</code></pre></div><p>Clients subscribed to a contest's leaderboard receive only the small, incremental <code>rankUpdatePublisher</code> delta over a WebSocket, not a re-fetch of the whole leaderboard — the same "send only what changed" principle from <a href="#26-live-scoring-ingestion-and-the-fan-out-pipeline">§26-27</a> applied one layer further downstream, all the way to the browser.</p><hr><h2 id="31-class-diagram-scoring-and-leaderboard-flow">31. Class Diagram: Scoring and Leaderboard Flow</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>┌─────────────┐      ┌────────────────────┐      ┌─────────────────────┐      ┌────────────────────┐
+│  MatchEvent   │─────▶│ FantasyPointCalc.   │─────▶│  PlayerScoreDelta     │─────▶│ LeaderboardUpdate    │
+│ ───────────  │      │ ──────────────────│      │ ───────────────────│      │ Consumer             │
+│ eventId       │      │ pointsFor()         │      │ playerId              │      │ ───────────────────│
+│ playerId      │      │                     │      │ matchId               │      │ onPlayerScoreDelta() │
+│ matchId       │      └────────────────────┘      │ pointDelta            │      └──────────┬──────────┘
+│ eventType     │                                    │ eventId               │                 │
+└─────────────┘                                    └─────────────────────┘                 ▼
+                                                                                   ┌────────────────────┐
+                                                                                   │  LeaderboardService  │
+                                                                                   │ ──────────────────  │
+                                                                                   │ incrementScore()      │
+                                                                                   │ topN()                │
+                                                                                   │ rankOf()              │
+                                                                                   └────────────────────┘</code></pre></div><hr><h2 id="32-follow-up-question-9-what-happens-if-a-match-kicks-off-a-few-seconds-late-does-contest-lock-timing-drift-too">32. Follow-up Question 9: What Happens If a Match Kicks Off a Few Seconds Late — Does Contest Lock Timing Drift, Too?</h2><blockquote><p><strong>Interviewer:</strong> <em>"Kickoff is scheduled for 3:00:00 PM, but the toss/coin-flip runs long and play actually starts at 3:00:45. When exactly does the contest lock?"</em></p></blockquote><p>Locking must happen at the <em>scheduled</em> kickoff time, not the actual one — locking late (waiting for "actual" kickoff) would let users edit lineups after they've already seen live play begin and gained an unfair information advantage, which defeats the entire premise of a fair contest. This means contest locking cannot be a reactive response to a match-status change; it must be a proactive, precisely-scheduled action.</p><hr><h2 id="33-contest-locking-and-late-join-prevention">33. Contest Locking and Late-Join Prevention</h2><p>Every contest's lock is scheduled at creation time, against the match's fixed <code>kickoffTime</code>, rather than being computed lazily whenever someone happens to ask "is this locked yet":</p><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class ContestLockScheduler {
+    public void scheduleLock(Contest contest, Instant kickoffTime) {
+        delayedJobQueue.schedule(kickoffTime, () -&gt; lockContest(contest.contestId()));
+    }
+
+    public void lockContest(String contestId) {
+        int rowsUpdated = jdbcTemplate.update(
+            "UPDATE contest SET state = 'LOCKED' WHERE contest_id = ? AND state = 'OPEN'",
+            contestId
+        );
+        // 0 rows -&gt; already locked (job re-ran, or a race with manual lock) -- fine, idempotent no-op
+    }
+}</code></pre></div><p>Two details make this robust rather than merely "usually on time." First, the <code>WHERE state = 'OPEN'</code> guard makes <code>lockContest</code> idempotent — a scheduler retry, a duplicate trigger, or a crash-and-replay of the delayed job can call it any number of times and the contest still locks exactly once, in the database sense that matters (its state only ever transitions once). Second, and just as important: <strong>every read on the join path independently re-checks <code>isJoinable()</code> at request time</strong> (<a href="#21-implementing-the-full-atomic-contest-entry-service">§21</a>'s <code>AND state = 'OPEN'</code> in the same atomic <code>UPDATE</code>) — so even if the scheduled lock job itself were delayed by a few hundred milliseconds under load, a join request arriving after the <em>actual</em> kickoff moment is still safe, because it isn't relying on the scheduler having already flipped the flag. The scheduler is what makes locking happen close to on time; the atomic guard on every join is what makes it <em>correct</em> regardless of exactly when the scheduler fires.</p><hr><h2 id="34-follow-up-question-10-the-match-is-abandoned-mid-innings-due-to-rain-what-happens-to-every-entry-fee-and-every-lineup">34. Follow-up Question 10: The Match Is Abandoned Mid-Innings Due to Rain — What Happens to Every Entry Fee and Every Lineup?</h2><blockquote><p><strong>Interviewer:</strong> <em>"A match is called off with no result. What's the correct behavior?"</em></p></blockquote><p>A contest built around a match with no official result cannot fairly be scored or paid out — there is no "final" performance to rank teams by. The only fair resolution is a full refund of every entry fee, which is why CANCELLED exists as its own terminal state (<a href="#13-the-contest-lifecycle-as-a-state-machine">§13</a>) rather than being treated as an edge case of FINALIZING: it needs entirely different downstream behavior (refund every entry, pay out none) than a normal completion.</p><hr><h2 id="35-offlinedegraded-mode-and-fail-safe-defaults">35. Offline/Degraded Mode and Fail-Safe Defaults</h2><p>When the live match-feed provider itself becomes unreachable mid-match, the system must fail toward safety, not toward availability at any cost:</p><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Live feed unreachable for &gt; threshold seconds
+        │
+        ▼
+Pause fantasy-point ingestion (do NOT guess scores from a stale feed)
+        │
+        ▼
+Leaderboard freezes at last-known-good scores (labeled "provisional" in the UI)
+        │
+        ▼
+Contest stays LOCKED, cannot transition to FINALIZING until feed resumes
+   and reconciles against an authoritative post-match scorecard</code></pre></div><p>This mirrors the ATM guide's offline/degraded-mode principle exactly: when the source of truth is unreachable, refuse to guess and freeze in a clearly-labeled provisional state, rather than silently computing wrong numbers that look authoritative.</p><hr><h2 id="36-follow-up-question-11-the-match-ends-payout-runs-and-then-the-payout-job-crashes-halfway-through-20-million-entries-what-happens-on-restart">36. Follow-up Question 11: The Match Ends, Payout Runs, and Then the Payout Job Crashes Halfway Through 20 Million Entries — What Happens on Restart?</h2><blockquote><p><strong>Interviewer:</strong> <em>"Payout is processing entry 8 million of 20 million when the process dies. It restarts. How do you avoid double-paying the first 8 million?"</em></p></blockquote><p>Restarting a payout job from the beginning is only safe if every individual payout is idempotent — otherwise the restart pays 8 million winners twice. The fix is the same idempotency-key pattern used throughout this series' payment-adjacent flows: record a durable, unique fact <em>before</em> the money moves, and check for that fact before moving money again.</p><hr><h2 id="37-prize-distribution-as-an-idempotent-operation">37. Prize Distribution as an Idempotent Operation</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class PayoutProcessor {
+    public void runPayoutForContest(String contestId) {
+        List&lt;ContestEntry&gt; rankedEntries = contestEntryRepository.findRankedByContest(contestId);
+        PrizeStructure prizes = prizeStructureRepository.findByContest(contestId);
+        for (ContestEntry entry : rankedEntries) {
+            long prizeCents = prizes.prizeForRank(entry.finalRank());
+            if (prizeCents &lt;= 0) continue;
+            String idempotencyKey = "payout:" + contestId + ":" + entry.entryId();
+            if (payoutIdempotencyStore.alreadyProcessed(idempotencyKey)) {
+                continue;  // this entry was already paid in a prior, interrupted run
+            }
+            walletLedger.credit(entry.userId(), prizeCents, idempotencyKey);
+            payoutIdempotencyStore.markProcessed(idempotencyKey);
+        }
+        contestLifecycle.transitionTo(contestId, ContestState.COMPLETED);
+    }
+}</code></pre></div><p>The <code>idempotencyKey</code> — deterministically derived from <code>contestId</code> and <code>entryId</code>, never a random value — is what makes "check, then act" safe here even though it's the same two-step shape this guide has flagged as dangerous everywhere else. The difference is that <code>payoutIdempotencyStore.markProcessed</code> and the credit's own ledger row are the durable record being checked, not a soon-to-be-stale in-memory count — so a crash between crediting and marking-processed is the only genuinely dangerous window, and it's closed by making <code>markProcessed</code> part of the same database transaction as the credit itself.</p><hr><h2 id="38-implementing-payout-idempotency-storage">38. Implementing Payout Idempotency Storage</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class PayoutIdempotencyStore {
+    public boolean alreadyProcessed(String idempotencyKey) {
+        return jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM payout_ledger WHERE idempotency_key = ?", Integer.class, idempotencyKey
+        ) &gt; 0;
+    }
+
+    public void markProcessed(String idempotencyKey) {
+        jdbcTemplate.update(
+            "INSERT INTO payout_ledger (idempotency_key, processed_at) VALUES (?, ?) " +
+            "ON CONFLICT (idempotency_key) DO NOTHING",
+            idempotencyKey, Instant.now()
+        );
+    }
+}</code></pre></div><p>The <code>ON CONFLICT DO NOTHING</code> unique-constraint guard is the actual safety net — even if two payout-job instances somehow ran concurrently over the same contest (which the <code>COMPLETED</code> state transition is meant to prevent), the database's own uniqueness constraint on <code>idempotency_key</code> makes a duplicate insert physically impossible, not just unlikely.</p><hr><h2 id="39-follow-up-question-12-how-do-you-support-multiple-transaction-types-entry-fees-winnings-deposits-withdrawals-refunds-without-a-wallet-god-object">39. Follow-up Question 12: How Do You Support Multiple Transaction Types (Entry Fees, Winnings, Deposits, Withdrawals, Refunds) Without a Wallet God-Object?</h2><blockquote><p><strong>Interviewer:</strong> <em>"Your wallet needs to handle five different kinds of money movement, each with its own validation rules. How do you keep that from becoming an unmaintainable pile of conditionals?"</em></p></blockquote><p>Each transaction type shares the same underlying primitive (an atomic, ledgered balance mutation) but differs in <em>when</em> it's allowed and what triggers it — a withdrawal needs KYC verification and a cooldown check that an entry-fee debit doesn't. This is the same Strategy-pattern shape as <a href="#17-team-selection-as-a-pluggable-rule-set">§17</a>'s sport rules: one common mutation primitive, pluggable pre-conditions per transaction type.</p><hr><h2 id="40-implementing-pluggable-transaction-strategies">40. Implementing Pluggable Transaction Strategies</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface TransactionStrategy {
+    ValidationResult preValidate(String userId, long amountCents);
+    TransactionType type();
+}
+
+public class WithdrawalStrategy implements TransactionStrategy {
+    public ValidationResult preValidate(String userId, long amountCents) {
+        if (!kycService.isVerified(userId)) return ValidationResult.fail("KYC not verified");
+        if (withdrawalCooldown.isActive(userId)) return ValidationResult.fail("Cooldown active");
+        return ValidationResult.ok();
+    }
+    public TransactionType type() { return TransactionType.WITHDRAWAL; }
+}
+
+public class WalletTransactionService {
+    public TransactionResult execute(String userId, long amountCents, TransactionStrategy strategy) {
+        ValidationResult validation = strategy.preValidate(userId, amountCents);
+        if (!validation.isValid()) return TransactionResult.rejected(validation.reason());
+        return switch (strategy.type()) {
+            case WITHDRAWAL, ENTRY_FEE -&gt; TransactionResult.from(walletLedger.debit(userId, amountCents, strategy.type().name()));
+            case WINNINGS, DEPOSIT, REFUND -&gt; { walletLedger.credit(userId, amountCents, strategy.type().name()); yield TransactionResult.success(); }
+        };
+    }
+}</code></pre></div><p>Adding a new transaction type — say, a promotional bonus credit with its own eligibility rule — means writing one new <code>TransactionStrategy</code>, not touching <code>WalletTransactionService</code> or the atomic debit/credit primitives underneath it at all.</p><hr><h2 id="41-deposit-handling-and-provisional-crediting">41. Deposit Handling and Provisional Crediting</h2><p>A deposit initiated through a third-party payment gateway is not instantaneous or guaranteed — the gateway's own confirmation webhook can arrive late, arrive twice, or never arrive at all. Deposits therefore go through their own small state machine (<code>INITIATED → CONFIRMED</code> or <code>INITIATED → FAILED</code>), and the wallet is only credited on <code>CONFIRMED</code>, keyed by the gateway's own transaction id as the idempotency key — a duplicate webhook delivery hits the same <code>ON CONFLICT DO NOTHING</code> guard from <a href="#38-implementing-payout-idempotency-storage">§38</a>, reusing the exact same idempotency mechanism built for payouts, applied to money coming in rather than money going out.</p><hr><h2 id="42-capacity-estimation-fan-out-volume-and-leaderboard-read-load">42. Capacity Estimation: Fan-out Volume and Leaderboard Read Load</h2><p>Assume a marquee match: 10 million contest entries across all contests combined, drafting from a pool of 22 real players, and roughly 300 scoring-relevant events over a 3-hour match.</p><ul><li><strong>Fan-out writes</strong>: worst case, a single popular player is drafted by ~40% of all entries. 300 events × (10M × 0.4) potentially-affected entries ≈ 1.2 billion leaderboard increments over 3 hours ≈ <strong>~110,000 increments/second at peak</strong> (events cluster, so peak is far above the flat average). A Redis <code>ZINCRBY</code> comfortably handles this rate; the design's job is making sure the fan-out <em>lookup</em> (which teams drafted this player) is an O(1) indexed read, not a scan, since that lookup runs once per affected entry per event.</li><li><strong>Leaderboard reads</strong>: assume 5 million concurrently-watching users each polling or subscribing to rank updates roughly once every few seconds. Pushed deltas over an already-open WebSocket (<a href="#30-implementing-the-leaderboard-update-path">§30</a>) cost far less than 5 million independent poll requests hitting <code>topN</code>/<code>rankOf</code> every few seconds — this is the concrete reason a push channel is a requirement, not a nice-to-have, once concurrent viewership crosses roughly the low hundreds of thousands.</li><li><strong>Wallet writes</strong>: entry-fee debits and payout credits are comparatively tiny in volume (one write per entry, one per payout) and comfortably fit on a conventional relational database — the money path was never the throughput bottleneck; the scoring fan-out always is.</li></ul><hr><h2 id="43-follow-up-question-13-how-do-you-support-a-private-invite-only-contest-among-a-group-of-friends">43. Follow-up Question 13: How Do You Support a Private, Invite-Only Contest Among a Group of Friends?</h2><blockquote><p><strong>Interviewer:</strong> <em>"Add private contests to the design — what actually changes?"</em></p></blockquote><p>Surprisingly little of the core machinery changes: a private contest is still a <code>Contest</code> in every mechanical sense — it still uses the same atomic slot-reservation (<a href="#20-contest-entry-as-an-atomic-slot-reservation">§20-21</a>), the same lifecycle state machine (<a href="#13-the-contest-lifecycle-as-a-state-machine">§13</a>), the same leaderboard (<a href="#29-real-time-leaderboard-design">§29-30</a>). The only real addition is a second, narrower gate in front of the existing join path: possession of a valid invite code, checked before the atomic reservation ever runs, so the two checks compose rather than duplicate each other.</p><hr><h2 id="44-private-contests-and-invite-code-handling">44. Private Contests and Invite-Code Handling</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class PrivateContestEntryService {
+    public EntryResult joinPrivateContest(String contestId, String userId, String teamId,
+                                            long entryFeeCents, String suppliedInviteCode) {
+        String actualCode = inviteCodeRepository.findByContest(contestId);
+        if (!MessageDigest.isEqual(actualCode.getBytes(UTF_8), suppliedInviteCode.getBytes(UTF_8))) {
+            return EntryResult.failed("Invalid invite code");
+        }
+        return atomicContestEntryService.joinContest(contestId, userId, teamId, entryFeeCents);  // §21, unchanged
+    }
+}</code></pre></div><p><code>MessageDigest.isEqual</code> performs a constant-time comparison rather than a plain <code>.equals()</code> — a private contest's invite code is a lightweight access-control secret, and a naive string comparison leaks timing information about how many leading characters matched, which is exactly the kind of small omission that turns into a guessable-code vulnerability at scale. The join logic itself delegates straight back to <a href="#21-implementing-the-full-atomic-contest-entry-service">§21</a>'s already-correct, already-race-free atomic reservation — this is the Open/Closed Principle again: extending behavior (an extra gate) without modifying the thing being extended.</p><hr><h2 id="45-follow-up-question-14-how-do-you-stop-one-person-from-registering-500-accounts-to-enter-the-same-head-to-head-contest-against-themselves">45. Follow-up Question 14: How Do You Stop One Person From Registering 500 Accounts to Enter the Same Head-to-Head Contest Against Themselves?</h2><blockquote><p><strong>Interviewer:</strong> <em>"A user could create many accounts to guarantee a win in a small contest, or to launder money between their own wallets. What's the defense?"</em></p></blockquote><p>This is a fraud-detection problem layered on top of the correctness machinery already built, not a replacement for it — even a perfect anti-fraud system still needs the atomic slot reservation and wallet debit underneath it to be correct. The defense is a set of signals evaluated <em>before</em> an entry is allowed to proceed, not a retroactive cleanup after the fact.</p><hr><h2 id="46-fraud-signal-detection">46. Fraud Signal Detection</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class FraudSignalService {
+    public FraudCheckResult evaluate(String userId, String contestId, DeviceFingerprint device) {
+        if (accountsSharingDevice(device).size() &gt; MAX_ACCOUNTS_PER_DEVICE) {
+            return FraudCheckResult.flag("Multiple accounts on one device");
+        }
+        if (accountsSharingDevice(device).stream().anyMatch(otherUserId -&gt;
+                contestEntryRepository.hasEntry(contestId, otherUserId))) {
+            return FraudCheckResult.block("Linked account already entered this contest");
+        }
+        if (walletFundingSourceOverlap(userId, contestId) &gt; FUNDING_OVERLAP_THRESHOLD) {
+            return FraudCheckResult.flag("Shared funding source with co-entrants");
+        }
+        return FraudCheckResult.clear();
+    }
+}</code></pre></div><p>A <code>block</code> result stops the entry outright (e.g., a confirmed linked account already in the same head-to-head); a <code>flag</code> result lets the entry proceed but queues it for manual or automated review — the distinction matters because false positives on a hard block directly cost legitimate users money and trust, so only the highest-confidence signals are allowed to block synchronously.</p><hr><h2 id="47-full-worked-example-one-contest-traced-end-to-end">47. Full Worked Example: One Contest Traced End to End</h2><ol><li><strong>Team creation</strong> — a user drafts 11 cricket players for tomorrow's match, spending $98.50 of a $100 salary cap; <code>LineupValidator</code> (<a href="#18-implementing-the-lineup-validator">§18</a>) confirms role counts and real-team caps are satisfied.</li><li><strong>Contest join</strong> — the user joins a ₹50-entry, 10,000-slot mega contest. The atomic <code>UPDATE ... WHERE filled_slots &lt; total_slots</code> (<a href="#20-contest-entry-as-an-atomic-slot-reservation">§20</a>) succeeds at slot 9,847; the wallet debit (<a href="#24-implementing-the-atomic-wallet-debit">§24</a>) succeeds against a sufficient balance; a <code>ContestEntry</code> row is created.</li><li><strong>Kickoff</strong> — the scheduler's delayed job (<a href="#33-contest-locking-and-late-join-prevention">§33</a>) flips the contest to <code>LOCKED</code> at the scheduled time; a join request arriving 40ms later independently fails the same atomic guard regardless of whether the scheduled job had already fired.</li><li><strong>Live play</strong> — a wicket falls. <code>MatchEventConsumer</code> computes a fantasy-point delta for the bowler (<a href="#27-implementing-the-scoring-event-pipeline">§27</a>), publishes it, and <code>LeaderboardUpdateConsumer</code> looks up every team containing that bowler (an O(1) indexed lookup) and increments each one's score in the Redis sorted set (<a href="#30-implementing-the-leaderboard-update-path">§30</a>) — including our user's team, if they drafted that bowler.</li><li><strong>Live viewing</strong> — the user's app receives the rank-delta push over its open WebSocket subscription and updates their displayed rank without polling or re-fetching the leaderboard.</li><li><strong>Match ends</strong> — the contest transitions to <code>FINALIZING</code>; a brief scoring-correction window closes with no disputes; it transitions to <code>COMPLETED</code>-pending-payout.</li><li><strong>Payout</strong> — <code>PayoutProcessor</code> (<a href="#37-prize-distribution-as-an-idempotent-operation">§37</a>) walks ranked entries, finds our user finished 812th (out of a paying threshold of 2,000), credits their wallet with the rank-812 prize amount, records the idempotency key, and moves on — a mid-run crash and restart at this exact point would skip our user's entry on retry, since <code>alreadyProcessed</code> would already be <code>true</code>.</li><li><strong>Wallet history</strong> — the user's transaction history shows the ₹50 debit at join time and the prize credit at payout time as two separate, immutable, individually-timestamped ledger rows — never a single overwritten balance.</li></ol><hr><h2 id="48-final-architecture-diagram">48. Final Architecture Diagram</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>┌────────────┐   ┌──────────────┐   ┌───────────────────┐        ┌────────────────┐
+│ Client Apps │──▶│ API Gateway   │──▶│ Team/Lineup Svc      │──▶│ Contest/Team DB  │
+└────────────┘   └──────────────┘   │ (§17-18)             │   └────────────────┘
+                          │           └───────────────────┘
+                          ▼
+                  ┌───────────────────┐      ┌──────────────────┐
+                  │ Contest Entry Svc    │──▶│  Wallet Ledger DB   │
+                  │ (atomic §20-21,       │   │  (§23-24, §37-38)   │
+                  │  fraud gate §46)      │   └──────────────────┘
+                  └───────────────────┘
+                          │
+                          ▼
+                  ┌───────────────────┐
+                  │ Contest Lock          │
+                  │ Scheduler (§33)       │
+                  └───────────────────┘
+
+  Live match feed ──▶ Match Event Log (Kafka) ──▶ Fantasy Point Calculator (§26-27)
+                                                          │
+                                                          ▼
+                                          Player-Score-Delta Topic (Kafka)
+                                                          │
+                                                          ▼
+                                          Leaderboard Update Consumer (§27, §30)
+                                                          │
+                                                          ▼
+                                          Redis Sorted Sets (per contest) (§29-30)
+                                                          │
+                                                          ▼
+                                          WebSocket / SSE Fan-out ──▶ Client Apps
+
+  Match ends ──▶ Payout Processor (§37-38, idempotent) ──▶ Wallet Ledger DB</code></pre></div><hr><h2 id="49-design-patterns-used-throughout-this-guide">49. Design Patterns Used Throughout This Guide</h2><ul><li><strong>State</strong> — <code>ContestState</code> (<a href="#13-the-contest-lifecycle-as-a-state-machine">§13-14</a>) and the deposit-confirmation state machine (<a href="#41-deposit-handling-and-provisional-crediting">§41</a>) make illegal transitions structurally impossible.</li><li><strong>Strategy</strong> — <code>SportRuleSet</code> (<a href="#17-team-selection-as-a-pluggable-rule-set">§17</a>), <code>ScoringRuleSet</code> (<a href="#26-live-scoring-ingestion-and-the-fan-out-pipeline">§26</a>), and <code>TransactionStrategy</code> (<a href="#40-implementing-pluggable-transaction-strategies">§40</a>) each isolate one axis of variation behind a shared interface.</li><li><strong>Template Method</strong> (implicit) — the join-contest flow (reserve slot → debit wallet → create entry, <a href="#21-implementing-the-full-atomic-contest-entry-service">§21</a>) and the withdrawal flow (pre-validate → debit → ledger, <a href="#40-implementing-pluggable-transaction-strategies">§40</a>) each follow a fixed skeleton with pluggable steps.</li><li><strong>Observer</strong> — <code>RankUpdatePublisher</code> (<a href="#30-implementing-the-leaderboard-update-path">§30</a>) and the WebSocket fan-out layer notify subscribed clients of leaderboard changes without those clients polling.</li><li><strong>Idempotent Command</strong> — <code>PayoutProcessor</code> (<a href="#37-prize-distribution-as-an-idempotent-operation">§37-38</a>) and deposit-webhook handling (<a href="#41-deposit-handling-and-provisional-crediting">§41</a>) both key a durable "already done" fact off a deterministic identifier, making retries safe by construction.</li><li><strong>Facade</strong> — <code>AtomicContestEntryService</code> (<a href="#21-implementing-the-full-atomic-contest-entry-service">§21</a>) presents "join this contest" as one call while coordinating two independently atomic subsystems (slot reservation and wallet debit) underneath.</li></ul><hr><h2 id="50-solid-principles-applied">50. SOLID Principles Applied</h2><ul><li><strong>Single Responsibility</strong> — <code>LineupValidator</code> only validates; it never touches persistence, wallets, or contest state. <code>PayoutProcessor</code> only pays out; it never computes scores.</li><li><strong>Open/Closed</strong> — adding a new sport (<a href="#17-team-selection-as-a-pluggable-rule-set">§17</a>) or a new transaction type (<a href="#40-implementing-pluggable-transaction-strategies">§40</a>) or an additional fraud signal (<a href="#46-fraud-signal-detection">§46</a>) never requires modifying the classes that already work.</li><li><strong>Liskov Substitution</strong> — any <code>SportRuleSet</code> or <code>TransactionStrategy</code> implementation can be swapped in without the calling code needing to know which concrete implementation it received.</li><li><strong>Interface Segregation</strong> — <code>TransactionStrategy</code> exposes only <code>preValidate()</code> and <code>type()</code>; it does not force every implementation to also implement unrelated wallet-reporting or KYC concerns.</li><li><strong>Dependency Inversion</strong> — <code>AtomicContestEntryService</code> depends on <code>WalletLedger</code> as an interface/collaborator, not a concrete SQL implementation, so the wallet backing store could change without touching contest-entry logic.</li></ul><hr><h2 id="51-common-mistakes-when-building-this-yourself">51. Common Mistakes When Building This Yourself</h2><ul><li><strong>Treating "join contest" as a single operation</strong> instead of recognizing it hides two independent races (slot reservation and wallet debit) that each need their own atomic guard (<a href="#20-contest-entry-as-an-atomic-slot-reservation">§20-24</a>).</li><li><strong>Recomputing full team scores from scratch on every match event</strong> instead of computing one point delta per event and fanning it out through a precomputed player-to-team index (<a href="#26-live-scoring-ingestion-and-the-fan-out-pipeline">§26-27</a>) — this is the single most common reason a naive implementation falls over under real load.</li><li><strong>Re-sorting a leaderboard table on every read</strong> with an <code>ORDER BY ... LIMIT</code> query instead of maintaining an incrementally-sorted structure like a sorted set (<a href="#29-real-time-leaderboard-design">§29-30</a>).</li><li><strong>Locking a contest reactively</strong> based on a match-status update instead of proactively scheduling the lock against the fixed kickoff time, and separately re-guarding every join request at write time regardless of scheduler timing (<a href="#32-follow-up-question-9-what-happens-if-a-match-kicks-off-a-few-seconds-late-does-contest-lock-timing-drift-too">§32-33</a>).</li><li><strong>Making payout a single, non-idempotent loop</strong> with no per-entry durable "already paid" record — a crash partway through then either skips remaining winners on a naive restart-from-scratch-is-too-scary manual fix, or double-pays everyone on a naive blind restart (<a href="#36-follow-up-question-11-the-match-ends-payout-runs-and-then-the-payout-job-crashes-halfway-through-20-million-entries-what-happens-on-restart">§36-38</a>).</li><li><strong>Comparing invite codes with a plain string <code>.equals()</code></strong> instead of a constant-time comparison, leaking timing information about a supposedly-secret code (<a href="#44-private-contests-and-invite-code-handling">§44</a>).</li><li><strong>Bolting fraud checks on after the fact</strong> as a batch job that reviews completed entries, instead of evaluating the highest-confidence signals synchronously before an entry is allowed to proceed at all (<a href="#45-follow-up-question-14-how-do-you-stop-one-person-from-registering-500-accounts-to-enter-the-same-head-to-head-contest-against-themselves">§45-46</a>).</li></ul><hr><h2 id="52-testing-strategy">52. Testing Strategy</h2><ul><li><strong>Lineup validation tests</strong> — construct lineups that violate the salary cap, violate role-count bounds, and violate the per-real-team cap, one violation at a time, and assert each is independently caught.</li><li><strong>Contest-slot concurrency tests</strong> — fire many simultaneous join requests against a contest with exactly one remaining slot and assert exactly one succeeds, regardless of thread interleaving.</li><li><strong>Wallet concurrency tests</strong> — fire many simultaneous debits against a balance that can satisfy at most one of them, and assert exactly one succeeds and the balance never goes negative.</li><li><strong>Fan-out correctness tests</strong> — inject a sequence of match events for one player and assert every team that drafted that player (and no team that didn't) reflects the correct cumulative point delta.</li><li><strong>Leaderboard rank tests</strong> — assert <code>topN</code> and <code>rankOf</code> remain consistent with each other after a burst of concurrent <code>incrementScore</code> calls, including exact ties resolved by the encoded tiebreaker (<a href="#29-real-time-leaderboard-design">§29</a>).</li><li><strong>Lock-timing tests</strong> — assert a join request submitted a few milliseconds after the scheduled kickoff is rejected even if the scheduled lock job itself has not yet run.</li><li><strong>Payout idempotency tests</strong> — run the payout job to completion, then run it again from scratch, and assert zero additional wallet credits occur on the second run.</li><li><strong>Cancellation/refund tests</strong> — cancel a contest mid-lifecycle and assert every entry fee is refunded exactly once, using the same idempotency mechanism as payout.</li></ul><hr><h2 id="53-suggested-future-enhancements">53. Suggested Future Enhancements</h2><ul><li><strong>Multi-sport universal rule engine</strong> — generalizing <code>SportRuleSet</code> beyond simple count ranges to arbitrary constraint expressions, for sports with more exotic composition rules (e.g., a maximum combined "credits" system with fractional player costs).</li><li><strong>Dynamic, in-play pricing</strong> — adjusting a player's draft price between contests based on recent real-world form, reusing the pluggable-pricing idea from this series' Vending Machine guide's promotional-pricing strategy, applied to player valuation instead of product pricing.</li><li><strong>Tiered, dynamically-sized contests</strong> — auto-scaling a contest's <code>totalSlots</code> based on real-time demand in the minutes before lock, which would require revisiting <a href="#20-contest-entry-as-an-atomic-slot-reservation">§20</a>'s atomic reservation to also handle a concurrently-changing ceiling, not just a concurrently-changing floor.</li><li><strong>Cross-match leaderboards and season-long standings</strong> — aggregating per-contest results into a longer-lived ranking, which introduces its own new idempotency question (crediting season points exactly once per completed contest).</li><li><strong>Real-money regulatory geofencing</strong> — restricting contest types or entry-fee tiers by jurisdiction, layered in as an additional pre-condition alongside <a href="#46-fraud-signal-detection">§46</a>'s fraud gate.</li></ul><hr><h2 id="54-progressive-interview-question-set">54. Progressive Interview Question Set</h2><p>For an interviewer using this guide to run a structured round, in increasing difficulty:</p><ol><li>Model the contest lifecycle as an explicit state machine and explain why "open" and "locked" alone isn't enough. (<a href="#12-follow-up-question-3-how-do-you-model-the-contest-lifecycle-and-why-isnt-open-and-locked-enough">§12-15</a>)</li><li>Design lineup validation (salary cap, role composition) so a new sport never requires touching existing code. (<a href="#16-follow-up-question-4-how-do-you-enforce-a-salary-cap-and-role-composition-without-hardcoding-one-sports-rules">§16-18</a>)</li><li>10,000 slots, 40,000 simultaneous join attempts at the deadline — design the fix, precisely. (<a href="#19-follow-up-question-5-a-contest-has-exactly-10000-spots-and-40000-users-click-join-in-the-final-second-before-lock-what-happens">§19-21</a>)</li><li>The same user's wallet is debited from two devices at once — is this the same bug as question 3, or a different one? Design the fix. (<a href="#22-follow-up-question-6-the-same-user-joins-two-contests-from-two-devices-at-the-same-instant-can-their-wallet-go-negative">§22-24</a>)</li><li>One match event needs to reach millions of already-submitted teams' scores within seconds — design the pipeline, and explain why per-event full recomputation fails. (<a href="#25-follow-up-question-7-a-popular-player-hits-a-match-winning-six-how-does-that-one-event-reach-millions-of-teams-scores-within-seconds">§25-27</a>)</li><li>Design a leaderboard that stays correctly ranked for 20 million entries without re-sorting on every write. (<a href="#28-follow-up-question-8-a-contest-has-20-million-entries-how-do-you-keep-it-correctly-ranked-without-re-sorting-on-every-point-change">§28-30</a>)</li><li>A contest must lock at a scheduled kickoff time even under scheduler delay or clock drift — design the mechanism that makes this correct regardless of timing. (<a href="#32-follow-up-question-9-what-happens-if-a-match-kicks-off-a-few-seconds-late-does-contest-lock-timing-drift-too">§32-33</a>)</li><li>The payout job crashes partway through 20 million entries and is restarted from scratch — design payout so this is safe. (<a href="#36-follow-up-question-11-the-match-ends-payout-runs-and-then-the-payout-job-crashes-halfway-through-20-million-entries-what-happens-on-restart">§36-38</a>)</li><li>Extend the design to private, invite-only contests, and to basic multi-account fraud detection — what's genuinely new, and what's reused unchanged? (<a href="#43-follow-up-question-13-how-do-you-support-a-private-invite-only-contest-among-a-group-of-friends">§43-46</a>)</li></ol><hr><h2 id="55-final-takeaway">55. Final Takeaway</h2><p>Nearly everything hard in this system reduces to the same recurring shape: <strong>a check and an act that must happen as one indivisible operation, no matter how many concurrent requests are racing to perform it</strong> — a contest slot (<a href="#20-contest-entry-as-an-atomic-slot-reservation">§20-21</a>), a wallet balance (<a href="#23-wallet-ledger-and-preventing-double-spend">§23-24</a>), a scheduled lock (<a href="#33-contest-locking-and-late-join-prevention">§33</a>), and a payout (<a href="#37-prize-distribution-as-an-idempotent-operation">§37-38</a>) are four different resources guarded by the exact same atomic-conditional-update pattern this series has now applied to seats, cash, contest slots, and money in turn. The second recurring shape is just as important: <strong>separate what changed from who is affected</strong>, computing a small delta once and fanning it out through a precomputed index (<a href="#25-follow-up-question-7-a-popular-player-hits-a-match-winning-six-how-does-that-one-event-reach-millions-of-teams-scores-within-seconds">§25-27</a>), rather than re-deriving the full answer from scratch for every reader on every event. Recognizing which of these two shapes a new requirement actually is — and reaching for the atomic guard or the delta-plus-index pattern accordingly — is the transferable skill this guide is really teaching.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Design a Fantasy Sports Platform (Dream11-style) — HLD, LLD, and Class Design From Scratch.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

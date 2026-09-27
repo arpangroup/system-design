@@ -1,0 +1,655 @@
+<meta charset="utf-8">
+<title>Design an ATM System — HLD, LLD, and Class Design From Scratch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow); transition:background .15s,transform .1s;
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; system design guide</div>
+      <h1>Design an ATM System — HLD, LLD, and Class Design From Scratch</h1>
+      <p class="dek">A complete, step-by-step system design walkthrough for an ATM system &mdash; the session modeled as an explicit state machine with PIN retry-limit lockout, denomination-constrained cash dispensing under a genuinely bounded note supply, the reserve-then-confirm pattern that prevents a network timeout from ever producing free money or a lost debit, background reconciliation for ambiguous outcomes, concurrency-safe balance debiting, and fail-safe degradation when the network disappears mid-transaction &mdash; framed as a live interview with follow-up questions at every step.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-the-interview-framed">Why This Matters (The Interview, Framed)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-step-1-clarifying-requirements-before-designing-anything">Step 1 — Clarifying Requirements Before Designing Anything</a></li><li class="toc-lvl-2"><a href="#7-functional-requirements">Functional Requirements</a></li><li class="toc-lvl-2"><a href="#8-non-functional-requirements">Non-Functional Requirements</a></li><li class="toc-lvl-2"><a href="#9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</a></li><li class="toc-lvl-2"><a href="#10-identifying-the-core-domain-entities">Identifying the Core Domain Entities</a></li><li class="toc-lvl-2"><a href="#11-high-level-architecture-overview">High-Level Architecture Overview</a></li><li class="toc-lvl-2"><a href="#12-follow-up-question-2-model-the-atm-session-as-a-state-machine-why-not-just-a-few-booleans">Follow-up Question 2 — "Model the ATM Session as a State Machine — Why Not Just a Few Booleans?"</a></li><li class="toc-lvl-2"><a href="#13-the-atm-session-as-a-state-machine">The ATM Session as a State Machine</a></li><li class="toc-lvl-2"><a href="#14-implementing-the-state-pattern-for-an-atm-session">Implementing the State Pattern for an ATM Session</a></li><li class="toc-lvl-2"><a href="#15-follow-up-question-3-three-wrong-pins-how-do-you-handle-lockout-and-card-retention-correctly">Follow-up Question 3 — "Three Wrong PINs — How Do You Handle Lockout and Card Retention Correctly?"</a></li><li class="toc-lvl-2"><a href="#16-pin-verification-and-retry-limit-lockout">PIN Verification and Retry-Limit Lockout</a></li><li class="toc-lvl-2"><a href="#17-class-diagram-the-atm-session-core">Class Diagram: The ATM Session Core</a></li><li class="toc-lvl-2"><a href="#18-follow-up-question-4-how-do-you-decide-which-notes-to-dispense-given-limited-cassette-inventory-per-denomination">Follow-up Question 4 — "How Do You Decide Which Notes to Dispense, Given Limited Cassette Inventory Per Denomination?"</a></li><li class="toc-lvl-2"><a href="#19-the-bounded-supply-cash-dispensing-problem">The Bounded-Supply Cash Dispensing Problem</a></li><li class="toc-lvl-2"><a href="#20-why-this-differs-from-vending-machines-change-making">Why This Differs from Vending Machine's Change-Making</a></li><li class="toc-lvl-2"><a href="#21-implementing-denomination-constrained-dispensing">Implementing Denomination-Constrained Dispensing</a></li><li class="toc-lvl-2"><a href="#22-follow-up-question-5-what-if-the-requested-amount-cant-be-made-exactly-even-though-total-cash-is-sufficient">Follow-up Question 5 — "What If the Requested Amount Can't Be Made Exactly, Even Though Total Cash Is Sufficient?"</a></li><li class="toc-lvl-2"><a href="#23-detecting-and-handling-undispensable-amounts">Detecting and Handling Undispensable Amounts</a></li><li class="toc-lvl-2"><a href="#24-follow-up-question-6-the-cash-dispenses-but-the-network-call-confirming-the-debit-times-out-what-happens-to-the-customers-balance">Follow-up Question 6 — "The Cash Dispenses, But the Network Call Confirming the Debit Times Out. What Happens to the Customer's Balance?"</a></li><li class="toc-lvl-2"><a href="#25-the-cash-dispensed-but-debit-unconfirmed-problem">The Cash-Dispensed-but-Debit-Unconfirmed Problem</a></li><li class="toc-lvl-2"><a href="#26-designing-the-fix-reserve-then-confirm-not-debit-then-dispense">Designing the Fix: Reserve-Then-Confirm, Not Debit-Then-Dispense</a></li><li class="toc-lvl-2"><a href="#27-implementing-a-two-phase-withdrawal-reserve-dispense-confirm">Implementing a Two-Phase Withdrawal: Reserve, Dispense, Confirm</a></li><li class="toc-lvl-2"><a href="#28-follow-up-question-7-the-confirm-call-also-fails-or-times-out-after-dispensing-how-do-you-reconcile-eventually">Follow-up Question 7 — "The Confirm Call Also Fails or Times Out After Dispensing. How Do You Reconcile Eventually?"</a></li><li class="toc-lvl-2"><a href="#29-reconciliation-a-background-job-that-resolves-ambiguous-transactions">Reconciliation: A Background Job That Resolves Ambiguous Transactions</a></li><li class="toc-lvl-2"><a href="#30-follow-up-question-8-two-atms-try-to-withdraw-from-the-same-account-at-nearly-the-same-instant-how-do-you-prevent-overdraft">Follow-up Question 8 — "Two ATMs Try to Withdraw from the Same Account at Nearly the Same Instant. How Do You Prevent Overdraft?"</a></li><li class="toc-lvl-2"><a href="#31-the-double-withdrawal-race-on-a-shared-balance">The Double-Withdrawal Race on a Shared Balance</a></li><li class="toc-lvl-2"><a href="#32-implementing-concurrency-safe-balance-debit">Implementing Concurrency-Safe Balance Debit</a></li><li class="toc-lvl-2"><a href="#33-class-diagram-the-withdrawal-and-reconciliation-flow">Class Diagram: The Withdrawal and Reconciliation Flow</a></li><li class="toc-lvl-2"><a href="#34-follow-up-question-9-what-happens-if-the-atm-loses-network-connectivity-mid-transaction">Follow-up Question 9 — "What Happens If the ATM Loses Network Connectivity Mid-Transaction?"</a></li><li class="toc-lvl-2"><a href="#35-offlinedegraded-mode-and-fail-safe-defaults">Offline/Degraded Mode and Fail-Safe Defaults</a></li><li class="toc-lvl-2"><a href="#36-follow-up-question-10-how-do-you-support-multiple-transaction-types-withdrawal-balance-inquiry-deposit-transfer-cleanly">Follow-up Question 10 — "How Do You Support Multiple Transaction Types — Withdrawal, Balance Inquiry, Deposit, Transfer — Cleanly?"</a></li><li class="toc-lvl-2"><a href="#37-pluggable-transaction-types">Pluggable Transaction Types</a></li><li class="toc-lvl-2"><a href="#38-implementing-transaction-strategies">Implementing Transaction Strategies</a></li><li class="toc-lvl-2"><a href="#39-follow-up-question-11-how-do-you-support-cashcheck-deposits-and-reconcile-a-deposited-amount-that-hasnt-been-human-verified-yet">Follow-up Question 11 — "How Do You Support Cash/Check Deposits, and Reconcile a Deposited Amount That Hasn't Been Human-Verified Yet?"</a></li><li class="toc-lvl-2"><a href="#40-deposit-handling-and-provisional-crediting">Deposit Handling and Provisional Crediting</a></li><li class="toc-lvl-2"><a href="#41-class-diagram-full-atm-system">Class Diagram: Full ATM System</a></li><li class="toc-lvl-2"><a href="#42-capacity-estimation-cassette-refill-cadence-and-transaction-throughput">Capacity Estimation: Cassette Refill Cadence and Transaction Throughput</a></li><li class="toc-lvl-2"><a href="#43-full-worked-example-one-withdrawal-traced-end-to-end">Full Worked Example: One Withdrawal, Traced End to End</a></li><li class="toc-lvl-2"><a href="#44-final-architecture-diagram">Final Architecture Diagram</a></li><li class="toc-lvl-2"><a href="#45-design-patterns-used-throughout-this-guide">Design Patterns Used Throughout This Guide</a></li><li class="toc-lvl-2"><a href="#46-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#47-common-mistakes-when-building-this-yourself">Common Mistakes When Building This Yourself</a></li><li class="toc-lvl-2"><a href="#48-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#49-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#50-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#51-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<h2 id="1-what-we-are-building">1. What We Are Building</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Card inserted --&gt; [ PIN Verification, retry-limited ] --&gt; [ Select Transaction ]
+                                                                   |
+                                                          [ Reserve funds ] --dispense cash--&gt;
+                                                                   |                    |
+                                                          [ Confirm debit ]      [ Cassettes: bounded
+                                                                   |               inventory per note ]
+                                        Network fails HERE? --&gt; [ Reconciliation, later ]</code></pre></div><p>An ATM looks like a simple cash-dispensing box, until the two questions every real deployment has to answer correctly: what happens when the network call confirming a debit times out <em>after</em> the cash has already physically left the machine, and how do you dispense an exact amount when each denomination's cassette holds only a limited, countable number of notes. This guide builds one from scratch: the session modeled as an explicit state machine, PIN retry-limit lockout, denomination-constrained cash dispensing (a genuinely harder variant of the classic change-making problem), the reserve-then-confirm pattern that prevents dispensing cash without a corresponding debit ever taking hold, background reconciliation for the ambiguous case where confirmation itself fails, concurrency-safe balance debiting across simultaneous withdrawal attempts, and graceful degradation when the network disappears mid-transaction.</p><hr><h2 id="2-learning-objectives">2. Learning Objectives</h2><p>By the end of this guide, you will be able to:</p><ul><li>Model an ATM session as an explicit state machine, including PIN retry-limit lockout and card retention.</li><li>Design cash dispensing under a genuinely harder constraint than ordinary change-making: a fixed, countable number of notes per denomination, and correctly detect when an exact amount is undispensable even though total cash is sufficient.</li><li>Diagnose the classic "cash dispensed, debit unconfirmed" failure and design the reserve-then-confirm pattern that prevents a network timeout from ever producing free money or a lost debit.</li><li>Design background reconciliation for the case where even the confirmation step's own outcome is ambiguous.</li><li>Design concurrency-safe balance debiting so two near-simultaneous withdrawal attempts on the same account can never both succeed past the available balance.</li><li>Design fail-safe defaults for a mid-transaction network outage.</li><li>Apply SOLID principles and recognizable design patterns (State, Strategy) to keep the system extensible without modifying already-tested code.</li></ul><hr><h2 id="3-why-this-matters-the-interview-framed">3. Why This Matters (The Interview, Framed)</h2><p>"Design an ATM" endures as an interview question because it's one of the few LLD prompts where the <em>money</em> itself, not just the software, is on the line if a design is subtly wrong — a network timeout that occurs a half-second after cash physically leaves the tray is not a hypothetical edge case, it's a routine occurrence any real deployment must survive without either giving away free money or silently debiting a customer for cash they never received. It rewards a candidate who reaches past "just call the bank API and dispense the cash" and recognizes that the <em>order</em> and <em>atomicity</em> of "reserve," "dispense," and "confirm" is the entire question. This guide frames the design as a live interview: each major decision is preceded by the clarifying question that should have prompted it, and each design step is immediately followed by the hardest question a good interviewer asks next.</p><hr><h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2><div class="table-wrap"><table><thead><tr><th>Concern</th><th>Choice</th><th>Why</th></tr></thead><tbody><tr><td>Language (design)</td><td>Java 21</td><td>Sealed interfaces model session state and transaction types precisely; records keep cassette/reservation snapshots immutable</td></tr><tr><td>Runnable artifact</td><td>HTML5 Canvas + vanilla JavaScript</td><td>Single-file, dependency-free, lets the reserve-then-confirm fix (and its failure modes) be triggered and watched live</td></tr><tr><td>Cash dispensing</td><td>Bounded-knapsack-style dynamic programming</td><td>Ordinary change-making assumes unlimited supply; a real cassette's finite note count needs a genuinely different, constrained formulation</td></tr><tr><td>Withdrawal correctness</td><td>Reserve-then-confirm, with a durable reconciliation log</td><td>The only pattern that survives a network failure at <em>any</em> point without either overpaying or losing a debit</td></tr><tr><td>Balance concurrency</td><td>Database-level atomic debit (optimistic or pessimistic, per this series' own BookMyShow guide)</td><td>The same double-booking-shaped race this series has solved for seats and inventory, applied here to an account balance</td></tr></tbody></table></div><hr><h2 id="5-project-structure">5. Project Structure</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>atm-system/
+├── src/main/java/com/example/atm/
+│   ├── domain/
+│   │   └── Card.java, Account.java, Cassette.java, Transaction.java   // §10
+│   ├── session/
+│   │   ├── SessionState.java (State pattern)                          // §12-13
+│   │   └── PinVerifier.java (retry-limit lockout)                     // §15-16
+│   ├── dispensing/
+│   │   ├── ConstrainedChangeMaker.java (bounded DP)                    // §21
+│   │   └── UndispensableAmountException.java                          // §23
+│   ├── withdrawal/
+│   │   ├── ReserveThenConfirmWorkflow.java                            // §26-27
+│   │   └── ReconciliationJob.java                                     // §29
+│   ├── balance/
+│   │   └── AccountLedger.java (atomic debit)                          // §32
+│   └── transaction/
+│       └── TransactionStrategy.java (Strategy interface)               // §37
+├── src/test/java/com/example/atm/
+│   ├── ConstrainedDispenseTest.java
+│   ├── ReconciliationAmbiguousOutcomeTest.java
+│   └── ConcurrentWithdrawalTest.java
+└── artifact/
+    └── atm-arena.html   -- the runnable simulator, §1's worked design made playable</code></pre></div><hr><h2 id="6-step-1-clarifying-requirements-before-designing-anything">6. Step 1 — Clarifying Requirements Before Designing Anything</h2><blockquote><p><strong>Interviewer:</strong> <em>"Design an ATM."</em></p></blockquote><p>Even for a machine everyone has personally used, the intentionally open prompt needs narrowing: is the interesting part the physical mechanics (card reader, cash tray), or the correctness of the money movement against a bank's own ledger — for this guide, and for most interviewers, it's the latter. Does the design need to account for network unreliability between the ATM and the bank's core system, or can that be assumed away? Are multiple transaction types in scope (withdrawal, balance inquiry, deposit, transfer), or is withdrawal the whole story? Does the design need to survive two withdrawal attempts on the same account at nearly the same instant, from two different machines? The answers reshape which parts of the design carry real weight, and this guide's own focus — the reserve-then-confirm withdrawal flow — is precisely the part worth spending the most interview time on.</p><hr><h2 id="7-functional-requirements">7. Functional Requirements</h2><ul><li><strong>Authenticate a card and PIN</strong>, locking the card after a configured number of consecutive failed attempts.</li><li><strong>Dispense cash</strong> for a withdrawal, using the fewest possible notes from the machine's actual, currently-available cassette inventory.</li><li><strong>Debit the customer's account</strong> exactly once per successful withdrawal, even across a network failure at any point in the transaction.</li><li><strong>Reconcile ambiguous outcomes</strong>: if the system cannot immediately determine whether a debit succeeded after cash was dispensed, resolve it automatically and correctly once connectivity returns.</li><li><strong>Prevent overdraft from concurrent withdrawals</strong>: two near-simultaneous withdrawal attempts on the same account must never both succeed past the available balance.</li><li><strong>Support balance inquiries, deposits, and transfers</strong> alongside withdrawals, through the same session and authentication flow.</li><li><strong>Degrade safely</strong> when network connectivity is lost mid-session, rather than behaving unpredictably.</li></ul><hr><h2 id="8-non-functional-requirements">8. Non-Functional Requirements</h2><ul><li><strong>No free money, ever</strong>: cash must never be dispensed without a corresponding, durable debit eventually taking hold — this outranks every other consideration in this guide.</li><li><strong>No lost debits</strong>: a customer must never be charged for cash they did not actually receive.</li><li><strong>Bounded reconciliation latency</strong>: an ambiguous transaction must resolve to a definite, correct outcome within a short, predictable window once connectivity is restored, not remain unresolved indefinitely.</li><li><strong>Correctness under concurrency</strong>: a balance check-then-debit must be atomic, regardless of how many machines or channels might be acting on the same account simultaneously.</li><li><strong>Fail-safe degradation</strong>: when in doubt (network lost, cassette state uncertain), the machine must default to the choice that protects the bank and the customer from an incorrect financial outcome, even at the cost of declining a transaction that might have been safe to complete.</li></ul><hr><h2 id="9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">9. Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</h2><blockquote><p><strong>Interviewer:</strong> <em>"Name the core domain concepts before you draw any architecture."</em></p></blockquote><ul><li><strong>Card</strong> — the customer's identifier at the machine, paired with a PIN for authentication.</li><li><strong>Account</strong> — the customer's balance at the bank, the actual source of truth this entire system exists to protect.</li><li><strong>Cassette</strong> — a physical compartment holding a countable, finite number of notes of one specific denomination.</li><li><strong>Session</strong> — one customer's interaction with the machine from card insertion to card ejection, with an explicit lifecycle.</li><li><strong>Transaction</strong> — a specific requested operation (withdrawal, deposit, inquiry, transfer) within a session.</li><li><strong>Reservation</strong> — a temporary, provisional hold against an account's balance, made <em>before</em> cash physically dispenses, and only converted into a final, durable debit once dispensing is confirmed to have actually happened.</li></ul><hr><h2 id="10-identifying-the-core-domain-entities">10. Identifying the Core Domain Entities</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record Card(String cardId, String accountId) { }
+
+public class Account {
+    private final String accountId;
+    private long balanceCents;
+    private long reservedCents; // held against pending withdrawals, NOT yet a final debit -- §26-27
+    public long availableCents() { return balanceCents - reservedCents; }
+}
+
+public class Cassette {
+    private final int denominationCents;
+    private int noteCount;
+    public boolean hasAtLeast(int notes) { return noteCount &gt;= notes; }
+}
+
+public record Transaction(String transactionId, String accountId, TransactionType type, long amountCents, Instant createdAt) { }
+public enum TransactionType { WITHDRAWAL, DEPOSIT, INQUIRY, TRANSFER }</code></pre></div><p>Splitting <code>Account</code> into <code>balanceCents</code> (the durable, confirmed truth) and <code>reservedCents</code> (a provisional hold not yet finalized) is the single modeling decision this entire guide's correctness story depends on — <code>availableCents()</code> is what every other withdrawal attempt actually checks against, which is precisely what makes a reservation visible to concurrent requests <em>before</em> it's ever converted into a final debit.</p><hr><h2 id="11-high-level-architecture-overview">11. High-Level Architecture Overview</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    +------------------------+
+Card inserted -----&gt;|       SessionState        |
+                    |     (State pattern)       |
+                    +-----------+--------------+
+                                |
+                    +-----------v--------------+       +------------------------+
+                    |      PinVerifier            |------&gt;|  Card lockout, §15-16   |
+                    +------------------------+       +------------------------+
+                                |
+                    +-----------v--------------+
+                    |    TransactionStrategy      |
+                    |  Withdrawal | Deposit |      |
+                    |  Inquiry | Transfer          |
+                    +-----------+--------------+
+                                |
+                    +-----------v--------------+       +------------------------+
+                    | ReserveThenConfirmWorkflow |------&gt;|   AccountLedger          |
+                    +-----------+--------------+       |   (atomic debit, §32)   |
+                                |
+                    +-----------v--------------+       +------------------------+
+                    | ConstrainedChangeMaker      |------&gt;|   ReconciliationJob      |
+                    | (bounded cassette DP)       |       |   (background, §29)      |
+                    +------------------------+       +------------------------+</code></pre></div><p>Every mechanism this guide builds sits along one linear path — authenticate, select transaction, reserve, dispense, confirm — with reconciliation acting as a safety net specifically for the case where "confirm" itself never definitively resolves.</p><hr><h2 id="12-follow-up-question-2-model-the-atm-session-as-a-state-machine-why-not-just-a-few-booleans">12. Follow-up Question 2 — "Model the ATM Session as a State Machine — Why Not Just a Few Booleans?"</h2><blockquote><p><strong>Interviewer:</strong> <em>"<code>cardInserted</code>, <code>pinVerified</code>, <code>transactionInProgress</code> — three flags. What's wrong with tracking a session's status that way?"</em></p></blockquote><p>Exactly the same problem this series has diagnosed for a parking spot, an elevator car, a booked seat, and a vending machine — independent booleans can be set into combinations that are physically nonsensical (<code>transactionInProgress = true</code> while <code>pinVerified = false</code> describes a transaction proceeding without ever having authenticated the customer, which should be structurally impossible, not merely "shouldn't happen if the code is careful"). The fix is the same explicit State pattern this series has applied consistently.</p><hr><h2 id="13-the-atm-session-as-a-state-machine">13. The ATM Session as a State Machine</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>IDLE ----insertCard()----&gt; AWAITING_PIN
+AWAITING_PIN ----correctPin()----&gt; SELECTING_TRANSACTION
+AWAITING_PIN ----incorrectPin(), attempts remaining----&gt; AWAITING_PIN (unchanged, attempt counted)
+AWAITING_PIN ----incorrectPin(), retry limit reached----&gt; CARD_RETAINED
+SELECTING_TRANSACTION ----chooseTransaction()----&gt; PROCESSING
+PROCESSING ----complete()----&gt; IDLE (card ejected)
+ANY STATE ----networkLost()----&gt; DEGRADED (§34-35)
+
+Illegal transitions (structurally PREVENTED, not just discouraged by convention):
+  IDLE.correctPin()              -- no card inserted yet, nothing to authenticate against
+  SELECTING_TRANSACTION.insertCard() -- a session is already active, a second card mid-session is nonsensical
+  CARD_RETAINED.chooseTransaction()  -- the card is gone, no further transactions are possible this session</code></pre></div><p>This is the same discipline this series has used for every prior guide's core lifecycle — a small, explicit set of phases, each exposing only the operations legal from it, with the state object itself deciding what happens next rather than scattered <code>if</code> checks.</p><hr><h2 id="14-implementing-the-state-pattern-for-an-atm-session">14. Implementing the State Pattern for an ATM Session</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface SessionState {
+    SessionState insertCard(AtmSession session, Card card);
+    SessionState submitPin(AtmSession session, String pin);
+    SessionState chooseTransaction(AtmSession session, TransactionType type);
+}
+
+public class AwaitingPinState implements SessionState {
+    private int attemptsRemaining;
+
+    @Override
+    public SessionState submitPin(AtmSession session, String pin) {
+        if (pinVerifier.matches(session.card(), pin)) {
+            return new SelectingTransactionState();
+        }
+        attemptsRemaining--;
+        if (attemptsRemaining &lt;= 0) {
+            session.retainCard();
+            return new CardRetainedState();
+        }
+        return this; // stay here, one fewer attempt remaining
+    }
+    @Override
+    public SessionState insertCard(AtmSession session, Card card) {
+        throw new IllegalStateException("A card is already inserted");
+    }
+    @Override
+    public SessionState chooseTransaction(AtmSession session, TransactionType type) {
+        throw new IllegalStateException("PIN not yet verified");
+    }
+}</code></pre></div><p><code>attemptsRemaining</code> living <em>inside</em> the state object itself (not as a separate field on <code>AtmSession</code>) is a small but deliberate choice — it keeps the retry count scoped exactly to the phase it's meaningful in, and guarantees a fresh session (a new card insertion) can never accidentally inherit a stale attempt count from a previous, unrelated session.</p><hr><h2 id="15-follow-up-question-3-three-wrong-pins-how-do-you-handle-lockout-and-card-retention-correctly">15. Follow-up Question 3 — "Three Wrong PINs — How Do You Handle Lockout and Card Retention Correctly?"</h2><blockquote><p><strong>Interviewer:</strong> <em>"A customer enters the wrong PIN three times. What exactly happens, and why does it matter that the retry count lives where you just put it?"</em></p></blockquote><p>The retry limit must be enforced <strong>per card</strong>, durably, not merely per session in local machine memory — otherwise a customer (or an attacker) could simply eject the card and reinsert it to reset their attempt count, defeating the entire lockout mechanism. The count needs to be checked against (and incremented in) the bank's own durable record for that card, with the <em>local</em> session state (<a href="#14-implementing-the-state-pattern-for-an-atm-session">§14</a>) reflecting, not owning, that durable count.</p><hr><h2 id="16-pin-verification-and-retry-limit-lockout">16. PIN Verification and Retry-Limit Lockout</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class PinVerifier {
+    private static final int MAX_ATTEMPTS = 3;
+
+    public PinCheckResult verify(Card card, String enteredPin) {
+        CardRecord record = cardRepository.findById(card.cardId()); // the DURABLE source of truth
+        if (record.isLocked()) {
+            return PinCheckResult.cardLocked();
+        }
+        if (hashPin(enteredPin).equals(record.pinHash())) {
+            cardRepository.resetFailedAttempts(card.cardId()); // a SUCCESSFUL entry clears the counter
+            return PinCheckResult.verified();
+        }
+        int updatedAttempts = cardRepository.incrementFailedAttempts(card.cardId());
+        if (updatedAttempts &gt;= MAX_ATTEMPTS) {
+            cardRepository.lockCard(card.cardId());
+            return PinCheckResult.lockedJustNow();
+        }
+        return PinCheckResult.incorrect(MAX_ATTEMPTS - updatedAttempts);
+    }
+}</code></pre></div><p>Storing only a <strong>hash</strong> of the PIN, never the PIN itself, is non-negotiable even in a design-focused guide — comparing <code>hashPin(enteredPin)</code> against a stored hash means the actual PIN is never persisted anywhere in a form that could be read back if the storage were ever compromised.</p><hr><h2 id="17-class-diagram-the-atm-session-core">17. Class Diagram: The ATM Session Core</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+------------------------+        +------------------------+
+|       AtmSession           |-------&gt;|      SessionState         |
+|  insertCard(), submitPin(),|       |    &lt;&lt;interface&gt;&gt;          |
+|  chooseTransaction()       |       |  insertCard(), submitPin()|
++-----------+--------------+        +-----------+--------------+
+            |                              ^      ^      ^      ^
+            v                        +----------+ +--------+ +--------+ +----------------+
++------------------------+          | Idle     | | Awaiting| |Selecting| | CardRetained  |
+|      PinVerifier           |          | State    | | Pin     | |Transact.| | State          |
++------------------------+          +----------+ | State   | | State  | +----------------+
+                                                     +--------+ +--------+</code></pre></div><p>Every state transition method returns the <em>next</em> state object rather than mutating a bare field in place, exactly the pattern this series has used for every prior state machine — which is what makes each transition's legality visible in which interface method a given state class chooses to implement meaningfully versus throw from.</p><hr><h2 id="18-follow-up-question-4-how-do-you-decide-which-notes-to-dispense-given-limited-cassette-inventory-per-denomination">18. Follow-up Question 4 — "How Do You Decide Which Notes to Dispense, Given Limited Cassette Inventory Per Denomination?"</h2><blockquote><p><strong>Interviewer:</strong> <em>"A customer requests $140. The machine has $100, $50, and $20 notes. Design the algorithm that decides exactly which notes to dispense — and account for the fact that each cassette holds a finite, countable number of notes, not an unlimited supply."</em></p></blockquote><p>This is the same <em>shape</em> of problem this series' own Vending Machine guide solved with change-making — minimize the number of notes/coins used — but with one critical difference that changes the algorithm entirely: a cassette's note count is <strong>finite and known</strong>, and the optimal answer must respect it. A combination that would be optimal against an unlimited supply (say, four $100 notes for $400) is simply unusable if the $100 cassette currently holds only two.</p><hr><h2 id="19-the-bounded-supply-cash-dispensing-problem">19. The Bounded-Supply Cash Dispensing Problem</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Vending Machine's change-making (this series' own prior guide): unlimited supply of each
+  denomination assumed -- the only question is WHICH denominations to use, in what quantity,
+  to minimize total count.
+
+ATM cash dispensing: EACH denomination has a specific, currently-available note count --
+  the algorithm must never propose using more notes of a denomination than the cassette
+  actually holds, even if doing so would otherwise be the mathematically fewest-notes answer.
+
+Customer requests $140. Cassettes: $100 x2, $50 x1, $20 x10.
+  Unconstrained optimal:  100 + 20 + 20 = 3 notes (if $100 supply were unlimited... but it's fine here, 2 are enough)
+  Actually available:     100 + 20 + 20 = 3 notes -- USES only 1 of the 2 available $100 notes, fine
+  BUT if the request were $340 with only 2x$100 available: 100+100+100+20+20 is IMPOSSIBLE
+    (needs three $100 notes, only two exist) -- the algorithm must find the best combination
+    that respects EVERY cassette's actual remaining count, not just the theoretical minimum.</code></pre></div><p>This is precisely the classic <strong>bounded knapsack</strong> problem, not the simpler unbounded change-making problem this series' Vending Machine guide solved — each denomination now has a maximum usable quantity, and the dynamic programming formulation must track that bound explicitly rather than assuming any denomination is always available in whatever quantity the math happens to want.</p><hr><h2 id="20-why-this-differs-from-vending-machines-change-making">20. Why This Differs from Vending Machine's Change-Making</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Unbounded (Vending Machine, this series' own prior guide):
+  minCoins[amount] = min over every denomination d &lt;= amount of (1 + minCoins[amount - d])
+  -- ANY number of a given denomination can be used, without limit
+
+Bounded (ATM, this guide):
+  minNotes[amount][d] = min over 0..maxAvailable[d] copies of denomination d used,
+                        PLUS the best answer for the remaining amount using ONLY
+                        denominations processed so far
+  -- this is a genuinely two-dimensional recurrence (amount AND which denominations/how
+     many of each have already been committed), not the simpler one-dimensional recurrence
+     unbounded change-making allows</code></pre></div><p>Recognizing that "the same algorithm, just add a supply check" is <em>not</em> actually sufficient here is the key insight this follow-up is testing — a bounded supply changes the recurrence's shape, not merely adds a guard clause on top of the unbounded one.</p><hr><h2 id="21-implementing-denomination-constrained-dispensing">21. Implementing Denomination-Constrained Dispensing</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class ConstrainedChangeMaker {
+    public Map&lt;Integer, Integer&gt; dispense(int amountCents, List&lt;Cassette&gt; cassettes) {
+        // dp[a] = minimum notes to make amount 'a', considering cassettes processed SO FAR
+        int[] dp = new int[amountCents + 1];
+        Arrays.fill(dp, Integer.MAX_VALUE);
+        dp[0] = 0;
+        // track how many of EACH denomination were used to reach each achievable amount
+        Map&lt;Integer, int[]&gt; usedCountByDenomination = new HashMap&lt;&gt;();
+
+        for (Cassette cassette : cassettes) {
+            int denom = cassette.denominationCents();
+            int maxAvailable = cassette.noteCount();
+            int[] usedThisDenom = new int[amountCents + 1];
+            int[] nextDp = dp.clone();
+
+            for (int a = denom; a &lt;= amountCents; a++) {
+                for (int count = 1; count &lt;= maxAvailable &amp;&amp; count * denom &lt;= a; count++) {
+                    if (dp[a - count * denom] != Integer.MAX_VALUE
+                            &amp;&amp; dp[a - count * denom] + count &lt; nextDp[a]) {
+                        nextDp[a] = dp[a - count * denom] + count;
+                        usedThisDenom[a] = count;
+                    }
+                }
+            }
+            dp = nextDp;
+            usedCountByDenomination.put(denom, usedThisDenom);
+        }
+
+        if (dp[amountCents] == Integer.MAX_VALUE) {
+            throw new UndispensableAmountException(amountCents); // §22-23
+        }
+        return reconstructNoteBreakdown(amountCents, cassettes, usedCountByDenomination);
+    }
+}</code></pre></div><p>Processing cassettes <strong>one denomination at a time</strong>, each time deciding how many of <em>that specific</em> denomination to commit to before moving to the next, is what correctly encodes the bounded-supply constraint into the recurrence itself — every <code>dp[a]</code> value at any point already reflects only cassettes considered so far, never assuming availability from a denomination not yet accounted for.</p><hr><h2 id="22-follow-up-question-5-what-if-the-requested-amount-cant-be-made-exactly-even-though-total-cash-is-sufficient">22. Follow-up Question 5 — "What If the Requested Amount Can't Be Made Exactly, Even Though Total Cash Is Sufficient?"</h2><blockquote><p><strong>Interviewer:</strong> <em>"The machine has plenty of total cash, but the customer's requested amount genuinely cannot be assembled from the specific notes remaining. What does the machine do?"</em></p></blockquote><p>The machine must <strong>detect this before ever attempting to physically dispense anything</strong>, and offer the customer a clear, actionable alternative — either a nearby amount that <em>can</em> be exactly assembled, or a straightforward decline with an explanation — rather than either failing silently or dispensing an incorrect amount because the algorithm quietly rounded or substituted denominations it wasn't actually asked to use.</p><hr><h2 id="23-detecting-and-handling-undispensable-amounts">23. Detecting and Handling Undispensable Amounts</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class UndispensableAmountException extends RuntimeException {
+    private final int requestedCents;
+    public UndispensableAmountException(int requestedCents) {
+        super("Cannot dispense $" + (requestedCents / 100.0) + " with current cassette inventory");
+        this.requestedCents = requestedCents;
+    }
+}
+
+// caller (the withdrawal transaction handler):
+try {
+    Map&lt;Integer, Integer&gt; notes = changeMaker.dispense(requestedCents, currentCassettes);
+    // proceed to reserve-then-confirm, §26-27 -- dispensing is now KNOWN to be physically possible
+} catch (UndispensableAmountException e) {
+    int nearestDispensable = findNearestDispensableAmount(requestedCents, currentCassettes);
+    return WithdrawalResult.suggestAlternative(nearestDispensable);
+}</code></pre></div><p>Running the dispensability check <strong>before</strong> ever touching the reserve-then-confirm workflow (<a href="#26-designing-the-fix-reserve-then-confirm-not-debit-then-dispense">§26-27</a>) is deliberate ordering — there is no reason to place a provisional hold against a customer's account for an amount the machine has already determined it cannot physically produce.</p><hr><h2 id="24-follow-up-question-6-the-cash-dispenses-but-the-network-call-confirming-the-debit-times-out-what-happens-to-the-customers-balance">24. Follow-up Question 6 — "The Cash Dispenses, But the Network Call Confirming the Debit Times Out. What Happens to the Customer's Balance?"</h2><blockquote><p><strong>Interviewer:</strong> <em>"Walk through this precisely: the machine physically dispenses $200, and at that exact moment, the network connection to the bank's core system drops before the debit confirmation returns. Does the customer keep the $200 for free, or get charged twice if they call to complain and a retry happens?"</em></p></blockquote><p>This is the single most important question in the entire ATM design space, and a naive implementation gets it wrong by ordering things backwards: if the machine <strong>debits first, then dispenses</strong>, a crash or timeout <em>after</em> the debit but <em>before</em> dispensing charges a customer for cash they never received. If it <strong>dispenses first, then debits</strong>, a timeout <em>after</em> dispensing but <em>before</em> the debit confirms risks the debit never happening at all — free money. Neither naive ordering is safe; the fix requires a third, distinct step in between.</p><hr><h2 id="25-the-cash-dispensed-but-debit-unconfirmed-problem">25. The Cash-Dispensed-but-Debit-Unconfirmed Problem</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>NAIVE (debit first, then dispense):
+  1. Debit account -- SUCCEEDS, durably
+  2. Dispense cash -- machine JAMS or crashes here
+  RESULT: customer charged, received NOTHING -- a lost debit, a real customer harm
+
+NAIVE (dispense first, then debit):
+  1. Dispense cash -- SUCCEEDS, cash physically leaves the tray
+  2. Debit account -- NETWORK TIMES OUT here, before confirmation returns
+  RESULT: customer received cash, account was NEVER debited -- free money, a real bank loss
+
+Both naive orderings have a WINDOW where the physical event (cash leaving) and the financial
+event (the debit taking hold) can become permanently inconsistent with each other.</code></pre></div><p>The fix isn't a different ordering of the same two steps — it's recognizing that a <em>third</em> state needs to exist in between: a <strong>provisional reservation</strong>, held durably <em>before</em> cash ever dispenses, that gets <strong>confirmed</strong> into a final debit only <em>after</em> dispensing is known to have actually happened, and can be safely <strong>rolled back</strong> if dispensing never occurs at all.</p><hr><h2 id="26-designing-the-fix-reserve-then-confirm-not-debit-then-dispense">26. Designing the Fix: Reserve-Then-Confirm, Not Debit-Then-Dispense</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. RESERVE: place a durable hold against the account (balanceCents unchanged, reservedCents
+   increases) -- this is a REAL database write, survives a crash, and makes the reserved
+   amount invisible to OTHER concurrent withdrawal attempts (§30-32) immediately
+2. DISPENSE: the machine physically releases the cash -- a MECHANICAL action, confirmed by
+   a sensor, independent of the network entirely
+3. CONFIRM: ONLY AFTER dispensing is sensor-confirmed, convert the reservation into a final
+   debit -- balanceCents decreases, reservedCents decreases back to reflect the hold is gone
+
+If dispensing FAILS (jam, sensor doesn't confirm release): the reservation is released
+  WITHOUT ever becoming a debit -- the customer's balance is completely unaffected,
+  exactly as if the transaction never happened.
+
+If confirmation ITSELF fails (network drops after dispensing but before the confirm write
+  lands): the reservation is left in a RECOVERABLE, ambiguous state -- resolved by
+  reconciliation (§28-29), NEVER left permanently unresolved.</code></pre></div><p>The reservation is what makes this design correct under <em>every</em> failure point — a crash before dispensing simply means no cash ever left and the reservation rolls back cleanly; a crash after dispensing but before confirmation leaves a durable, recoverable record that dispensing already happened, which reconciliation can act on with certainty rather than having to guess.</p><hr><h2 id="27-implementing-a-two-phase-withdrawal-reserve-dispense-confirm">27. Implementing a Two-Phase Withdrawal: Reserve, Dispense, Confirm</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class ReserveThenConfirmWorkflow {
+    public WithdrawalResult withdraw(String accountId, int amountCents, List&lt;Cassette&gt; cassettes) {
+        String reservationId = accountLedger.reserve(accountId, amountCents); // durable write #1
+
+        boolean dispensed;
+        try {
+            dispensed = cashDispenser.dispense(amountCents, cassettes); // mechanical, sensor-confirmed
+        } catch (Exception mechanicalFailure) {
+            accountLedger.releaseReservation(reservationId); // no cash left -- roll back cleanly
+            return WithdrawalResult.failed("Dispensing error -- your account was not charged");
+        }
+
+        if (!dispensed) {
+            accountLedger.releaseReservation(reservationId);
+            return WithdrawalResult.failed("Unable to dispense -- your account was not charged");
+        }
+
+        try {
+            accountLedger.confirmReservation(reservationId); // durable write #2 -- NOW it's a final debit
+            return WithdrawalResult.success(amountCents);
+        } catch (NetworkException confirmationFailed) {
+            // cash IS ALREADY OUT. The reservation record durably shows this. Reconciliation
+            // (§28-29) will resolve this to a confirmed debit once connectivity returns --
+            // this is NOT an error state requiring a retry from here; it's a HANDOFF.
+            return WithdrawalResult.pendingReconciliation(reservationId);
+        }
+    }
+}</code></pre></div><p>The <code>catch (NetworkException confirmationFailed)</code> branch deliberately does <strong>not</strong> attempt to retry the confirmation inline, and does <strong>not</strong> report a generic failure to the customer — it hands the now-ambiguous-but-recoverable reservation off to a background process that has the durable record it needs to resolve this correctly, exactly once, whenever connectivity returns.</p><hr><h2 id="28-follow-up-question-7-the-confirm-call-also-fails-or-times-out-after-dispensing-how-do-you-reconcile-eventually">28. Follow-up Question 7 — "The Confirm Call Also Fails or Times Out After Dispensing. How Do You Reconcile Eventually?"</h2><blockquote><p><strong>Interviewer:</strong> <em>"You've handed the ambiguous case off to reconciliation. What does that background process actually do, concretely, to resolve it correctly?"</em></p></blockquote><p>The reservation record itself already durably captures everything needed: which account, how much, and — critically — whether the <em>mechanical</em> dispense sensor confirmed cash actually left the tray, recorded locally on the ATM regardless of network status. Reconciliation's job is simply to read that local, already-known fact and apply it: if dispensing was sensor-confirmed, finalize the debit; if it wasn't, release the reservation — the ambiguity was only ever about the <em>network call</em>, never about the underlying fact of what actually happened.</p><hr><h2 id="29-reconciliation-a-background-job-that-resolves-ambiguous-transactions">29. Reconciliation: A Background Job That Resolves Ambiguous Transactions</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class ReconciliationJob {
+    @Scheduled(fixedRate = 30_000) // runs regularly, independent of any single transaction's own retry
+    public void resolveAmbiguousReservations() {
+        List&lt;Reservation&gt; pending = reservationRepository.findPendingReconciliation();
+        for (Reservation reservation : pending) {
+            if (reservation.wasDispenseSensorConfirmed()) { // read from the ATM's OWN local, durable log
+                accountLedger.confirmReservation(reservation.id()); // finalize the debit, exactly once
+            } else {
+                accountLedger.releaseReservation(reservation.id()); // no cash left -- release cleanly
+            }
+            reservation.markReconciled();
+        }
+    }
+}</code></pre></div><p>Running this job on a fixed schedule, independent of any individual transaction's own request lifecycle, is what guarantees an ambiguous reservation never remains unresolved indefinitely — the customer's own session may have already ended, the ATM may have moved on to serving other customers, but this background process keeps checking until every pending reservation reaches a final, correct state.</p><hr><h2 id="30-follow-up-question-8-two-atms-try-to-withdraw-from-the-same-account-at-nearly-the-same-instant-how-do-you-prevent-overdraft">30. Follow-up Question 8 — "Two ATMs Try to Withdraw from the Same Account at Nearly the Same Instant. How Do You Prevent Overdraft?"</h2><blockquote><p><strong>Interviewer:</strong> <em>"A customer has $100. They insert a card at one ATM and, at nearly the same instant, their mobile banking app initiates a $100 withdrawal too. Both check the balance, both see $100 available, both attempt to proceed. What stops both from succeeding?"</em></p></blockquote><p>This is the exact same check-then-act race this series has diagnosed for a parking spot, a booked seat, and vending-machine inventory — reading <code>availableCents()</code> and only afterward reserving against it has a window where a second reader can observe the same pre-reservation balance before the first reservation actually lands. The fix is identical in shape: collapse the check and the reservation into a single atomic operation.</p><hr><h2 id="31-the-double-withdrawal-race-on-a-shared-balance">31. The Double-Withdrawal Race on a Shared Balance</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Time    ATM A (Channel 1)                          Mobile App (Channel 2)
+t0      reads availableCents() = $100 (balance $100, reserved $0)
+t1                                                  reads availableCents() = $100  -- SAME stale read
+t2      reserve($100) -- reservedCents now $100
+t3                                                  reserve($100) -- reservedCents now $200
+                                                     -- BOTH channels believed $100 was available
+                                                        and BOTH proceeded -- a genuine overdraft risk</code></pre></div><p>Both channels genuinely saw $100 available at the moment they checked — the bug is that nothing prevented a second read from happening before the first reservation had a chance to invalidate it, precisely the same shape this series has closed with either pessimistic or optimistic locking every time it has appeared.</p><hr><h2 id="32-implementing-concurrency-safe-balance-debit">32. Implementing Concurrency-Safe Balance Debit</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class AccountLedger {
+    @Transactional
+    public String reserve(String accountId, int amountCents) {
+        // SELECT ... FOR UPDATE -- exactly this series' own BookMyShow guide's pessimistic
+        // locking approach (§16-18 there), applied here to an account row instead of a seat
+        Account account = accountRepository.findByIdForUpdate(accountId);
+        if (account.availableCents() &lt; amountCents) {
+            throw new InsufficientFundsException(accountId);
+        }
+        account.setReservedCents(account.reservedCents() + amountCents);
+        accountRepository.save(account);
+        return reservationRepository.create(accountId, amountCents);
+        // the row lock is held until this transaction commits -- the SECOND channel's own
+        // SELECT ... FOR UPDATE simply WAITS, then re-reads the NOW-CORRECT availableCents(),
+        // and correctly sees insufficient funds if the first reservation already consumed them
+    }
+}</code></pre></div><p>Using <code>SELECT ... FOR UPDATE</code> (rather than optimistic locking) is a deliberate choice specifically for this operation — an account balance check is short, fast, and genuinely safety-critical enough that briefly serializing concurrent access to the <em>same</em> account is a small, acceptable cost, exactly the tradeoff this series' own BookMyShow guide worked through in detail for choosing between the two families.</p><hr><h2 id="33-class-diagram-the-withdrawal-and-reconciliation-flow">33. Class Diagram: The Withdrawal and Reconciliation Flow</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+------------------------+        +------------------------+
+| ReserveThenConfirmWorkflow |-------&gt;|     AccountLedger        |
+|  withdraw()                |       |  reserve(), confirm(),   |
++-----------+--------------+       |  releaseReservation()    |
+            |                       +-----------+--------------+
+            v                                    |
++------------------------+                       v
+| ConstrainedChangeMaker    |          +------------------------+
++------------------------+          |       Account              |
+                                       |  balanceCents,            |
+                                       |  reservedCents            |
+                                       +------------------------+
+                                                  ^
+                                                  |
+                                       +------------------------+
+                                       |    ReconciliationJob      |
+                                       |    (background, §29)      |
+                                       +------------------------+</code></pre></div><p><code>Account</code>'s own <code>balanceCents</code>/<code>reservedCents</code> split (<a href="#10-identifying-the-core-domain-entities">§10</a>) is the shared state every other component in this diagram ultimately reads and writes — the reservation workflow, the reconciliation job, and the concurrency-safe lock all exist specifically to protect the integrity of these two numbers.</p><hr><h2 id="34-follow-up-question-9-what-happens-if-the-atm-loses-network-connectivity-mid-transaction">34. Follow-up Question 9 — "What Happens If the ATM Loses Network Connectivity Mid-Transaction?"</h2><blockquote><p><strong>Interviewer:</strong> <em>"The network drops entirely, not just one call timing out — the machine has no way to reach the bank at all for the next several minutes. What should it do?"</em></p></blockquote><p>The machine must <strong>fail safe</strong>: refuse to start any new transaction that requires reserving funds (since it cannot durably record a reservation the bank's own ledger would recognize), while still allowing whatever it can safely do purely locally — displaying a clear "temporarily unable to process transactions" message, ejecting any inserted card, and logging the outage locally for later audit, rather than guessing at an offline balance or allowing a transaction it can't guarantee will reconcile correctly.</p><hr><h2 id="35-offlinedegraded-mode-and-fail-safe-defaults">35. Offline/Degraded Mode and Fail-Safe Defaults</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class DegradedModeState implements SessionState {
+    @Override
+    public SessionState chooseTransaction(AtmSession session, TransactionType type) {
+        display.show("Temporarily unable to process transactions. Please try again shortly.");
+        session.ejectCard();
+        return new IdleState();
+    }
+    // insertCard() and submitPin() similarly refuse to proceed while degraded
+}</code></pre></div><p>Refusing new transactions entirely during a genuine network outage — rather than offering a limited "offline withdrawal allowance" some real deployments do implement — is the more conservative, guide-appropriate default: any offline allowance reintroduces exactly the reconciliation risk this guide's <a href="#24-follow-up-question-6-the-cash-dispenses-but-the-network-call-confirming-the-debit-times-out-what-happens-to-the-customers-balance">§24-29</a> spent so much effort closing, and should only ever be adopted as a deliberate, explicit business tradeoff, not a default correctness posture.</p><hr><h2 id="36-follow-up-question-10-how-do-you-support-multiple-transaction-types-withdrawal-balance-inquiry-deposit-transfer-cleanly">36. Follow-up Question 10 — "How Do You Support Multiple Transaction Types — Withdrawal, Balance Inquiry, Deposit, Transfer — Cleanly?"</h2><blockquote><p><strong>Interviewer:</strong> <em>"Withdrawal has this whole reserve-then-confirm dance. A balance inquiry needs none of that. How do you support both without one polluting the other's logic?"</em></p></blockquote><p>By keeping <code>SessionState.chooseTransaction</code> (<a href="#14-implementing-the-state-pattern-for-an-atm-session">§14</a>) delegate to a pluggable <code>TransactionStrategy</code> per transaction type, rather than branching internally — a balance inquiry's strategy is trivially simple (one read, no reservation, no dispensing at all), and a withdrawal's strategy is the full reserve-then-confirm workflow this guide has built, with neither one needing to know the other exists.</p><hr><h2 id="37-pluggable-transaction-types">37. Pluggable Transaction Types</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface TransactionStrategy {
+    TransactionResult execute(AtmSession session, TransactionRequest request);
+}</code></pre></div><p>Every transaction type — however simple or however involved — implements this identical interface, exactly the Strategy pattern this series has used for AI difficulty, dispatch algorithms, and pricing schemes throughout: adding a new transaction type is a new class, never a change to <code>AtmSession</code>'s own session logic.</p><hr><h2 id="38-implementing-transaction-strategies">38. Implementing Transaction Strategies</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class InquiryStrategy implements TransactionStrategy {
+    @Override
+    public TransactionResult execute(AtmSession session, TransactionRequest request) {
+        Account account = accountRepository.findById(session.card().accountId());
+        return TransactionResult.balance(account.availableCents()); // no reservation needed at all
+    }
+}
+
+public class WithdrawalStrategy implements TransactionStrategy {
+    private final ReserveThenConfirmWorkflow workflow; // the full flow from §26-27
+
+    @Override
+    public TransactionResult execute(AtmSession session, TransactionRequest request) {
+        return workflow.withdraw(session.card().accountId(), request.amountCents(), session.currentCassettes());
+    }
+}</code></pre></div><p><code>InquiryStrategy</code>'s entire implementation is a single read — it has no access to, and no need for, any of the reservation/dispensing machinery <code>WithdrawalStrategy</code> depends on, which is precisely the payoff of keeping transaction types behind a narrow, uniform interface rather than one large class handling every case internally.</p><hr><h2 id="39-follow-up-question-11-how-do-you-support-cashcheck-deposits-and-reconcile-a-deposited-amount-that-hasnt-been-human-verified-yet">39. Follow-up Question 11 — "How Do You Support Cash/Check Deposits, and Reconcile a Deposited Amount That Hasn't Been Human-Verified Yet?"</h2><blockquote><p><strong>Interviewer:</strong> <em>"A customer deposits an envelope claiming it contains $500. The machine can't verify that claim immediately — a human has to open and count it later. Does the account get credited $500 right away?"</em></p></blockquote><p>Crediting the claimed amount <strong>provisionally</strong>, clearly marked as pending verification, mirrors the exact same reserve-then-confirm shape this guide already built for withdrawals — just running in the opposite financial direction. The customer sees a provisional credit immediately (a reasonable UX expectation), but the bank's own ledger keeps it distinguishable from a fully confirmed balance until a human verification step either confirms the claimed amount or adjusts it.</p><hr><h2 id="40-deposit-handling-and-provisional-crediting">40. Deposit Handling and Provisional Crediting</h2><div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class DepositStrategy implements TransactionStrategy {
+    @Override
+    public TransactionResult execute(AtmSession session, TransactionRequest request) {
+        String provisionalCreditId = accountLedger.creditProvisionally(
+            session.card().accountId(), request.claimedAmountCents());
+        // the customer sees this reflected in their balance display immediately, but it
+        // remains PROVISIONAL until a human verification step confirms or adjusts it --
+        // structurally identical to a withdrawal's reservation, just crediting instead of debiting
+        return TransactionResult.provisionalDeposit(provisionalCreditId, request.claimedAmountCents());
+    }
+}</code></pre></div><p>Deliberately reusing the <em>shape</em> of the reservation mechanism (a durable, provisional entry, later confirmed or adjusted by a separate, authoritative step) rather than inventing a new mechanism for deposits is what keeps this guide's core correctness pattern — never let an unconfirmed financial event masquerade as a final one — consistent across every transaction type, not just withdrawals.</p><hr><h2 id="41-class-diagram-full-atm-system">41. Class Diagram: Full ATM System</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+------------------------+        +------------------------+
+|       AtmSession           |-------&gt;|    TransactionStrategy    |
+|   (State pattern, §13-14) |       |    &lt;&lt;interface&gt;&gt;          |
++------------------------+        +-----------+--------------+
+                                                  ^      ^      ^      ^
+                                    +----------+ +--------+ +--------+ +----------------+
+                                    | Inquiry  | | With-  | | Deposit| | Transfer       |
+                                    | Strategy | | drawal | |Strategy| | Strategy       |
+                                    +----------+ | Strategy|+--------+ +----------------+
+                                                  +--------+
+                                                       |
+                                                       v
+                                    +------------------------+        +------------------------+
+                                    | ReserveThenConfirmWorkflow |------&gt;|     AccountLedger        |
+                                    +------------------------+        +------------------------+
+                                                       |                            ^
+                                                       v                            |
+                                    +------------------------+        +------------------------+
+                                    | ConstrainedChangeMaker    |        |    ReconciliationJob     |
+                                    +------------------------+        +------------------------+</code></pre></div><p>Tracing this diagram left to right is the entire system: session state gates what's legal, transaction strategies each handle their own kind of operation, and the ones that move real money (withdrawal, deposit) both funnel through the same reserve/confirm shape backed by one shared, concurrency-safe ledger.</p><hr><h2 id="42-capacity-estimation-cassette-refill-cadence-and-transaction-throughput">42. Capacity Estimation: Cassette Refill Cadence and Transaction Throughput</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Assume: a moderately busy machine serves 1 transaction every 90 seconds on average, with a
+        typical withdrawal averaging $120 and cassettes holding 2,000 notes each at refill
+
+Transactions/day ≈ (24 * 3600) / 90                    ≈ 960 transactions/day
+Cash dispensed/day ≈ 960 * $120 (assume ~60% are withdrawals) ≈ $69,000/day
+
+A $20 cassette starting at 2,000 notes, if $20 notes make up roughly a third of dispensed
+  value, depletes in: (2,000 * $20) / ($69,000 * 0.33) ≈ 1.75 days -- confirming that DAILY
+  or near-daily refill cadence is the realistic operational baseline this design must support,
+  which is precisely why §18-23's bounded-supply dispensing (not an unlimited-supply
+  assumption) is a genuine, load-bearing requirement, not a theoretical nicety.</code></pre></div><p>This capacity estimate is the concrete justification for treating cassette depletion as a real, routine operating condition rather than a rare edge case — at this refill cadence, a real deployment hits the "requested amount temporarily undispensable" scenario (<a href="#22-follow-up-question-5-what-if-the-requested-amount-cant-be-made-exactly-even-though-total-cash-is-sufficient">§22-23</a>) often enough that handling it gracefully is a core requirement, not an afterthought.</p><hr><h2 id="43-full-worked-example-one-withdrawal-traced-end-to-end">43. Full Worked Example: One Withdrawal, Traced End to End</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. Customer inserts card, enters correct PIN on the first attempt: AwaitingPinState.submitPin()
+   -&gt; SelectingTransactionState (§13-14, §16)
+2. Customer requests a $140 withdrawal: WithdrawalStrategy.execute() invoked (§37-38)
+3. ConstrainedChangeMaker.dispense(14000, cassettes) -- bounded DP finds a valid combination
+   using currently-available notes, e.g. one $100 + two $20 notes (§19-21)
+     a. If NO valid combination existed: UndispensableAmountException caught, customer
+        offered an alternative amount, NO reservation ever placed (§22-23)
+4. ReserveThenConfirmWorkflow.withdraw() begins:
+     a. AccountLedger.reserve() -- SELECT ... FOR UPDATE, durable hold placed, $140 now
+        invisible to any OTHER concurrent withdrawal attempt on this account (§30-32)
+     b. CashDispenser.dispense() -- mechanical action, sensor confirms release
+     c. AccountLedger.confirmReservation() -- SUCCEEDS this time, reservation becomes a
+        final debit (§26-27)
+5. Customer receives $140 and a receipt; session returns to IdleState, card ejected
+
+--- A different customer, same machine, network drops mid-confirmation ---
+
+6. Steps 1-4b proceed identically, but 4c's confirmReservation() call TIMES OUT
+7. WithdrawalResult.pendingReconciliation() returned -- session ends normally from the
+   customer's point of view (cash was already dispensed, receipt printed)
+8. ReconciliationJob runs on its next scheduled pass, reads the LOCAL sensor-confirmed
+   dispense record, and finalizes the debit -- exactly once, correctly, without the customer
+   or a technician needing to do anything (§28-29)</code></pre></div><p>Every mechanism this guide introduced via a follow-up question appears somewhere in these two traces — bounded-supply dispensing, reserve-then-confirm, concurrency-safe reservation, and background reconciliation are not independent, optional features, they are the actual steps every real withdrawal (successful or network-interrupted) passes through in this design.</p><hr><h2 id="44-final-architecture-diagram">44. Final Architecture Diagram</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Card + PIN --&gt; [ SessionState ] --&gt; [ PinVerifier: retry-limit lockout, durable per card ]
+                       |
+                       v
+              [ TransactionStrategy: Inquiry | Withdrawal | Deposit | Transfer ]
+                       |
+                       v (for money-moving transactions)
+        +------------------------+       +------------------------+
+        | ConstrainedChangeMaker    |       |   AccountLedger          |
+        | (bounded DP, §19-21)      |       |   reserve/confirm/       |
+        +------------------------+       |   release, atomic (§32)  |
+                                            +-----------+--------------+
+                                                          |
+                                            +-------------v-------------+
+                                            |     ReconciliationJob        |
+                                            |    (background, §28-29)      |
+                                            +------------------------+</code></pre></div><hr><h2 id="45-design-patterns-used-throughout-this-guide">45. Design Patterns Used Throughout This Guide</h2><ul><li><strong>State</strong> — <code>SessionState</code> (<a href="#12-follow-up-question-2-model-the-atm-session-as-a-state-machine-why-not-just-a-few-booleans">§12-14</a>) encodes exactly which operations are legal from the session's current phase, structurally preventing illegal operations (authenticating without a card, transacting without PIN verification) rather than relying on scattered runtime checks.</li><li><strong>Strategy</strong> — <code>TransactionStrategy</code> (<a href="#36-follow-up-question-10-how-do-you-support-multiple-transaction-types-withdrawal-balance-inquiry-deposit-transfer-cleanly">§36-38</a>) lets each transaction type vary independently of <code>AtmSession</code>'s own orchestration logic.</li><li><strong>Facade</strong> — <code>ReserveThenConfirmWorkflow</code> (<a href="#27-implementing-a-two-phase-withdrawal-reserve-dispense-confirm">§27</a>) hides reservation, dispensing, and confirmation behind a single <code>withdraw()</code> entry point every money-moving transaction type calls.</li><li><strong>Template Method</strong> (implicit) — reserve, dispense, confirm/reconcile is a fixed skeleton every money-moving transaction (withdrawal, deposit) follows, varying only in direction and which specific mechanical action occupies the middle step.</li></ul><hr><h2 id="46-solid-principles-applied">46. SOLID Principles Applied</h2><ul><li><strong>Single Responsibility</strong> — <code>PinVerifier</code> only authenticates; <code>ConstrainedChangeMaker</code> only decides which notes to dispense; <code>AccountLedger</code> only manages reservations and debits — none of the three knows how to do the others' job.</li><li><strong>Open/Closed</strong> — adding a new transaction type or a new dispensing algorithm each means implementing one interface, never modifying <code>AtmSession</code>'s own state transitions or the reserve-then-confirm workflow.</li><li><strong>Liskov Substitution</strong> — every <code>TransactionStrategy</code> implementation must honestly return a <code>TransactionResult</code> for any valid request, so <code>AtmSession</code> can invoke any of them uniformly without special-casing a particular type.</li><li><strong>Interface Segregation</strong> — <code>TransactionStrategy</code> exposes exactly one method, so a trivial <code>InquiryStrategy</code> isn't forced to depend on reservation or dispensing concepts only money-moving strategies actually need.</li><li><strong>Dependency Inversion</strong> — <code>ReserveThenConfirmWorkflow</code> depends on <code>AccountLedger</code> and <code>ConstrainedChangeMaker</code> as abstractions, never on concrete database or cassette-hardware implementations directly, so either can be swapped without touching the workflow itself.</li></ul><hr><h2 id="47-common-mistakes-when-building-this-yourself">47. Common Mistakes When Building This Yourself</h2><div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>MISTAKE                                                CORRECT APPROACH (this guide's section)
+A few independent boolean flags for session status         Explicit State pattern with legal transitions (§12-14)
+Enforcing PIN retry limits only in local session memory      Durable, per-card retry count (§15-16)
+Assuming unlimited note supply, like ordinary change-making   Bounded-supply constrained dispensing (§18-21)
+Debiting the account BEFORE dispensing cash                  Reserve-then-confirm, never debit-first (§24-27)
+Retrying a failed confirmation call inline, indefinitely       Hand off to background reconciliation (§28-29)
+Checking balance, then reserving, as two separate steps        Atomic, lock-based reservation (§30-32)
+Guessing an offline balance during a network outage            Fail safe: refuse new transactions (§34-35)</code></pre></div><hr><h2 id="48-testing-strategy">48. Testing Strategy</h2><ul><li><strong>State transition tests</strong> — assert every illegal transition (authenticating without a card, transacting before PIN verification) throws, and every legal transition produces the correct resulting state.</li><li><strong>PIN lockout tests</strong> — assert the retry count is enforced durably per card, surviving a card ejection and reinsertion within the same lockout window.</li><li><strong>Bounded-dispense tests</strong> — construct cassette configurations where an amount is dispensable, and others where it is genuinely not despite sufficient total cash, and assert the algorithm correctly distinguishes the two.</li><li><strong>Reserve-then-confirm tests</strong> — simulate a mechanical dispense failure (reservation must roll back cleanly) and a confirmation-network-timeout (reservation must be left in a reconcilable, not lost, state).</li><li><strong>Reconciliation tests</strong> — feed the reconciliation job a mix of sensor-confirmed and sensor-unconfirmed pending reservations, and assert each resolves to the correct final outcome exactly once.</li><li><strong>Concurrent withdrawal tests</strong> — fire many simultaneous withdrawal attempts against one account with a fixed balance and assert the total successfully reserved amount never exceeds what was actually available.</li></ul><hr><h2 id="49-suggested-future-enhancements">49. Suggested Future Enhancements</h2><ul><li><strong>Contactless/mobile-initiated withdrawals</strong> — a customer pre-authorizes an amount via a mobile app and completes dispensing at any ATM without inserting a physical card, reusing the exact same reserve-then-confirm workflow with a different session-initiation strategy.</li><li><strong>Predictive cassette refill scheduling</strong> — using historical withdrawal-amount distributions per machine to forecast which denominations will become undispensable soonest, informing refill routes proactively rather than reactively.</li><li><strong>Multi-currency dispensing</strong> — extending <code>ConstrainedChangeMaker</code> to select not just denominations but a currency, for machines serving international travelers, without changing the reserve-then-confirm workflow at all.</li><li><strong>Biometric authentication</strong> — an additional <code>SessionState</code> transition path alongside PIN verification, reusing the same retry-limit and lockout discipline already built for PINs.</li><li><strong>Real-time fraud scoring</strong> — layering anomaly detection (unusual withdrawal amounts, unusual times, unusual locations relative to the card's typical pattern) as an additional check before <code>AccountLedger.reserve()</code> ever proceeds, without touching the reservation mechanism's own correctness guarantees.</li></ul><hr><h2 id="50-progressive-interview-question-set">50. Progressive Interview Question Set</h2><p>For an interviewer using this guide to run a structured round, in increasing difficulty:</p><ol><li>Model the ATM session as an explicit state machine, including PIN retry-limit lockout, and explain why the retry count must live durably per card rather than in local session memory. (<a href="#12-follow-up-question-2-model-the-atm-session-as-a-state-machine-why-not-just-a-few-booleans">§12-16</a>)</li><li>Design cash dispensing that minimizes note count, given a genuinely finite, countable supply per denomination — and explain precisely how this differs from ordinary unbounded change-making. (<a href="#18-follow-up-question-4-how-do-you-decide-which-notes-to-dispense-given-limited-cassette-inventory-per-denomination">§18-21</a>)</li><li>Design what happens when a requested amount cannot be exactly assembled from current cassette inventory, even though total cash is sufficient. (<a href="#22-follow-up-question-5-what-if-the-requested-amount-cant-be-made-exactly-even-though-total-cash-is-sufficient">§22-23</a>)</li><li>Cash dispenses, then the network call confirming the debit times out. Design the fix, precisely — don't just say "handle it," describe the actual states involved. (<a href="#24-follow-up-question-6-the-cash-dispenses-but-the-network-call-confirming-the-debit-times-out-what-happens-to-the-customers-balance">§24-27</a>)</li><li>The confirmation call fails even after retrying. Design the background process that resolves this correctly, exactly once. (<a href="#28-follow-up-question-7-the-confirm-call-also-fails-or-times-out-after-dispensing-how-do-you-reconcile-eventually">§28-29</a>)</li><li>Two channels attempt to withdraw from the same account at nearly the same instant. Design the fix that prevents overdraft. (<a href="#30-follow-up-question-8-two-atms-try-to-withdraw-from-the-same-account-at-nearly-the-same-instant-how-do-you-prevent-overdraft">§30-32</a>)</li><li>The ATM loses network connectivity entirely, mid-session. Design the fail-safe behavior, and justify why it's the correct default. (<a href="#34-follow-up-question-9-what-happens-if-the-atm-loses-network-connectivity-mid-transaction">§34-35</a>)</li><li>Extend the design to support deposits, reusing as much of the withdrawal machinery as genuinely applies. (<a href="#39-follow-up-question-11-how-do-you-support-cashcheck-deposits-and-reconcile-a-deposited-amount-that-hasnt-been-human-verified-yet">§39-40</a>)</li></ol><hr><h2 id="51-final-takeaway">51. Final Takeaway</h2><p>Every hard decision in this guide traces back to one recurring idea: <strong>a physical, irreversible action (cash leaving a tray) and a financial commitment (a debit taking hold) must never be allowed to become permanently inconsistent with each other, no matter where a failure occurs between them</strong> — reserve-then-confirm exists specifically to insert a durable, recoverable checkpoint between those two events (<a href="#24-follow-up-question-6-the-cash-dispenses-but-the-network-call-confirming-the-debit-times-out-what-happens-to-the-customers-balance">§24-27</a>); reconciliation exists because even that checkpoint's own confirmation can fail, and must still resolve correctly later (<a href="#28-follow-up-question-7-the-confirm-call-also-fails-or-times-out-after-dispensing-how-do-you-reconcile-eventually">§28-29</a>); bounded-supply dispensing exists because the physical world (a finite cassette) constrains what's honestly possible in a way an idealized unlimited-supply algorithm would silently ignore (<a href="#18-follow-up-question-4-how-do-you-decide-which-notes-to-dispense-given-limited-cassette-inventory-per-denomination">§18-21</a>). Recognizing exactly where a design's physical and financial realities can diverge — and inserting a durable, recoverable step at precisely that point — is the transferable skill this guide is really teaching.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Design an ATM System — HLD, LLD, and Class Design From Scratch.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

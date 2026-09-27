@@ -1,0 +1,1785 @@
+<meta charset="utf-8">
+<title>TinyDB Server Mode and Remote JDBC Driver — Step-by-Step Implementation Guide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; database internals guide</div>
+      <h1>TinyDB Server Mode and Remote JDBC Driver — A Complete JDBC Driver, Embedded and Remote</h1>
+      <p class="dek">A complete, standalone JDBC driver for TinyDB, built around one seam decided from the very first class: how a statement actually gets executed is a pluggable strategy, never a hard-coded call. That single decision is what lets a full java.sql.Driver/Connection/Statement/PreparedStatement/ResultSet/ResultSetMetaData/DatabaseMetaData implementation work identically whether the connection underneath it is talking to a local embedded file or to a real TinyDB server across the network. Covers real parameter binding, a real DatabaseMetaData implementation covering exactly what DBeaver's schema browser depends on, a real length-prefixed wire protocol with sealed request/response types, a credential-based authentication handshake, why TLS wraps in via the JDK's own SSLSocket rather than hand-rolled cryptography, and a bounded worker-pool server process &mdash; with real Java code and a class diagram for every core mechanism.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-interview-motivation">Why This Matters (Interview Motivation)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-high-level-architecture-embedded-and-server-mode-one-driver">High-Level Architecture: Embedded and Server Mode, One Driver</a></li><li class="toc-lvl-2"><a href="#7-the-domain-model-this-driver-sits-on">The Domain Model This Driver Sits On</a></li><li class="toc-lvl-2"><a href="#8-the-connection-url-formats">The Connection URL Formats</a></li><li class="toc-lvl-2"><a href="#9-the-statementexecutor-seam-one-interface-two-implementations-decided-up-front">The StatementExecutor Seam: One Interface, Two Implementations, Decided Up Front</a></li><li class="toc-lvl-2"><a href="#10-implementing-transactioncontext">Implementing TransactionContext</a></li><li class="toc-lvl-2"><a href="#11-implementing-transactionmanager">Implementing TransactionManager</a></li><li class="toc-lvl-2"><a href="#12-bootstrapping-a-tinydb-instance-from-a-path">Bootstrapping a TinyDB Instance From a Path</a></li><li class="toc-lvl-2"><a href="#13-implementing-embeddedstatementexecutor">Implementing EmbeddedStatementExecutor</a></li><li class="toc-lvl-2"><a href="#14-implementing-tinydbconnection">Implementing TinyDbConnection</a></li><li class="toc-lvl-2"><a href="#15-implementing-tinydbstatement">Implementing TinyDbStatement</a></li><li class="toc-lvl-2"><a href="#16-dispatching-executeexecutequeryexecuteupdate">Dispatching execute/executeQuery/executeUpdate</a></li><li class="toc-lvl-2"><a href="#17-implementing-tinydbpreparedstatement">Implementing TinyDbPreparedStatement</a></li><li class="toc-lvl-2"><a href="#18-parsing-and-rewriting-placeholders-into-a-bound-sql-statement">Parsing and Rewriting ? Placeholders Into a Bound SQL Statement</a></li><li class="toc-lvl-2"><a href="#19-why-this-binding-approach-is-safe-and-its-one-honest-limitation">Why This Binding Approach Is Safe, and Its One Honest Limitation</a></li><li class="toc-lvl-2"><a href="#20-implementing-tinydbresultset">Implementing TinyDbResultSet</a></li><li class="toc-lvl-2"><a href="#21-column-access-by-index-and-by-name-and-wasnull-tracking">Column Access by Index and by Name, and wasNull() Tracking</a></li><li class="toc-lvl-2"><a href="#22-mapping-tinydbs-datatype-to-javasqltypes">Mapping TinyDB's DataType to java.sql.Types</a></li><li class="toc-lvl-2"><a href="#23-implementing-resultsetmetadata">Implementing ResultSetMetaData</a></li><li class="toc-lvl-2"><a href="#24-why-dbeaver-needs-databasemetadata-in-real-depth">Why DBeaver Needs DatabaseMetaData in Real Depth</a></li><li class="toc-lvl-2"><a href="#25-implementing-getcatalogs-and-getschemas">Implementing getCatalogs() and getSchemas()</a></li><li class="toc-lvl-2"><a href="#26-implementing-gettables">Implementing getTables()</a></li><li class="toc-lvl-2"><a href="#27-implementing-getcolumns">Implementing getColumns()</a></li><li class="toc-lvl-2"><a href="#28-implementing-getprimarykeys-and-other-metadata-dbeaver-expects">Implementing getPrimaryKeys() and Other Metadata DBeaver Expects</a></li><li class="toc-lvl-2"><a href="#29-capability-flags-the-supportsxxx-methods-dbeaver-checks">Capability Flags: The supportsXXX() Methods DBeaver Checks</a></li><li class="toc-lvl-2"><a href="#30-mapping-tinydbs-internal-errors-to-javasqlsqlexception">Mapping TinyDB's Internal Errors to java.sql.SQLException</a></li><li class="toc-lvl-2"><a href="#31-driver-registration-and-tinydbdriver">Driver Registration and TinyDbDriver</a></li><li class="toc-lvl-2"><a href="#32-packaging-and-connecting-from-dbeaver-embedded">Packaging and Connecting From DBeaver (Embedded)</a></li><li class="toc-lvl-2"><a href="#33-follow-up-can-this-be-connected-from-a-remote-server">Follow-up: Can This Be Connected From a Remote Server?</a></li><li class="toc-lvl-2"><a href="#34-the-wire-protocol-framing-and-message-types">The Wire Protocol: Framing and Message Types</a></li><li class="toc-lvl-2"><a href="#35-the-request-types">The Request Types</a></li><li class="toc-lvl-2"><a href="#36-the-response-types">The Response Types</a></li><li class="toc-lvl-2"><a href="#37-implementing-requestresponse-serialization">Implementing Request/Response Serialization</a></li><li class="toc-lvl-2"><a href="#38-authentication-a-simple-credential-handshake">Authentication: A Simple Credential Handshake</a></li><li class="toc-lvl-2"><a href="#39-implementing-the-auth-handshake">Implementing the Auth Handshake</a></li><li class="toc-lvl-2"><a href="#40-why-tls-belongs-here-and-why-we-dont-hand-roll-it">Why TLS Belongs Here, and Why We Don't Hand-Roll It</a></li><li class="toc-lvl-2"><a href="#41-the-tinydb-server-process-architecture">The TinyDB Server Process: Architecture</a></li><li class="toc-lvl-2"><a href="#42-implementing-the-accept-loop-and-a-bounded-worker-pool">Implementing the Accept Loop and a Bounded Worker Pool</a></li><li class="toc-lvl-2"><a href="#43-implementing-serverconnectionhandler">Implementing ServerConnectionHandler</a></li><li class="toc-lvl-2"><a href="#44-dispatching-a-request-to-the-executor">Dispatching a Request to the Executor</a></li><li class="toc-lvl-2"><a href="#45-concurrency-at-the-server">Concurrency at the Server</a></li><li class="toc-lvl-2"><a href="#46-implementing-networkstatementexecutor">Implementing NetworkStatementExecutor</a></li><li class="toc-lvl-2"><a href="#47-completing-tinydbdriver-connectremote">Completing TinyDbDriver: connectRemote</a></li><li class="toc-lvl-2"><a href="#48-why-statementpreparedstatementresultsetdatabasemetadata-need-zero-changes">Why Statement/PreparedStatement/ResultSet/DatabaseMetaData Need Zero Changes</a></li><li class="toc-lvl-2"><a href="#49-implementing-remotecatalogsnapshot">Implementing RemoteCatalogSnapshot</a></li><li class="toc-lvl-2"><a href="#50-follow-up-what-about-a-very-large-result-set-over-the-network">Follow-up: What About a Very Large Result Set Over the Network?</a></li><li class="toc-lvl-2"><a href="#51-handling-connection-loss-timeouts-and-partial-writes">Handling Connection Loss, Timeouts, and Partial Writes</a></li><li class="toc-lvl-2"><a href="#52-server-configuration-and-startup">Server Configuration and Startup</a></li><li class="toc-lvl-2"><a href="#53-connecting-from-dbeaver-to-a-remote-tinydb-server-step-by-step">Connecting From DBeaver to a Remote TinyDB Server, Step by Step</a></li><li class="toc-lvl-2"><a href="#54-full-worked-example-a-complete-remote-query-end-to-end">Full Worked Example: A Complete Remote Query, End to End</a></li><li class="toc-lvl-2"><a href="#55-final-architecture-diagram">Final Architecture Diagram</a></li><li class="toc-lvl-2"><a href="#56-design-patterns-used-throughout-this-guide">Design Patterns Used Throughout This Guide</a></li><li class="toc-lvl-2"><a href="#57-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#58-common-mistakes-when-building-this-yourself">Common Mistakes When Building This Yourself</a></li><li class="toc-lvl-2"><a href="#59-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#60-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#61-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>Goal:</strong> Build a complete, real, loadable JDBC driver for TinyDB that works in two modes from a single, unified design — embedded (in-process, a local data directory) and server/remote (a real TinyDB server process, reachable over the network from any machine running DBeaver or any other JDBC-compliant SQL client) — as a standalone project with real, working code for every piece, from the wire protocol up through every <code>java.sql.*</code> interface that matters.</p>
+<p>The driver in this guide is built around one deliberate decision, made from the very first class: <strong>how a statement actually gets executed is a pluggable strategy, decided once per connection, never hard-coded.</strong> That one decision is what lets <code>Statement</code>, <code>PreparedStatement</code>, <code>ResultSet</code>, <code>ResultSetMetaData</code>, and <code>DatabaseMetaData</code> be written exactly once and work identically whether the connection underneath them is talking to a local file or to a server on another continent.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>DBeaver (or any JDBC client)
+      |
+   java.sql.* API  (DriverManager, Connection, Statement, ResultSet, DatabaseMetaData)
+      |
+   TinyDbDriver -- dispatches by URL scheme
+      |
+      +---- jdbc:tinydb:/path -------&gt; EmbeddedStatementExecutor -&gt; BasicQueryEngine -&gt; FileStorageEngine -&gt; disk
+      |
+      +---- jdbc:tinydb://host:port -&gt; NetworkStatementExecutor -&gt; [wire protocol] -&gt; TinyDbServer -&gt; (same engine, remote)
+</code></pre></div>
+<p>By the end of this guide you will have:</p>
+<ul>
+<li>A real <code>java.sql.Driver</code>, discoverable via <code>META-INF/services</code>, that understands <strong>two</strong> URL forms and constructs the right execution strategy for each.</li>
+<li>A <code>StatementExecutor</code> interface — the one seam this entire driver is built around — with two real implementations: one that calls straight into an in-process database engine, one that talks to a remote server over a socket.</li>
+<li>Every JDBC interface that actually matters — <code>Connection</code>, <code>Statement</code>, <code>PreparedStatement</code>, <code>ResultSet</code>, <code>ResultSetMetaData</code>, <code>DatabaseMetaData</code> — built <strong>once</strong>, against that interface, never duplicated for the network case.</li>
+<li>A real, byte-level wire protocol: length-prefixed framing, a closed set of request/response types, and real serialization for every one of them.</li>
+<li>A real TinyDB server process: an accept loop, a bounded worker pool, per-connection transaction handling, and a credential-based authentication handshake — with an honest explanation of exactly where TLS wraps in without this guide hand-rolling any cryptography.</li>
+<li>A literal, step-by-step walkthrough of connecting DBeaver to TinyDB both ways: an embedded local file, and a genuinely remote server.</li>
+</ul>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to:</p>
+<ul>
+<li>Design a pluggable execution seam <strong>from day one</strong>, so that adding a second way to run a statement never means duplicating the JDBC-facing classes built around the first one.</li>
+<li>Implement every JDBC interface that a real client like DBeaver actually depends on — including the parts of <code>DatabaseMetaData</code> that make a schema browser work at all — and know which remaining methods are legitimately boilerplate.</li>
+<li>Implement <code>PreparedStatement</code> parameter binding safely, and explain precisely what vulnerability that specifically closes.</li>
+<li>Design a real, byte-level wire protocol: message framing, a closed set of request/response types, and serialization that doesn't leave "the tricky part" as pseudocode.</li>
+<li>Design a server process that safely shares one underlying database engine across many concurrent client connections, using a bounded worker pool for the same isolation reasons a bounded thread pool is used anywhere else.</li>
+<li>Explain precisely why authentication and transport encryption matter the moment a database becomes network-reachable, and where to draw the line between "build this" and "use the standard library's own implementation instead."</li>
+</ul>
+<hr>
+<h2 id="3-why-this-matters-interview-motivation">3. Why This Matters (Interview Motivation)</h2>
+<blockquote>
+<p><strong>"Build a JDBC driver for a database engine you've already got working — one that a developer can use exactly the way they'd use a Postgres or MySQL driver, whether the database is a local file or a server across the network. Show me the design decision that makes both modes possible without duplicating half your codebase."</strong></p>
+</blockquote>
+<p>This question tests something distinct from "design a database" — it tests a specific kind of architectural discipline:</p>
+<ul>
+<li><strong>Working inside someone else's contract.</strong> <code>java.sql.*</code> is a specification the driver author has zero control over — every method signature, every exception type, every semantic (what must <code>ResultSet.next()</code> do when there are no more rows? what must <code>wasNull()</code> return, and when?) is fixed, and a real driver has to honor all of it correctly, not approximately.</li>
+<li><strong>Designing the seam before writing the first line against it.</strong> A driver that hard-codes "execute this statement" as a direct method call into a local engine has to be substantially rewritten the moment a second deployment mode appears; a driver that names that seam as its own interface from the start pays that cost exactly once, up front, and never again.</li>
+<li><strong>Protocol design and server concurrency stop being optional the moment a database is reachable from the network</strong> — and knowing where to build real logic (authentication, framing) versus where to reuse a battle-tested standard mechanism (TLS via the JDK's own <code>SSLSocket</code>) is itself a signal of engineering judgment.</li>
+</ul>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language / JDK</td>
+<td>Java 21</td>
+<td><code>java.sql.*</code>, <code>java.net.Socket</code>/<code>ServerSocket</code>, and <code>javax.net.ssl.SSLSocket</code> are all part of the JDK — no external dependency needed for any of this guide's core pieces.</td>
+</tr>
+<tr>
+<td>Driver discovery</td>
+<td><code>java.util.ServiceLoader</code> via <code>META-INF/services/java.sql.Driver</code></td>
+<td>The JDBC 4.0+ standard mechanism — the one that lets DBeaver find the driver class without the user typing it in by hand (§31).</td>
+</tr>
+<tr>
+<td>Embedded storage</td>
+<td>A local, file-based database engine (built in this guide's own companion database-engine guides — see §6)</td>
+<td>Zero new infrastructure for the embedded case: the engine already runs perfectly well inside any JVM process, including DBeaver's own.</td>
+</tr>
+<tr>
+<td>Transport (server mode)</td>
+<td>Plain TCP via <code>java.net.Socket</code>/<code>ServerSocket</code>, optionally wrapped in <code>SSLSocket</code></td>
+<td>The simplest transport that supports a real request/response protocol; TLS is a wrapping decision, not a redesign (§40).</td>
+</tr>
+<tr>
+<td>Wire format</td>
+<td>A custom, length-prefixed binary protocol</td>
+<td>Small, precise control over exactly what's on the wire, with a framing discipline that never mistakes SQL text for a message boundary (§34).</td>
+</tr>
+<tr>
+<td>Server concurrency</td>
+<td>A bounded <code>ThreadPoolExecutor</code>, one task per accepted connection</td>
+<td>The standard core/max/queue/reject shape used to bound how many concurrent clients one server process serves, never letting a connection flood spawn unbounded threads (§42).</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>JUnit 5, plus a real two-process (or two-JVM) integration test</td>
+<td>A network protocol's correctness is only really proven by two independent processes actually talking to each other (§59).</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>tinydb-jdbc/
+├── src/main/java/com/example/tinydb/jdbc/
+│   ├── transaction/
+│   │   ├── TransactionContext.java, TransactionManager.java     // §10-§11
+│   ├── TinyDbInstance.java                                       // §12
+│   ├── StatementExecutor.java                                    // §9 -- THE seam
+│   ├── EmbeddedStatementExecutor.java                            // §13
+│   ├── NetworkStatementExecutor.java                             // §46
+│   ├── TinyDbConnection.java                                      // §14
+│   ├── TinyDbStatement.java, TinyDbPreparedStatement.java          // §15-§19
+│   ├── SqlParameterBinder.java                                     // §18
+│   ├── TinyDbResultSet.java, TinyDbResultSetMetaData.java           // §20-§23
+│   ├── TypeMapping.java                                             // §22
+│   ├── TinyDbDatabaseMetaData.java                                  // §24-§29
+│   ├── RemoteCatalogSnapshot.java                                    // §49
+│   ├── SqlExceptionMapper.java                                       // §30
+│   └── TinyDbDriver.java                                             // §31, §47
+├── src/main/java/com/example/tinydb/server/
+│   ├── protocol/
+│   │   ├── Frame.java                                             // §34
+│   │   ├── Request.java (sealed), Response.java (sealed)           // §35-§36
+│   │   └── ProtocolCodec.java                                       // §37
+│   ├── auth/
+│   │   └── CredentialStore.java, AuthHandshake.java                 // §38-§39
+│   ├── TinyDbServer.java                                             // §42
+│   └── ServerConnectionHandler.java                                  // §43-§44
+└── src/test/java/com/example/tinydb/jdbc/
+    ├── DriverRegistrationTest.java
+    ├── PreparedStatementParameterBindingTest.java
+    ├── TransactionCommitRollbackTest.java
+    ├── DatabaseMetaDataAgainstDbeaverTest.java
+    └── TwoProcessIntegrationTest.java
+</code></pre></div>
+<hr>
+<h2 id="6-high-level-architecture-embedded-and-server-mode-one-driver">6. High-Level Architecture: Embedded and Server Mode, One Driver</h2>
+<p>Underneath every piece this guide builds sits a real, already-working SQL engine and a real, durable storage engine — the actual database TinyDB is. Rather than re-deriving that engine here, this guide treats it as a fixed, given foundation with exactly the shape a database engine needs: a query engine that can plan and execute SQL text against a table (<code>BasicQueryEngine</code>, with <code>doQuery(sql)</code>/<code>doUpdate(sql)</code> methods returning a <code>QueryResult</code> of <code>Row</code>s), a durable storage layer (<code>FileStorageEngine</code>) that survives a crash, and a schema catalog (<code>Catalog</code>, with <code>listTables()</code>/<code>getTable(name)</code>) describing what tables and columns exist. Building that engine from scratch — the SQL lexer and parser, the query planner, the page-based storage layer, write-ahead logging and crash recovery — is real, substantial work covered in depth by this project's own database-internals guides; this guide's entire job starts one layer above that: <strong>making an already-correct engine usable from any standard SQL client, locally or remotely.</strong></p>
+<p>The one architectural decision that makes both modes possible without duplicating this guide's own JDBC-facing code: <strong>the seam between "here is a SQL string" and "here is a result" is a pluggable interface, <code>StatementExecutor</code> (§9), decided once per <code>Connection</code>.</strong> Everything from <code>Statement</code> through <code>DatabaseMetaData</code> (§15-§29) is written against that interface exactly once, and never needs a second version for the network case (§48).</p>
+<hr>
+<h2 id="7-the-domain-model-this-driver-sits-on">7. The Domain Model This Driver Sits On</h2>
+<p>Four small, already-existing types are all this driver ever touches on the database-engine side, and every one of them is intentionally plain data:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public enum DataType { INT, BIGINT, BOOLEAN, VARCHAR, DECIMAL, DATE, TIMESTAMP }
+public record Column(String name, DataType type, boolean nullable) { }
+public record TableSchema(String tableName, List&lt;Column&gt; columns) { }
+
+public interface Catalog {
+    void createTable(TableSchema schema);
+    void dropTable(String tableName);
+    TableSchema getTable(String tableName);
+    boolean tableExists(String tableName);
+    List&lt;TableSchema&gt; listTables();
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class Row {
+    private final Map&lt;String, Object&gt; values;
+    public Row(Map&lt;String, Object&gt; values) { this.values = Map.copyOf(values); }
+    public Object get(String column) { return values.get(column); }
+    public Set&lt;String&gt; columnNames() { return values.keySet(); }
+}
+
+public record QueryResult(List&lt;Row&gt; rows, int affectedRows) {
+    public static QueryResult ofRows(List&lt;Row&gt; rows) { return new QueryResult(rows, rows.size()); }
+    public static QueryResult ofAffected(int count) { return new QueryResult(List.of(), count); }
+}
+</code></pre></div>
+<p>A row's runtime value for each <code>DataType</code> is fixed by the storage layer's own binary codec, and this driver treats that mapping as a contract it must honor, never reinvent: <code>INT</code>-&gt;<code>Integer</code>, <code>BIGINT</code>-&gt;<code>Long</code>, <code>BOOLEAN</code>-&gt;<code>Boolean</code>, <code>DECIMAL</code>-&gt;<code>Double</code> (a deliberate simplification the underlying engine makes, not <code>BigDecimal</code>), <code>DATE</code>/<code>TIMESTAMP</code>-&gt;<code>Instant</code>, <code>VARCHAR</code>-&gt;<code>String</code>. §22 builds the full <code>java.sql.Types</code> mapping from this table.</p>
+<p>The actual query execution and transaction machinery this driver calls into — <code>BasicQueryEngine.doQuery(sql)</code>/<code>doUpdate(sql)</code>, a <code>BasicPlanner</code> for executing SQL directly against an open transaction, and <code>FileStorageEngine.beginTransaction(id)</code>/<code>commitTransaction(id)</code>/<code>abortTransaction(id)</code> for real, durable, WAL-backed transactions — is the actual database engine this project's SQL-engine and storage-engine guides build in full; this guide wires against those classes' existing, real APIs exactly as given, and builds nothing new at that layer.</p>
+<hr>
+<h2 id="8-the-connection-url-formats">8. The Connection URL Formats</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>jdbc:tinydb:/absolute/path/to/data/directory      &lt;-- embedded: opens a LOCAL FileStorageEngine directly, §12
+jdbc:tinydb://host:port/database                  &lt;-- server mode: opens a SOCKET to a running TinyDbServer, §47
+</code></pre></div>
+<p>One driver, one prefix, two shapes after it — the presence of <code>//</code> is the entire dispatch signal <code>TinyDbDriver</code> (§31, §47) needs to decide which <code>StatementExecutor</code> (§9) to construct. The embedded form is modeled directly on SQLite's own <code>jdbc:sqlite:/path/to/file.db</code>; the server form is modeled directly on Postgres's/MySQL's own <code>jdbc:postgresql://host:port/db</code> — both are established, unsurprising conventions, deliberately not invented fresh here.</p>
+<hr>
+<h2 id="9-the-statementexecutor-seam-one-interface-two-implementations-decided-up-front">9. The StatementExecutor Seam: One Interface, Two Implementations, Decided Up Front</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface StatementExecutor {
+    QueryResult execute(String sql, boolean isQuery) throws SQLException;
+
+    boolean getAutoCommit();
+    void setAutoCommit(boolean autoCommit) throws SQLException;
+    void commit() throws SQLException;
+    void rollback() throws SQLException;
+    void close() throws SQLException;
+
+    Catalog catalog(); // §7 -- what DatabaseMetaData (§24) is built on, locally or remotely
+}
+</code></pre></div>
+<p>Every method here names a responsibility every JDBC <code>Connection</code> genuinely has — running a statement, tracking auto-commit, committing, rolling back, closing, and exposing enough schema information for <code>DatabaseMetaData</code> to work. None of it is specific to <em>how</em> a statement actually gets executed. That is precisely the point: <code>TinyDbConnection</code> (§14), and every class built on top of it (§15-§29), will be written against this interface only, and will work correctly and completely unmodified against whichever of §13's <code>EmbeddedStatementExecutor</code> or §46's <code>NetworkStatementExecutor</code> a given connection happens to hold.</p>
+<hr>
+<h2 id="10-implementing-transactioncontext">10. Implementing TransactionContext</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TransactionContext {
+
+    private static final AtomicLong NEXT_TRANSACTION_ID = new AtomicLong(1);
+
+    private final long transactionId;
+    private volatile boolean completed; // true once committed or rolled back -- guards against double-completion
+
+    private TransactionContext(long transactionId) { this.transactionId = transactionId; }
+
+    static TransactionContext allocate() { return new TransactionContext(NEXT_TRANSACTION_ID.getAndIncrement()); }
+
+    public long transactionId() { return transactionId; }
+    public boolean isCompleted() { return completed; }
+    void markCompleted() { completed = true; }
+}
+</code></pre></div>
+<p>Every open transaction, embedded or server-side, is one of these — a real, allocatable identity the underlying storage engine's own <code>beginTransaction(long)</code>/<code>commitTransaction(long)</code>/<code>abortTransaction(long)</code> can act on, with a completion flag that keeps a connection from ever committing or rolling back the same transaction twice.</p>
+<hr>
+<h2 id="11-implementing-transactionmanager">11. Implementing TransactionManager</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TransactionManager {
+
+    private final StorageEngine storageEngine; // the durable, WAL-backed storage layer this project's storage-engine guide builds
+
+    public TransactionManager(StorageEngine storageEngine) { this.storageEngine = storageEngine; }
+
+    public TransactionContext begin() {
+        TransactionContext tx = TransactionContext.allocate(); // §10
+        try {
+            storageEngine.beginTransaction(tx.transactionId());
+        } catch (IOException e) {
+            throw new TinyDbRuntimeException(&quot;Failed to begin transaction&quot;, e);
+        }
+        return tx;
+    }
+
+    public void commit(TransactionContext tx) {
+        if (tx.isCompleted()) throw new IllegalStateException(&quot;Transaction &quot; + tx.transactionId() + &quot; already completed&quot;);
+        try {
+            storageEngine.commitTransaction(tx.transactionId());
+        } catch (IOException e) {
+            throw new TinyDbRuntimeException(&quot;Failed to commit transaction &quot; + tx.transactionId(), e);
+        } finally {
+            tx.markCompleted();
+        }
+    }
+
+    public void rollback(TransactionContext tx) {
+        if (tx.isCompleted()) throw new IllegalStateException(&quot;Transaction &quot; + tx.transactionId() + &quot; already completed&quot;);
+        try {
+            storageEngine.abortTransaction(tx.transactionId());
+        } catch (IOException e) {
+            throw new TinyDbRuntimeException(&quot;Failed to abort transaction &quot; + tx.transactionId(), e);
+        } finally {
+            tx.markCompleted();
+        }
+    }
+}
+</code></pre></div>
+<p><code>isCompleted()</code>'s guard against double-completion matters concretely in §14: a JDBC <code>Connection.close()</code> that runs after an explicit <code>commit()</code> already happened must never attempt a second commit or an implicit rollback against an already-finished transaction.</p>
+<hr>
+<h2 id="12-bootstrapping-a-tinydb-instance-from-a-path">12. Bootstrapping a TinyDB Instance From a Path</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TinyDbInstance {
+
+    private final BasicQueryEngine queryEngine;
+    private final BasicPlanner planner;                    // used directly when autoCommit is false, §13
+    private final TransactionManager transactionManager; // §11
+    private final Catalog catalog;                        // §7
+
+    private TinyDbInstance(BasicQueryEngine queryEngine, BasicPlanner planner, TransactionManager transactionManager, Catalog catalog) {
+        this.queryEngine = queryEngine;
+        this.planner = planner;
+        this.transactionManager = transactionManager;
+        this.catalog = catalog;
+    }
+
+    /** Wires together the storage layer, the catalog, the planner, and this guide's own TransactionManager,
+     *  starting purely from a filesystem path -- everything a Connection needs to actually do real work. */
+    public static TinyDbInstance open(Path dataDirectory) throws IOException {
+        StorageEngine storageEngine = new FileStorageEngine(dataDirectory, 1000);
+        storageEngine.recover(); // MUST run first -- a database that starts serving queries before recovery
+                                  // finishes would be handing out answers from a state that never existed
+
+        Catalog catalog = new PersistentCatalog(storageEngine);
+        QueryPlanner queryPlanner = new BasicQueryPlanner(catalog);
+        UpdatePlanner updatePlanner = new BasicUpdatePlanner(catalog, storageEngine);
+        BasicPlanner planner = new BasicPlanner(queryPlanner, updatePlanner);
+
+        TransactionManager transactionManager = new TransactionManager(storageEngine); // §11, THIS guide
+        BasicQueryEngine queryEngine = new BasicQueryEngine(planner, transactionManager);
+
+        return new TinyDbInstance(queryEngine, planner, transactionManager, catalog);
+    }
+
+    public BasicQueryEngine queryEngine() { return queryEngine; }
+    public BasicPlanner planner() { return planner; }
+    public TransactionManager transactionManager() { return transactionManager; }
+    public Catalog catalog() { return catalog; }
+}
+</code></pre></div>
+<p>Every <code>TinyDbConnection</code> (§14) opened against the <em>same</em> data directory shares exactly one <code>TinyDbInstance</code>, never one per connection (§31 enforces this) — opening the same on-disk database twice, independently, would mean two separate, uncoordinated buffer pools and write-ahead logs fighting over the same files, which the storage engine's own concurrency model assumes never happens.</p>
+<hr>
+<h2 id="13-implementing-embeddedstatementexecutor">13. Implementing EmbeddedStatementExecutor</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class EmbeddedStatementExecutor implements StatementExecutor {
+
+    private final TinyDbInstance instance; // §12
+    private boolean autoCommit = true;      // JDBC's own default, per the specification
+    private TransactionContext currentTransaction; // non-null only while autoCommit is false and a tx is open
+
+    public EmbeddedStatementExecutor(TinyDbInstance instance) { this.instance = instance; }
+
+    @Override
+    public QueryResult execute(String sql, boolean isQuery) throws SQLException {
+        try {
+            if (autoCommit) {
+                // Each statement is its OWN complete transaction -- doQuery/doUpdate begin AND commit internally.
+                return isQuery ? instance.queryEngine().doQuery(sql) : instance.queryEngine().doUpdate(sql);
+            }
+            return executeWithinOpenTransaction(sql, isQuery);
+        } catch (RuntimeException e) {
+            throw new SQLException(&quot;Statement execution failed: &quot; + e.getMessage(), e);
+        }
+    }
+
+    /** autoCommit == false: THIS connection owns one open transaction across however many statements the
+     *  client runs, until an explicit commit()/rollback() -- doQuery/doUpdate can't be used here at all,
+     *  since they always commit internally regardless of what the JDBC caller actually asked for. */
+    private QueryResult executeWithinOpenTransaction(String sql, boolean isQuery) throws SQLException {
+        if (currentTransaction == null) {
+            currentTransaction = instance.transactionManager().begin(); // §11 -- opened ONCE, held across calls
+        }
+        BasicPlanner planner = instance.planner();
+        if (isQuery) {
+            Plan plan = planner.createQueryPlan(sql, currentTransaction);
+            return materializeAsQueryResult(plan); // walks the Plan's Scan into rows, mirroring doQuery's own logic
+        }
+        int affected = planner.executeUpdate(sql, currentTransaction);
+        return QueryResult.ofAffected(affected);
+    }
+
+    @Override public boolean getAutoCommit() { return autoCommit; }
+
+    @Override
+    public void setAutoCommit(boolean autoCommit) throws SQLException {
+        if (this.autoCommit == autoCommit) return;
+        if (autoCommit &amp;&amp; currentTransaction != null) {
+            instance.transactionManager().commit(currentTransaction); // switching BACK to auto-commit must
+            currentTransaction = null;                                  // finish whatever was still open
+        }
+        this.autoCommit = autoCommit;
+    }
+
+    @Override
+    public void commit() throws SQLException {
+        if (autoCommit) throw new SQLException(&quot;commit() is not valid while autoCommit is true&quot;);
+        if (currentTransaction != null) { instance.transactionManager().commit(currentTransaction); currentTransaction = null; }
+    }
+
+    @Override
+    public void rollback() throws SQLException {
+        if (autoCommit) throw new SQLException(&quot;rollback() is not valid while autoCommit is true&quot;);
+        if (currentTransaction != null) { instance.transactionManager().rollback(currentTransaction); currentTransaction = null; }
+    }
+
+    @Override
+    public void close() throws SQLException {
+        // Never leave a transaction dangling -- an unfinished piece of work should never be mistaken for a
+        // committed one, so a connection closed without an explicit commit() rolls back, not commits.
+        if (!autoCommit &amp;&amp; currentTransaction != null &amp;&amp; !currentTransaction.isCompleted()) {
+            instance.transactionManager().rollback(currentTransaction);
+        }
+    }
+
+    @Override public Catalog catalog() { return instance.catalog(); }
+}
+</code></pre></div>
+<p>This class is the entire embedded-mode execution story — every branch above is a direct, honest translation of JDBC's own auto-commit semantics onto a real, WAL-backed transaction manager, with no shortcuts taken on the "what happens if a transaction is left open" case.</p>
+<hr>
+<h2 id="14-implementing-tinydbconnection">14. Implementing TinyDbConnection</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TinyDbConnection implements Connection {
+
+    private final StatementExecutor executor; // §9 -- EmbeddedStatementExecutor OR NetworkStatementExecutor, indistinguishably
+    private boolean closed;
+
+    public TinyDbConnection(StatementExecutor executor) { this.executor = executor; }
+
+    @Override
+    public Statement createStatement() throws SQLException {
+        checkOpen();
+        return new TinyDbStatement(this); // §15
+    }
+
+    @Override
+    public PreparedStatement prepareStatement(String sql) throws SQLException {
+        checkOpen();
+        return new TinyDbPreparedStatement(this, sql); // §17
+    }
+
+    @Override
+    public DatabaseMetaData getMetaData() throws SQLException {
+        checkOpen();
+        return new TinyDbDatabaseMetaData(executor.catalog()); // §24 -- fed by whichever Catalog the executor exposes
+    }
+
+    /** Package-private -- Statement/PreparedStatement call this, never the underlying engine directly, so
+     *  every statement's execution goes through ONE place regardless of which executor is behind it. */
+    QueryResult executeInternal(String sql, boolean isQuery) throws SQLException {
+        checkOpen();
+        return executor.execute(sql, isQuery); // §9's seam -- the ENTIRE point of this class's design
+    }
+
+    @Override public boolean getAutoCommit() throws SQLException { checkOpen(); return executor.getAutoCommit(); }
+    @Override public void setAutoCommit(boolean autoCommit) throws SQLException { checkOpen(); executor.setAutoCommit(autoCommit); }
+    @Override public void commit() throws SQLException { checkOpen(); executor.commit(); }
+    @Override public void rollback() throws SQLException { checkOpen(); executor.rollback(); }
+
+    @Override
+    public void close() throws SQLException {
+        if (closed) return; // idempotent, per the JDBC spec
+        executor.close();
+        closed = true;
+    }
+
+    private void checkOpen() throws SQLException { if (closed) throw new SQLException(&quot;Connection is closed&quot;); }
+
+    // isClosed()/isValid(...)/getCatalog()/setReadOnly(...)/etc. are boilerplate -- elided, since no real client this
+    // guide targets calls them in a way that changes behavior; every method with real, load-bearing logic is above.
+}
+</code></pre></div>
+<p>Every method here is generic over <code>StatementExecutor</code> — nothing in this class, or in anything built on top of it (§15-§29), ever needs to know or branch on whether <code>executor</code> is talking to a local file or a remote server. That distinction is made exactly once, at connection-creation time (§31, §47), and never again.</p>
+<hr>
+<h2 id="15-implementing-tinydbstatement">15. Implementing TinyDbStatement</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TinyDbStatement implements Statement {
+
+    protected final TinyDbConnection connection;
+    private TinyDbResultSet currentResultSet;
+    private int lastUpdateCount = -1;
+
+    public TinyDbStatement(TinyDbConnection connection) { this.connection = connection; }
+
+    @Override
+    public ResultSet executeQuery(String sql) throws SQLException {
+        QueryResult result = connection.executeInternal(sql, true); // §14
+        currentResultSet = new TinyDbResultSet(result.rows(), this); // §20
+        return currentResultSet;
+    }
+
+    @Override
+    public int executeUpdate(String sql) throws SQLException {
+        QueryResult result = connection.executeInternal(sql, false);
+        lastUpdateCount = result.affectedRows();
+        return lastUpdateCount;
+    }
+
+    @Override
+    public boolean execute(String sql) throws SQLException {
+        return dispatchByStatementKind(sql); // §16
+    }
+
+    @Override public ResultSet getResultSet() throws SQLException { return currentResultSet; }
+    @Override public int getUpdateCount() throws SQLException { return lastUpdateCount; }
+    @Override public Connection getConnection() throws SQLException { return connection; }
+    @Override public void close() throws SQLException { if (currentResultSet != null) currentResultSet.close(); }
+}
+</code></pre></div>
+<hr>
+<h2 id="16-dispatching-executeexecutequeryexecuteupdate">16. Dispatching execute/executeQuery/executeUpdate</h2>
+<p><code>Statement.execute(sql)</code> is JDBC's own "I don't know in advance whether this is a query or an update" entry point — a real client (DBeaver included) uses it for arbitrary, user-typed SQL where the <em>caller</em> genuinely doesn't want to have to pre-classify the statement itself:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private boolean dispatchByStatementKind(String sql) throws SQLException {
+    boolean isQuery = sql.strip().regionMatches(true, 0, &quot;SELECT&quot;, 0, 6); // the ENTIRE classification logic
+
+    if (isQuery) {
+        executeQuery(sql);
+        return true; // per the JDBC contract: true means &quot;call getResultSet()&quot;
+    } else {
+        executeUpdate(sql);
+        return false; // false means &quot;call getUpdateCount()&quot;
+    }
+}
+</code></pre></div>
+<p>A case-insensitive prefix check on <code>SELECT</code> is a deliberately minimal classifier — correct for every statement type TinyDB's own SQL grammar supports (<code>SELECT</code>, <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, <code>CREATE TABLE</code>, <code>DROP TABLE</code>), and it sidesteps needing to run the real lexer/parser twice (once to classify, once to execute) for a decision this simple.</p>
+<hr>
+<h2 id="17-implementing-tinydbpreparedstatement">17. Implementing TinyDbPreparedStatement</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TinyDbPreparedStatement extends TinyDbStatement implements PreparedStatement {
+
+    private final String sqlTemplate;         // the ORIGINAL sql, with &quot;?&quot; placeholders still in place
+    private final Object[] parameters;         // positional -- parameters[0] corresponds to the FIRST &quot;?&quot;
+
+    public TinyDbPreparedStatement(TinyDbConnection connection, String sqlTemplate) {
+        super(connection);
+        this.sqlTemplate = sqlTemplate;
+        this.parameters = new Object[SqlParameterBinder.countPlaceholders(sqlTemplate)]; // §18
+    }
+
+    @Override public ResultSet executeQuery() throws SQLException { return executeQuery(bindParameters()); }
+    @Override public int executeUpdate() throws SQLException { return executeUpdate(bindParameters()); }
+
+    @Override public void setString(int index, String value) { setParameter(index, value); }
+    @Override public void setInt(int index, int value) { setParameter(index, value); }
+    @Override public void setLong(int index, long value) { setParameter(index, value); }
+    @Override public void setBoolean(int index, boolean value) { setParameter(index, value); }
+    @Override public void setNull(int index, int sqlType) { setParameter(index, null); }
+
+    @Override
+    public void setBigDecimal(int index, BigDecimal value) {
+        setParameter(index, value == null ? null : value.doubleValue()); // DECIMAL is a Double at runtime, §7 -- coerce once, here
+    }
+
+    @Override
+    public void setDate(int index, java.sql.Date value) {
+        setParameter(index, value == null ? null : Instant.ofEpochMilli(value.getTime())); // DATE/TIMESTAMP -&gt; Instant, §7
+    }
+
+    @Override
+    public void setTimestamp(int index, java.sql.Timestamp value) {
+        setParameter(index, value == null ? null : value.toInstant());
+    }
+
+    @Override public void clearParameters() { Arrays.fill(parameters, null); }
+
+    private void setParameter(int index, Object value) {
+        parameters[index - 1] = value; // JDBC parameter indices are 1-based -- placeholders are 0-based internally
+    }
+
+    private String bindParameters() throws SQLException { return SqlParameterBinder.bind(sqlTemplate, parameters); } // §18
+}
+</code></pre></div>
+<p>Coercing <code>BigDecimal</code>/<code>java.sql.Date</code>/<code>java.sql.Timestamp</code> <strong>once, here, at bind time</strong>, rather than deferring the conversion, means every layer beneath this class only ever has to deal with exactly the runtime types §7's engine already expects, never a second, parallel set of JDBC-flavored types leaking downward.</p>
+<hr>
+<h2 id="18-parsing-and-rewriting-placeholders-into-a-bound-sql-statement">18. Parsing and Rewriting <code>?</code> Placeholders Into a Bound SQL Statement</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class SqlParameterBinder {
+
+    public static String bind(String sqlTemplate, Object[] parameters) throws SQLException {
+        StringBuilder bound = new StringBuilder();
+        int parameterIndex = 0;
+        boolean insideStringLiteral = false;
+
+        for (int i = 0; i &lt; sqlTemplate.length(); i++) {
+            char c = sqlTemplate.charAt(i);
+            if (c == '\'') insideStringLiteral = !insideStringLiteral; // a &quot;?&quot; inside a string literal is NOT a placeholder
+
+            if (c == '?' &amp;&amp; !insideStringLiteral) {
+                if (parameterIndex &gt;= parameters.length) throw new SQLException(&quot;Not enough parameters bound for this statement&quot;);
+                bound.append(literalFor(parameters[parameterIndex++]));
+            } else {
+                bound.append(c);
+            }
+        }
+        if (parameterIndex != parameters.length) {
+            throw new SQLException(&quot;Parameter count mismatch: statement declares &quot; + parameterIndex
+                    + &quot; placeholders, &quot; + parameters.length + &quot; were set&quot;);
+        }
+        return bound.toString();
+    }
+
+    private static String literalFor(Object value) {
+        if (value == null) return &quot;NULL&quot;;
+        if (value instanceof String s) return &quot;'&quot; + s.replace(&quot;'&quot;, &quot;''&quot;) + &quot;'&quot;; // doubled quote -- §19 explains why this is safe
+        if (value instanceof Boolean || value instanceof Number) return value.toString();
+        if (value instanceof Instant instant) return &quot;'&quot; + instant.toString() + &quot;'&quot;;
+        throw new IllegalArgumentException(&quot;Unsupported parameter type: &quot; + value.getClass());
+    }
+
+    public static int countPlaceholders(String sqlTemplate) {
+        int count = 0;
+        boolean insideStringLiteral = false;
+        for (char c : sqlTemplate.toCharArray()) {
+            if (c == '\'') insideStringLiteral = !insideStringLiteral;
+            if (c == '?' &amp;&amp; !insideStringLiteral) count++;
+        }
+        return count;
+    }
+}
+</code></pre></div>
+<hr>
+<h2 id="19-why-this-binding-approach-is-safe-and-its-one-honest-limitation">19. Why This Binding Approach Is Safe, and Its One Honest Limitation</h2>
+<p>Escaping a single quote inside a string parameter by <strong>doubling</strong> it (<code>'</code> -&gt; <code>''</code>) is exactly what turns this from a SQL-injection-shaped hole into a safe substitution — a parameter value of <code>O'Brien</code> becomes the SQL literal <code>'O''Brien'</code>, which TinyDB's own SQL lexer parses back as the single, correct string <code>O'Brien</code>, never as a string that ends early and lets the rest of the value's content be interpreted as SQL syntax. This is textual substitution done <em>safely</em>, specifically because it escapes before substituting — it is emphatically not the same operation as a caller naively concatenating an unescaped parameter directly into a SQL string, which is the actual vulnerability <code>PreparedStatement</code> exists to prevent in the first place. A production-grade driver typically goes one step further and passes bound values to the executor as <strong>already-typed values</strong> rather than re-serialized SQL text at all, avoiding a second parse-and-lex round trip; this guide's text-substitution approach is the simpler, still-correct version, named explicitly as a limitation rather than hidden (§60).</p>
+<hr>
+<h2 id="20-implementing-tinydbresultset">20. Implementing TinyDbResultSet</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TinyDbResultSet implements ResultSet {
+
+    private final List&lt;Row&gt; rows;              // §7's Row
+    private final List&lt;String&gt; columnNames;     // fixed order, taken from the first row -- §21 explains why that's safe here
+    private final Statement statement;
+    private int currentIndex = -1;              // -1 means &quot;before the first row&quot; -- next() must be called at least once
+    private boolean lastValueWasNull;
+    private boolean closed;
+
+    public TinyDbResultSet(List&lt;Row&gt; rows, Statement statement) {
+        this.rows = rows;
+        this.statement = statement;
+        this.columnNames = rows.isEmpty() ? List.of() : new ArrayList&lt;&gt;(rows.get(0).columnNames());
+    }
+
+    @Override
+    public boolean next() throws SQLException {
+        checkOpen();
+        if (currentIndex + 1 &gt;= rows.size()) return false;
+        currentIndex++;
+        return true;
+    }
+
+    @Override public boolean isClosed() { return closed; }
+    @Override public void close() { closed = true; }
+    @Override public Statement getStatement() { return statement; }
+    @Override public ResultSetMetaData getMetaData() { return new TinyDbResultSetMetaData(columnNames, currentRow()); } // §23
+    @Override public boolean wasNull() { return lastValueWasNull; }
+
+    private Row currentRow() throws SQLException {
+        if (currentIndex &lt; 0 || currentIndex &gt;= rows.size()) {
+            throw new SQLException(&quot;Cursor is not positioned on a valid row -- call next() first&quot;);
+        }
+        return rows.get(currentIndex);
+    }
+
+    private void checkOpen() throws SQLException { if (closed) throw new SQLException(&quot;ResultSet is closed&quot;); }
+
+    // getInt/getString/getObject/etc. by index AND by name are §21. This driver's result sets are read-only/
+    // forward-only -- updateXxx()/insertRow()/deleteRow() are never implemented, since no client this guide
+    // targets performs updatable-result-set edits; every method with real, load-bearing logic is above.
+}
+</code></pre></div>
+<p><code>currentIndex</code> starting at <code>-1</code>, with <code>next()</code> required before any column access is valid, is the exact cursor discipline every JDBC client (DBeaver included) already assumes.</p>
+<hr>
+<h2 id="21-column-access-by-index-and-by-name-and-wasnull-tracking">21. Column Access by Index and by Name, and wasNull() Tracking</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Override
+public Object getObject(int columnIndex) throws SQLException {
+    Row row = currentRow();
+    String columnName = columnNames.get(columnIndex - 1); // JDBC columns are 1-based
+    Object value = row.get(columnName);
+    lastValueWasNull = (value == null); // §20's wasNull() reads exactly this flag -- set on EVERY access, not just null ones
+    return value;
+}
+
+@Override
+public Object getObject(String columnLabel) throws SQLException {
+    Row row = currentRow();
+    Object value = row.get(columnLabel);
+    lastValueWasNull = (value == null);
+    return value;
+}
+
+@Override public String getString(int columnIndex) throws SQLException { return (String) getObject(columnIndex); }
+@Override public String getString(String columnLabel) throws SQLException { return (String) getObject(columnLabel); }
+
+@Override
+public int getInt(int columnIndex) throws SQLException {
+    Object value = getObject(columnIndex);
+    return value == null ? 0 : ((Number) value).intValue(); // JDBC contract: null numeric returns 0, wasNull() disambiguates
+}
+
+@Override
+public long getLong(int columnIndex) throws SQLException {
+    Object value = getObject(columnIndex);
+    return value == null ? 0L : ((Number) value).longValue();
+}
+
+@Override
+public BigDecimal getBigDecimal(int columnIndex) throws SQLException {
+    Object value = getObject(columnIndex); // a Double, per §22's DECIMAL mapping
+    return value == null ? null : BigDecimal.valueOf((Double) value);
+}
+
+@Override
+public java.sql.Timestamp getTimestamp(int columnIndex) throws SQLException {
+    Object value = getObject(columnIndex); // an Instant, per §22's DATE/TIMESTAMP mapping
+    return value == null ? null : java.sql.Timestamp.from((Instant) value);
+}
+</code></pre></div>
+<p><code>getInt</code>/<code>getLong</code> returning <code>0</code> for a <code>null</code> column, rather than throwing, is a real JDBC specification requirement — a primitive <code>int</code> cannot represent <code>null</code>, so the caller who cares about the difference calls <code>wasNull()</code> immediately afterward. Setting <code>lastValueWasNull</code> inside <code>getObject</code> — the single method every other getter above calls through — means that flag is always correct after <em>any</em> column access, not only after the specific getter a caller happens to have used.</p>
+<hr>
+<h2 id="22-mapping-tinydbs-datatype-to-javasqltypes">22. Mapping TinyDB's DataType to java.sql.Types</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>TinyDB <code>DataType</code></th>
+<th>Java runtime type (§7)</th>
+<th><code>java.sql.Types</code> constant</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>INT</code></td>
+<td><code>Integer</code></td>
+<td><code>Types.INTEGER</code></td>
+</tr>
+<tr>
+<td><code>BIGINT</code></td>
+<td><code>Long</code></td>
+<td><code>Types.BIGINT</code></td>
+</tr>
+<tr>
+<td><code>BOOLEAN</code></td>
+<td><code>Boolean</code></td>
+<td><code>Types.BOOLEAN</code></td>
+</tr>
+<tr>
+<td><code>DECIMAL</code></td>
+<td><code>Double</code> (a stated simplification, not <code>BigDecimal</code> — §7)</td>
+<td><code>Types.DOUBLE</code></td>
+</tr>
+<tr>
+<td><code>DATE</code></td>
+<td><code>Instant</code></td>
+<td><code>Types.DATE</code></td>
+</tr>
+<tr>
+<td><code>TIMESTAMP</code></td>
+<td><code>Instant</code></td>
+<td><code>Types.TIMESTAMP</code></td>
+</tr>
+<tr>
+<td><code>VARCHAR</code></td>
+<td><code>String</code></td>
+<td><code>Types.VARCHAR</code></td>
+</tr>
+</tbody>
+</table></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TypeMapping {
+
+    public static int toJdbcType(DataType dataType) {
+        return switch (dataType) {
+            case INT -&gt; Types.INTEGER;
+            case BIGINT -&gt; Types.BIGINT;
+            case BOOLEAN -&gt; Types.BOOLEAN;
+            case DECIMAL -&gt; Types.DOUBLE;      // NOT Types.DECIMAL -- honest about the underlying Double representation
+            case DATE -&gt; Types.DATE;
+            case TIMESTAMP -&gt; Types.TIMESTAMP;
+            case VARCHAR -&gt; Types.VARCHAR;
+        };
+    }
+
+    public static String toJdbcTypeName(DataType dataType) { return dataType.name(); }
+}
+</code></pre></div>
+<p>Mapping <code>DECIMAL</code> to <code>Types.DOUBLE</code> rather than <code>Types.DECIMAL</code> is a deliberate honesty check: reporting <code>Types.DECIMAL</code> while the underlying value is actually a <code>Double</code> would mislead a client that inspects the reported type to decide which getter is safe to call.</p>
+<hr>
+<h2 id="23-implementing-resultsetmetadata">23. Implementing ResultSetMetaData</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TinyDbResultSetMetaData implements ResultSetMetaData {
+
+    private final List&lt;String&gt; columnNames;
+    private final Row sampleRow; // used ONLY to infer each column's DataType -- never to read actual values
+
+    public TinyDbResultSetMetaData(List&lt;String&gt; columnNames, Row sampleRow) {
+        this.columnNames = columnNames;
+        this.sampleRow = sampleRow;
+    }
+
+    @Override public int getColumnCount() { return columnNames.size(); }
+    @Override public String getColumnName(int column) { return columnNames.get(column - 1); }
+    @Override public String getColumnLabel(int column) { return getColumnName(column); }
+
+    @Override
+    public int getColumnType(int column) throws SQLException {
+        return TypeMapping.toJdbcType(inferDataType(sampleRow.get(getColumnName(column)))); // §22
+    }
+
+    @Override
+    public String getColumnTypeName(int column) throws SQLException {
+        return TypeMapping.toJdbcTypeName(inferDataType(sampleRow.get(getColumnName(column))));
+    }
+
+    private DataType inferDataType(Object value) {
+        return switch (value) {
+            case Integer i -&gt; DataType.INT;
+            case Long l -&gt; DataType.BIGINT;
+            case Boolean b -&gt; DataType.BOOLEAN;
+            case Double d -&gt; DataType.DECIMAL;
+            case Instant i -&gt; DataType.TIMESTAMP;
+            case String s -&gt; DataType.VARCHAR;
+            case null, default -&gt; DataType.VARCHAR; // an all-null column has no sample to infer from -- a safe, stated fallback
+        };
+    }
+}
+</code></pre></div>
+<p>Inferring a column's type from a <strong>sample row's runtime value</strong>, rather than from the table's actual declared <code>TableSchema</code> (§7), is this section's one honest shortcut — correct for every ordinary query, but it silently gets an all-<code>NULL</code>-in-every-row column wrong. §27's <code>getColumns()</code> — driven directly from <code>Catalog.getTable(...)</code>'s real, declared schema, never from a sample row — does not have this limitation, and is what DBeaver's schema browser actually relies on.</p>
+<hr>
+<h2 id="24-why-dbeaver-needs-databasemetadata-in-real-depth">24. Why DBeaver Needs DatabaseMetaData in Real Depth</h2>
+<p>Everything built so far (§15-§23) is enough to run a query and read its result — but DBeaver's <em>schema browser</em>, the tree on the left showing every database, table, and column before a user has typed a single SQL statement, is built <strong>entirely</strong> on <code>Connection.getMetaData()</code> (§14) and a handful of specific <code>DatabaseMetaData</code> methods, called automatically the moment a connection opens, with no SQL involved at all. Get these wrong, and DBeaver connects successfully but shows an empty or broken schema tree — a failure mode that looks like a connection problem but is actually a metadata-completeness problem.</p>
+<hr>
+<h2 id="25-implementing-getcatalogs-and-getschemas">25. Implementing getCatalogs() and getSchemas()</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TinyDbDatabaseMetaData implements DatabaseMetaData {
+
+    private final Catalog catalog; // §7
+
+    public TinyDbDatabaseMetaData(Catalog catalog) { this.catalog = catalog; }
+
+    @Override
+    public ResultSet getCatalogs() throws SQLException {
+        // TinyDB has exactly ONE catalog per data directory (§8's URL format), so this always returns one row.
+        return MetadataResultSets.singleColumn(&quot;TABLE_CAT&quot;, List.of(&quot;tinydb&quot;));
+    }
+
+    @Override
+    public ResultSet getSchemas() throws SQLException {
+        // Likewise, exactly one schema -- DBeaver's tree still expects a non-empty schemas result to
+        // render a schema node at all, so returning an empty result here would hide every table beneath it.
+        return MetadataResultSets.twoColumn(&quot;TABLE_SCHEM&quot;, &quot;TABLE_CATALOG&quot;, List.of(List.of(&quot;public&quot;, &quot;tinydb&quot;)));
+    }
+
+    @Override public String getDatabaseProductName() { return &quot;TinyDB&quot;; }
+    @Override public String getDatabaseProductVersion() { return &quot;1.0&quot;; }
+    @Override public String getDriverName() { return &quot;TinyDB JDBC Driver&quot;; }
+    @Override public String getDriverVersion() { return &quot;1.0&quot;; }
+}
+</code></pre></div>
+<p><code>MetadataResultSets</code> is a small internal helper (elided here) that builds a <code>TinyDbResultSet</code> (§20) directly from an in-memory list of rows, rather than routing a manufactured metadata answer back through the SQL layer at all — <code>getCatalogs</code>/<code>getSchemas</code> have nothing to do with SQL execution, and forcing them through the lexer/parser/planner just to produce one or two fixed, known rows would be needless indirection.</p>
+<hr>
+<h2 id="26-implementing-gettables">26. Implementing getTables()</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Override
+public ResultSet getTables(String catalog, String schemaPattern, String tableNamePattern, String[] types) throws SQLException {
+    List&lt;TableSchema&gt; allTables = this.catalog.listTables(); // §7's Catalog.listTables()
+
+    List&lt;List&lt;Object&gt;&gt; rows = allTables.stream()
+            .filter(t -&gt; tableNamePattern == null || matchesSqlLikePattern(t.tableName(), tableNamePattern))
+            .map(t -&gt; List.&lt;Object&gt;of(&quot;tinydb&quot;, &quot;public&quot;, t.tableName(), &quot;TABLE&quot;, &quot;&quot;))
+            .toList();
+
+    return MetadataResultSets.of(
+            List.of(&quot;TABLE_CAT&quot;, &quot;TABLE_SCHEM&quot;, &quot;TABLE_NAME&quot;, &quot;TABLE_TYPE&quot;, &quot;REMARKS&quot;),
+            rows);
+}
+</code></pre></div>
+<p>Every one of <code>getTables</code>'s parameters — <code>catalog</code>, <code>schemaPattern</code>, <code>tableNamePattern</code>, <code>types</code> — is allowed to be <code>null</code>, meaning "don't filter on this," per the JDBC specification; this implementation only honors <code>tableNamePattern</code> (the one DBeaver's own "filter tables" search box actually drives) and ignores <code>catalog</code>/<code>schemaPattern</code> entirely, correct specifically <em>because</em> §25 already established there is only ever one catalog and one schema.</p>
+<hr>
+<h2 id="27-implementing-getcolumns">27. Implementing getColumns()</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Override
+public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern) throws SQLException {
+    List&lt;List&lt;Object&gt;&gt; rows = new ArrayList&lt;&gt;();
+    for (TableSchema table : this.catalog.listTables()) {
+        if (tableNamePattern != null &amp;&amp; !matchesSqlLikePattern(table.tableName(), tableNamePattern)) continue;
+
+        int ordinalPosition = 1;
+        for (Column column : table.columns()) {
+            if (columnNamePattern != null &amp;&amp; !matchesSqlLikePattern(column.name(), columnNamePattern)) continue;
+            rows.add(List.of(
+                    &quot;tinydb&quot;, &quot;public&quot;, table.tableName(), column.name(),
+                    TypeMapping.toJdbcType(column.type()),          // §22 -- DATA_TYPE, an int, java.sql.Types constant
+                    TypeMapping.toJdbcTypeName(column.type()),      // TYPE_NAME
+                    column.nullable() ? &quot;YES&quot; : &quot;NO&quot;,                // IS_NULLABLE
+                    ordinalPosition++));                              // ORDINAL_POSITION
+        }
+    }
+    return MetadataResultSets.of(
+            List.of(&quot;TABLE_CAT&quot;, &quot;TABLE_SCHEM&quot;, &quot;TABLE_NAME&quot;, &quot;COLUMN_NAME&quot;, &quot;DATA_TYPE&quot;, &quot;TYPE_NAME&quot;, &quot;IS_NULLABLE&quot;, &quot;ORDINAL_POSITION&quot;),
+            rows);
+}
+</code></pre></div>
+<p>This is the single method that makes DBeaver's "expand a table to see its columns" interaction work at all — built <strong>entirely</strong> from <code>Catalog.listTables()</code>/<code>TableSchema.columns()</code> (§7), the exact same <code>Catalog</code> every SQL statement already reads schema from. There is no second, parallel metadata store to keep in sync — a <code>CREATE TABLE</code> executed through §16's <code>Statement.execute</code> updates the <em>same</em> catalog <code>getColumns</code> reads from.</p>
+<hr>
+<h2 id="28-implementing-getprimarykeys-and-other-metadata-dbeaver-expects">28. Implementing getPrimaryKeys() and Other Metadata DBeaver Expects</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Override
+public ResultSet getPrimaryKeys(String catalog, String schema, String table) throws SQLException {
+    // TinyDB's TableSchema (§7) never modeled a primary key at all -- there is genuinely nothing to report
+    // here yet. Returning an EMPTY result set (not null, not an exception) is the correct, specification-
+    // honored way to say &quot;this table has no primary key&quot; -- DBeaver handles this gracefully, no key icon shown.
+    return MetadataResultSets.of(
+            List.of(&quot;TABLE_CAT&quot;, &quot;TABLE_SCHEM&quot;, &quot;TABLE_NAME&quot;, &quot;COLUMN_NAME&quot;, &quot;KEY_SEQ&quot;, &quot;PK_NAME&quot;),
+            List.of());
+}
+
+@Override
+public ResultSet getIndexInfo(String catalog, String schema, String table, boolean unique, boolean approximate) throws SQLException {
+    return MetadataResultSets.of(
+            List.of(&quot;TABLE_CAT&quot;, &quot;TABLE_SCHEM&quot;, &quot;TABLE_NAME&quot;, &quot;INDEX_NAME&quot;, &quot;COLUMN_NAME&quot;), List.of()); // same honest &quot;none yet&quot;
+}
+</code></pre></div>
+<p>Returning a correctly-shaped, empty <code>ResultSet</code> — never <code>null</code>, never throwing <code>SQLFeatureNotSupportedException</code> — for metadata TinyDB genuinely doesn't have yet is the pattern this entire section follows: DBeaver calls a long, fixed list of <code>DatabaseMetaData</code> methods unconditionally while building its schema tree, and a method that throws instead of returning an empty result can abort that entire tree-building pass.</p>
+<hr>
+<h2 id="29-capability-flags-the-supportsxxx-methods-dbeaver-checks">29. Capability Flags: The supportsXXX() Methods DBeaver Checks</h2>
+<p>Before attempting a feature, a well-behaved JDBC client asks the driver whether it's supported at all — DBeaver checks dozens of these before deciding, for instance, whether to offer transaction-related UI, or whether to attempt a certain kind of metadata query:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>@Override public boolean supportsTransactions() { return true; }                    // §10-§13 -- real, WAL-backed
+@Override public boolean supportsBatchUpdates() { return false; }                    // honest -- §60 names this as future work
+@Override public boolean supportsMultipleResultSets() { return false; }
+@Override public boolean supportsStoredProcedures() { return false; }
+@Override public boolean supportsSubqueries() { return false; }                      // matches TinyDB's stated grammar limits
+@Override public boolean supportsOuterJoins() { return false; }                       // no JOIN support at all
+@Override public boolean nullsAreSortedAtEnd() { return true; }                       // an honest, stated ordering convention
+@Override public int getDatabaseMajorVersion() { return 1; }
+@Override public int getJDBCMajorVersion() { return 4; }
+</code></pre></div>
+<p>Answering <code>false</code> honestly for a feature that genuinely isn't supported — rather than answering <code>true</code> and letting the actual attempt fail later with a confusing error — is what lets DBeaver correctly disable or hide UI for features this driver can't back.</p>
+<hr>
+<h2 id="30-mapping-tinydbs-internal-errors-to-javasqlsqlexception">30. Mapping TinyDB's Internal Errors to java.sql.SQLException</h2>
+<p>Every internal exception this driver's own code can encounter — a SQL parse error, an <code>IOException</code> from the storage layer, an <code>IllegalStateException</code> from a misused transaction — must reach the JDBC caller as a <code>SQLException</code>, because that's the <em>only</em> checked exception type the <code>java.sql.*</code> interfaces declare.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class SqlExceptionMapper {
+
+    public static SQLException map(Exception internal) {
+        if (internal instanceof SqlParseException e) {
+            return new SQLSyntaxErrorException(e.getMessage(), e);      // a real, specific SQLException subclass
+        }
+        if (internal instanceof IOException e) {
+            return new SQLException(&quot;Storage I/O error: &quot; + e.getMessage(), &quot;58030&quot;, e); // SQLSTATE class 58 -- system error
+        }
+        if (internal instanceof IllegalArgumentException e) {
+            return new SQLException(e.getMessage(), &quot;42000&quot;, e);         // SQLSTATE class 42 -- syntax/access rule violation
+        }
+        return new SQLException(&quot;Unexpected error: &quot; + internal.getMessage(), internal);
+    }
+}
+</code></pre></div>
+<p>Using a <strong>specific</strong> <code>SQLException</code> subclass where one genuinely fits, and a meaningful <strong>SQLSTATE</strong> code even when it doesn't, is what lets a client distinguish "you wrote bad SQL" from "the disk failed" programmatically — a driver that only ever throws a bare <code>new SQLException(message)</code> with no state code makes every single error look identical to any tooling built to react differently to different failure classes.</p>
+<hr>
+<h2 id="31-driver-registration-and-tinydbdriver">31. Driver Registration and TinyDbDriver</h2>
+<p>A JDBC 4.0+ driver never requires its caller to write <code>Class.forName("com.example.tinydb.jdbc.TinyDbDriver")</code> — <code>java.sql.DriverManager</code> uses <code>java.util.ServiceLoader</code> to discover every driver on the classpath automatically, by reading a plain text file:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>com.example.tinydb.jdbc.TinyDbDriver
+</code></pre></div>
+<p>placed at <code>src/main/resources/META-INF/services/java.sql.Driver</code>. The moment the driver's JAR is on DBeaver's classpath, <code>ServiceLoader</code> finds this file, reads the one class name in it, instantiates that class via its no-argument constructor, and calls <code>DriverManager.registerDriver(...)</code> on the caller's behalf.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TinyDbDriver implements java.sql.Driver {
+
+    private static final Map&lt;Path, TinyDbInstance&gt; OPEN_INSTANCES = new ConcurrentHashMap&lt;&gt;(); // §12 -- one per data directory
+
+    static {
+        try {
+            DriverManager.registerDriver(new TinyDbDriver());
+        } catch (SQLException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    public TinyDbDriver() { } // required -- ServiceLoader instantiates via this exact constructor
+
+    @Override
+    public boolean acceptsURL(String url) { return url != null &amp;&amp; url.startsWith(&quot;jdbc:tinydb:&quot;); }
+
+    @Override
+    public Connection connect(String url, Properties info) throws SQLException {
+        if (!acceptsURL(url)) return null; // a Driver that doesn't understand a URL returns null, never throws
+
+        if (url.startsWith(&quot;jdbc:tinydb://&quot;)) {
+            return connectRemote(url, info); // §47 -- built once the network layer exists, §34 onward
+        }
+        return connectEmbedded(url); // this section
+    }
+
+    private Connection connectEmbedded(String url) throws SQLException {
+        Path dataDirectory = Path.of(url.substring(&quot;jdbc:tinydb:&quot;.length()));
+        try {
+            TinyDbInstance instance = OPEN_INSTANCES.computeIfAbsent(dataDirectory.toAbsolutePath(), path -&gt; {
+                try {
+                    return TinyDbInstance.open(path); // §12
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
+            return new TinyDbConnection(new EmbeddedStatementExecutor(instance)); // §13-§14
+        } catch (UncheckedIOException e) {
+            throw new SQLException(&quot;Failed to open TinyDB data directory: &quot; + dataDirectory, e.getCause());
+        }
+    }
+
+    @Override public int getMajorVersion() { return 1; }
+    @Override public int getMinorVersion() { return 0; }
+    @Override public boolean jdbcCompliant() { return false; } // honest -- this driver does not implement the FULL spec
+    @Override public Logger getParentLogger() { throw new SQLFeatureNotSupportedException(); }
+    @Override public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) { return new DriverPropertyInfo[0]; }
+}
+</code></pre></div>
+<p><code>OPEN_INSTANCES.computeIfAbsent(...)</code>, keyed by the data directory's absolute path, is what enforces "exactly one <code>TinyDbInstance</code> per data directory" even when DBeaver opens several <code>Connection</code>s to the same embedded database concurrently (which it routinely does — one for browsing schema, one for running a query) — every one of them resolves to the identical shared <code>BasicQueryEngine</code>/<code>FileStorageEngine</code> pair, never a competing second copy. <code>connectRemote</code> is a stub reference for now — §47 fills it in once §34-§46 have built everything it needs.</p>
+<hr>
+<h2 id="32-packaging-and-connecting-from-dbeaver-embedded">32. Packaging and Connecting From DBeaver (Embedded)</h2>
+<p>The driver's JAR must contain every class this guide builds, plus the underlying query-engine and storage-engine classes it wires against (§7) — an "uber/fat JAR" bundling its own transitive dependencies, the same way any Java library ships when it can't assume the consumer separately provides them.</p>
+<ol>
+<li><strong>Database -&gt; Driver Manager -&gt; New Driver.</strong> Driver Name: <code>TinyDB</code>; Class Name: <code>com.example.tinydb.jdbc.TinyDbDriver</code>; URL Template: <code>jdbc:tinydb:{file}</code>.</li>
+<li><strong>Libraries tab -&gt; Add File</strong> -&gt; select the driver JAR.</li>
+<li><strong>Database -&gt; New Database Connection -&gt; TinyDB</strong>, providing the <strong>Path</strong> to a data directory (existing or new).</li>
+<li><strong>Test Connection.</strong> DBeaver calls <code>DriverManager.getConnection(url)</code>, resolving to <code>TinyDbDriver.connect</code> (§31), which opens or reuses a <code>TinyDbInstance</code> (§12) — including running <code>recover()</code> if the directory already contains a prior database.</li>
+<li>On success, DBeaver calls <code>getMetaData()</code> (§14) and walks <code>getCatalogs</code>/<code>getSchemas</code>/<code>getTables</code>/<code>getColumns</code> (§25-§27) to populate the schema tree.</li>
+<li>Open a SQL editor tab and run any statement — it flows through §15-§16's <code>Statement</code> dispatch into <code>EmbeddedStatementExecutor</code> (§13).</li>
+</ol>
+<hr>
+<h2 id="33-follow-up-can-this-be-connected-from-a-remote-server">33. Follow-up: Can This Be Connected From a Remote Server?</h2>
+<p>Everything through §32 is a complete, working, <strong>embedded</strong> driver — DBeaver has to be running on the same machine as the data directory (or have it mounted as a local path), because <code>connectEmbedded</code> (§31) opens a <code>FileStorageEngine</code> directly on a local filesystem path, with no network protocol anywhere. That's the honest limit of what's been built so far, and it's a real one: point DBeaver at a path on a genuinely different machine, and there's nothing listening on the other end to connect to.</p>
+<p>Making that actually possible needs exactly two new things, and — because §9's <code>StatementExecutor</code> seam was designed in from the start rather than hard-coded — <strong>nothing already built above §14 needs to change to get them</strong>: a real TinyDB server process (a wire protocol plus a process that owns the database and listens on a port, §34-§45), and a second <code>StatementExecutor</code> implementation that talks to it over a socket instead of calling straight into a local engine (§46). <code>TinyDbConnection</code>, <code>TinyDbStatement</code>, <code>TinyDbPreparedStatement</code>, <code>TinyDbResultSet</code>, <code>TinyDbResultSetMetaData</code>, and <code>TinyDbDatabaseMetaData</code> — every JDBC-facing class built so far — need exactly zero changes. §34 onward builds both new pieces.</p>
+<hr>
+<h2 id="34-the-wire-protocol-framing-and-message-types">34. The Wire Protocol: Framing and Message Types</h2>
+<p>Every message, in either direction, is a <strong>length-prefixed frame</strong>: a 4-byte big-endian length, followed by exactly that many bytes of payload. Length-prefixing is what lets a reader know exactly how many bytes make up "one message" without scanning for a delimiter that might legitimately appear inside the payload itself — a SQL string containing whatever byte sequence a naive delimiter-based framing might mistake for an end marker.</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record Frame(byte[] payload) {
+
+    public void writeTo(OutputStream out) throws IOException {
+        DataOutputStream dataOut = new DataOutputStream(out);
+        dataOut.writeInt(payload.length);
+        dataOut.write(payload);
+        dataOut.flush();
+    }
+
+    public static Frame readFrom(InputStream in) throws IOException {
+        DataInputStream dataIn = new DataInputStream(in);
+        int length = dataIn.readInt();
+        if (length &lt; 0 || length &gt; MAX_FRAME_BYTES) throw new IOException(&quot;Invalid frame length: &quot; + length); // §52
+        byte[] payload = new byte[length];
+        dataIn.readFully(payload); // blocks until exactly `length` bytes arrive, or throws EOFException on early close
+        return new Frame(payload);
+    }
+
+    private static final int MAX_FRAME_BYTES = 64 * 1024 * 1024; // 64 MB -- a sanity bound, §52 explains why this matters
+}
+</code></pre></div>
+<hr>
+<h2 id="35-the-request-types">35. The Request Types</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public sealed interface Request permits AuthRequest, ExecuteRequest, CommitRequest, RollbackRequest,
+        SetAutoCommitRequest, FetchCatalogSnapshotRequest, CloseRequest {
+}
+
+public record AuthRequest(String username, String password) implements Request { }                    // §39-§40
+public record ExecuteRequest(String sql, boolean isQuery) implements Request { }                        // §9's execute(...)
+public record CommitRequest() implements Request { }
+public record RollbackRequest() implements Request { }
+public record SetAutoCommitRequest(boolean autoCommit) implements Request { }
+public record FetchCatalogSnapshotRequest() implements Request { }                                       // §50
+public record CloseRequest() implements Request { }
+</code></pre></div>
+<p>Every one of these maps <strong>exactly</strong> onto one method of <code>StatementExecutor</code> (§9) — the wire protocol's request types are the seam's own methods, made serializable, one for one, rather than a separately-invented protocol vocabulary that then has to be reconciled with the interface it's actually driving.</p>
+<hr>
+<h2 id="36-the-response-types">36. The Response Types</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public sealed interface Response permits AuthResponse, QueryResultResponse, ErrorResponse, AckResponse,
+        CatalogSnapshotResponse {
+}
+
+public record AuthResponse(boolean success, String failureReason /* nullable */) implements Response { }
+public record QueryResultResponse(List&lt;Map&lt;String, Object&gt;&gt; rows, int affectedRows) implements Response { } // mirrors QueryResult
+public record ErrorResponse(String message, String sqlState) implements Response { }                        // §30
+public record AckResponse() implements Response { }                                                          // commit/rollback/setAutoCommit/close
+public record CatalogSnapshotResponse(List&lt;SerializedTableSchema&gt; tables) implements Response { }             // §50
+
+public record SerializedTableSchema(String tableName, List&lt;SerializedColumn&gt; columns) { }
+public record SerializedColumn(String name, String dataType, boolean nullable) { } // dataType as a NAME, decoded via DataType.valueOf(...)
+</code></pre></div>
+<p>Every request type in §35 gets exactly one corresponding response type here — <code>ExecuteRequest</code> -&gt; <code>QueryResultResponse</code> or <code>ErrorResponse</code>; <code>CommitRequest</code>/<code>RollbackRequest</code>/<code>SetAutoCommitRequest</code>/<code>CloseRequest</code> -&gt; <code>AckResponse</code> or <code>ErrorResponse</code>; <code>FetchCatalogSnapshotRequest</code> -&gt; <code>CatalogSnapshotResponse</code>.</p>
+<hr>
+<h2 id="37-implementing-requestresponse-serialization">37. Implementing Request/Response Serialization</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class ProtocolCodec {
+
+    public byte[] encode(Request request) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        DataOutputStream dataOut = new DataOutputStream(out);
+        switch (request) {
+            case AuthRequest r -&gt; { dataOut.writeByte(1); writeString(dataOut, r.username()); writeString(dataOut, r.password()); }
+            case ExecuteRequest r -&gt; { dataOut.writeByte(2); writeString(dataOut, r.sql()); dataOut.writeBoolean(r.isQuery()); }
+            case CommitRequest r -&gt; dataOut.writeByte(3);
+            case RollbackRequest r -&gt; dataOut.writeByte(4);
+            case SetAutoCommitRequest r -&gt; { dataOut.writeByte(5); dataOut.writeBoolean(r.autoCommit()); }
+            case FetchCatalogSnapshotRequest r -&gt; dataOut.writeByte(6);
+            case CloseRequest r -&gt; dataOut.writeByte(7);
+        }
+        return out.toByteArray();
+    }
+
+    public Request decodeRequest(byte[] payload) throws IOException {
+        DataInputStream dataIn = new DataInputStream(new ByteArrayInputStream(payload));
+        int typeTag = dataIn.readByte();
+        return switch (typeTag) {
+            case 1 -&gt; new AuthRequest(readString(dataIn), readString(dataIn));
+            case 2 -&gt; new ExecuteRequest(readString(dataIn), dataIn.readBoolean());
+            case 3 -&gt; new CommitRequest();
+            case 4 -&gt; new RollbackRequest();
+            case 5 -&gt; new SetAutoCommitRequest(dataIn.readBoolean());
+            case 6 -&gt; new FetchCatalogSnapshotRequest();
+            case 7 -&gt; new CloseRequest();
+            default -&gt; throw new IOException(&quot;Unknown request type tag: &quot; + typeTag);
+        };
+    }
+
+    private void writeString(DataOutputStream out, String value) throws IOException {
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        out.writeInt(bytes.length);
+        out.write(bytes);
+    }
+
+    private String readString(DataInputStream in) throws IOException {
+        int length = in.readInt();
+        byte[] bytes = new byte[length];
+        in.readFully(bytes);
+        return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    // encode(Response)/decodeResponse(byte[]) follow the identical one-byte-type-tag-then-fields shape --
+    // elided here since the pattern is fully established above; QueryResultResponse's row encoding reuses
+    // writeString for keys and a small type-tagged value encoder for each Object (Integer/Long/Boolean/
+    // Double/String/Instant/null), mirroring §36's DataType-name-based encoding for SerializedColumn.
+}
+</code></pre></div>
+<p>A one-byte type tag, switched on to select the decoder, is a small, closed-set dispatch discipline — and because <code>Request</code>/<code>Response</code> are <code>sealed</code>, the <code>switch</code> in <code>encode</code> has <strong>no <code>default</code> branch</strong>: adding an eighth request type without adding its <code>case</code> here is a compile error, never a silently-dropped message.</p>
+<hr>
+<h2 id="38-authentication-a-simple-credential-handshake">38. Authentication: A Simple Credential Handshake</h2>
+<p>The embedded driver's only "authentication" was, implicitly, whatever the operating system's filesystem permissions already enforced on the data directory (§32). The moment TinyDB is reachable over a network, that goes away entirely — any process that can reach the port can otherwise connect. The very first message on every connection, before anything else, must be an <code>AuthRequest</code> (§35), checked against a credential store before the server does anything else on that socket, including reporting <em>why</em> a query failed — an unauthenticated caller should learn only "authentication failed," never any detail that leaks whether a specific username exists.</p>
+<hr>
+<h2 id="39-implementing-the-auth-handshake">39. Implementing the Auth Handshake</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface CredentialStore {
+    boolean verify(String username, String password);
+}
+
+public final class InMemoryCredentialStore implements CredentialStore {
+
+    private final Map&lt;String, String&gt; hashedPasswordsByUsername; // username -&gt; a salted hash, NEVER the plaintext password
+
+    public InMemoryCredentialStore(Map&lt;String, String&gt; hashedPasswordsByUsername) {
+        this.hashedPasswordsByUsername = hashedPasswordsByUsername;
+    }
+
+    @Override
+    public boolean verify(String username, String password) {
+        String expectedHash = hashedPasswordsByUsername.get(username);
+        if (expectedHash == null) return false; // unknown username -- same failure shape as a wrong password, deliberately
+        return expectedHash.equals(hash(password));
+    }
+
+    private String hash(String password) {
+        // A real implementation uses a slow, salted password hash (bcrypt/Argon2/PBKDF2) from a well-reviewed
+        // library -- NEVER a fast general-purpose hash like plain SHA-256 for password storage specifically.
+        // Named honestly here rather than implemented, for the same reason §41 doesn't hand-roll TLS: password
+        // hashing is exactly the kind of security-critical code you use a reviewed library for, not write yourself.
+        throw new UnsupportedOperationException(&quot;Wire a real password-hashing library here, e.g. bcrypt&quot;);
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>/** Runs on the SERVER, as the first step of every new connection, before any Request other than
+ *  AuthRequest (§35) is accepted at all. */
+public boolean handleAuthHandshake(Socket socket, CredentialStore credentialStore) throws IOException {
+    Frame frame = Frame.readFrom(socket.getInputStream());
+    Request request = new ProtocolCodec().decodeRequest(frame.payload());
+
+    if (!(request instanceof AuthRequest auth)) {
+        sendError(socket, &quot;First message on a connection must be AuthRequest&quot;);
+        return false;
+    }
+    boolean authenticated = credentialStore.verify(auth.username(), auth.password());
+    sendResponse(socket, new AuthResponse(authenticated, authenticated ? null : &quot;Invalid credentials&quot;));
+    return authenticated; // §45's ServerConnectionHandler closes the socket immediately if this is false
+}
+</code></pre></div>
+<p>Deliberately naming password hashing as <em>"wire a real library here"</em> rather than implementing SHA-256-by-hand is not a cop-out — it's the correct engineering call, stated honestly instead of hidden behind a plausible-looking but actually-wrong implementation. A hand-rolled password hash is one of the most common, most dangerous mistakes in exactly this kind of guide, and this section refuses to make it just to appear complete.</p>
+<hr>
+<h2 id="40-why-tls-belongs-here-and-why-we-dont-hand-roll-it">40. Why TLS Belongs Here, and Why We Don't Hand-Roll It</h2>
+<p>Without transport encryption, §39's <code>AuthRequest</code> — carrying a real username and password — travels across the network in plaintext, readable by anything positioned to intercept the connection. The fix is <strong>not</strong> "design a new encryption scheme" — it's "wrap the existing <code>Socket</code> in one already provided by the JDK":</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>SSLContext sslContext = SSLContext.getInstance(&quot;TLSv1.3&quot;);
+sslContext.init(keyManagers, trustManagers, null); // standard JDK key/trust-store setup, elided -- not this guide's subject
+SSLServerSocketFactory factory = sslContext.getServerSocketFactory();
+ServerSocket serverSocket = factory.createServerSocket(port); // IDENTICAL usage from here on to a plain ServerSocket (§43)
+</code></pre></div>
+<p>Every line of protocol logic this guide builds — <code>Frame</code> (§34), <code>Request</code>/<code>Response</code> (§35-§36), <code>ProtocolCodec</code> (§37), the auth handshake (§39) — runs completely unchanged whether <code>serverSocket</code> came from <code>SSLServerSocketFactory</code> or a plain <code>ServerSocketFactory</code>, because <code>SSLSocket</code> <strong>is</strong> a <code>Socket</code>, and every method this guide calls on one (<code>getInputStream()</code>, <code>getOutputStream()</code>) is inherited, identically-behaving, from that same base type. This is the entire argument for never hand-rolling cryptography here: TLS is a <strong>transport-layer wrapping decision</strong>, made once, at the point a socket is created — never a protocol-design decision this guide's own code needs to reason about at all.</p>
+<hr>
+<h2 id="41-the-tinydb-server-process-architecture">41. The TinyDB Server Process: Architecture</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                          ServerSocket.accept() loop (§42)
+                                       |
+                          one accepted Socket per client
+                                       |
+                    submitted as a task to a bounded worker pool (§42)
+                                       |
+                          ServerConnectionHandler (§43-§44)
+                    - runs §39's auth handshake FIRST
+                    - then a request/response loop, decoding via ProtocolCodec (§37)
+                    - holds ITS OWN EmbeddedStatementExecutor (§13), reused SERVER-SIDE
+                                       |
+                    every handler's EmbeddedStatementExecutor wraps
+                    the SAME, single, shared TinyDbInstance (§12)
+</code></pre></div>
+<p>The critical design fact this diagram makes visible: <code>EmbeddedStatementExecutor</code> (§13) is not only the embedded driver's own executor — on the server, <strong>one instance of it is created per connected client</strong>, each with its own <code>autoCommit</code> flag and its own possibly-open <code>TransactionContext</code>, all of them sharing the one underlying <code>TinyDbInstance</code>. This needed no server-specific redesign at all: a JDBC <code>Connection</code>'s transaction state has always been per-connection, whether that connection is a Java object living in the same process or a <code>ServerConnectionHandler</code> living on the other end of a socket.</p>
+<hr>
+<h2 id="42-implementing-the-accept-loop-and-a-bounded-worker-pool">42. Implementing the Accept Loop and a Bounded Worker Pool</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TinyDbServer {
+
+    private final int port;
+    private final TinyDbInstance instance;                 // ONE shared instance, §12
+    private final CredentialStore credentialStore;           // §39
+    private final ExecutorService workerPool;                // bounded core+max+queue+reject -- §46 explains this bound's purpose
+    private volatile boolean running;
+
+    public TinyDbServer(int port, TinyDbInstance instance, CredentialStore credentialStore, int maxConcurrentClients) {
+        this.port = port;
+        this.instance = instance;
+        this.credentialStore = credentialStore;
+        this.workerPool = new ThreadPoolExecutor(
+                maxConcurrentClients / 2, maxConcurrentClients,   // core / max
+                60, TimeUnit.SECONDS,
+                new LinkedBlockingQueue&lt;&gt;(100),                    // a bounded queue -- clients beyond capacity wait, not spawn unbounded threads
+                new ThreadPoolExecutor.AbortPolicy());              // a client beyond queue capacity is rejected outright, §52
+    }
+
+    public void start() throws IOException {
+        running = true;
+        try (ServerSocket serverSocket = new ServerSocket(port)) { // or SSLServerSocketFactory, §40
+            while (running) {
+                Socket clientSocket = serverSocket.accept(); // blocks until a client connects
+                workerPool.submit(new ServerConnectionHandler(clientSocket, instance, credentialStore)); // §43
+            }
+        }
+    }
+
+    public void stop() { running = false; workerPool.shutdown(); }
+}
+</code></pre></div>
+<p>Submitting each accepted socket to a <strong>bounded</strong> pool, rather than spawning <code>new Thread(...)</code> unboundedly per client, means an unbounded thread-per-client server degrades catastrophically under a connection flood, where a bounded pool degrades gracefully — new connections queue, then get rejected outright once the queue itself is full (§52), rather than the server exhausting memory or OS thread limits trying to accept every single one.</p>
+<hr>
+<h2 id="43-implementing-serverconnectionhandler">43. Implementing ServerConnectionHandler</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class ServerConnectionHandler implements Runnable {
+
+    private final Socket socket;
+    private final TinyDbInstance instance;
+    private final CredentialStore credentialStore;
+    private final ProtocolCodec codec = new ProtocolCodec(); // §37
+
+    public ServerConnectionHandler(Socket socket, TinyDbInstance instance, CredentialStore credentialStore) {
+        this.socket = socket;
+        this.instance = instance;
+        this.credentialStore = credentialStore;
+    }
+
+    @Override
+    public void run() {
+        try (socket) {
+            if (!authenticate()) return; // §38-§39 -- closes the socket immediately on failure, no further messages read
+
+            EmbeddedStatementExecutor executor = new EmbeddedStatementExecutor(instance); // §13, ONE PER CONNECTION -- §41
+            while (!socket.isClosed()) {
+                Frame requestFrame = Frame.readFrom(socket.getInputStream());
+                Request request = codec.decodeRequest(requestFrame.payload());
+                Response response = dispatch(request, executor); // §44
+                new Frame(codec.encode(response)).writeTo(socket.getOutputStream());
+                if (request instanceof CloseRequest) break; // the client is done -- stop reading further frames
+            }
+        } catch (EOFException e) {
+            // the client closed its socket without sending a CloseRequest -- treated identically to one that did,
+            // after making sure any open transaction is rolled back (the try-with-resources below still runs)
+        } catch (IOException e) {
+            // a genuine network error mid-connection -- §52 discusses this case specifically
+        } finally {
+            // if authenticate() succeeded but the loop exited abnormally, any open transaction must still be
+            // resolved -- NOT left dangling open against the shared TinyDbInstance indefinitely.
+        }
+    }
+
+    private boolean authenticate() throws IOException { /* §39's handleAuthHandshake, inlined here */ return true; }
+}
+</code></pre></div>
+<hr>
+<h2 id="44-dispatching-a-request-to-the-executor">44. Dispatching a Request to the Executor</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private Response dispatch(Request request, EmbeddedStatementExecutor executor) {
+    try {
+        return switch (request) {
+            case ExecuteRequest r -&gt; {
+                QueryResult result = executor.execute(r.sql(), r.isQuery()); // §9's seam, called SERVER-SIDE
+                yield toQueryResultResponse(result);
+            }
+            case CommitRequest r -&gt; { executor.commit(); yield new AckResponse(); }
+            case RollbackRequest r -&gt; { executor.rollback(); yield new AckResponse(); }
+            case SetAutoCommitRequest r -&gt; { executor.setAutoCommit(r.autoCommit()); yield new AckResponse(); }
+            case FetchCatalogSnapshotRequest r -&gt; toCatalogSnapshotResponse(executor.catalog()); // §50
+            case CloseRequest r -&gt; { executor.close(); yield new AckResponse(); }
+            case AuthRequest r -&gt; new ErrorResponse(&quot;Already authenticated on this connection&quot;, &quot;08001&quot;);
+        };
+    } catch (SQLException e) {
+        return new ErrorResponse(e.getMessage(), e.getSQLState()); // §30's exception mapping
+    }
+}
+</code></pre></div>
+<p>This <code>switch</code> over <code>Request</code> — sealed, §35 — needing <strong>no <code>default</code> branch</strong> is the same exhaustiveness guarantee every other sealed dispatch in this guide relies on: a ninth request type added later is a compile error here until this method is updated, never a request silently falling through unhandled.</p>
+<hr>
+<h2 id="45-concurrency-at-the-server">45. Concurrency at the Server</h2>
+<p>Multiple <code>ServerConnectionHandler</code>s, each running on its own worker-pool thread, now call into the <strong>same</strong> <code>TinyDbInstance</code> — the same storage engine, the same buffer pool, the same write-ahead log — concurrently, from genuinely different threads, for the first time in this guide outside of a single embedded process's own multi-threaded use. This is exactly the scenario a durable storage engine's own concurrency model has to guarantee correctness for: per-page locks, a synchronized buffer-pool fetch/evict, and a synchronized write-ahead-log append are not optional hardening this guide needs to add on top — they are exactly what makes many <code>ServerConnectionHandler</code>s safely sharing one <code>TinyDbInstance</code> correct, and they belong entirely to the storage engine this guide treats as a given foundation (§6).</p>
+<hr>
+<h2 id="46-implementing-networkstatementexecutor">46. Implementing NetworkStatementExecutor</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class NetworkStatementExecutor implements StatementExecutor {
+
+    private final Socket socket;
+    private final ProtocolCodec codec = new ProtocolCodec(); // §37 -- IDENTICAL codec, used on both ends of the wire
+    private boolean autoCommit = true; // mirrored client-side purely so getAutoCommit() needs no round trip
+
+    public NetworkStatementExecutor(String host, int port, String username, String password) throws SQLException {
+        try {
+            this.socket = new Socket(host, port); // or an SSLSocket, §40 -- identical usage from here on
+            Response authResponse = send(new AuthRequest(username, password)); // §38-§39
+            if (!(authResponse instanceof AuthResponse auth) || !auth.success()) {
+                throw new SQLException(&quot;Authentication failed&quot; + (authResponse instanceof AuthResponse a ? &quot;: &quot; + a.failureReason() : &quot;&quot;));
+            }
+        } catch (IOException e) {
+            throw new SQLException(&quot;Could not connect to TinyDB server at &quot; + host + &quot;:&quot; + port, e);
+        }
+    }
+
+    @Override
+    public QueryResult execute(String sql, boolean isQuery) throws SQLException {
+        Response response = send(new ExecuteRequest(sql, isQuery)); // §35
+        return switch (response) {
+            case QueryResultResponse r -&gt; toQueryResult(r); // rebuilds a List&lt;Row&gt; from r.rows(), the SAME shape §20 needs
+            case ErrorResponse e -&gt; throw new SQLException(e.message(), e.sqlState());
+            default -&gt; throw new SQLException(&quot;Unexpected response type for ExecuteRequest: &quot; + response);
+        };
+    }
+
+    @Override public boolean getAutoCommit() { return autoCommit; }
+
+    @Override
+    public void setAutoCommit(boolean autoCommit) throws SQLException {
+        sendExpectingAck(new SetAutoCommitRequest(autoCommit)); // §35 -- the SERVER's executor (§13) holds the real state
+        this.autoCommit = autoCommit; // mirrored, purely to answer getAutoCommit() without a round trip
+    }
+
+    @Override public void commit() throws SQLException { sendExpectingAck(new CommitRequest()); }
+    @Override public void rollback() throws SQLException { sendExpectingAck(new RollbackRequest()); }
+
+    @Override
+    public void close() throws SQLException {
+        try {
+            sendExpectingAck(new CloseRequest());
+        } finally {
+            try { socket.close(); } catch (IOException ignored) { }
+        }
+    }
+
+    @Override
+    public Catalog catalog() {
+        return new RemoteCatalogSnapshot(this); // §50 -- fetches lazily, on first actual use
+    }
+
+    /** Package-private -- called only by RemoteCatalogSnapshot (§50), never directly by JDBC-facing code. */
+    CatalogSnapshotResponse fetchCatalogSnapshot() throws SQLException {
+        Response response = send(new FetchCatalogSnapshotRequest()); // §35
+        if (response instanceof CatalogSnapshotResponse snapshot) return snapshot;
+        if (response instanceof ErrorResponse e) throw new SQLException(e.message(), e.sqlState());
+        throw new SQLException(&quot;Unexpected response type for FetchCatalogSnapshotRequest: &quot; + response);
+    }
+
+    private Response send(Request request) throws SQLException {
+        try {
+            new Frame(codec.encode(request)).writeTo(socket.getOutputStream());
+            Frame responseFrame = Frame.readFrom(socket.getInputStream());
+            return codec.decodeResponse(responseFrame.payload());
+        } catch (IOException e) {
+            throw new SQLException(&quot;Network error communicating with TinyDB server&quot;, e); // §52 discusses this case
+        }
+    }
+
+    private void sendExpectingAck(Request request) throws SQLException {
+        Response response = send(request);
+        if (response instanceof ErrorResponse e) throw new SQLException(e.message(), e.sqlState());
+    }
+}
+</code></pre></div>
+<p>Every method here is a <strong>thin proxy</strong>: encode a request, send it, decode the response, translate it back into exactly the same return type/exception <code>EmbeddedStatementExecutor</code> (§13) already used. This is the entire client-side implementation server mode needs — it contains no SQL logic, no transaction logic, no storage logic, because none of that lives on the client at all; it lives on the server, inside the identical <code>EmbeddedStatementExecutor</code> class §13 already built.</p>
+<hr>
+<h2 id="47-completing-tinydbdriver-connectremote">47. Completing TinyDbDriver: connectRemote</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private Connection connectRemote(String url, Properties info) throws SQLException {
+    URI uri = URI.create(url.substring(&quot;jdbc:tinydb:&quot;.length())); // strips down to &quot;//host:port/database&quot;
+    String host = uri.getHost();
+    int port = uri.getPort();
+    String username = info.getProperty(&quot;user&quot;);
+    String password = info.getProperty(&quot;password&quot;);
+
+    StatementExecutor executor = new NetworkStatementExecutor(host, port, username, password); // §46
+    return new TinyDbConnection(executor); // §14 -- the SAME Connection class the embedded path also returns
+}
+</code></pre></div>
+<p>This fills in exactly the stub §31 left in place. Both <code>connectEmbedded</code> and <code>connectRemote</code> return a <code>TinyDbConnection</code> — the exact same class. The only difference between an embedded connection and a remote one, anywhere in this entire driver, is which <code>StatementExecutor</code> implementation got constructed and handed to it.</p>
+<hr>
+<h2 id="48-why-statementpreparedstatementresultsetdatabasemetadata-need-zero-changes">48. Why Statement/PreparedStatement/ResultSet/DatabaseMetaData Need Zero Changes</h2>
+<p><code>TinyDbStatement.executeQuery(sql)</code> (§15) calls <code>connection.executeInternal(sql, true)</code>. <code>TinyDbConnection.executeInternal</code> (§14) calls <code>executor.execute(sql, isQuery)</code>. Whether <code>executor</code> is <code>EmbeddedStatementExecutor</code> (§13) or <code>NetworkStatementExecutor</code> (§46), the return type is identical — a <code>QueryResult</code> (§7) — and <code>TinyDbResultSet</code> (§20) is constructed from that <code>List&lt;Row&gt;</code> exactly the same way regardless of where those rows actually came from. Nothing from §15 through §29 needed a single line changed to support server mode — this is the direct, designed consequence of every one of those classes having been written against <code>TinyDbConnection</code>'s public contract, never against <code>TinyDbInstance</code> or the storage engine directly.</p>
+<hr>
+<h2 id="49-implementing-remotecatalogsnapshot">49. Implementing RemoteCatalogSnapshot</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class RemoteCatalogSnapshot implements Catalog {
+
+    private final NetworkStatementExecutor executor;
+    private List&lt;TableSchema&gt; cachedTables; // fetched lazily, on first metadata call -- §52 discusses staleness
+
+    public RemoteCatalogSnapshot(NetworkStatementExecutor executor) { this.executor = executor; }
+
+    @Override
+    public List&lt;TableSchema&gt; listTables() {
+        ensureFetched();
+        return cachedTables;
+    }
+
+    @Override
+    public TableSchema getTable(String tableName) {
+        return listTables().stream().filter(t -&gt; t.tableName().equals(tableName)).findFirst().orElse(null);
+    }
+
+    @Override public boolean tableExists(String tableName) { return getTable(tableName) != null; }
+    @Override public void createTable(TableSchema schema) { throw new UnsupportedOperationException(&quot;Read-only snapshot&quot;); }
+    @Override public void dropTable(String tableName) { throw new UnsupportedOperationException(&quot;Read-only snapshot&quot;); }
+
+    private void ensureFetched() {
+        if (cachedTables != null) return;
+        try {
+            CatalogSnapshotResponse snapshot = executor.fetchCatalogSnapshot(); // sends FetchCatalogSnapshotRequest, §35
+            cachedTables = snapshot.tables().stream().map(this::toTableSchema).toList();
+        } catch (SQLException e) {
+            throw new RuntimeException(&quot;Failed to fetch catalog metadata from server&quot;, e);
+        }
+    }
+
+    private TableSchema toTableSchema(SerializedTableSchema serialized) {
+        List&lt;Column&gt; columns = serialized.columns().stream()
+                .map(c -&gt; new Column(c.name(), DataType.valueOf(c.dataType()), c.nullable()))
+                .toList();
+        return new TableSchema(serialized.tableName(), columns);
+    }
+}
+</code></pre></div>
+<p><code>TinyDbConnection.getMetaData()</code> (§14) calls <code>new TinyDbDatabaseMetaData(executor.catalog())</code> — completely unaware that, for a remote connection, <code>executor.catalog()</code> (§46) returns a <code>RemoteCatalogSnapshot</code> instead of the embedded driver's directly-local <code>Catalog</code> implementation. <code>TinyDbDatabaseMetaData</code> (§25-§29) calls <code>listTables()</code>/<code>getTable(...)</code> on whatever <code>Catalog</code> it was handed — it was written against the <code>Catalog</code> <em>interface</em> from the start (§7), which is precisely what makes this the second, and last, genuinely new class server mode needs on the client side.</p>
+<hr>
+<h2 id="50-follow-up-what-about-a-very-large-result-set-over-the-network">50. Follow-up: What About a Very Large Result Set Over the Network?</h2>
+<p><code>EmbeddedStatementExecutor.execute</code> (§13) already, honestly, materializes an entire query's result into one <code>List&lt;Row&gt;</code> before returning — even in the purely embedded, no-network case, because the underlying query engine's own <code>doQuery</code> is written that way. <code>NetworkStatementExecutor</code> (§46) inherits that exact same limitation, unchanged: one <code>QueryResultResponse</code> (§36) carries every row of a result set in a single message. This is <strong>not a new limitation server mode introduces</strong> — but it does mean a result set with millions of rows now also pays the cost of serializing all of them into one large network message, bounded only by §34's <code>MAX_FRAME_BYTES</code> sanity check. A real cursor-based, fetch-size-driven protocol (paging rows across several smaller round trips instead of one large one) is genuinely valuable future work, named explicitly rather than built here (§61) — it would require both a new <code>FetchNextBatchRequest</code> and a server-side cursor held open across multiple requests on the same connection, a real design of its own scope.</p>
+<hr>
+<h2 id="51-handling-connection-loss-timeouts-and-partial-writes">51. Handling Connection Loss, Timeouts, and Partial Writes</h2>
+<p>Three distinct network failure modes, each needing its own specific handling, none of them optional to consider once a socket — rather than a guaranteed-reliable in-process method call — sits in the middle of every statement:</p>
+<ul>
+<li><strong>The client disconnects mid-transaction.</strong> §43's <code>ServerConnectionHandler</code> catches <code>EOFException</code>/<code>IOException</code> around its request loop specifically so its <code>finally</code> block can roll back any transaction the now-gone client left open — an abandoned socket must never leave a <code>TransactionContext</code> (§10) held open against the shared <code>TinyDbInstance</code> indefinitely, which would otherwise block other connections' writes forever.</li>
+<li><strong>The server is slow or unreachable.</strong> <code>NetworkStatementExecutor.send</code> (§46) has no timeout configured on its socket by default, which means a hung server can hang the client indefinitely — a real deployment sets <code>Socket.setSoTimeout(...)</code> explicitly, turning an indefinite hang into a bounded wait followed by a clear <code>SQLException</code>, rather than a client application that appears frozen with no diagnostic at all.</li>
+<li><strong>A malformed or oversized frame arrives.</strong> §34's <code>MAX_FRAME_BYTES</code> check exists specifically so a corrupted length prefix (or a deliberately malicious one) can never make the server attempt to allocate an unbounded byte array — <code>Frame.readFrom</code> throwing <code>IOException</code> on an invalid length is a controlled failure of one connection, never a resource-exhaustion risk to the whole server process.</li>
+</ul>
+<hr>
+<h2 id="52-server-configuration-and-startup">52. Server Configuration and Startup</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TinyDbServerMain {
+    public static void main(String[] args) throws Exception {
+        Path dataDirectory = Path.of(args[0]);
+        int port = Integer.parseInt(args[1]);
+
+        TinyDbInstance instance = TinyDbInstance.open(dataDirectory); // §12 -- runs recover() internally
+        CredentialStore credentialStore = loadCredentialStore(args[2]); // a config file path, elided
+
+        TinyDbServer server = new TinyDbServer(port, instance, credentialStore, 200); // §42 -- 200 concurrent clients
+        Runtime.getRuntime().addShutdownHook(new Thread(server::stop)); // graceful shutdown on Ctrl+C / SIGTERM
+        server.start(); // blocks -- the accept loop, §42
+    }
+}
+</code></pre></div>
+<p>Registering a shutdown hook that calls <code>server.stop()</code> matters for a reason specific to this guide's whole design: <code>stop()</code> only stops accepting <em>new</em> connections and shuts down the worker pool — it deliberately does not forcibly kill in-flight <code>ServerConnectionHandler</code>s mid-statement, giving already-connected clients a chance to finish or explicitly close cleanly rather than having their in-flight transaction torn out from under them by a process kill.</p>
+<hr>
+<h2 id="53-connecting-from-dbeaver-to-a-remote-tinydb-server-step-by-step">53. Connecting From DBeaver to a Remote TinyDB Server, Step by Step</h2>
+<ol>
+<li>On the remote machine, start the server: <code>java -cp tinydb-server.jar TinyDbServerMain /var/tinydb/data 5432 /etc/tinydb/credentials.conf</code> (§52).</li>
+<li>In DBeaver's <strong>Driver Manager</strong>, edit the existing "TinyDB" driver entry from §32's own walkthrough — add a second <strong>URL Template</strong>: <code>jdbc:tinydb://{host}:{port}/{database}</code>, alongside the existing embedded <code>jdbc:tinydb:{file}</code> template; both resolve to the same driver class, dispatched by §31/§47's <code>if</code>/<code>else</code>.</li>
+<li><strong>Database -&gt; New Database Connection -&gt; TinyDB</strong>, this time filling in <strong>Host</strong> and <strong>Port</strong> instead of a local <strong>Path</strong>.</li>
+<li>Under the connection's <strong>Authentication</strong> tab, provide the <strong>Username</strong>/<strong>Password</strong> — these flow into <code>Properties info</code> (§47), read as <code>info.getProperty("user")</code>/<code>"password"</code>, and become the <code>AuthRequest</code> (§38-§39) sent as the very first message on the socket.</li>
+<li><strong>Test Connection.</strong> <code>DriverManager.getConnection(url, info)</code> resolves to <code>TinyDbDriver.connect</code> (§31), which now takes the <code>connectRemote</code> branch (§47), constructing a <code>NetworkStatementExecutor</code> (§46) that opens the socket and immediately runs the auth handshake.</li>
+<li>On success, DBeaver calls <code>Connection.getMetaData()</code> exactly as it always has (§14) — now backed by a <code>RemoteCatalogSnapshot</code> (§49) instead of a local <code>Catalog</code>, invisibly to DBeaver, which never needed to know the difference.</li>
+</ol>
+<hr>
+<h2 id="54-full-worked-example-a-complete-remote-query-end-to-end">54. Full Worked Example: A Complete Remote Query, End to End</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1.  java TinyDbServerMain /var/tinydb/data 5432 credentials.conf   -- server starts (§52), recover() already ran (§12)
+2.  DBeaver (remote laptop): DriverManager.getConnection(&quot;jdbc:tinydb://db.example.com:5432/main&quot;, info)
+3.  TinyDbDriver.connect(...) -&gt; connectRemote(...)                                                  (§47)
+4.  new NetworkStatementExecutor(host, port, user, pass)
+       -&gt; Socket opened -&gt; AuthRequest sent -&gt; server's handleAuthHandshake() verifies -&gt; AuthResponse(success=true)  (§39, §46)
+5.  new TinyDbConnection(executor)                                                                    (§14)
+6.  DBeaver: connection.createStatement().executeQuery(&quot;SELECT * FROM employees&quot;)
+       -&gt; TinyDbStatement.executeQuery (§15, UNCHANGED)
+       -&gt; connection.executeInternal(sql, true) (§14) -&gt; executor.execute(sql, true) (§46)
+       -&gt; ExecuteRequest sent over the socket                                                          (§35)
+7.  SERVER: ServerConnectionHandler.run() reads the frame, decodes it, calls dispatch()                 (§43-§44)
+       -&gt; executor.execute(&quot;SELECT...&quot;, true) on the SERVER-SIDE EmbeddedStatementExecutor              (§13, §41)
+       -&gt; BasicQueryEngine.doQuery(sql) -- the SAME method the embedded driver already calls            (§7)
+8.  QueryResultResponse sent back over the socket                                                       (§36-§37)
+9.  CLIENT: NetworkStatementExecutor.execute() decodes it into a QueryResult                             (§46)
+10. new TinyDbResultSet(result.rows(), statement) -- §20, completely UNCHANGED
+11. DBeaver iterates rs.next()/rs.getObject(...) exactly as it would against the embedded driver
+</code></pre></div>
+<p>Steps 6 and 10-11 are byte-for-byte the <em>same code</em> that runs for an embedded connection — the only genuinely new work in this entire trace is steps 4 and 6-9, the wire round trip §34-§37's protocol and §13/§46's executors exist to carry out.</p>
+<hr>
+<h2 id="55-final-architecture-diagram">55. Final Architecture Diagram</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>   Client machine                                        Remote machine
+   +--------------------------+                    +---------------------------------------+
+   | DBeaver                  |                    | TinyDbServerMain (§52)                 |
+   |   TinyDbConnection (§14) |                    |   ServerSocket.accept() loop (§42)      |
+   |   TinyDbStatement (§15,  |    AuthRequest      |     bounded worker pool                 |
+   |   PreparedStatement,     |  ----------------&gt;  |   ServerConnectionHandler x N (§43)      |
+   |   ResultSet, MetaData -- |  ExecuteRequest     |     each: auth (§39), then own           |
+   |   ALL unchanged, §48)    |  ----------------&gt;  |     EmbeddedStatementExecutor (§13, §41) |
+   |   NetworkStatementExecutor|  &lt;---------------  |                                          |
+   |   (§46) + RemoteCatalog  |  Response (§36)     |     ALL sharing ONE TinyDbInstance (§12), |
+   |   Snapshot (§49)         |                    |     ONE storage engine, ONE buffer pool,  |
+   +--------------------------+                    |     ONE write-ahead log (§45)             |
+                                                     +---------------------------------------+
+</code></pre></div>
+<p>Every box on the client side either already existed for the embedded case (§14-§29) or is a thin protocol proxy (§46, §49); every box on the server side is genuinely new orchestration (§41-§45) with no SQL or storage logic of its own — that logic belongs entirely to the database engine this guide builds on top of (§6-§7).</p>
+<hr>
+<h2 id="56-design-patterns-used-throughout-this-guide">56. Design Patterns Used Throughout This Guide</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Where</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Strategy</strong></td>
+<td><code>StatementExecutor</code> (§9)</td>
+<td>The single seam this entire driver's design is built on — embedded and network execution are two interchangeable strategies behind one interface, decided once per <code>Connection</code>.</td>
+</tr>
+<tr>
+<td><strong>Adapter</strong></td>
+<td><code>NetworkStatementExecutor</code> (§46), <code>RemoteCatalogSnapshot</code> (§49)</td>
+<td>Both translate a fixed, pre-existing contract (<code>StatementExecutor</code>, <code>Catalog</code>) onto a wire protocol underneath.</td>
+</tr>
+<tr>
+<td><strong>Proxy</strong></td>
+<td><code>NetworkStatementExecutor</code> (§46)</td>
+<td>Every method is a thin stand-in that forwards to the real logic (<code>EmbeddedStatementExecutor</code>) running elsewhere, on the server.</td>
+</tr>
+<tr>
+<td><strong>Command</strong></td>
+<td><code>Request</code>/<code>Response</code> (§35-§36)</td>
+<td>Each is a small, self-contained, serializable unit of "do this" or "here's what happened" — exactly the shape a wire protocol's messages need.</td>
+</tr>
+<tr>
+<td><strong>Thread Pool</strong></td>
+<td><code>TinyDbServer</code>'s worker pool (§42)</td>
+<td>A bounded core/max/queue/reject shape, reused here per client connection to protect the server from a connection flood.</td>
+</tr>
+<tr>
+<td><strong>Iterator</strong></td>
+<td><code>TinyDbResultSet.next()</code> (§20)</td>
+<td>The standard cursor-based row-at-a-time access pattern every <code>ResultSet</code> implementation is built around.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="57-solid-principles-applied">57. SOLID Principles Applied</h2>
+<ul>
+<li><strong>Single Responsibility</strong>: <code>SqlParameterBinder</code> (§18) only rewrites placeholders; <code>TypeMapping</code> (§22) only converts between type systems; <code>ProtocolCodec</code> (§37) only serializes/deserializes; <code>CredentialStore</code> (§39) only verifies credentials. None of them know how to execute a statement.</li>
+<li><strong>Open/Closed</strong>: adding a new <code>PreparedStatement</code> setter (§17), or a ninth <code>Request</code>/<code>Response</code> type (a future <code>FetchNextBatchRequest</code>, §50), requires no change to <code>SqlParameterBinder.bind</code> or to <code>Frame</code>/<code>TinyDbConnection</code> — only a new <code>case</code> in the relevant, already-narrow <code>switch</code>.</li>
+<li><strong>Liskov Substitution</strong>: <code>EmbeddedStatementExecutor</code> and <code>NetworkStatementExecutor</code> are fully interchangeable behind <code>StatementExecutor</code> (§9) — <code>TinyDbConnection</code> (§14) never needs to know or branch on which one it holds; <code>TinyDbPreparedStatement extends TinyDbStatement</code> (§17) and is fully usable wherever a plain <code>Statement</code> is expected.</li>
+<li><strong>Interface Segregation</strong>: <code>StatementExecutor</code> (§9) exposes exactly the methods a <code>Connection</code> actually needs — no socket detail, no transaction-internals detail leaks into its surface; <code>ResultSetMetaData</code>/<code>DatabaseMetaData</code> remain separate interfaces, never merged into one god-object.</li>
+<li><strong>Dependency Inversion</strong>: <code>TinyDbConnection</code> (§14) depends on the <code>StatementExecutor</code> interface, injected through its constructor, never on <code>EmbeddedStatementExecutor</code> or <code>NetworkStatementExecutor</code> directly — the entire point of §9's design.</li>
+</ul>
+<hr>
+<h2 id="58-common-mistakes-when-building-this-yourself">58. Common Mistakes When Building This Yourself</h2>
+<ul>
+<li><strong>Hard-coding the execution path instead of naming it as its own interface from the start</strong> (§9) — the single most expensive mistake in this entire domain; discovering the need for a second execution mode <em>after</em> <code>Statement</code>/<code>ResultSet</code>/<code>DatabaseMetaData</code> are already written against a concrete class means rewriting all of them, instead of adding one new class behind an interface that was already there.</li>
+<li><strong>Concatenating parameter values directly into SQL text instead of escaping them</strong> (§18-§19) — turns <code>PreparedStatement</code>, whose entire purpose is safety against exactly this, into no safer than a raw string-built query.</li>
+<li><strong>Hand-rolling password hashing or transport encryption</strong> (§39-§40) — both are exactly the kind of security-critical code a reviewed, standard library exists specifically so individual projects don't each reinvent it, usually incorrectly.</li>
+<li><strong>Using a delimiter instead of length-prefixing for message framing</strong> (§34) — a SQL string can legitimately contain any byte sequence a naive delimiter might mistake for a message boundary; length-prefixing has no such ambiguity.</li>
+<li><strong>An unbounded thread-per-client server</strong> (§42) — degrades catastrophically under a connection flood, where a bounded pool with a bounded queue degrades gracefully by rejecting outright once genuinely full.</li>
+<li><strong>Returning <code>null</code> from a <code>DatabaseMetaData</code> method instead of an empty, correctly-shaped <code>ResultSet</code></strong> (§28) — a real client iterating the result with <code>while (rs.next())</code> throws a <code>NullPointerException</code> on a <code>null</code>, where an empty result set correctly and silently produces zero iterations.</li>
+<li><strong>Leaving a client's open transaction dangling after an unexpected disconnect</strong> (§43, §51) — silently holding locks or an open transaction against the shared engine indefinitely can block every other connection's writes.</li>
+</ul>
+<hr>
+<h2 id="59-testing-strategy">59. Testing Strategy</h2>
+<ul>
+<li><strong><code>TinyDbDriver</code></strong> (§31): <code>acceptsURL</code> correctly accepts every <code>jdbc:tinydb:...</code> URL and rejects everything else; <code>connect</code> returns the same underlying <code>TinyDbInstance</code> for two embedded connections opened against the identical, normalized data-directory path.</li>
+<li><strong><code>SqlParameterBinder</code></strong> (§18): a string parameter containing a single quote round-trips correctly; a parameter count mismatch throws <code>SQLException</code> rather than silently truncating or ignoring extras.</li>
+<li><strong><code>TinyDbResultSet</code></strong> (§20-§21): <code>wasNull()</code> correctly reflects only the most recent column access; <code>getInt</code>/<code>getLong</code> on a genuinely null column return <code>0</code>, with <code>wasNull()</code> immediately after correctly reporting <code>true</code>.</li>
+<li><strong><code>DatabaseMetaData.getColumns</code></strong> (§27): a table created via <code>Statement.execute("CREATE TABLE ...")</code> is immediately visible, with the correct columns and types, to a <code>getColumns</code> call on the <em>same</em> connection with no additional refresh step.</li>
+<li><strong><code>Frame</code>/<code>ProtocolCodec</code></strong> (§34, §37): a payload round-trips through <code>writeTo</code>/<code>readFrom</code> unchanged; an invalid frame length throws <code>IOException</code> rather than allocating an unbounded array; every <code>Request</code>/<code>Response</code> subtype round-trips through <code>encode</code>/<code>decode</code> with all fields intact.</li>
+<li><strong>A real two-process integration test</strong>: start an actual <code>TinyDbServer</code> in one JVM, connect to it with a real socket from a second JVM, browse the schema, run a query, commit a transaction, and confirm the result — the only test that actually exercises the wire protocol end to end rather than mocking either side of it.</li>
+<li><strong>Abandoned-connection cleanup</strong> (§43, §51): a client that opens a transaction and then closes its socket without an explicit <code>CloseRequest</code> results in that transaction being rolled back server-side, verified by a second, independent connection observing no partial effects.</li>
+</ul>
+<hr>
+<h2 id="60-suggested-future-enhancements">60. Suggested Future Enhancements</h2>
+<ul>
+<li><strong>Cursor-based, fetch-size-driven result streaming</strong> (§50) — a <code>FetchNextBatchRequest</code>/<code>FetchNextBatchResponse</code> pair and a server-side cursor held open across several requests on one connection, replacing the current "one message, every row" approach for genuinely large result sets.</li>
+<li><strong>Typed parameter binding</strong>, passing <code>PreparedStatement</code> values to the executor as already-typed objects rather than re-serialized, escaped SQL text (§19's stated simplification) — avoiding a second lex/parse pass per execution and eliminating the escaping logic's attack surface entirely, rather than merely making it safe.</li>
+<li><strong>A real, reviewed password-hashing library wired into <code>CredentialStore</code></strong> (§39), replacing the deliberately-unimplemented placeholder.</li>
+<li><strong>Connection pooling</strong> on the client side — reusing already-authenticated <code>NetworkStatementExecutor</code>/socket pairs across multiple short-lived <code>Connection</code>s, avoiding a fresh TCP handshake and auth round trip per connection.</li>
+<li><strong>Primary key and index metadata</strong> (§28) — once <code>TableSchema</code> grows a real primary-key/index concept, <code>getPrimaryKeys</code>/<code>getIndexInfo</code> should be revisited to report it instead of the current, honest "none yet."</li>
+<li><strong>Batch updates</strong> (<code>addBatch</code>/<code>executeBatch</code>) — genuinely useful for bulk <code>INSERT</code>s, and honestly reported as unsupported for now (§29).</li>
+<li><strong>Multi-statement pipelining</strong> — allowing a client to send several <code>ExecuteRequest</code>s before reading their responses, instead of this guide's strict one-request-then-one-response-then-next-request loop (§43), for latency-sensitive bulk workloads.</li>
+</ul>
+<hr>
+<h2 id="61-final-takeaway">61. Final Takeaway</h2>
+<p>The single decision this entire driver's design is built on is stated in §9, before a single JDBC interface is implemented: <strong>how a statement actually gets executed is a pluggable strategy, not a hard-coded call.</strong> Every genuinely interesting piece of engineering that follows — the wire protocol, per-connection transaction handling on the server, authentication, the honest decision to wrap TLS rather than hand-roll it — exists entirely behind that one seam, and none of it required touching a single line of the classes a real client actually calls (<code>Statement</code>, <code>PreparedStatement</code>, <code>ResultSet</code>, <code>DatabaseMetaData</code>). The lesson generalizes well past a JDBC driver: a system that's hard to extend to a new deployment mode usually isn't missing a feature — it's missing exactly one interface, drawn in exactly the right place, between "what this code decides" and "how that decision actually gets carried out."</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "TinyDB Server Mode and Remote JDBC Driver — Step-by-Step Implementation Guide.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

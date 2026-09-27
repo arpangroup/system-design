@@ -1,0 +1,1075 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Snake Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chivo+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f3ec;
+    --surface: #ffffff;
+    --surface-2: #ece9de;
+    --border: #ddd7c6;
+    --text: #1c2321;
+    --text-muted: #64716b;
+    --accent-snake: #2f7a3d;
+    --accent-snake-soft: rgba(47,122,61,.12);
+    --accent-snake2: #1d4ed8;
+    --accent-snake2-soft: rgba(29,78,216,.12);
+    --accent-food: #c2410c;
+    --accent-food-soft: rgba(194,65,12,.12);
+    --good: #15803d;
+    --good-soft: rgba(21,128,61,.12);
+    --warn: #b45309;
+    --warn-soft: rgba(180,83,9,.12);
+    --bad: #b91c1c;
+    --shadow: 0 1px 2px rgba(20,20,15,.04), 0 10px 30px -14px rgba(20,20,15,.25);
+    --radius: 16px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101513;
+      --surface: #171e1b;
+      --surface-2: #1e2622;
+      --border: #2b3532;
+      --text: #eaf1ee;
+      --text-muted: #90a29c;
+      --accent-snake: #4ade80;
+      --accent-snake-soft: rgba(74,222,128,.14);
+      --accent-snake2: #60a5fa;
+      --accent-snake2-soft: rgba(96,165,250,.14);
+      --accent-food: #fb923c;
+      --accent-food-soft: rgba(251,146,60,.14);
+      --good: #4ade80;
+      --good-soft: rgba(74,222,128,.14);
+      --warn: #fbbf24;
+      --warn-soft: rgba(251,191,36,.14);
+      --bad: #f87171;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101513;
+    --surface: #171e1b;
+    --surface-2: #1e2622;
+    --border: #2b3532;
+    --text: #eaf1ee;
+    --text-muted: #90a29c;
+    --accent-snake: #4ade80;
+    --accent-snake-soft: rgba(74,222,128,.14);
+    --accent-snake2: #60a5fa;
+    --accent-snake2-soft: rgba(96,165,250,.14);
+    --accent-food: #fb923c;
+    --accent-food-soft: rgba(251,146,60,.14);
+    --good: #4ade80;
+    --good-soft: rgba(74,222,128,.14);
+    --warn: #fbbf24;
+    --warn-soft: rgba(251,191,36,.14);
+    --bad: #f87171;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Manrope', system-ui, sans-serif;
+    padding: clamp(16px, 4vw, 40px);
+    padding-block: clamp(20px, 4vw, 48px);
+    display: flex;
+    justify-content: center;
+  }
+  .app { width: 100%; max-width: 1100px; }
+
+  .topbar { margin-bottom: 24px; }
+  .eyebrow {
+    font-family: 'Chivo Mono', monospace;
+    font-size: 12px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent-snake);
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-family: 'Chivo Mono', monospace;
+    font-size: clamp(28px, 4.5vw, 40px);
+    font-weight: 700;
+    margin: 0 0 8px;
+    text-wrap: balance;
+    letter-spacing: -.01em;
+  }
+  .dek {
+    color: var(--text-muted);
+    max-width: 65ch;
+    line-height: 1.55;
+    margin: 0;
+    font-size: 15px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 780px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .board-panel { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+  .status-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; min-height: 34px; }
+  .pill {
+    font-family: 'Chivo Mono', monospace;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .pill.p1 { color: var(--accent-snake); }
+  .pill.p2 { color: var(--accent-snake2); }
+  .pill.win { color: var(--good); background: var(--good-soft); border-color: transparent; }
+  .pill.warn { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
+
+  .board-wrap { display: flex; justify-content: center; }
+  canvas#board {
+    width: 100%;
+    max-width: 460px;
+    aspect-ratio: 6 / 5;
+    touch-action: manipulation;
+    border-radius: 8px;
+  }
+
+  .board-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  button {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700;
+    font-size: 13.5px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--text);
+    color: var(--bg);
+    cursor: pointer;
+    transition: transform .12s ease, opacity .12s ease;
+  }
+  button:hover { transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  button.ghost { background: transparent; color: var(--text); }
+  button.accent { background: var(--accent-snake); color: #06210c; border-color: transparent; }
+  button.small { padding: 7px 12px; font-size: 12.5px; }
+
+  .result-banner {
+    font-family: 'Chivo Mono', monospace;
+    font-size: 14px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+  .result-banner.win { background: var(--good-soft); color: var(--good); border-color: transparent; }
+
+  .control-panel { padding: 16px; display: flex; flex-direction: column; gap: 16px; min-height: 480px; }
+
+  .tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; }
+  .tab {
+    flex: 1;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    padding: 9px 6px;
+    font-size: 12.5px;
+    font-weight: 700;
+    border-radius: 8px;
+    box-shadow: none;
+  }
+  .tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .tab:hover { transform: none; }
+
+  .tab-panel { display: flex; flex-direction: column; gap: 16px; }
+  .tab-panel[hidden] { display: none; }
+
+  .field-group { display: flex; flex-direction: column; gap: 8px; }
+  .field-label {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--text-muted);
+    font-weight: 700;
+  }
+  .player-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--surface-2);
+  }
+  .player-card.p1 { border-left: 3px solid var(--accent-snake); }
+  .player-card.p2 { border-left: 3px solid var(--accent-snake2); }
+  input[type="text"], input[type="number"], select {
+    font-family: 'Manrope', sans-serif;
+    font-size: 13.5px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    width: 100%;
+  }
+  label.inline { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--text-muted); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; }
+  td.num, th.num { text-align: right; font-family: 'Chivo Mono', monospace; font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow-x: auto; }
+  .empty-note { color: var(--text-muted); font-size: 13px; padding: 8px 2px; }
+
+  .stat-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .stat-tile {
+    flex: 1;
+    min-width: 100px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .stat-tile .num { font-family: 'Chivo Mono', monospace; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-tile .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 2px; }
+
+  .progress-track { height: 8px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent-snake); width: 0%; transition: width .2s ease; }
+
+  canvas#trainChart { width: 100%; height: 90px; }
+
+  .note { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+  .divider { height: 1px; background: var(--border); border: none; margin: 2px 0; }
+
+  footer { margin-top: 28px; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+</style>
+
+<div class="app">
+  <header class="topbar">
+    <div class="eyebrow">Local Arcade &middot; Companion to the System Design Guide</div>
+    <h1>Snake Arena</h1>
+    <p class="dek">Single player, local two-player, or an AI opponent at three strengths &mdash; a greedy pathfinder, a Hamiltonian cycle that mathematically can't trap itself, and a Q-learning agent you can train from scratch. Scores, leaderboards, and a prize-bearing high-score contest all persist on this device.</p>
+  </header>
+
+  <main class="layout">
+    <section class="panel board-panel">
+      <div class="status-row" id="statusRow"></div>
+      <div class="board-wrap">
+        <canvas id="board" width="480" height="400" aria-label="Snake board"></canvas>
+      </div>
+      <div class="board-actions">
+        <button class="accent" id="newGameBtn">New game</button>
+        <select id="speedSelect" style="width:auto; flex:0 0 auto;">
+          <option value="220">Slow</option>
+          <option value="140" selected>Normal</option>
+          <option value="80">Fast</option>
+        </select>
+        <button class="ghost" id="resetAllBtn">Reset everything</button>
+      </div>
+      <div class="result-banner" id="resultBanner" hidden></div>
+      <p class="note">Player one steers with the arrow keys. Player two (when active) steers with W A S D.</p>
+    </section>
+
+    <section class="panel control-panel">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="play" role="tab">Play</button>
+        <button class="tab" data-tab="train" role="tab">Train AI</button>
+        <button class="tab" data-tab="scores" role="tab">Scores</button>
+        <button class="tab" data-tab="contest" role="tab">Contest</button>
+      </div>
+
+      <div class="tab-panel" data-panel="play">
+        <div class="player-card p1">
+          <div class="field-label">Player one &middot; arrow keys</div>
+          <label class="inline">Name
+            <input type="text" id="p1Name" value="Player One" maxlength="18">
+          </label>
+          <label class="inline">Controlled by
+            <select id="p1Type">
+              <option value="human">Human</option>
+              <option value="greedy">AI &middot; Easy (pathfinder)</option>
+              <option value="hamiltonian">AI &middot; Hard (never traps itself)</option>
+              <option value="trained">AI &middot; Trained (Q-learning)</option>
+            </select>
+          </label>
+        </div>
+        <div class="player-card p2">
+          <div class="field-label">Player two &middot; WASD</div>
+          <label class="inline">Name
+            <input type="text" id="p2Name" value="Player Two" maxlength="18">
+          </label>
+          <label class="inline">Controlled by
+            <select id="p2Type">
+              <option value="none" selected>None (single player)</option>
+              <option value="human">Human</option>
+              <option value="greedy">AI &middot; Easy (pathfinder)</option>
+              <option value="hamiltonian">AI &middot; Hard (never traps itself)</option>
+              <option value="trained">AI &middot; Trained (Q-learning)</option>
+            </select>
+          </label>
+        </div>
+        <p class="note">Set both slots to AI to watch a matchup play itself. Changes apply on the next game.</p>
+      </div>
+
+      <div class="tab-panel" data-panel="train" hidden>
+        <div class="field-group">
+          <div class="field-label">Self-play training</div>
+          <p class="note">Trains a Q-table over a compact 11-feature state (danger ahead/left/right, current heading, food direction) rather than the raw board &mdash; small enough to learn exactly, and it generalizes across every raw board sharing those features. Every 10% of the run it freezes the policy and measures average food eaten over 20 evaluation games.</p>
+        </div>
+        <label class="inline">Training episodes
+          <input type="number" id="episodeCount" value="2000" min="200" max="20000" step="100">
+        </label>
+        <div style="display:flex; gap:10px;">
+          <button class="accent" id="trainBtn" style="flex:1;">Train agent</button>
+          <button class="ghost" id="resetTrainingBtn">Reset</button>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="trainProgress"></div></div>
+        <div class="stat-row">
+          <div class="stat-tile"><div class="num" id="statEpisodes">0</div><div class="label">Episodes trained</div></div>
+          <div class="stat-tile"><div class="num" id="statStates">0</div><div class="label">States learned</div></div>
+          <div class="stat-tile"><div class="num" id="statAvgFood">&mdash;</div><div class="label">Avg. food per game</div></div>
+        </div>
+        <canvas id="trainChart" width="380" height="90"></canvas>
+        <p class="note" id="trainNote">Untrained: the agent starts with an empty table and moves close to randomly. Average food eaten should climb over a couple thousand episodes.</p>
+      </div>
+
+      <div class="tab-panel" data-panel="scores" hidden>
+        <div class="field-label">Leaderboard &middot; best score</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Player</th><th class="num">Best</th><th class="num">Games</th><th class="num">Avg.</th></tr></thead>
+            <tbody id="scoresBody"></tbody>
+          </table>
+        </div>
+        <div class="empty-note" id="scoresEmpty" hidden>No games recorded yet &mdash; play a game to start building the leaderboard.</div>
+      </div>
+
+      <div class="tab-panel" data-panel="contest" hidden>
+        <div id="contestSetup">
+          <div class="field-label">New high-score contest</div>
+          <p class="note">Each named entrant gets a fixed number of attempts. Whoever posts the single highest score before the contest closes takes the whole prize.</p>
+          <label class="inline">Attempts per entrant
+            <select id="contestAttempts">
+              <option value="1">1</option>
+              <option value="3" selected>3</option>
+              <option value="5">5</option>
+            </select>
+          </label>
+          <label class="inline">Prize pool (points)
+            <input type="number" id="contestPrize" value="500" min="10" step="10">
+          </label>
+          <button class="accent" id="startContestBtn" style="margin-top:6px;">Start contest</button>
+        </div>
+        <div id="contestActive" hidden>
+          <div class="field-label">Contest in progress</div>
+          <p class="note" id="contestStatusNote"></p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Entrant</th><th class="num">Best</th><th class="num">Attempts left</th></tr></thead>
+              <tbody id="contestStandingsBody"></tbody>
+            </table>
+          </div>
+          <p class="note">Playing as Player One while a contest is active submits that game's score as an attempt for the name below.</p>
+          <label class="inline">Playing as
+            <input type="text" id="contestEntrantName" placeholder="Type an entrant's name" maxlength="18">
+          </label>
+          <div style="display:flex; gap:10px; margin-top:6px;">
+            <button class="accent small" id="closeContestBtn" style="flex:1;">Close &amp; award prize</button>
+            <button class="ghost small" id="cancelContestBtn">Cancel</button>
+          </div>
+        </div>
+        <hr class="divider">
+        <div class="field-label">Prize ledger</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Player</th><th class="num">Contests won</th><th class="num">Points won</th></tr></thead>
+            <tbody id="ledgerBody"></tbody>
+          </table>
+        </div>
+        <div class="empty-note" id="ledgerEmpty" hidden>No contests completed yet.</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Runnable companion to <em>Design a Snake Game &mdash; HLD, LLD, and Class Design From Scratch</em>. All state (scores, prize ledger, trained Q-table) is saved to this browser only, via localStorage.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const COLS = 24, ROWS = 20; // ROWS must stay EVEN -- the Hamiltonian cycle construction (below) requires it
+
+  const STORAGE_KEYS = {
+    scores: "snake.scores.v1",
+    qtable: "snake.qtable.v1",
+    trainStats: "snake.trainstats.v1",
+    ledger: "snake.ledger.v1",
+    contest: "snake.contest.v1"
+  };
+  function loadJSON(key, fallback) {
+    try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+    catch (e) { return fallback; }
+  }
+  function saveJSON(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* private mode etc. -- ignore */ }
+  }
+  function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+  // ---------- grid + collision, mirrors the design guide's §14-22 ----------
+  const DIRS = {
+    UP: { dx: 0, dy: -1 }, DOWN: { dx: 0, dy: 1 }, LEFT: { dx: -1, dy: 0 }, RIGHT: { dx: 1, dy: 0 }
+  };
+  function isOpposite(a, b) { return DIRS[a].dx === -DIRS[b].dx && DIRS[a].dy === -DIRS[b].dy; }
+  function keyOf(x, y) { return x + "," + y; }
+  function turnLeftOf(dir) { return { UP: "LEFT", LEFT: "DOWN", DOWN: "RIGHT", RIGHT: "UP" }[dir]; }
+  function turnRightOf(dir) { return { UP: "RIGHT", RIGHT: "DOWN", DOWN: "LEFT", LEFT: "UP" }[dir]; }
+
+  function createSnake(id, startX, startY, dir, color) {
+    return {
+      id, color, direction: dir, pendingDirection: dir, pendingGrowth: 0, alive: true, score: 0,
+      body: [{ x: startX, y: startY }]
+    };
+  }
+
+  class Board {
+    constructor() {
+      this.occupied = new Map(); // "x,y" -> snake id
+      this.snakes = [];
+      this.food = null;
+    }
+    addSnake(snake) {
+      this.snakes.push(snake);
+      for (const seg of snake.body) this.occupied.set(keyOf(seg.x, seg.y), snake.id);
+    }
+    spawnFood() {
+      const free = [];
+      for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (!this.occupied.has(keyOf(x, y))) free.push({ x, y });
+      this.food = free.length ? free[Math.floor(Math.random() * free.length)] : null;
+    }
+    checkCollision(x, y) {
+      if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return "wall";
+      return this.occupied.has(keyOf(x, y)) ? "body" : null;
+    }
+    tickSnake(snake) {
+      if (!snake.alive) return;
+      if (!isOpposite(snake.pendingDirection, snake.direction)) snake.direction = snake.pendingDirection;
+      const head = snake.body[0];
+      const d = DIRS[snake.direction];
+      const newHead = { x: head.x + d.dx, y: head.y + d.dy };
+
+      const collision = this.checkCollision(newHead.x, newHead.y);
+      if (collision === "wall") { snake.alive = false; return; }
+      if (collision === "body") {
+        const isSelfTail = snake.pendingGrowth === 0 && this.occupied.get(keyOf(newHead.x, newHead.y)) === snake.id
+          && snake.body.length > 0 && newHead.x === snake.body[snake.body.length - 1].x && newHead.y === snake.body[snake.body.length - 1].y;
+        if (!isSelfTail) { snake.alive = false; return; }
+      }
+
+      snake.body.unshift(newHead);
+      this.occupied.set(keyOf(newHead.x, newHead.y), snake.id);
+
+      if (this.food && newHead.x === this.food.x && newHead.y === this.food.y) {
+        snake.score++;
+        snake.pendingGrowth++;
+        this.spawnFood();
+      }
+
+      if (snake.pendingGrowth > 0) {
+        snake.pendingGrowth--;
+      } else {
+        const tail = snake.body.pop();
+        if (this.occupied.get(keyOf(tail.x, tail.y)) === snake.id) this.occupied.delete(keyOf(tail.x, tail.y));
+      }
+    }
+  }
+
+  // ---------- AI strategies (§31-44) ----------
+  function breadthFirstSearchDirection(board, snake) {
+    if (!board.food) return snake.direction;
+    const head = snake.body[0];
+    const startKey = keyOf(head.x, head.y);
+    const frontier = [head];
+    const cameFrom = new Map([[startKey, null]]);
+    let found = false;
+
+    while (frontier.length && !found) {
+      const current = frontier.shift();
+      if (current.x === board.food.x && current.y === board.food.y) { found = true; break; }
+      for (const dirName of Object.keys(DIRS)) {
+        const d = DIRS[dirName];
+        const nx = current.x + d.dx, ny = current.y + d.dy;
+        const nk = keyOf(nx, ny);
+        if (cameFrom.has(nk)) continue;
+        if (board.checkCollision(nx, ny) === "wall") continue;
+        if (board.checkCollision(nx, ny) === "body" && !(nx === board.food.x && ny === board.food.y)) continue;
+        cameFrom.set(nk, current);
+        frontier.push({ x: nx, y: ny });
+      }
+    }
+
+    if (!found) return safeFallbackDirection(board, snake);
+
+    let step = { x: board.food.x, y: board.food.y };
+    let prevKey = keyOf(step.x, step.y);
+    while (cameFrom.get(prevKey) && !(cameFrom.get(prevKey).x === head.x && cameFrom.get(prevKey).y === head.y)) {
+      step = cameFrom.get(prevKey);
+      prevKey = keyOf(step.x, step.y);
+    }
+    for (const dirName of Object.keys(DIRS)) {
+      const d = DIRS[dirName];
+      if (head.x + d.dx === step.x && head.y + d.dy === step.y) return dirName;
+    }
+    return safeFallbackDirection(board, snake);
+  }
+
+  function safeFallbackDirection(board, snake) {
+    const head = snake.body[0];
+    for (const dirName of [snake.direction, turnLeftOf(snake.direction), turnRightOf(snake.direction)]) {
+      const d = DIRS[dirName];
+      if (!board.checkCollision(head.x + d.dx, head.y + d.dy)) return dirName;
+    }
+    return snake.direction;
+  }
+
+  let hamiltonianNext = null; // Map<"x,y", {x,y}> -- built once, §35-36
+  function buildHamiltonianCycle() {
+    const path = [];
+    for (let x = 0; x < COLS; x++) path.push({ x, y: 0 });
+    for (let y = 1; y <= ROWS - 1; y++) {
+      if (y % 2 === 0) { for (let x = 1; x <= COLS - 1; x++) path.push({ x, y }); }
+      else { for (let x = COLS - 1; x >= 1; x--) path.push({ x, y }); }
+    }
+    for (let y = ROWS - 1; y >= 1; y--) path.push({ x: 0, y });
+
+    const next = new Map();
+    for (let i = 0; i < path.length; i++) {
+      next.set(keyOf(path[i].x, path[i].y), path[(i + 1) % path.length]);
+    }
+    return next;
+  }
+  function hamiltonianDirection(snake) {
+    if (!hamiltonianNext) hamiltonianNext = buildHamiltonianCycle();
+    const head = snake.body[0];
+    const next = hamiltonianNext.get(keyOf(head.x, head.y));
+    for (const dirName of Object.keys(DIRS)) {
+      const d = DIRS[dirName];
+      if (head.x + d.dx === next.x && head.y + d.dy === next.y) return dirName;
+    }
+    return snake.direction;
+  }
+
+  // ---------- trained agent: compact-feature Q-learning (§39-43) ----------
+  let qTable = loadJSON(STORAGE_KEYS.qtable, {});
+  let trainStats = loadJSON(STORAGE_KEYS.trainStats, { episodes: 0, history: [] });
+  const DIR_LIST = ["UP", "DOWN", "LEFT", "RIGHT"];
+
+  function encodeFeatures(board, snake) {
+    const head = snake.body[0];
+    const danger = (dirName) => {
+      const d = DIRS[dirName];
+      const nx = head.x + d.dx, ny = head.y + d.dy;
+      const c = board.checkCollision(nx, ny);
+      return c && !(board.food && nx === board.food.x && ny === board.food.y && c === "body") ? 1 : 0;
+    };
+    const dangerStraight = danger(snake.direction);
+    const dangerLeft = danger(turnLeftOf(snake.direction));
+    const dangerRight = danger(turnRightOf(snake.direction));
+    const dirIndex = DIR_LIST.indexOf(snake.direction);
+    let foodUp = 0, foodDown = 0, foodLeft = 0, foodRight = 0;
+    if (board.food) {
+      foodUp = board.food.y < head.y ? 1 : 0;
+      foodDown = board.food.y > head.y ? 1 : 0;
+      foodLeft = board.food.x < head.x ? 1 : 0;
+      foodRight = board.food.x > head.x ? 1 : 0;
+    }
+    let key = dangerStraight | (dangerLeft << 1) | (dangerRight << 2) | (dirIndex << 3);
+    key |= (foodUp << 5) | (foodDown << 6) | (foodLeft << 7) | (foodRight << 8);
+    return key;
+  }
+  function qRow(table, key) {
+    if (!table[key]) table[key] = [0, 0, 0, 0];
+    return table[key];
+  }
+  function trainedDirection(board, snake) {
+    const key = encodeFeatures(board, snake);
+    const row = qRow(qTable, key);
+    let best = -Infinity, bestIdx = 0;
+    for (let i = 0; i < 4; i++) if (row[i] > best) { best = row[i]; bestIdx = i; }
+    return DIR_LIST[bestIdx];
+  }
+
+  const ALPHA = 0.2, DISCOUNT = 0.9;
+  function runTrainingEpisode(epsilon) {
+    const board = new Board();
+    const snake = createSnake("t", Math.floor(COLS / 2), Math.floor(ROWS / 2), "RIGHT", "");
+    board.addSnake(snake);
+    board.spawnFood();
+
+    let ticks = 0;
+    while (snake.alive && ticks < 400) {
+      const stateKey = encodeFeatures(board, snake);
+      const row = qRow(qTable, stateKey);
+      let actionIdx;
+      if (Math.random() < epsilon) actionIdx = Math.floor(Math.random() * 4);
+      else { let best = -Infinity; actionIdx = 0; for (let i = 0; i < 4; i++) if (row[i] > best) { best = row[i]; actionIdx = i; } }
+
+      const scoreBefore = snake.score;
+      snake.pendingDirection = DIR_LIST[actionIdx];
+      board.tickSnake(snake);
+      ticks++;
+
+      let reward;
+      if (!snake.alive) reward = -10;
+      else if (snake.score > scoreBefore) reward = 10;
+      else reward = -0.01;
+
+      let target;
+      if (!snake.alive) target = reward;
+      else {
+        const nextRow = qRow(qTable, encodeFeatures(board, snake));
+        target = reward + DISCOUNT * Math.max(...nextRow);
+      }
+      row[actionIdx] += ALPHA * (target - row[actionIdx]);
+    }
+    return snake.score;
+  }
+  function evaluateAgent(games) {
+    let totalFood = 0;
+    for (let i = 0; i < games; i++) totalFood += runTrainingEpisode(0);
+    return totalFood / games;
+  }
+
+  let training = false;
+  function trainInChunks(totalEpisodes, onDone) {
+    if (training) return;
+    training = true;
+    const chunkSize = 50;
+    let done = 0;
+    const epsilonStart = 0.3, epsilonEnd = 0.02;
+    const checkpointEvery = Math.max(100, Math.floor(totalEpisodes / 10));
+
+    function step() {
+      const thisChunk = Math.min(chunkSize, totalEpisodes - done);
+      for (let i = 0; i < thisChunk; i++) {
+        const progress = (done + i) / totalEpisodes;
+        const epsilon = epsilonStart + (epsilonEnd - epsilonStart) * progress;
+        runTrainingEpisode(epsilon);
+      }
+      done += thisChunk;
+      trainStats.episodes += thisChunk;
+
+      if (Math.floor(done / checkpointEvery) !== Math.floor((done - thisChunk) / checkpointEvery) || done === totalEpisodes) {
+        const avgFood = evaluateAgent(20);
+        trainStats.history.push({ episode: trainStats.episodes, avgFood });
+        if (trainStats.history.length > 24) trainStats.history.shift();
+      }
+
+      updateTrainUI(done, totalEpisodes);
+
+      if (done < totalEpisodes) setTimeout(step, 0);
+      else {
+        training = false;
+        saveJSON(STORAGE_KEYS.qtable, qTable);
+        saveJSON(STORAGE_KEYS.trainStats, trainStats);
+        if (onDone) onDone();
+      }
+    }
+    step();
+  }
+
+  const STRATEGIES = {
+    greedy: breadthFirstSearchDirection,
+    hamiltonian: (board, snake) => hamiltonianDirection(snake),
+    trained: trainedDirection
+  };
+
+  // ---------- game session ----------
+  let board = null;
+  let loopHandle = null;
+  let gameOver = false;
+  let players = []; // [{slot:'p1'|'p2', snake, config}]
+
+  function config() {
+    return {
+      p1: { name: nameInput("p1Name") || "Player One", type: document.getElementById("p1Type").value },
+      p2: { name: nameInput("p2Name") || "Player Two", type: document.getElementById("p2Type").value }
+    };
+  }
+  function nameInput(id) { return document.getElementById(id).value.trim(); }
+
+  function resetGame() {
+    if (loopHandle) clearInterval(loopHandle);
+    gameOver = false;
+    board = new Board();
+    players = [];
+
+    const cfg = config();
+    const p1Snake = createSnake("p1", Math.floor(COLS * 0.3), Math.floor(ROWS / 2), "RIGHT", "var(--accent-snake)");
+    board.addSnake(p1Snake);
+    players.push({ slot: "p1", snake: p1Snake, config: cfg.p1 });
+
+    if (cfg.p2.type !== "none") {
+      const p2Snake = createSnake("p2", Math.floor(COLS * 0.7), Math.floor(ROWS / 2), "LEFT", "var(--accent-snake2)");
+      board.addSnake(p2Snake);
+      players.push({ slot: "p2", snake: p2Snake, config: cfg.p2 });
+    }
+    board.spawnFood();
+
+    document.getElementById("resultBanner").hidden = true;
+    render();
+
+    const tickMs = parseInt(document.getElementById("speedSelect").value, 10);
+    loopHandle = setInterval(tick, tickMs);
+  }
+
+  function tick() {
+    if (gameOver) return;
+    for (const p of players) {
+      if (!p.snake.alive) continue;
+      if (p.config.type !== "human") {
+        const dirFn = STRATEGIES[p.config.type];
+        if (dirFn) p.snake.pendingDirection = dirFn(board, p.snake);
+      }
+      board.tickSnake(p.snake);
+    }
+    render();
+
+    const anyAlive = players.some(p => p.snake.alive);
+    if (!anyAlive) {
+      gameOver = true;
+      clearInterval(loopHandle);
+      finishGame();
+    }
+  }
+
+  function finishGame() {
+    for (const p of players) {
+      recordScore(p.config.name, p.snake.score);
+    }
+    showResultBanner();
+    submitContestAttemptIfActive();
+  }
+
+  function showResultBanner() {
+    const el = document.getElementById("resultBanner");
+    el.hidden = false;
+    el.className = "result-banner win";
+    if (players.length === 1) {
+      el.textContent = players[0].config.name + " scored " + players[0].snake.score + ".";
+    } else {
+      const [a, b] = players;
+      if (a.snake.score === b.snake.score) el.textContent = "Tied at " + a.snake.score + " each.";
+      else {
+        const winner = a.snake.score > b.snake.score ? a : b;
+        el.textContent = winner.config.name + " wins, " + Math.max(a.snake.score, b.snake.score) + " to " + Math.min(a.snake.score, b.snake.score) + ".";
+      }
+    }
+  }
+
+  // ---------- score repository (§45-46) ----------
+  let scores = loadJSON(STORAGE_KEYS.scores, {});
+  function recordScore(name, score) {
+    const rec = scores[name] || (scores[name] = { best: 0, games: 0, total: 0 });
+    rec.best = Math.max(rec.best, score);
+    rec.games++;
+    rec.total += score;
+    saveJSON(STORAGE_KEYS.scores, scores);
+    renderScores();
+  }
+  function renderScores() {
+    const body = document.getElementById("scoresBody");
+    const entries = Object.entries(scores).sort((a, b) => b[1].best - a[1].best);
+    document.getElementById("scoresEmpty").hidden = entries.length > 0;
+    body.innerHTML = entries.map(([name, r]) => {
+      const avg = r.games ? (r.total / r.games).toFixed(1) : "0.0";
+      return "<tr><td>" + escapeHtml(name) + "</td><td class='num'>" + r.best + "</td><td class='num'>" + r.games + "</td><td class='num'>" + avg + "</td></tr>";
+    }).join("");
+  }
+
+  // ---------- high-score contest (§47-50) ----------
+  let ledger = loadJSON(STORAGE_KEYS.ledger, {});
+  let contest = loadJSON(STORAGE_KEYS.contest, null);
+
+  function startContest() {
+    const attempts = parseInt(document.getElementById("contestAttempts").value, 10);
+    const prize = Math.max(10, parseInt(document.getElementById("contestPrize").value, 10) || 0);
+    contest = { id: "c-" + Date.now(), attemptsAllowed: attempts, prize, entrants: {} };
+    saveJSON(STORAGE_KEYS.contest, contest);
+    renderContest();
+  }
+
+  function submitContestAttemptIfActive() {
+    if (!contest) return;
+    const entrantName = document.getElementById("contestEntrantName").value.trim();
+    if (!entrantName) return;
+    const p1 = players.find(p => p.slot === "p1");
+    if (!p1) return;
+
+    const entrant = contest.entrants[entrantName] || (contest.entrants[entrantName] = { best: 0, attemptsUsed: 0 });
+    if (entrant.attemptsUsed >= contest.attemptsAllowed) return;
+    entrant.attemptsUsed++;
+    entrant.best = Math.max(entrant.best, p1.snake.score);
+    saveJSON(STORAGE_KEYS.contest, contest);
+    renderContest();
+  }
+
+  function closeContest() {
+    if (!contest) return;
+    const entries = Object.entries(contest.entrants);
+    if (entries.length > 0) {
+      const [winnerName] = entries.sort((a, b) => b[1].best - a[1].best)[0];
+      creditPrize(winnerName, contest.prize);
+    }
+    contest = null;
+    saveJSON(STORAGE_KEYS.contest, null);
+    renderContest();
+  }
+  function cancelContest() {
+    contest = null;
+    saveJSON(STORAGE_KEYS.contest, null);
+    renderContest();
+  }
+  function creditPrize(playerName, amount) {
+    const rec = ledger[playerName] || (ledger[playerName] = { contestsWon: 0, points: 0 });
+    rec.contestsWon++;
+    rec.points += amount;
+    saveJSON(STORAGE_KEYS.ledger, ledger);
+    renderLedger();
+  }
+
+  function renderContest() {
+    const setup = document.getElementById("contestSetup");
+    const active = document.getElementById("contestActive");
+    if (!contest) { setup.hidden = false; active.hidden = true; return; }
+    setup.hidden = true; active.hidden = false;
+    const attemptWord = contest.attemptsAllowed === 1 ? " attempt each · " : " attempts each · ";
+    document.getElementById("contestStatusNote").textContent =
+      contest.attemptsAllowed + attemptWord + contest.prize + " points to the top score.";
+    const body = document.getElementById("contestStandingsBody");
+    const entries = Object.entries(contest.entrants).sort((a, b) => b[1].best - a[1].best);
+    body.innerHTML = entries.map(([name, e]) =>
+      "<tr><td>" + escapeHtml(name) + "</td><td class='num'>" + e.best + "</td><td class='num'>" + (contest.attemptsAllowed - e.attemptsUsed) + "</td></tr>"
+    ).join("") || "<tr><td colspan='3' style='color:var(--text-muted)'>No attempts yet.</td></tr>";
+  }
+  function renderLedger() {
+    const body = document.getElementById("ledgerBody");
+    const entries = Object.entries(ledger).sort((a, b) => b[1].points - a[1].points);
+    document.getElementById("ledgerEmpty").hidden = entries.length > 0;
+    body.innerHTML = entries.map(([name, r]) =>
+      "<tr><td>" + escapeHtml(name) + "</td><td class='num'>" + r.contestsWon + "</td><td class='num'>" + r.points + "</td></tr>"
+    ).join("");
+  }
+
+  // ---------- canvas rendering ----------
+  const canvas = document.getElementById("board");
+  const ctx = canvas.getContext("2d");
+  function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  function setupCanvasScale() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width || 480, h = rect.height || 400;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { w, h };
+  }
+
+  function render() {
+    const { w, h } = setupCanvasScale();
+    const cell = Math.min(w / COLS, h / ROWS);
+    const offsetX = (w - cell * COLS) / 2, offsetY = (h - cell * ROWS) / 2;
+
+    ctx.fillStyle = cssVar("--surface-2");
+    ctx.fillRect(0, 0, w, h);
+
+    if (board && board.food) {
+      ctx.fillStyle = cssVar("--accent-food");
+      const fx = offsetX + board.food.x * cell, fy = offsetY + board.food.y * cell;
+      ctx.beginPath();
+      ctx.arc(fx + cell / 2, fy + cell / 2, cell * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (board) {
+      for (const p of players) {
+        const color = cssVar(p.slot === "p1" ? "--accent-snake" : "--accent-snake2");
+        ctx.fillStyle = color;
+        p.snake.body.forEach((seg, i) => {
+          const x = offsetX + seg.x * cell, y = offsetY + seg.y * cell;
+          const inset = i === 0 ? cell * 0.06 : cell * 0.12;
+          ctx.globalAlpha = p.snake.alive ? 1 : 0.35;
+          roundRect(x + inset, y + inset, cell - inset * 2, cell - inset * 2, cell * 0.22);
+          ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+      }
+    }
+    renderStatus();
+  }
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function renderStatus() {
+    const row = document.getElementById("statusRow");
+    if (!players.length) { row.innerHTML = ""; return; }
+    row.innerHTML = players.map(p => {
+      const cls = p.slot === "p1" ? "p1" : "p2";
+      const state = p.snake.alive ? "" : " (down)";
+      return "<span class='pill " + cls + "'><span class='dot'></span>" + escapeHtml(p.config.name) + ": " + p.snake.score + state + "</span>";
+    }).join("");
+    if (contest) row.innerHTML += "<span class='pill warn'>Contest active</span>";
+  }
+
+  // ---------- training UI ----------
+  function updateTrainUI(done, total) {
+    document.getElementById("trainProgress").style.width = Math.round((done / total) * 100) + "%";
+    document.getElementById("statEpisodes").textContent = trainStats.episodes;
+    document.getElementById("statStates").textContent = Object.keys(qTable).length;
+    const last = trainStats.history[trainStats.history.length - 1];
+    document.getElementById("statAvgFood").textContent = last ? last.avgFood.toFixed(1) : "—";
+    drawTrainChart();
+  }
+  function drawTrainChart() {
+    const c = document.getElementById("trainChart");
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = c.getBoundingClientRect().width || 380, cssH = 90;
+    c.width = cssW * dpr; c.height = cssH * dpr;
+    const cctx = c.getContext("2d");
+    cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cctx.clearRect(0, 0, cssW, cssH);
+
+    const pts = trainStats.history;
+    cctx.strokeStyle = cssVar("--border");
+    cctx.lineWidth = 1;
+    for (let f = 0; f <= 1; f += 0.5) {
+      const y = cssH - 10 - f * (cssH - 20);
+      cctx.beginPath(); cctx.moveTo(0, y); cctx.lineTo(cssW, y); cctx.stroke();
+    }
+    if (pts.length < 2) return;
+
+    const maxVal = Math.max(1, ...pts.map(p => p.avgFood));
+    cctx.strokeStyle = cssVar("--accent-snake");
+    cctx.lineWidth = 2.5;
+    cctx.lineCap = "round"; cctx.lineJoin = "round";
+    cctx.beginPath();
+    pts.forEach((p, i) => {
+      const x = (i / (pts.length - 1)) * cssW;
+      const y = cssH - 10 - (p.avgFood / maxVal) * (cssH - 20);
+      if (i === 0) cctx.moveTo(x, y); else cctx.lineTo(x, y);
+    });
+    cctx.stroke();
+    const lastPt = pts[pts.length - 1];
+    const ly = cssH - 10 - (lastPt.avgFood / maxVal) * (cssH - 20);
+    cctx.fillStyle = cssVar("--accent-snake");
+    cctx.beginPath(); cctx.arc(cssW - 4, ly, 3.5, 0, Math.PI * 2); cctx.fill();
+  }
+
+  // ---------- input ----------
+  const KEY_TO_DIR_P1 = { ArrowUp: "UP", ArrowDown: "DOWN", ArrowLeft: "LEFT", ArrowRight: "RIGHT" };
+  const KEY_TO_DIR_P2 = { w: "UP", s: "DOWN", a: "LEFT", d: "RIGHT" };
+
+  document.addEventListener("keydown", (e) => {
+    if (KEY_TO_DIR_P1[e.key]) {
+      e.preventDefault();
+      const p1 = players.find(p => p.slot === "p1");
+      if (p1 && p1.config.type === "human" && p1.snake.alive) p1.snake.pendingDirection = KEY_TO_DIR_P1[e.key];
+    }
+    const lower = e.key.toLowerCase();
+    if (KEY_TO_DIR_P2[lower]) {
+      const p2 = players.find(p => p.slot === "p2");
+      if (p2 && p2.config.type === "human" && p2.snake.alive) p2.snake.pendingDirection = KEY_TO_DIR_P2[lower];
+    }
+  });
+
+  // ---------- wiring ----------
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      const target = tab.dataset.tab;
+      document.querySelectorAll(".tab-panel").forEach(p => p.hidden = p.dataset.panel !== target);
+    });
+  });
+
+  document.getElementById("newGameBtn").addEventListener("click", resetGame);
+  document.getElementById("speedSelect").addEventListener("change", resetGame);
+  document.getElementById("resetAllBtn").addEventListener("click", () => {
+    scores = {}; ledger = {}; contest = null; qTable = {}; trainStats = { episodes: 0, history: [] };
+    Object.values(STORAGE_KEYS).forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+    renderScores(); renderLedger(); renderContest();
+    updateTrainUI(0, 1);
+    resetGame();
+  });
+
+  document.getElementById("trainBtn").addEventListener("click", () => {
+    const episodes = Math.max(200, Math.min(20000, parseInt(document.getElementById("episodeCount").value, 10) || 2000));
+    document.getElementById("trainBtn").disabled = true;
+    document.getElementById("trainNote").textContent = "Training in progress — this runs entirely in your browser, in small chunks so the page stays responsive.";
+    trainInChunks(episodes, () => {
+      document.getElementById("trainBtn").disabled = false;
+      document.getElementById("trainNote").textContent = "Training complete. Select \"Trained (Q-learning)\" for a player on the Play tab to try it.";
+    });
+  });
+  document.getElementById("resetTrainingBtn").addEventListener("click", () => {
+    qTable = {}; trainStats = { episodes: 0, history: [] };
+    try { localStorage.removeItem(STORAGE_KEYS.qtable); localStorage.removeItem(STORAGE_KEYS.trainStats); } catch (e) {}
+    updateTrainUI(0, 1);
+  });
+
+  document.getElementById("startContestBtn").addEventListener("click", startContest);
+  document.getElementById("closeContestBtn").addEventListener("click", closeContest);
+  document.getElementById("cancelContestBtn").addEventListener("click", cancelContest);
+
+  ["p1Type", "p2Type"].forEach(id => document.getElementById(id).addEventListener("change", resetGame));
+
+  window.addEventListener("resize", render);
+
+  // ---------- boot ----------
+  function boot() {
+    renderScores();
+    renderLedger();
+    renderContest();
+    updateTrainUI(0, 1);
+    resetGame();
+  }
+  if (window.claude && window.claude.hot) {
+    window.claude.hot.ready ? window.claude.hot.ready(boot) : boot();
+  } else {
+    boot();
+  }
+})();
+</script>
+
+</body></html>

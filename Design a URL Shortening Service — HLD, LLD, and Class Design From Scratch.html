@@ -1,0 +1,1084 @@
+<meta charset="utf-8">
+<title>Design a URL Shortening Service — HLD, LLD, and Class Design From Scratch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; system design guide</div>
+      <h1>Design a URL Shortening Service — HLD, LLD, and Class Design From Scratch</h1>
+      <p class="dek">A URL shortening service (bit.ly/TinyURL-style) designed from scratch as a system-design interview, end to end: why this 'trivial CRUD app' is actually shaped entirely by one number (the read:write ratio), three approaches to short-code generation compared and rejected in turn, a real Base62 encoder, a distributed, contention-free unique ID generator built on range-based allocation, a Strategy-pattern code-generation layer supporting both generated and custom aliases, the real 301-vs-302 tradeoff and why the 'faster' choice is wrong here, an LRU redirect cache, sharded storage, asynchronous click analytics that never touches the critical path, expiration and garbage collection, and malicious-URL protection &mdash; with real Java code and a class diagram for every core mechanism, following SOLID throughout.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-the-interview-framed">Why This Matters (The Interview, Framed)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-step-1-clarifying-requirements-before-designing-anything">Step 1 — Clarifying Requirements Before Designing Anything</a></li><li class="toc-lvl-2"><a href="#7-functional-requirements">Functional Requirements</a></li><li class="toc-lvl-2"><a href="#8-non-functional-requirements">Non-Functional Requirements</a></li><li class="toc-lvl-2"><a href="#9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</a></li><li class="toc-lvl-2"><a href="#10-identifying-the-core-domain-entities">Identifying the Core Domain Entities</a></li><li class="toc-lvl-2"><a href="#11-high-level-architecture-overview">High-Level Architecture Overview</a></li><li class="toc-lvl-2"><a href="#12-follow-up-question-2-this-looks-like-a-trivial-crud-app-what-actually-makes-it-hard">Follow-up Question 2 — "This Looks Like a Trivial CRUD App. What Actually Makes It Hard?"</a></li><li class="toc-lvl-2"><a href="#13-the-real-difficulty-readwrite-ratio-and-the-redirect-latency-budget">The Real Difficulty: Read:Write Ratio and the Redirect Latency Budget</a></li><li class="toc-lvl-2"><a href="#14-follow-up-question-3-how-do-you-actually-generate-a-short-code-walk-through-a-few-approaches-and-their-flaws">Follow-up Question 3 — "How Do You Actually Generate a Short Code? Walk Through a Few Approaches and Their Flaws."</a></li><li class="toc-lvl-2"><a href="#15-approach-1-random-string-collision-check-and-why-it-doesnt-scale">Approach 1: Random String + Collision Check, and Why It Doesn't Scale</a></li><li class="toc-lvl-2"><a href="#16-approach-2-hash-and-truncate-and-why-it-still-collides">Approach 2: Hash-and-Truncate, and Why It Still Collides</a></li><li class="toc-lvl-2"><a href="#17-approach-3-a-global-counter-base62-encoding-the-standard-solution">Approach 3: A Global Counter + Base62 Encoding — the Standard Solution</a></li><li class="toc-lvl-2"><a href="#18-implementing-base62-encoding-and-decoding">Implementing Base62 Encoding and Decoding</a></li><li class="toc-lvl-2"><a href="#19-follow-up-question-4-a-single-global-counter-is-a-single-point-of-failure-and-a-bottleneck-fix-it">Follow-up Question 4 — "A Single Global Counter Is a Single Point of Failure and a Bottleneck. Fix It."</a></li><li class="toc-lvl-2"><a href="#20-distributed-unique-id-generation-range-based-allocation">Distributed Unique ID Generation: Range-Based Allocation</a></li><li class="toc-lvl-2"><a href="#21-implementing-a-range-based-id-allocator">Implementing a Range-Based ID Allocator</a></li><li class="toc-lvl-2"><a href="#22-follow-up-question-5-how-do-custom-aliases-fit-into-a-counter-based-scheme">Follow-up Question 5 — "How Do Custom Aliases Fit Into a Counter-Based Scheme?"</a></li><li class="toc-lvl-2"><a href="#23-custom-aliases-a-separate-namespace-not-a-special-case-of-the-counter">Custom Aliases: A Separate Namespace, Not a Special Case of the Counter</a></li><li class="toc-lvl-2"><a href="#24-the-shortcodegenerator-strategy-interface">The ShortCodeGenerator Strategy Interface</a></li><li class="toc-lvl-2"><a href="#25-implementing-counterbasedgenerator-and-customaliasgenerator">Implementing CounterBasedGenerator and CustomAliasGenerator</a></li><li class="toc-lvl-2"><a href="#26-class-diagram-domain-model-and-code-generation">Class Diagram: Domain Model and Code Generation</a></li><li class="toc-lvl-2"><a href="#27-follow-up-question-6-walk-me-through-the-redirect-path-end-to-end-whats-on-the-critical-path">Follow-up Question 6 — "Walk Me Through the Redirect Path End to End. What's on the Critical Path?"</a></li><li class="toc-lvl-2"><a href="#28-the-redirect-path-and-why-every-millisecond-there-matters">The Redirect Path and Why Every Millisecond There Matters</a></li><li class="toc-lvl-2"><a href="#29-follow-up-question-7-301-or-302-redirect-does-it-matter">Follow-up Question 7 — "301 or 302 Redirect? Does It Matter?"</a></li><li class="toc-lvl-2"><a href="#30-permanent-vs-temporary-redirects-the-real-tradeoff">Permanent vs. Temporary Redirects: The Real Tradeoff</a></li><li class="toc-lvl-2"><a href="#31-follow-up-question-8-how-do-you-make-redirects-fast-at-scale-given-the-readwrite-ratio">Follow-up Question 8 — "How Do You Make Redirects Fast at Scale, Given the Read:Write Ratio?"</a></li><li class="toc-lvl-2"><a href="#32-caching-hot-short-codes">Caching Hot Short Codes</a></li><li class="toc-lvl-2"><a href="#33-implementing-a-redirect-cache">Implementing a Redirect Cache</a></li><li class="toc-lvl-2"><a href="#34-follow-up-question-9-the-mapping-table-has-billions-of-rows-how-do-you-scale-storage">Follow-up Question 9 — "The Mapping Table Has Billions of Rows. How Do You Scale Storage?"</a></li><li class="toc-lvl-2"><a href="#35-sharding-the-url-mapping-store">Sharding the URL Mapping Store</a></li><li class="toc-lvl-2"><a href="#36-implementing-shard-routing">Implementing Shard Routing</a></li><li class="toc-lvl-2"><a href="#37-follow-up-question-10-how-do-you-stop-someone-from-writing-a-script-that-shortens-a-million-urls-a-minute">Follow-up Question 10 — "How Do You Stop Someone From Writing a Script That Shortens a Million URLs a Minute?"</a></li><li class="toc-lvl-2"><a href="#38-rate-limiting-the-shorten-endpoint">Rate Limiting the Shorten Endpoint</a></li><li class="toc-lvl-2"><a href="#39-follow-up-question-11-how-do-you-track-click-analytics-without-slowing-down-the-redirect-itself">Follow-up Question 11 — "How Do You Track Click Analytics Without Slowing Down the Redirect Itself?"</a></li><li class="toc-lvl-2"><a href="#40-asynchronous-click-analytics">Asynchronous Click Analytics</a></li><li class="toc-lvl-2"><a href="#41-implementing-async-analytics-event-publishing">Implementing Async Analytics Event Publishing</a></li><li class="toc-lvl-2"><a href="#42-follow-up-question-12-links-can-expire-how-do-you-reclaim-that-storage-safely">Follow-up Question 12 — "Links Can Expire. How Do You Reclaim That Storage Safely?"</a></li><li class="toc-lvl-2"><a href="#43-expiration-and-garbage-collection">Expiration and Garbage Collection</a></li><li class="toc-lvl-2"><a href="#44-implementing-expiry-enforcement-and-cleanup">Implementing Expiry Enforcement and Cleanup</a></li><li class="toc-lvl-2"><a href="#45-follow-up-question-13-how-do-you-stop-someone-from-shortening-a-url-to-a-phishing-or-malware-site">Follow-up Question 13 — "How Do You Stop Someone From Shortening a URL to a Phishing or Malware Site?"</a></li><li class="toc-lvl-2"><a href="#46-malicious-url-protection">Malicious URL Protection</a></li><li class="toc-lvl-2"><a href="#47-follow-up-question-14-at-googlebitly-scale-what-breaks-first">Follow-up Question 14 — "At Google/bit.ly Scale, What Breaks First?"</a></li><li class="toc-lvl-2"><a href="#48-scaling-the-read-path-cdn-and-edge-redirect-caching">Scaling the Read Path: CDN and Edge Redirect Caching</a></li><li class="toc-lvl-2"><a href="#49-full-worked-example-shortening-and-redirecting-a-url-end-to-end">Full Worked Example: Shortening and Redirecting a URL, End to End</a></li><li class="toc-lvl-2"><a href="#50-final-architecture-diagram">Final Architecture Diagram</a></li><li class="toc-lvl-2"><a href="#51-design-patterns-used-throughout-this-guide">Design Patterns Used Throughout This Guide</a></li><li class="toc-lvl-2"><a href="#52-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#53-common-mistakes-when-building-this-yourself">Common Mistakes When Building This Yourself</a></li><li class="toc-lvl-2"><a href="#54-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#55-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#56-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#57-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>The interview question this guide answers:</strong></p>
+<p><em>"Design a URL shortening service like bit.ly or TinyURL. Cover both high-level design (scale, availability, storage) and low-level design (class diagrams, the actual code-generation algorithm). Follow SOLID design principles, and be ready to justify every decision when I push back — starting with why this 'trivial CRUD app' is actually a real distributed-systems problem."</em></p>
+<p>This guide is structured exactly as that interview unfolds: a requirements-gathering phase, a high-level architecture built up decision by decision, a low-level class design deep dive, and a sequence of escalating <strong>follow-up questions</strong> — each answered with real reasoning and real code, ending where this question always ends up: generating billions of globally-unique short codes without a single point of failure, and keeping the redirect path — the one operation that runs on every single click — fast forever.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<p>We are building <strong>MiniShort</strong> — a URL shortening service covering:</p>
+<ul>
+<li><strong>Functional requirements</strong>: shorten a long URL into a short code, redirect a short code to its original URL, support user-chosen custom aliases, link expiration, and click analytics.</li>
+<li><strong>High-level design</strong>: why this looks like a trivial CRUD app and isn't, the massive read:write ratio that shapes every downstream decision, a caching and sharding strategy for the redirect path, and asynchronous analytics that never sits on that path.</li>
+<li><strong>Low-level design</strong>: a real Base62 encoder, a distributed, collision-free unique ID generator (no coordination on the hot path), a Strategy-pattern code-generation layer supporting both generated and custom codes, and a sharded, cached storage layer.</li>
+<li><strong>Scaling concerns</strong>: what happens at billions of stored URLs and tens of thousands of redirects per second, and the specific things that break first.</li>
+</ul>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>   POST /shorten {longUrl}                    GET /{shortCode}
+          |                                          |
+   Rate Limiter (§37-§38)                    Cache (hot codes, §31-§33)
+          |                                          | miss
+   ShortCodeGenerator (§17-§25)               Sharded Store (§34-§36)
+          |                                          |
+   Sharded Store (write)                      301/302 redirect (§29-§30)
+                                                      |
+                                          Async analytics event (§39-§41, NEVER on this path)
+</code></pre></div>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to:</p>
+<ul>
+<li>Explain precisely why a URL shortener is a real systems-design problem, not a CRUD exercise — and name the one ratio (read:write) that shapes almost every other decision in the design.</li>
+<li>Compare three approaches to generating a short code (random-with-collision-check, hash-and-truncate, counter-plus-Base62) and explain exactly why the industry-standard answer is the third one.</li>
+<li>Implement a real Base62 encoder/decoder, and a distributed unique-ID generator that never makes two application servers contend on a single shared counter for every request.</li>
+<li>Explain the real tradeoff between a 301 and a 302 redirect for this specific use case, and why the "obviously better" choice isn't actually free.</li>
+<li>Design a cached, sharded storage layer for the redirect path, and an asynchronous analytics pipeline that never adds latency to it.</li>
+<li>Reason about what breaks first at billions of stored URLs and real production traffic, and name the specific technique that addresses each bottleneck.</li>
+</ul>
+<hr>
+<h2 id="3-why-this-matters-the-interview-framed">3. Why This Matters (The Interview, Framed)</h2>
+<p>"Design a URL shortener" is one of the most commonly asked systems-design questions precisely because it <em>looks</em> trivial — a <code>Map&lt;String, String&gt;</code> and an HTTP redirect — and that appearance is exactly the trap:</p>
+<ul>
+<li><strong>Requirements-driven scoping</strong> — custom aliases, expiration, and analytics each change the design meaningfully; a strong candidate confirms scope before designing, the same discipline every guide in this series insists on.</li>
+<li><strong>The read:write ratio is the entire ballgame</strong> — a URL is shortened once and redirected from potentially millions of times; every high-level decision (caching, sharding, even which redirect status code to use) traces back to optimizing the read path specifically, at the acceptable cost of the write path.</li>
+<li><strong>The code-generation algorithm is where candidates actually get filtered</strong> — "just hash it" sounds reasonable and is subtly wrong (hash collisions after truncation, no uniqueness guarantee); the correct answer (a distributed counter, Base62-encoded) requires understanding <em>why</em> a counter has no collisions at all, and how to make counter allocation itself not become a bottleneck or single point of failure.</li>
+</ul>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language</td>
+<td>Java 21</td>
+<td>Matches this guide's class diagrams and pattern implementations (Strategy, Facade).</td>
+</tr>
+<tr>
+<td>Code generation</td>
+<td>A distributed counter, Base62-encoded</td>
+<td>Guarantees uniqueness with zero collision checks — the industry-standard approach, built in full in §17-§21.</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>A sharded key-value store (short code -&gt; long URL)</td>
+<td>The access pattern is a pure key lookup — no relational joins are ever needed on the redirect path (§34-§36).</td>
+</tr>
+<tr>
+<td>Cache</td>
+<td>An in-memory LRU cache in front of storage</td>
+<td>The read:write ratio means a small set of popular links accounts for a disproportionate share of all redirects — caching them is the single highest-leverage optimization available (§31-§33).</td>
+</tr>
+<tr>
+<td>Rate limiting</td>
+<td>A token-bucket limiter on the shorten endpoint</td>
+<td>Prevents abuse of the write path without touching the (far more latency-sensitive) redirect path at all (§37-§38).</td>
+</tr>
+<tr>
+<td>Analytics</td>
+<td>An asynchronous event queue, consumed off the critical path</td>
+<td>A click must redirect immediately; analytics can lag by seconds without anyone noticing (§39-§41).</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>minishort/
+├── src/main/java/com/example/minishort/
+│   ├── domain/
+│   │   └── ShortUrl.java                                          // §10
+│   ├── encoding/
+│   │   └── Base62Encoder.java                                     // §18
+│   ├── idgen/
+│   │   ├── RangeAllocator.java, IdRange.java                       // §21
+│   │   └── DistributedIdGenerator.java                              // §21
+│   ├── generation/
+│   │   ├── ShortCodeGenerator.java &lt;&lt;interface&gt;&gt;                    // §24
+│   │   ├── CounterBasedGenerator.java, CustomAliasGenerator.java     // §25
+│   │   └── AliasAlreadyTakenException.java
+│   ├── storage/
+│   │   ├── UrlStore.java &lt;&lt;interface&gt;&gt;, ShardedUrlStore.java         // §35-§36
+│   │   └── ShardRouter.java
+│   ├── cache/
+│   │   └── RedirectCache.java (LRU)                                  // §33
+│   ├── ratelimit/
+│   │   └── ShortenRateLimiter.java                                    // §38
+│   ├── analytics/
+│   │   └── ClickEvent.java, ClickEventPublisher.java                  // §40-§41
+│   └── safety/
+│       └── MaliciousUrlChecker.java                                    // §46
+└── src/test/java/com/example/minishort/
+    ├── Base62RoundTripTest.java
+    ├── RangeAllocatorNoDuplicateIdsTest.java
+    └── ShardRoutingConsistencyTest.java
+</code></pre></div>
+<hr>
+<h2 id="6-step-1-clarifying-requirements-before-designing-anything">6. Step 1 — Clarifying Requirements Before Designing Anything</h2>
+<blockquote>
+<p><strong>Candidate's clarifying questions:</strong> <em>"Do we need user-chosen custom aliases, or only system-generated codes? Should links expire, or live forever by default? Do we need click analytics, and if so, in real time or is a delay acceptable? What's the expected scale — millions or billions of stored URLs, and what's the expected read:write ratio?"</em></p>
+</blockquote>
+<p>Exactly as every prior guide in this series argues, narrowing an intentionally broad prompt before designing anything is the first move that separates a strong answer from a shallow one. For this guide, we settle on a concrete, realistic scope: <strong>both generated and custom aliases</strong> supported, <strong>optional expiration</strong> (a link lives forever unless a TTL was specified), <strong>analytics required but explicitly asynchronous</strong> (never blocking a redirect), targeting <strong>billions of stored URLs</strong> with a <strong>read:write ratio on the order of 100:1 or higher</strong> — the single number that shapes nearly everything from here on.</p>
+<hr>
+<h2 id="7-functional-requirements">7. Functional Requirements</h2>
+<ul>
+<li>Given a long URL, <strong>generate a unique short code</strong> and return a short URL.</li>
+<li>Given a short code, <strong>redirect</strong> the caller to the original long URL.</li>
+<li>Support <strong>user-chosen custom aliases</strong>, rejected if already taken.</li>
+<li>Support an optional <strong>expiration time</strong> on a shortened link.</li>
+<li>Track <strong>click analytics</strong> per short URL (count, timestamp, referrer) without adding latency to the redirect itself.</li>
+<li>Prevent shortening a URL that points at a <strong>known-malicious</strong> destination.</li>
+</ul>
+<hr>
+<h2 id="8-non-functional-requirements">8. Non-Functional Requirements</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>What it means concretely</th>
+<th>Where this guide addresses it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Extremely low redirect latency</strong></td>
+<td>A redirect is on the critical path of every single click — it must be fast, always</td>
+<td>Caching (§31-§33), sharded storage keyed for direct lookup (§34-§36)</td>
+</tr>
+<tr>
+<td><strong>High availability</strong></td>
+<td>A broken redirect makes every previously-shared link dead; this is the one thing that must never be down</td>
+<td>Sharding with replication, no single point of failure anywhere on the read path</td>
+</tr>
+<tr>
+<td><strong>Massive read:write skew</strong></td>
+<td>Reads (redirects) vastly outnumber writes (shortens) — every optimization should target reads first</td>
+<td>The entire architecture, starting from §13</td>
+</tr>
+<tr>
+<td><strong>Global uniqueness with no collisions</strong></td>
+<td>Two different long URLs must never accidentally resolve from the same generated short code</td>
+<td>Counter-based generation, not random or hash-based (§15-§17)</td>
+</tr>
+<tr>
+<td><strong>No single point of contention for ID generation</strong></td>
+<td>Generating IDs must scale horizontally, not bottleneck on one shared counter</td>
+<td>Distributed range-based allocation (§19-§21)</td>
+</tr>
+<tr>
+<td><strong>Extensibility</strong></td>
+<td>Adding a new code-generation strategy must not require rewriting the shortening service</td>
+<td>The Strategy pattern (§24-§25)</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">9. Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Before architecture — what actually exists in this system, and how does it relate?"</em></p>
+</blockquote>
+<p>This is the same deliberate pivot every prior guide in this series makes — naming the domain model before naming components keeps the design honest about what actually needs solving.</p>
+<hr>
+<h2 id="10-identifying-the-core-domain-entities">10. Identifying the Core Domain Entities</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>Represents</th>
+<th>Key relationships</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ShortUrl</strong></td>
+<td>One mapping from a short code to a long URL</td>
+<td>Has an optional expiration, a creation timestamp, an optional owning user</td>
+</tr>
+<tr>
+<td><strong>ShortCodeGenerator</strong></td>
+<td>The strategy that produces a short code for a new <code>ShortUrl</code></td>
+<td>Pluggable — a counter-based generator or a custom-alias generator (§24)</td>
+</tr>
+<tr>
+<td><strong>IdRange</strong></td>
+<td>A block of pre-allocated, contention-free unique IDs handed to one server</td>
+<td>Consumed locally, without contacting a central allocator per request (§20-§21)</td>
+</tr>
+<tr>
+<td><strong>UrlStore</strong></td>
+<td>The sharded, durable mapping from short code to <code>ShortUrl</code></td>
+<td>The system of record every redirect ultimately reads from (§34-§36)</td>
+</tr>
+<tr>
+<td><strong>RedirectCache</strong></td>
+<td>An in-memory, LRU-evicted cache of hot short codes</td>
+<td>Consulted before <code>UrlStore</code> on every redirect (§31-§33)</td>
+</tr>
+<tr>
+<td><strong>ClickEvent</strong></td>
+<td>One recorded fact: "this short code was redirected, at this time, from this referrer"</td>
+<td>Published asynchronously, never blocking the redirect itself (§39-§41)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Every section from §11 onward either builds infrastructure <strong>around</strong> these entities or builds the entities <strong>themselves</strong> as real, working class designs — nothing introduced later is untraceable back to this table.</p>
+<hr>
+<h2 id="11-high-level-architecture-overview">11. High-Level Architecture Overview</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                             Client
+                                |
+                    +-----------+-----------+
+                    v                       v
+            POST /shorten             GET /{shortCode}
+            (rate-limited, §37-§38)   (the critical path -- optimize THIS)
+                    |                       |
+            ShortCodeGenerator (§17-§25)    RedirectCache (§31-§33) --miss--&gt; Sharded UrlStore (§34-§36)
+                    |                       |
+            Sharded UrlStore (write)        301/302 redirect (§27-§30)
+                                             |
+                                    ClickEventPublisher (async, §39-§41)
+</code></pre></div>
+<p>Two structurally different paths, deliberately treated asymmetrically: the <strong>write path</strong> (shortening) can afford a little latency and a little coordination overhead, because it happens once per URL; the <strong>read path</strong> (redirecting) cannot afford either, because it happens potentially millions of times for the same URL — every architectural decision from here on is, in one way or another, in service of keeping that second path fast.</p>
+<hr>
+<h2 id="12-follow-up-question-2-this-looks-like-a-trivial-crud-app-what-actually-makes-it-hard">12. Follow-up Question 2 — "This Looks Like a Trivial CRUD App. What Actually Makes It Hard?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A table mapping short codes to long URLs, and a redirect. What's actually hard about this?"</em></p>
+</blockquote>
+<p>§13 names the one number that makes it hard, precisely.</p>
+<hr>
+<h2 id="13-the-real-difficulty-readwrite-ratio-and-the-redirect-latency-budget">13. The Real Difficulty: Read:Write Ratio and the Redirect Latency Budget</h2>
+<p>A URL is shortened <strong>once</strong>. It can then be clicked — redirected — anywhere from zero to millions of times, indefinitely, for as long as it exists. This produces a read:write ratio that easily reaches 100:1, 1000:1, or higher for popular links, and it means: <strong>every millisecond spent on the write path is paid once; every millisecond spent on the read path is paid on every single click, forever.</strong> That asymmetry is the entire reason this "trivial CRUD app" needs caching (§31-§33), sharding tuned for point lookups (§34-§36), and a code-generation scheme that adds zero extra reads or writes at redirect time (§17 onward) — none of it is premature optimization; all of it is a direct, proportionate response to the one ratio that defines this domain.</p>
+<hr>
+<h2 id="14-follow-up-question-3-how-do-you-actually-generate-a-short-code-walk-through-a-few-approaches-and-their-flaws">14. Follow-up Question 3 — "How Do You Actually Generate a Short Code? Walk Through a Few Approaches and Their Flaws."</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Don't just tell me the answer you memorized. Walk me through the naive approaches first, and tell me specifically why each one is wrong."</em></p>
+</blockquote>
+<p>§15-§16 name two approaches that look reasonable and aren't; §17 builds the one that's actually correct.</p>
+<hr>
+<h2 id="15-approach-1-random-string-collision-check-and-why-it-doesnt-scale">15. Approach 1: Random String + Collision Check, and Why It Doesn't Scale</h2>
+<p>Generate a random 7-character string, check if it's already taken, retry on collision. This is <strong>correct</strong> — it eventually produces a unique code — but its performance <strong>degrades as the keyspace fills up</strong>: with billions of codes already stored, an increasing fraction of random guesses collide, and the service pays for an extra read (the collision check) on every single attempt, with the retry count itself becoming unpredictable and, at high load, a real source of tail latency. Worse, at high write concurrency, two requests can both pass the collision check for the same code before either has written it — a genuine race condition needing a real uniqueness constraint at the storage layer to catch, turning a probabilistic problem into a real, occasional failure mode.</p>
+<hr>
+<h2 id="16-approach-2-hash-and-truncate-and-why-it-still-collides">16. Approach 2: Hash-and-Truncate, and Why It Still Collides</h2>
+<p>Hash the long URL (MD5/SHA-256) and take the first 6-7 characters of the hash's Base62 representation. This looks deterministic and collision-resistant, but truncating <strong>any</strong> hash to a short prefix reintroduces exactly the birthday-paradox collision risk a full-length hash was designed to avoid — a 6-character Base62 prefix has only <code>62^6</code> (~57 billion) possible values, and at billions of stored URLs, collisions become a real, regular occurrence requiring the <em>identical</em> collision-check-and-retry machinery §15 already needed, for no actual benefit over generating a random string in the first place.</p>
+<hr>
+<h2 id="17-approach-3-a-global-counter-base62-encoding-the-standard-solution">17. Approach 3: A Global Counter + Base62 Encoding — the Standard Solution</h2>
+<p>The fix that eliminates collisions <strong>entirely</strong>, rather than merely making them rare: maintain a single, monotonically-increasing integer counter, and <strong>Base62-encode</strong> each new counter value into a short code. Because the counter never repeats a value, and Base62 encoding is a deterministic, reversible bijection, <strong>two different URLs can never receive the same short code</strong> — not "extremely unlikely," but structurally impossible, with zero collision checks needed anywhere in the write path.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>counter=0          -&gt; &quot;0&quot;
+counter=61         -&gt; &quot;Z&quot;
+counter=62         -&gt; &quot;10&quot;
+counter=125        -&gt; &quot;21&quot;
+counter=3521614606208 -&gt; &quot;3D2VvUE&quot;  (a 7-character code, comfortably covering tens of trillions of URLs)
+</code></pre></div>
+<p>§18 implements the encoding itself; §19-§21 fix the one remaining problem this approach has — a single shared counter is a single point of contention.</p>
+<hr>
+<h2 id="18-implementing-base62-encoding-and-decoding">18. Implementing Base62 Encoding and Decoding</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class Base62Encoder {
+
+    private static final String ALPHABET = &quot;0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz&quot;;
+    private static final int BASE = ALPHABET.length(); // 62
+
+    public String encode(long value) {
+        if (value == 0) return String.valueOf(ALPHABET.charAt(0));
+        StringBuilder result = new StringBuilder();
+        long remaining = value;
+        while (remaining &gt; 0) {
+            int digit = (int) (remaining % BASE);
+            result.append(ALPHABET.charAt(digit)); // built in REVERSE order -- least significant digit first
+            remaining /= BASE;
+        }
+        return result.reverse().toString();
+    }
+
+    public long decode(String shortCode) {
+        long value = 0;
+        for (char c : shortCode.toCharArray()) {
+            int digit = ALPHABET.indexOf(c);
+            if (digit == -1) throw new IllegalArgumentException(&quot;Invalid character in short code: &quot; + c);
+            value = value * BASE + digit;
+        }
+        return value;
+    }
+}
+</code></pre></div>
+<p>This is precisely positional-notation encoding, exactly like decimal-to-binary conversion, just with a 62-symbol alphabet instead of 2 or 10 — <code>encode</code> repeatedly extracts the least-significant "digit" in base 62 via <code>% BASE</code> and <code>/ BASE</code>, and <code>decode</code> reverses that with Horner's method (<code>value = value * BASE + digit</code>, processing most-significant digit first). Using digits, then uppercase, then lowercase letters as the alphabet (<code>0-9A-Za-z</code>) is the conventional ordering, chosen for URL-safety (every character is a valid, unreserved URL path segment character) — never <code>+</code>/<code>/</code> the way Base64 would use, which would require URL-encoding and defeat the entire point of a "short" code.</p>
+<hr>
+<h2 id="19-follow-up-question-4-a-single-global-counter-is-a-single-point-of-failure-and-a-bottleneck-fix-it">19. Follow-up Question 4 — "A Single Global Counter Is a Single Point of Failure and a Bottleneck. Fix It."</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Every application server incrementing the same shared counter for every single shorten request is a contention point, and a single point of failure. How do you fix that without reintroducing collisions?"</em></p>
+</blockquote>
+<p>§20 names the standard fix; §21 implements it in full.</p>
+<hr>
+<h2 id="20-distributed-unique-id-generation-range-based-allocation">20. Distributed Unique ID Generation: Range-Based Allocation</h2>
+<p>Instead of every application server contacting a central counter for <strong>every</strong> ID, have each server request a <strong>block</strong> of IDs at once (say, 1,000 at a time) from a lightweight, central range allocator, then hand out IDs from that block <strong>locally</strong>, in memory, with zero coordination, until the block is exhausted — at which point it requests the next block. The central allocator's own job shrinks dramatically: instead of handling one request per <em>shortened URL</em>, it handles one request per <em>thousand</em> shortened URLs, and its own internal state (the next range to hand out) is a single, trivially-persisted counter, never contended at the same rate the application tier is.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>App Server A requests a block -&gt; allocator hands out [0, 999]      -&gt; A serves IDs 0,1,2,... locally, no coordination
+App Server B requests a block -&gt; allocator hands out [1000, 1999]  -&gt; B serves IDs 1000,1001,... locally
+App Server A exhausts its block -&gt; requests another -&gt; allocator hands out [2000, 2999]
+</code></pre></div>
+<p>No two servers are ever handed overlapping ranges, which is the entire uniqueness guarantee — each server can generate IDs from its own current range as fast as it wants, in memory, with no network round trip and no lock contention with any other server, for as long as that range lasts.</p>
+<hr>
+<h2 id="21-implementing-a-range-based-id-allocator">21. Implementing a Range-Based ID Allocator</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record IdRange(long startInclusive, long endInclusive) {
+    public boolean isExhausted(long nextValue) { return nextValue &gt; endInclusive; }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>/** The CENTRAL allocator -- one instance, backed by a single persisted counter. Called rarely
+ *  (once per BLOCK, not once per ID), which is exactly what keeps it from being a bottleneck. */
+public final class RangeAllocator {
+
+    private static final long BLOCK_SIZE = 1000;
+    private final AtomicLong persistedNextRangeStart; // durably stored -- e.g. one row in a small, dedicated table
+
+    public RangeAllocator(long initialValue) { this.persistedNextRangeStart = new AtomicLong(initialValue); }
+
+    public synchronized IdRange allocateNextRange() {
+        long start = persistedNextRangeStart.getAndAdd(BLOCK_SIZE);
+        long end = start + BLOCK_SIZE - 1;
+        // In a real system: persist `persistedNextRangeStart`'s NEW value durably here, BEFORE returning --
+        // exactly the &quot;durable before handed out&quot; discipline this project's own storage-engine guide
+        // applies to a WAL record, applied here to an ID range instead of a page mutation.
+        return new IdRange(start, end);
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>/** Runs INSIDE each application server -- the class every shorten request actually calls. */
+public final class DistributedIdGenerator {
+
+    private final RangeAllocator allocator;
+    private IdRange currentRange;
+    private long nextValue;
+
+    public DistributedIdGenerator(RangeAllocator allocator) { this.allocator = allocator; }
+
+    public synchronized long nextId() {
+        if (currentRange == null || currentRange.isExhausted(nextValue)) {
+            currentRange = allocator.allocateNextRange(); // a network/DB round trip -- but only once per BLOCK_SIZE ids
+            nextValue = currentRange.startInclusive();
+        }
+        return nextValue++;
+    }
+}
+</code></pre></div>
+<p><code>DistributedIdGenerator.nextId()</code> only ever calls the (comparatively expensive, coordinated) <code>allocateNextRange()</code> once every <code>BLOCK_SIZE</code> calls — the other 999 calls out of every 1,000 are a plain, uncontended, in-memory increment. This is the exact mechanism that turns "one contention point for every write" into "one contention point every thousand writes," without weakening the uniqueness guarantee at all: every ID that's ever handed out, by any server, still comes from a disjoint range no other server was ever given.</p>
+<hr>
+<h2 id="22-follow-up-question-5-how-do-custom-aliases-fit-into-a-counter-based-scheme">22. Follow-up Question 5 — "How Do Custom Aliases Fit Into a Counter-Based Scheme?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A user wants <code>bit.ly/my-startup</code> instead of a generated code. That's not a Base62-encoded number at all. How does that fit into what you just built?"</em></p>
+</blockquote>
+<p>It doesn't try to fit into the counter at all — §23 explains why a custom alias is a structurally different case, not a variant of the same one.</p>
+<hr>
+<h2 id="23-custom-aliases-a-separate-namespace-not-a-special-case-of-the-counter">23. Custom Aliases: A Separate Namespace, Not a Special Case of the Counter</h2>
+<p>A generated code's uniqueness is guaranteed <em>structurally</em> by the counter (§17) — no check is ever needed. A custom alias is <strong>user-chosen text</strong>, with no relationship to the counter at all, so its uniqueness has to be verified the old-fashioned way: <strong>check if it's already taken, reject if so.</strong> Both kinds of code end up in the exact same <code>UrlStore</code> (§34), keyed identically — a redirect for <code>/my-startup</code> and a redirect for <code>/3D2VvUE</code> go through the identical lookup path — but <em>creating</em> one is a fundamentally different operation from creating the other, which is exactly why §24-§25 model them as two implementations of one interface, not one method with a branch inside it.</p>
+<hr>
+<h2 id="24-the-shortcodegenerator-strategy-interface">24. The ShortCodeGenerator Strategy Interface</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface ShortCodeGenerator {
+    String generate(String longUrl, String requestedAlias /* nullable */) throws AliasAlreadyTakenException;
+}
+</code></pre></div>
+<p>One interface, one method, called identically by the shortening service regardless of which concrete strategy is configured — the service itself never needs an <code>if (customAliasRequested)</code> branch anywhere in its own logic.</p>
+<hr>
+<h2 id="25-implementing-counterbasedgenerator-and-customaliasgenerator">25. Implementing CounterBasedGenerator and CustomAliasGenerator</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class CounterBasedGenerator implements ShortCodeGenerator {
+
+    private final DistributedIdGenerator idGenerator; // §21
+    private final Base62Encoder encoder;                // §18
+
+    public CounterBasedGenerator(DistributedIdGenerator idGenerator, Base62Encoder encoder) {
+        this.idGenerator = idGenerator;
+        this.encoder = encoder;
+    }
+
+    @Override
+    public String generate(String longUrl, String requestedAlias) {
+        return encoder.encode(idGenerator.nextId()); // requestedAlias is IGNORED here -- §26's dispatcher decides which
+                                                        // generator to call based on whether one was actually provided
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class CustomAliasGenerator implements ShortCodeGenerator {
+
+    private final UrlStore urlStore; // §34-§36
+
+    public CustomAliasGenerator(UrlStore urlStore) { this.urlStore = urlStore; }
+
+    @Override
+    public String generate(String longUrl, String requestedAlias) throws AliasAlreadyTakenException {
+        if (requestedAlias == null || requestedAlias.isBlank()) {
+            throw new IllegalArgumentException(&quot;CustomAliasGenerator requires a non-blank alias&quot;);
+        }
+        if (urlStore.exists(requestedAlias)) { // the ONE collision check this entire design ever needs --
+            throw new AliasAlreadyTakenException(requestedAlias); // confined to exactly the one case (custom
+        }                                                          // text) where uniqueness genuinely isn't structural
+        return requestedAlias;
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>/** The one place that decides WHICH strategy to use -- never inside either generator itself. */
+public final class ShortCodeGeneratorDispatcher {
+
+    private final CounterBasedGenerator counterBasedGenerator;
+    private final CustomAliasGenerator customAliasGenerator;
+
+    public ShortCodeGeneratorDispatcher(CounterBasedGenerator counterBasedGenerator, CustomAliasGenerator customAliasGenerator) {
+        this.counterBasedGenerator = counterBasedGenerator;
+        this.customAliasGenerator = customAliasGenerator;
+    }
+
+    public String generate(String longUrl, String requestedAlias) throws AliasAlreadyTakenException {
+        ShortCodeGenerator generator = (requestedAlias != null &amp;&amp; !requestedAlias.isBlank())
+                ? customAliasGenerator
+                : counterBasedGenerator;
+        return generator.generate(longUrl, requestedAlias);
+    }
+}
+</code></pre></div>
+<p>The collision check <code>urlStore.exists(requestedAlias)</code> is confined to exactly <code>CustomAliasGenerator</code> — <code>CounterBasedGenerator</code> never calls it, never needs to, and never could accidentally be made to skip it either, since the check simply doesn't exist in that class at all. This is the Strategy pattern doing real work, not decoration: the two generation strategies don't just <em>look</em> different, they have genuinely different correctness properties (structural uniqueness vs. checked uniqueness), and keeping them as separate classes is what makes that difference impossible to blur accidentally.</p>
+<hr>
+<h2 id="26-class-diagram-domain-model-and-code-generation">26. Class Diagram: Domain Model and Code Generation</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>ShortCodeGenerator &lt;&lt;interface&gt;&gt;                    ShortUrl
++ generate(longUrl, requestedAlias): String         + shortCode, longUrl
+      ^                                              + createdAt, expiresAt (nullable)
+      | implements                                          ^
+  +---+----------------+                                     | produces
+CounterBasedGenerator  CustomAliasGenerator                  |
+      |                       |                     ShortCodeGeneratorDispatcher
+      v                       v                     + generate(longUrl, requestedAlias)
+DistributedIdGenerator   UrlStore.exists(alias)              |
+      |                                              consulted by the shortening service,
+      v                                              which then writes the resulting ShortUrl
+RangeAllocator (§21)                                 into UrlStore (§34-§36)
+      |
+      v
+Base62Encoder (§18)
+</code></pre></div>
+<p>Every arrow into <code>ShortCodeGeneratorDispatcher</code> reflects the real dependency direction: the shortening service depends on the dispatcher and nothing else, the dispatcher depends on both concrete generators, and each generator depends only on whatever it specifically needs (an ID generator plus an encoder for one; the store itself for the other) — never on each other.</p>
+<hr>
+<h2 id="27-follow-up-question-6-walk-me-through-the-redirect-path-end-to-end-whats-on-the-critical-path">27. Follow-up Question 6 — "Walk Me Through the Redirect Path End to End. What's on the Critical Path?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A user clicks a shortened link. Trace every step until their browser lands on the real destination."</em></p>
+</blockquote>
+<p>§28 traces it precisely, and names what belongs on that path and — just as importantly — what must never be allowed onto it.</p>
+<hr>
+<h2 id="28-the-redirect-path-and-why-every-millisecond-there-matters">28. The Redirect Path and Why Every Millisecond There Matters</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>GET /{shortCode}
+      |
+RedirectCache.get(shortCode)  --hit--&gt;  return cached longUrl  --&gt; HTTP 301/302 (§29-§30)
+      |  miss
+UrlStore.lookup(shortCode) (§34-§36)  --&gt; populate cache (§31-§33)  --&gt; HTTP 301/302
+      |
+ClickEventPublisher.publish(...)  -- fired AFTER the redirect response is already sent, NEVER awaited (§39-§41)
+</code></pre></div>
+<p>Exactly two things are allowed on this path: a cache or store lookup, and issuing the redirect itself. Everything else this guide builds — analytics recording, expiration bookkeeping, malicious-URL re-verification — happens <strong>after</strong> the response is already on its way back to the client, specifically because none of it is something a user waits on, and all of it can tolerate being slightly stale or slightly delayed in a way that a redirect itself cannot.</p>
+<hr>
+<h2 id="29-follow-up-question-7-301-or-302-redirect-does-it-matter">29. Follow-up Question 7 — "301 or 302 Redirect? Does It Matter?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"HTTP gives you two flavors of redirect. Which one do you use here, and does the choice actually matter, or is it a coin flip?"</em></p>
+</blockquote>
+<p>It matters, and in a direction that's genuinely counter-intuitive the first time through it: the "obviously better-performing" choice is actually the wrong default for this specific service, for a reason tied directly back to §39's analytics requirement.</p>
+<hr>
+<h2 id="30-permanent-vs-temporary-redirects-the-real-tradeoff">30. Permanent vs. Temporary Redirects: The Real Tradeoff</h2>
+<p>A <strong>301 (Moved Permanently)</strong> tells the browser this mapping will never change — and browsers <strong>cache that fact locally</strong>, meaning every <em>subsequent</em> click on the same link, from the same browser, never even reaches the shortening service's servers again; the browser redirects on its own, straight from its local cache. A <strong>302 (Found / Temporary)</strong> tells the browser to check back with the server every single time. The 301's browser-side caching sounds like a pure win — less server load — but it directly <strong>defeats click analytics</strong> (§39-§41): a click the server never sees is a click that can never be counted, referrer-tracked, or geo-tagged. The standard, correct answer for a service whose functional requirements (§7) explicitly include analytics is <strong>302</strong>, deliberately trading some avoidable server load for the ability to observe every single click — a real tradeoff, decided by an actual requirement, not a default picked without reasoning.</p>
+<hr>
+<h2 id="31-follow-up-question-8-how-do-you-make-redirects-fast-at-scale-given-the-readwrite-ratio">31. Follow-up Question 8 — "How Do You Make Redirects Fast at Scale, Given the Read:Write Ratio?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"§13 established reads dominate massively. What specifically do you do about it, beyond 'use a fast database'?"</em></p>
+</blockquote>
+<p>§32 names the standard fix; §33 implements it.</p>
+<hr>
+<h2 id="32-caching-hot-short-codes">32. Caching Hot Short Codes</h2>
+<p>Real-world click distribution on shortened links is heavily skewed — a small fraction of links (a viral tweet, a marketing campaign) accounts for a disproportionate share of all redirects, the same "hot key" pattern this project's own guides have already met in a CDN context and a rate-limiter context. An in-memory LRU cache sitting in front of the sharded store (§34-§36), on every application server, turns the overwhelming majority of redirects for popular links into a pure in-memory lookup — no network round trip to storage at all.</p>
+<hr>
+<h2 id="33-implementing-a-redirect-cache">33. Implementing a Redirect Cache</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class RedirectCache {
+
+    private final int capacity;
+    private final LinkedHashMap&lt;String, ShortUrl&gt; cache;
+
+    public RedirectCache(int capacity) {
+        this.capacity = capacity;
+        // accessOrder=true is the ENTIRE LRU mechanism -- every get() moves an entry to the &quot;most recently
+        // used&quot; end internally; removeEldestEntry below evicts from the OTHER end once over capacity.
+        this.cache = new LinkedHashMap&lt;&gt;(capacity, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry&lt;String, ShortUrl&gt; eldest) {
+                return size() &gt; RedirectCache.this.capacity;
+            }
+        };
+    }
+
+    public synchronized Optional&lt;ShortUrl&gt; get(String shortCode) {
+        return Optional.ofNullable(cache.get(shortCode));
+    }
+
+    public synchronized void put(String shortCode, ShortUrl shortUrl) {
+        cache.put(shortCode, shortUrl);
+    }
+}
+</code></pre></div>
+<p><code>LinkedHashMap</code>'s own <code>accessOrder=true</code> constructor flag, plus overriding <code>removeEldestEntry</code>, is the entire LRU cache mechanism — no hand-rolled doubly-linked list needed, the same zero-extra-code LRU trick this project's own database-internals guides already reach for. Every cache hit here is exactly what the redirect path (§28) needs: one in-memory map lookup, no network call, no coordination — the single highest-leverage optimization this design makes, precisely because it targets the read path §13 identified as the one that matters most.</p>
+<hr>
+<h2 id="34-follow-up-question-9-the-mapping-table-has-billions-of-rows-how-do-you-scale-storage">34. Follow-up Question 9 — "The Mapping Table Has Billions of Rows. How Do You Scale Storage?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A cache miss still has to hit real storage. At billions of stored URLs, what does that storage layer actually look like?"</em></p>
+</blockquote>
+<p>§35 names the fix; §36 implements the routing it requires.</p>
+<hr>
+<h2 id="35-sharding-the-url-mapping-store">35. Sharding the URL Mapping Store</h2>
+<p>No single database instance holds billions of rows and serves the required read volume comfortably — the store is <strong>sharded</strong>, splitting the keyspace across many physical database instances, each holding a manageable fraction of the total. Because every lookup is a <strong>pure key lookup</strong> (a short code, nothing else — never a range scan or a join), sharding by a hash of the short code itself is both natural and sufficient: this is the identical consistent-hashing idea this project's own dedicated guide builds out in full depth, applied here to route a lookup to the one shard that could possibly hold it, in <code>O(1)</code>, with no need to fan a query out to every shard and merge results.</p>
+<hr>
+<h2 id="36-implementing-shard-routing">36. Implementing Shard Routing</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface UrlStore {
+    void save(ShortUrl shortUrl);
+    boolean exists(String shortCode);
+    Optional&lt;ShortUrl&gt; lookup(String shortCode);
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class ShardRouter {
+
+    private final List&lt;UrlStore&gt; shards;
+
+    public ShardRouter(List&lt;UrlStore&gt; shards) { this.shards = shards; }
+
+    public UrlStore shardFor(String shortCode) {
+        int shardIndex = Math.floorMod(shortCode.hashCode(), shards.size()); // a simple modulo hash over shard COUNT
+        return shards.get(shardIndex);
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class ShardedUrlStore implements UrlStore {
+
+    private final ShardRouter router;
+
+    public ShardedUrlStore(ShardRouter router) { this.router = router; }
+
+    @Override public void save(ShortUrl shortUrl) { router.shardFor(shortUrl.shortCode()).save(shortUrl); }
+    @Override public boolean exists(String shortCode) { return router.shardFor(shortCode).exists(shortCode); }
+    @Override public Optional&lt;ShortUrl&gt; lookup(String shortCode) { return router.shardFor(shortCode).lookup(shortCode); }
+}
+</code></pre></div>
+<p>A plain modulo hash over the shard <strong>count</strong> is deliberately named as the simple, honest starting point here, not the final word — adding or removing a shard with this scheme remaps the majority of keys, exactly the failure mode this project's own consistent-hashing guide builds an entire ring-based structure specifically to avoid; a production system re-shards using that structure instead of this section's simplified router, named explicitly as future work (§55) rather than silently glossed over.</p>
+<hr>
+<h2 id="37-follow-up-question-10-how-do-you-stop-someone-from-writing-a-script-that-shortens-a-million-urls-a-minute">37. Follow-up Question 10 — "How Do You Stop Someone From Writing a Script That Shortens a Million URLs a Minute?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Nothing so far stops abuse of the shorten endpoint specifically. What do you add?"</em></p>
+</blockquote>
+<p>Rate limiting — deliberately scoped to the <strong>write</strong> path only, never touching the redirect path's latency budget at all.</p>
+<hr>
+<h2 id="38-rate-limiting-the-shorten-endpoint">38. Rate Limiting the Shorten Endpoint</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class ShortenRateLimiter {
+
+    private final Map&lt;String, TokenBucket&gt; bucketsByApiKey = new ConcurrentHashMap&lt;&gt;();
+    private final long capacity;
+    private final double refillTokensPerSecond;
+
+    public ShortenRateLimiter(long capacity, double refillTokensPerSecond) {
+        this.capacity = capacity;
+        this.refillTokensPerSecond = refillTokensPerSecond;
+    }
+
+    public boolean allow(String apiKey) {
+        TokenBucket bucket = bucketsByApiKey.computeIfAbsent(apiKey, k -&gt; new TokenBucket(capacity, refillTokensPerSecond));
+        return bucket.tryConsume();
+    }
+}
+</code></pre></div>
+<p>This is deliberately the same token-bucket shape this project's own dedicated API-gateway-and-rate-limiter guide builds out in full — capacity, refill rate, per-key isolation — reused here at exactly the scope it's actually needed: only in front of <code>POST /shorten</code>, never in front of <code>GET /{shortCode}</code>, because rate-limiting the redirect path would directly contradict §13's entire premise that the read path must stay as fast and unencumbered as possible.</p>
+<hr>
+<h2 id="39-follow-up-question-11-how-do-you-track-click-analytics-without-slowing-down-the-redirect-itself">39. Follow-up Question 11 — "How Do You Track Click Analytics Without Slowing Down the Redirect Itself?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Analytics is a stated requirement (§7). The redirect can't wait on writing an analytics record. How do you reconcile that?"</em></p>
+</blockquote>
+<p>§40-§41 answer with an asynchronous event pipeline — the redirect fires an event and returns immediately, never waiting for that event to actually be processed anywhere.</p>
+<hr>
+<h2 id="40-asynchronous-click-analytics">40. Asynchronous Click Analytics</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Redirect handler:
+   1. Look up shortCode (cache or store)
+   2. Send the 302 response back to the client                &lt;-- client is DONE waiting, right here
+   3. Publish a ClickEvent to a queue (fire-and-forget)         &lt;-- happens AFTER step 2, never blocking it
+                                                                      |
+                                                                      v
+                                                         Analytics consumer (separate process/service)
+                                                         aggregates counts, updates dashboards, etc.
+</code></pre></div>
+<p>Step 3 happening <strong>after</strong> the response is already sent — not merely asynchronously dispatched but genuinely sequenced after the client-facing work is done — is what guarantees analytics can never add latency to a redirect, even in the degenerate case where the event queue itself is temporarily slow or unavailable.</p>
+<hr>
+<h2 id="41-implementing-async-analytics-event-publishing">41. Implementing Async Analytics Event Publishing</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record ClickEvent(String shortCode, Instant occurredAt, String referrer, String userAgent) { }
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class ClickEventPublisher {
+
+    private final ExecutorService analyticsExecutor; // a small, BOUNDED pool, isolated from the redirect path's own threads
+
+    public ClickEventPublisher(ExecutorService analyticsExecutor) { this.analyticsExecutor = analyticsExecutor; }
+
+    /** Called from the redirect handler, AFTER the 302 has already been written to the response. */
+    public void publish(ClickEvent event) {
+        analyticsExecutor.submit(() -&gt; {
+            try {
+                sendToQueue(event); // a real message queue client call, elided here
+            } catch (Exception e) {
+                // A dropped analytics event is a missed data point, never a user-facing failure -- log and move on,
+                // deliberately never propagating this failure back to anything the client could observe.
+                logDropped(event, e);
+            }
+        });
+    }
+
+    private void sendToQueue(ClickEvent event) { /* elided -- a real queue client (Kafka-style) publish call */ }
+    private void logDropped(ClickEvent event, Exception e) { /* elided -- structured logging, not a rethrow */ }
+}
+</code></pre></div>
+<p>Running <code>publish</code> on its <strong>own</strong>, separately-bounded thread pool — never the same pool serving redirect requests — means a slow or backed-up analytics pipeline can never starve the redirect path of threads, the identical pool-isolation argument this project's own executor-framework and API-gateway guides already make for isolating a slow concern from a fast one.</p>
+<hr>
+<h2 id="42-follow-up-question-12-links-can-expire-how-do-you-reclaim-that-storage-safely">42. Follow-up Question 12 — "Links Can Expire. How Do You Reclaim That Storage Safely?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A link created with a 30-day TTL is now 60 days old. It's still sitting in storage, occupying space and still technically redirectable. How do you actually reclaim it, correctly?"</em></p>
+</blockquote>
+<p>§43 states the two-part answer: an expired link must stop being <strong>usable</strong> immediately, and its storage must eventually be <strong>reclaimed</strong>, and these are two different guarantees on two different timelines.</p>
+<hr>
+<h2 id="43-expiration-and-garbage-collection">43. Expiration and Garbage Collection</h2>
+<p>An expired <code>ShortUrl</code> must <strong>stop redirecting</strong> the moment it expires — checked at lookup time, on every redirect, regardless of whether cleanup has run yet — but its row does <strong>not</strong> need to be physically deleted at that same instant; deletion can happen later, in a batched background pass, exactly the same "correctness first, physical reclamation on its own schedule" split this project's own storage-engine and version-control guides already make for a tombstoned delete and a garbage-collection pass respectively.</p>
+<hr>
+<h2 id="44-implementing-expiry-enforcement-and-cleanup">44. Implementing Expiry Enforcement and Cleanup</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class RedirectService {
+
+    private final RedirectCache cache;   // §33
+    private final UrlStore store;         // §34-§36
+
+    public RedirectService(RedirectCache cache, UrlStore store) { this.cache = cache; this.store = store; }
+
+    public Optional&lt;String&gt; resolve(String shortCode) {
+        Optional&lt;ShortUrl&gt; shortUrl = cache.get(shortCode).or(() -&gt; fetchAndCache(shortCode));
+        return shortUrl
+                .filter(url -&gt; url.expiresAt() == null || Instant.now().isBefore(url.expiresAt())) // the expiry CHECK,
+                .map(ShortUrl::longUrl);                                                              // enforced on EVERY lookup
+    }
+
+    private Optional&lt;ShortUrl&gt; fetchAndCache(String shortCode) {
+        Optional&lt;ShortUrl&gt; fromStore = store.lookup(shortCode);
+        fromStore.ifPresent(url -&gt; cache.put(shortCode, url));
+        return fromStore;
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>/** Runs periodically, off any request path entirely -- a background batch job, not a per-request check. */
+public final class ExpiredLinkCleanupJob {
+
+    private final UrlStore store;
+
+    public ExpiredLinkCleanupJob(UrlStore store) { this.store = store; }
+
+    public void runOnce() {
+        store.deleteWhereExpiredBefore(Instant.now()); // a single, bounded batch DELETE -- elided in full here
+    }
+}
+</code></pre></div>
+<p><code>RedirectService.resolve</code>'s <code>.filter(...)</code> check is what makes expiry <strong>immediately correct</strong> — an expired link stops redirecting the instant its <code>expiresAt</code> passes, entirely independent of whether <code>ExpiredLinkCleanupJob</code> has run yet — while the cleanup job itself only ever needs to run occasionally, reclaiming storage as a housekeeping concern completely decoupled from correctness, which is exactly what makes it safe to run rarely, in large batches, without any risk of a stale link staying redirectable in the meantime.</p>
+<hr>
+<h2 id="45-follow-up-question-13-how-do-you-stop-someone-from-shortening-a-url-to-a-phishing-or-malware-site">45. Follow-up Question 13 — "How Do You Stop Someone From Shortening a URL to a Phishing or Malware Site?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A URL shortener is an attractive tool for hiding a malicious destination behind an innocuous-looking link. What do you actually do about that?"</em></p>
+</blockquote>
+<p>§46 answers with a check on the write path — deliberately never on the read path, for the identical reason rate limiting (§37-§38) lives only on the write path.</p>
+<hr>
+<h2 id="46-malicious-url-protection">46. Malicious URL Protection</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface MaliciousUrlChecker {
+    boolean isMalicious(String longUrl);
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class SafeBrowsingBackedChecker implements MaliciousUrlChecker {
+
+    private final SafeBrowsingClient safeBrowsingClient; // an integration with a real, industry-standard threat-intel service
+
+    public SafeBrowsingBackedChecker(SafeBrowsingClient safeBrowsingClient) { this.safeBrowsingClient = safeBrowsingClient; }
+
+    @Override
+    public boolean isMalicious(String longUrl) {
+        return safeBrowsingClient.check(longUrl); // delegates to a real, continuously-updated threat database
+    }
+}
+</code></pre></div>
+<p>Checking against a real, industry-standard threat-intelligence service (Google Safe Browsing or an equivalent) rather than hand-rolling a blacklist is the identical engineering judgment this project's own driver and database-server guides already apply to password hashing and TLS: a maliciousness determination needs a continuously-updated, professionally-maintained data source behind it, not a homegrown list that's stale the day it's written — and this check belongs squarely on the <strong>shorten</strong> path, checked once at creation time, never repeated on every redirect, which would reintroduce exactly the redirect-latency cost §13 spends this entire design avoiding.</p>
+<hr>
+<h2 id="47-follow-up-question-14-at-googlebitly-scale-what-breaks-first">47. Follow-up Question 14 — "At Google/bit.ly Scale, What Breaks First?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Billions of stored URLs, tens of thousands of redirects per second, globally distributed users. What's the next bottleneck once everything in this guide is already built?"</em></p>
+</blockquote>
+<p>Physical distance itself — a request from Tokyo to a data center in Virginia pays real speed-of-light latency no amount of caching or sharding <em>within</em> that data center can remove.</p>
+<hr>
+<h2 id="48-scaling-the-read-path-cdn-and-edge-redirect-caching">48. Scaling the Read Path: CDN and Edge Redirect Caching</h2>
+<p>The fix mirrors the CDN architecture this project's own video-streaming and file-storage guides already build for a different kind of content: push the redirect decision itself out to <strong>edge locations</strong> geographically close to users, each edge node holding its own cache of hot short-code-to-long-URL mappings (§32-§33's identical LRU cache, just running at the edge instead of only in an origin data center), falling back to the origin service only on a genuine edge-cache miss. A redirect served entirely from a nearby edge node never pays the cross-continent round trip at all — the same multiplicative load-reduction argument a tiered CDN makes for video segments applies identically here to a much smaller, much more cacheable payload (a single short code -&gt; long URL mapping is a handful of bytes, trivially replicable to every edge location that wants it).</p>
+<hr>
+<h2 id="49-full-worked-example-shortening-and-redirecting-a-url-end-to-end">49. Full Worked Example: Shortening and Redirecting a URL, End to End</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1.  POST /shorten {longUrl: &quot;https://example.com/a/very/long/path&quot;, alias: null}
+2.  ShortenRateLimiter.allow(apiKey) -&gt; true                                              (§38)
+3.  MaliciousUrlChecker.isMalicious(longUrl) -&gt; false                                       (§46)
+4.  ShortCodeGeneratorDispatcher.generate(longUrl, null) -&gt; CounterBasedGenerator          (§25)
+       -&gt; DistributedIdGenerator.nextId() -&gt; 3521614606208 (served from this server's LOCAL range, no round trip)  (§21)
+       -&gt; Base62Encoder.encode(3521614606208) -&gt; &quot;3D2VvUE&quot;                                  (§18)
+5.  ShardRouter.shardFor(&quot;3D2VvUE&quot;) -&gt; shard 4 -&gt; UrlStore.save(...)                        (§36)
+6.  Response: { shortUrl: &quot;https://mini.sh/3D2VvUE&quot; }
+
+7.  GET /3D2VvUE  (a later click, from a different user)
+8.  RedirectCache.get(&quot;3D2VvUE&quot;) -&gt; miss (first click on this code)                          (§33)
+9.  ShardRouter.shardFor(&quot;3D2VvUE&quot;) -&gt; shard 4 -&gt; UrlStore.lookup(...) -&gt; found              (§36)
+10. RedirectCache.put(&quot;3D2VvUE&quot;, shortUrl)                                                   (§33)
+11. expiresAt check passes (no expiry set)                                                   (§44)
+12. HTTP 302 Found -&gt; Location: https://example.com/a/very/long/path                        (§30)
+13. ClickEventPublisher.publish(...) -- AFTER the response above was already sent            (§40-§41)
+
+14. GET /3D2VvUE  (a SECOND click, moments later)
+15. RedirectCache.get(&quot;3D2VvUE&quot;) -&gt; HIT -- no store lookup, no shard routing, pure in-memory  (§33)
+16. HTTP 302 Found -- served in a fraction of the time step 12 took
+</code></pre></div>
+<p>Step 16's speed difference from step 12 is the entire payoff of §32-§33's caching layer, made concrete: the <em>first</em> click on a brand-new code pays a real shard lookup; every click after that, for as long as the cache entry survives, pays almost nothing.</p>
+<hr>
+<h2 id="50-final-architecture-diagram">50. Final Architecture Diagram</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                          Client
+                             |
+                  +----------+----------+
+                  v                     v
+          POST /shorten           GET /{shortCode}
+                  |                     |
+      ShortenRateLimiter (§38)    RedirectCache (§33) --miss--&gt; ShardRouter -&gt; UrlStore shard (§35-§36)
+                  |                     |
+      MaliciousUrlChecker (§46)   expiresAt check (§44)
+                  |                     |
+      ShortCodeGeneratorDispatcher    HTTP 301/302 (§30)
+      (§24-§25)                          |
+                  |                ClickEventPublisher (async, §40-§41, on its OWN thread pool)
+      ShardRouter -&gt; UrlStore shard (write)
+                  |
+      DistributedIdGenerator -&gt; RangeAllocator (§20-§21)
+      Base62Encoder (§18)
+</code></pre></div>
+<hr>
+<h2 id="51-design-patterns-used-throughout-this-guide">51. Design Patterns Used Throughout This Guide</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Where</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Strategy</strong></td>
+<td><code>ShortCodeGenerator</code> (§24-§25)</td>
+<td>Counter-based and custom-alias generation are two interchangeable strategies behind one interface, dispatched by a single deciding class.</td>
+</tr>
+<tr>
+<td><strong>Facade</strong></td>
+<td><code>RedirectService</code> (§44)</td>
+<td>Cache lookup, store fallback, and expiry checking are all invisible to the caller behind one <code>resolve</code> call.</td>
+</tr>
+<tr>
+<td><strong>Bijective Encoding</strong></td>
+<td><code>Base62Encoder</code> (§18)</td>
+<td>A reversible, collision-free mapping between an integer counter and a short string — the algorithmic core this entire design depends on.</td>
+</tr>
+<tr>
+<td><strong>Range/Lease Allocation</strong></td>
+<td><code>RangeAllocator</code>/<code>DistributedIdGenerator</code> (§20-§21)</td>
+<td>Turns a single contention point into one contended call per thousand uncontended ones — the same amortized-coordination shape a distributed lock lease or a connection-pool checkout uses elsewhere.</td>
+</tr>
+<tr>
+<td><strong>LRU Cache</strong></td>
+<td><code>RedirectCache</code> (§33)</td>
+<td>The zero-extra-code <code>LinkedHashMap(accessOrder=true)</code> trick this project's own database-internals guides already use for the identical purpose.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="52-solid-principles-applied">52. SOLID Principles Applied</h2>
+<ul>
+<li><strong>Single Responsibility</strong>: <code>Base62Encoder</code> only encodes/decodes; <code>RangeAllocator</code> only hands out ID ranges; <code>ShortenRateLimiter</code> only rate-limits. None of them know how to look up a URL or check for malicious content.</li>
+<li><strong>Open/Closed</strong>: adding a new <code>ShortCodeGenerator</code> implementation (a vanity-domain generator, say) requires zero changes to <code>ShortCodeGeneratorDispatcher</code>'s callers — only a new <code>case</code> in the dispatch decision itself.</li>
+<li><strong>Liskov Substitution</strong>: <code>CounterBasedGenerator</code> and <code>CustomAliasGenerator</code> are fully interchangeable wherever <code>ShortCodeGenerator</code> is used (§24) — the shortening service never branches on which one it's holding.</li>
+<li><strong>Interface Segregation</strong>: <code>UrlStore</code> exposes exactly three methods (<code>save</code>/<code>exists</code>/<code>lookup</code>) — no sharding detail, no caching detail, no analytics detail leaks into its surface.</li>
+<li><strong>Dependency Inversion</strong>: <code>RedirectService</code> (§44) depends on <code>RedirectCache</code> and <code>UrlStore</code> — both concrete collaborators, but each consumed only through the narrow, stable methods it actually needs — with <code>ShardedUrlStore</code> itself depending on the <code>UrlStore</code> interface for every individual shard, never a specific storage engine directly.</li>
+</ul>
+<hr>
+<h2 id="53-common-mistakes-when-building-this-yourself">53. Common Mistakes When Building This Yourself</h2>
+<ul>
+<li><strong>Random-string-plus-collision-check as the "final" design, not a named-and-rejected first draft</strong> (§15) — degrades unpredictably as the keyspace fills, and hides a real race condition under concurrent writes.</li>
+<li><strong>A single, unpartitioned global counter</strong> (§17, before §19's fix) — a real single point of failure and contention bottleneck, exactly the gap a real interview always asks about next.</li>
+<li><strong>Rate limiting or malicious-URL checks on the redirect path instead of the shorten path</strong> (§38, §46) — directly contradicts the entire premise (§13) that the read path must stay minimal and fast.</li>
+<li><strong>A 301 redirect chosen by default "because it's faster"</strong> (§30) — silently defeats click analytics, a stated functional requirement, by letting browsers bypass the server entirely on repeat clicks.</li>
+<li><strong>Physically deleting an expired link immediately instead of checking expiry at lookup time</strong> (§43-§44) — couples correctness to a background job's schedule, when the two should be entirely decoupled.</li>
+<li><strong>Treating custom aliases and generated codes as the same code path with an <code>if</code> branch</strong> (§23) — blurs two genuinely different correctness properties (structural uniqueness vs. checked uniqueness) into one class where a bug in one case can silently affect the other.</li>
+</ul>
+<hr>
+<h2 id="54-testing-strategy">54. Testing Strategy</h2>
+<ul>
+<li><strong><code>Base62Encoder</code></strong> (§18): <code>decode(encode(n)) == n</code> for a wide range of values including <code>0</code>, a small value, and a very large <code>long</code>; <code>decode</code> throws on an invalid character.</li>
+<li><strong><code>RangeAllocator</code>/<code>DistributedIdGenerator</code></strong> (§20-§21): two generators pulling from the same allocator concurrently never produce overlapping ranges, and therefore never produce the same ID — the single test that would catch a broken uniqueness guarantee directly.</li>
+<li><strong><code>ShortCodeGeneratorDispatcher</code></strong> (§25): a request with a blank/null alias routes to <code>CounterBasedGenerator</code>; a request with a non-blank alias routes to <code>CustomAliasGenerator</code>; an already-taken alias throws <code>AliasAlreadyTakenException</code> rather than silently overwriting.</li>
+<li><strong><code>RedirectCache</code></strong> (§33): a cache at capacity evicts the least-recently-used entry, not an arbitrary one; a <code>get</code> on a present key moves it to "most recently used," verified by then adding new entries and confirming that key survives eviction longer than it otherwise would.</li>
+<li><strong><code>RedirectService</code></strong> (§44): a link past its <code>expiresAt</code> resolves to empty even though its row still physically exists in <code>UrlStore</code> — the test that proves expiry correctness never depends on the cleanup job having run.</li>
+<li><strong><code>ShardRouter</code></strong> (§36): the same short code always routes to the same shard, repeatedly, across many calls — routing determinism is the one property everything else in the storage layer depends on.</li>
+</ul>
+<hr>
+<h2 id="55-suggested-future-enhancements">55. Suggested Future Enhancements</h2>
+<ul>
+<li><strong>A real consistent-hashing ring for shard routing</strong> (§36) — replacing the plain modulo-over-shard-count router with the ring-based structure this project's own dedicated consistent-hashing guide builds in full, so adding or removing a shard remaps a small, bounded fraction of keys instead of the majority of them.</li>
+<li><strong>Edge/CDN-cached redirects</strong> (§48) — pushing the hot-path cache lookup itself out to geographically distributed edge nodes, not just an origin-local in-memory cache.</li>
+<li><strong>QR code generation</strong> for a shortened URL, a common, low-cost feature addition once the core shortening/redirect pipeline is solid.</li>
+<li><strong>Per-link, real-time analytics dashboards</strong> — the <code>ClickEvent</code> stream (§40-§41) already carries everything needed; this is purely a consumption/aggregation layer on top of data already being captured.</li>
+<li><strong>Bulk shortening via an API/CSV upload</strong> — a genuinely different write-path shape (many URLs in one request) that would need its own rate-limiting and batching consideration, distinct from the single-URL case this guide builds.</li>
+<li><strong>Link ownership and management</strong> — letting a registered user list, edit the expiry of, or delete their own previously-shortened links, which the domain model (§10) already has the <code>owningUser</code> field to support but this guide doesn't build a UI/API surface for.</li>
+</ul>
+<hr>
+<h2 id="56-progressive-interview-question-set">56. Progressive Interview Question Set</h2>
+<ol>
+<li>Why is a URL shortener a real distributed-systems problem, not a CRUD exercise — name the one ratio that drives almost every design decision.</li>
+<li>Walk through why hash-and-truncate still produces real collisions at scale, even though a full-length cryptographic hash is collision-resistant.</li>
+<li>Explain exactly why a counter-plus-Base62 scheme has zero collisions, structurally — not "very few," zero.</li>
+<li>Why does handing out ID ranges in blocks reduce contention by roughly the block size, and what's the actual failure mode if two servers were ever handed overlapping ranges?</li>
+<li>Why do custom aliases need a genuinely different generation strategy from generated codes, rather than a branch inside the same method?</li>
+<li>Walk through the real tradeoff between a 301 and a 302 redirect for this specific service, and explain why the "faster" choice isn't the correct default here.</li>
+<li>Why does rate limiting and malicious-URL checking belong exclusively on the write path, never the read path?</li>
+<li>Why can expiry enforcement be checked at lookup time while physical deletion happens on a completely independent schedule, without any risk of an expired link staying accessible?</li>
+<li>If asked to add "temporary custom aliases that expire and free up the alias for someone else to claim," how would you extend this design using pieces already built here?</li>
+<li>What's the very next bottleneck once caching, sharding, rate limiting, and async analytics are all already in place — and why does none of this guide's existing machinery solve it?</li>
+</ol>
+<hr>
+<h2 id="57-final-takeaway">57. Final Takeaway</h2>
+<p>Nearly every decision in this design is a direct, traceable consequence of one number: a URL is written once and read potentially millions of times. Once that ratio is taken seriously, caching, sharded point lookups, and a code-generation scheme that adds zero collision checks on the write path all stop looking like premature optimization and start looking like the only reasonable response to the actual shape of the workload. The single algorithmic insight that separates a shallow answer from a strong one — a monotonically increasing counter, Base62-encoded, has no collisions at all, and can be made contention-free by handing out ranges instead of individual values — is a small piece of math doing an enormous amount of architectural work, which is exactly why this question keeps showing up in interviews: it rewards a candidate who actually reasons about the problem, and quietly exposes one who's only memorized the word "hash."</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Design a URL Shortening Service — HLD, LLD, and Class Design From Scratch.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

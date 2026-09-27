@@ -1,0 +1,1054 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Tic-Tac-Toe Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chivo+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f3ec;
+    --surface: #ffffff;
+    --surface-2: #ece9de;
+    --border: #ddd7c6;
+    --text: #1c2321;
+    --text-muted: #64716b;
+    --accent-x: #0f766e;
+    --accent-x-soft: rgba(15,118,110,.12);
+    --accent-o: #c2410c;
+    --accent-o-soft: rgba(194,65,12,.12);
+    --good: #15803d;
+    --good-soft: rgba(21,128,61,.12);
+    --warn: #b45309;
+    --warn-soft: rgba(180,83,9,.12);
+    --bad: #b91c1c;
+    --shadow: 0 1px 2px rgba(20,20,15,.04), 0 10px 30px -14px rgba(20,20,15,.25);
+    --radius: 16px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101513;
+      --surface: #171e1b;
+      --surface-2: #1e2622;
+      --border: #2b3532;
+      --text: #eaf1ee;
+      --text-muted: #90a29c;
+      --accent-x: #5eead4;
+      --accent-x-soft: rgba(94,234,212,.14);
+      --accent-o: #fb923c;
+      --accent-o-soft: rgba(251,146,60,.14);
+      --good: #4ade80;
+      --good-soft: rgba(74,222,128,.14);
+      --warn: #fbbf24;
+      --warn-soft: rgba(251,191,36,.14);
+      --bad: #f87171;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101513;
+    --surface: #171e1b;
+    --surface-2: #1e2622;
+    --border: #2b3532;
+    --text: #eaf1ee;
+    --text-muted: #90a29c;
+    --accent-x: #5eead4;
+    --accent-x-soft: rgba(94,234,212,.14);
+    --accent-o: #fb923c;
+    --accent-o-soft: rgba(251,146,60,.14);
+    --good: #4ade80;
+    --good-soft: rgba(74,222,128,.14);
+    --warn: #fbbf24;
+    --warn-soft: rgba(251,191,36,.14);
+    --bad: #f87171;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Manrope', system-ui, sans-serif;
+    padding: clamp(16px, 4vw, 40px);
+    padding-block: clamp(20px, 4vw, 48px);
+    display: flex;
+    justify-content: center;
+  }
+  .app { width: 100%; max-width: 1100px; }
+
+  .topbar { margin-bottom: 24px; }
+  .eyebrow {
+    font-family: 'Chivo Mono', monospace;
+    font-size: 12px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent-x);
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-family: 'Chivo Mono', monospace;
+    font-size: clamp(28px, 4.5vw, 40px);
+    font-weight: 700;
+    margin: 0 0 8px;
+    text-wrap: balance;
+    letter-spacing: -.01em;
+  }
+  .dek {
+    color: var(--text-muted);
+    max-width: 65ch;
+    line-height: 1.55;
+    margin: 0;
+    font-size: 15px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 460px) minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 780px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .board-panel { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+  .status-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; min-height: 34px; }
+  .pill {
+    font-family: 'Chivo Mono', monospace;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .pill.x { color: var(--accent-x); }
+  .pill.o { color: var(--accent-o); }
+  .pill.win { color: var(--good); background: var(--good-soft); border-color: transparent; }
+  .pill.draw { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
+
+  .board-wrap { display: flex; justify-content: center; }
+  canvas#board {
+    width: 100%;
+    max-width: 420px;
+    aspect-ratio: 1 / 1;
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+
+  .board-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  button {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700;
+    font-size: 13.5px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--text);
+    color: var(--bg);
+    cursor: pointer;
+    transition: transform .12s ease, opacity .12s ease;
+  }
+  button:hover { transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  button.ghost { background: transparent; color: var(--text); }
+  button.accent { background: var(--accent-x); color: #06201d; border-color: transparent; }
+  button.small { padding: 7px 12px; font-size: 12.5px; }
+
+  .result-banner {
+    font-family: 'Chivo Mono', monospace;
+    font-size: 14px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+  .result-banner.win { background: var(--good-soft); color: var(--good); border-color: transparent; }
+  .result-banner.draw { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+
+  .control-panel { padding: 16px; display: flex; flex-direction: column; gap: 16px; min-height: 480px; }
+
+  .tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; }
+  .tab {
+    flex: 1;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    padding: 9px 6px;
+    font-size: 12.5px;
+    font-weight: 700;
+    border-radius: 8px;
+    box-shadow: none;
+  }
+  .tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .tab:hover { transform: none; }
+
+  .tab-panel { display: flex; flex-direction: column; gap: 16px; }
+  .tab-panel[hidden] { display: none; }
+
+  .field-group { display: flex; flex-direction: column; gap: 8px; }
+  .field-label {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--text-muted);
+    font-weight: 700;
+  }
+  .player-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--surface-2);
+  }
+  .player-card.x { border-left: 3px solid var(--accent-x); }
+  .player-card.o { border-left: 3px solid var(--accent-o); }
+  input[type="text"], input[type="number"], select {
+    font-family: 'Manrope', sans-serif;
+    font-size: 13.5px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    width: 100%;
+  }
+  label.inline { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--text-muted); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; }
+  td.num, th.num { text-align: right; font-family: 'Chivo Mono', monospace; font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow-x: auto; }
+  .empty-note { color: var(--text-muted); font-size: 13px; padding: 8px 2px; }
+
+  .stat-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .stat-tile {
+    flex: 1;
+    min-width: 100px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .stat-tile .num { font-family: 'Chivo Mono', monospace; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-tile .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 2px; }
+
+  .progress-track { height: 8px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent-x); width: 0%; transition: width .2s ease; }
+
+  canvas#trainChart { width: 100%; height: 90px; }
+
+  .note { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+  .divider { height: 1px; background: var(--border); border: none; margin: 2px 0; }
+
+  footer { margin-top: 28px; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+  footer a { color: inherit; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="app">
+  <header class="topbar">
+    <div class="eyebrow">Local Arcade &middot; Companion to the System Design Guide</div>
+    <h1>Tic-Tac-Toe Arena</h1>
+    <p class="dek">Human vs. human, human vs. AI, or AI vs. AI &mdash; four opponent strengths from a coin-flip novice to a mathematically unbeatable solver, plus a Q-learning agent you can train from scratch by watching it play itself. Scores, leaderboards, and prize contests all persist on this device.</p>
+  </header>
+
+  <main class="layout">
+    <section class="panel board-panel">
+      <div class="status-row" id="statusRow"></div>
+      <div class="board-wrap">
+        <canvas id="board" width="440" height="440" aria-label="Tic-tac-toe board"></canvas>
+      </div>
+      <div class="board-actions">
+        <button class="accent" id="newGameBtn">New game</button>
+        <button class="ghost" id="swapStartBtn">Swap who starts</button>
+        <button class="ghost" id="resetAllBtn">Reset everything</button>
+      </div>
+      <div class="result-banner" id="resultBanner" hidden></div>
+    </section>
+
+    <section class="panel control-panel">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="play" role="tab">Play</button>
+        <button class="tab" data-tab="train" role="tab">Train AI</button>
+        <button class="tab" data-tab="scores" role="tab">Scores</button>
+        <button class="tab" data-tab="contest" role="tab">Contest</button>
+      </div>
+
+      <div class="tab-panel" data-panel="play">
+        <div class="player-card x">
+          <div class="field-label">Player X &middot; moves first</div>
+          <label class="inline">Name
+            <input type="text" id="xName" value="Player One" maxlength="18">
+          </label>
+          <label class="inline">Controlled by
+            <select id="xType">
+              <option value="human">Human (click the board)</option>
+              <option value="random">AI &middot; Easy (random)</option>
+              <option value="heuristic">AI &middot; Medium (blocks &amp; wins)</option>
+              <option value="minimax">AI &middot; Hard (unbeatable)</option>
+              <option value="trained">AI &middot; Trained (Q-learning)</option>
+            </select>
+          </label>
+        </div>
+        <div class="player-card o">
+          <div class="field-label">Player O</div>
+          <label class="inline">Name
+            <input type="text" id="oName" value="Player Two" maxlength="18">
+          </label>
+          <label class="inline">Controlled by
+            <select id="oType">
+              <option value="human">Human (click the board)</option>
+              <option value="random">AI &middot; Easy (random)</option>
+              <option value="heuristic" selected>AI &middot; Medium (blocks &amp; wins)</option>
+              <option value="minimax">AI &middot; Hard (unbeatable)</option>
+              <option value="trained">AI &middot; Trained (Q-learning)</option>
+            </select>
+          </label>
+        </div>
+        <p class="note">Set both sides to AI to watch a matchup play itself &mdash; try Trained vs. Hard once you've trained a few thousand episodes. Changes apply on the next game.</p>
+      </div>
+
+      <div class="tab-panel" data-panel="train" hidden>
+        <div class="field-group">
+          <div class="field-label">Self-play training</div>
+          <p class="note">Trains one shared Q-table by playing itself, move by move, with an epsilon-greedy explore/exploit policy. Every 10% of the run it freezes the current policy and plays 40 evaluation games against the Medium (heuristic) AI to chart real progress.</p>
+        </div>
+        <label class="inline">Training episodes
+          <input type="number" id="episodeCount" value="3000" min="200" max="20000" step="100">
+        </label>
+        <div style="display:flex; gap:10px;">
+          <button class="accent" id="trainBtn" style="flex:1;">Train agent</button>
+          <button class="ghost" id="resetTrainingBtn">Reset</button>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="trainProgress"></div></div>
+        <div class="stat-row">
+          <div class="stat-tile"><div class="num" id="statEpisodes">0</div><div class="label">Episodes trained</div></div>
+          <div class="stat-tile"><div class="num" id="statStates">0</div><div class="label">States learned</div></div>
+          <div class="stat-tile"><div class="num" id="statWinRate">&mdash;</div><div class="label">Win rate vs. medium</div></div>
+        </div>
+        <canvas id="trainChart" width="380" height="90"></canvas>
+        <p class="note" id="trainNote">Untrained: the agent starts with an empty table and plays close to randomly. Win rate against the heuristic AI should climb toward "mostly wins or draws" within a couple thousand episodes.</p>
+      </div>
+
+      <div class="tab-panel" data-panel="scores" hidden>
+        <div class="field-label">Leaderboard</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Player</th><th class="num">W</th><th class="num">L</th><th class="num">D</th><th class="num">Win %</th></tr></thead>
+            <tbody id="scoresBody"></tbody>
+          </table>
+        </div>
+        <div class="empty-note" id="scoresEmpty" hidden>No games recorded yet &mdash; play a game to start building the leaderboard.</div>
+      </div>
+
+      <div class="tab-panel" data-panel="contest" hidden>
+        <div id="contestSetup">
+          <div class="field-label">New contest</div>
+          <p class="note">A best-of series between the two players configured on the Play tab. The overall series winner is credited the prize in points.</p>
+          <label class="inline">Best of
+            <select id="contestBestOf">
+              <option value="3">3 (first to 2)</option>
+              <option value="5" selected>5 (first to 3)</option>
+              <option value="7">7 (first to 4)</option>
+            </select>
+          </label>
+          <label class="inline">Prize pool (points)
+            <input type="number" id="contestPrize" value="500" min="10" step="10">
+          </label>
+          <button class="accent" id="startContestBtn" style="margin-top:6px;">Start contest</button>
+        </div>
+        <div id="contestActive" hidden>
+          <div class="field-label">Contest in progress</div>
+          <div class="stat-row">
+            <div class="stat-tile"><div class="num" id="contestScoreA">0</div><div class="label" id="contestNameA">&mdash;</div></div>
+            <div class="stat-tile"><div class="num" id="contestScoreB">0</div><div class="label" id="contestNameB">&mdash;</div></div>
+          </div>
+          <p class="note" id="contestStatusNote"></p>
+          <button class="ghost small" id="cancelContestBtn">Cancel contest</button>
+        </div>
+        <hr class="divider">
+        <div class="field-label">Prize ledger</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Player</th><th class="num">Contests won</th><th class="num">Points won</th></tr></thead>
+            <tbody id="ledgerBody"></tbody>
+          </table>
+        </div>
+        <div class="empty-note" id="ledgerEmpty" hidden>No contests completed yet.</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Runnable companion to <em>Design a Tic-Tac-Toe Game &mdash; HLD, LLD, and Class Design From Scratch</em>. All state (scores, prize ledger, trained Q-table) is saved to this browser only, via localStorage.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- persistence helpers ----------
+  const STORAGE_KEYS = {
+    scores: "ttt.scores.v1",
+    qtable: "ttt.qtable.v1",
+    trainStats: "ttt.trainstats.v1",
+    ledger: "ttt.ledger.v1",
+    contest: "ttt.contest.v1"
+  };
+  function loadJSON(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (e) { return fallback; }
+  }
+  function saveJSON(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* private mode etc. -- ignore */ }
+  }
+
+  // ---------- board: bitmask representation, mirrors the design guide's §12-14 ----------
+  const WIN_MASKS = [
+    0b000000111, 0b000111000, 0b111000000, // rows
+    0b001001001, 0b010010010, 0b100100100, // columns
+    0b100010001, 0b001010100                // diagonals
+  ];
+  const CENTER = 4, CORNERS = [0, 2, 6, 8], EDGES = [1, 3, 5, 7];
+  const POSITIONAL_PRIORITY = [4, 0, 2, 6, 8, 1, 3, 5, 7];
+
+  function emptyBoard() {
+    return { cells: new Array(9).fill(null), xMask: 0, oMask: 0, moveCount: 0 };
+  }
+  function cloneBoard(b) {
+    return { cells: b.cells.slice(), xMask: b.xMask, oMask: b.oMask, moveCount: b.moveCount };
+  }
+  function place(b, cell, symbol) {
+    b.cells[cell] = symbol;
+    if (symbol === "X") b.xMask |= (1 << cell); else b.oMask |= (1 << cell);
+    b.moveCount++;
+  }
+  function hasWon(b, symbol) {
+    const mask = symbol === "X" ? b.xMask : b.oMask;
+    for (const w of WIN_MASKS) if ((mask & w) === w) return true;
+    return false;
+  }
+  function winningLine(b, symbol) {
+    const mask = symbol === "X" ? b.xMask : b.oMask;
+    for (const w of WIN_MASKS) if ((mask & w) === w) return w;
+    return null;
+  }
+  function isFull(b) { return b.moveCount === 9; }
+  function emptyCells(b) {
+    const out = [];
+    for (let i = 0; i < 9; i++) if (b.cells[i] === null) out.push(i);
+    return out;
+  }
+  function opponentOf(symbol) { return symbol === "X" ? "O" : "X"; }
+  function boardKey(b) { return b.cells.map(c => c || "-").join(""); }
+
+  // ---------- AI strategies (§25-39 of the design guide) ----------
+  const AiStrategies = {
+    random(b) {
+      const cells = emptyCells(b);
+      return cells[Math.floor(Math.random() * cells.length)];
+    },
+
+    heuristic(b, symbol) {
+      const winMove = findWinningMove(b, symbol);
+      if (winMove !== null) return winMove;
+      const blockMove = findWinningMove(b, opponentOf(symbol));
+      if (blockMove !== null) return blockMove;
+      for (const cell of POSITIONAL_PRIORITY) if (b.cells[cell] === null) return cell;
+      return emptyCells(b)[0];
+    },
+
+    minimax(b, symbol) {
+      let bestScore = -Infinity, bestCell = emptyCells(b)[0];
+      for (const cell of emptyCells(b)) {
+        const next = cloneBoard(b);
+        place(next, cell, symbol);
+        const score = minimaxScore(next, 1, false, symbol, -Infinity, Infinity);
+        if (score > bestScore) { bestScore = score; bestCell = cell; }
+      }
+      return bestCell;
+    },
+
+    trained(b, symbol) {
+      const row = qRow(qTable, boardKey(b));
+      let best = -Infinity, bestCell = null;
+      for (const cell of emptyCells(b)) {
+        if (row[cell] > best) { best = row[cell]; bestCell = cell; }
+      }
+      return bestCell !== null ? bestCell : AiStrategies.heuristic(b, symbol);
+    }
+  };
+
+  function findWinningMove(b, symbol) {
+    for (const cell of emptyCells(b)) {
+      const next = cloneBoard(b);
+      place(next, cell, symbol);
+      if (hasWon(next, symbol)) return cell;
+    }
+    return null;
+  }
+
+  function minimaxScore(b, depth, isMaximizing, aiSymbol, alpha, beta) {
+    const opp = opponentOf(aiSymbol);
+    if (hasWon(b, aiSymbol)) return 10 - depth;
+    if (hasWon(b, opp)) return depth - 10;
+    if (isFull(b)) return 0;
+
+    if (isMaximizing) {
+      let best = -Infinity;
+      for (const cell of emptyCells(b)) {
+        const next = cloneBoard(b);
+        place(next, cell, aiSymbol);
+        best = Math.max(best, minimaxScore(next, depth + 1, false, aiSymbol, alpha, beta));
+        alpha = Math.max(alpha, best);
+        if (beta <= alpha) break;
+      }
+      return best;
+    } else {
+      let best = Infinity;
+      for (const cell of emptyCells(b)) {
+        const next = cloneBoard(b);
+        place(next, cell, opp);
+        best = Math.min(best, minimaxScore(next, depth + 1, true, aiSymbol, alpha, beta));
+        beta = Math.min(beta, best);
+        if (beta <= alpha) break;
+      }
+      return best;
+    }
+  }
+
+  // ---------- Q-learning: shared table, mover's-perspective zero-sum bootstrap (§35-36) ----------
+  let qTable = loadJSON(STORAGE_KEYS.qtable, {});
+  let trainStats = loadJSON(STORAGE_KEYS.trainStats, { episodes: 0, history: [] });
+
+  function qRow(table, key) {
+    if (!table[key]) table[key] = new Array(9).fill(0);
+    return table[key];
+  }
+  function bestValidValue(table, b) {
+    const row = qRow(table, boardKey(b));
+    let best = -Infinity;
+    for (const cell of emptyCells(b)) best = Math.max(best, row[cell]);
+    return best === -Infinity ? 0 : best;
+  }
+
+  const ALPHA = 0.35;
+  function playTrainingMove(table, b, symbol, epsilon) {
+    const key = boardKey(b);
+    const row = qRow(table, key);
+    const cells = emptyCells(b);
+    let action;
+    if (Math.random() < epsilon) {
+      action = cells[Math.floor(Math.random() * cells.length)];
+    } else {
+      let best = -Infinity;
+      action = cells[0];
+      for (const cell of cells) if (row[cell] > best) { best = row[cell]; action = cell; }
+    }
+    place(b, action, symbol);
+
+    let target;
+    if (hasWon(b, symbol)) target = 1;
+    else if (isFull(b)) target = 0;
+    else target = -bestValidValue(table, b); // zero-sum bootstrap: good for opponent = bad for the mover
+    row[action] += ALPHA * (target - row[action]);
+    return action;
+  }
+
+  function playOneSelfPlayEpisode(table, epsilon) {
+    const b = emptyBoard();
+    let turn = "X";
+    while (!hasWon(b, "X") && !hasWon(b, "O") && !isFull(b)) {
+      playTrainingMove(table, b, turn, epsilon);
+      turn = opponentOf(turn);
+    }
+  }
+
+  function evaluateAgainstHeuristic(table, games) {
+    let wins = 0, draws = 0, losses = 0;
+    for (let i = 0; i < games; i++) {
+      const agentIsX = i % 2 === 0;
+      const b = emptyBoard();
+      let turn = "X";
+      while (!hasWon(b, "X") && !hasWon(b, "O") && !isFull(b)) {
+        const agentTurn = (turn === "X") === agentIsX;
+        const cell = agentTurn ? AiStrategies.trained(b, turn) : AiStrategies.heuristic(b, turn);
+        place(b, cell, turn);
+        turn = opponentOf(turn);
+      }
+      const agentSymbol = agentIsX ? "X" : "O";
+      if (hasWon(b, agentSymbol)) wins++;
+      else if (hasWon(b, opponentOf(agentSymbol))) losses++;
+      else draws++;
+    }
+    return { wins, draws, losses, games };
+  }
+
+  let training = false;
+  function trainInChunks(totalEpisodes, onDone) {
+    if (training) return;
+    training = true;
+    const chunkSize = 100;
+    let done = 0;
+    const epsilonStart = 0.35, epsilonEnd = 0.03;
+    const checkpointEvery = Math.max(200, Math.floor(totalEpisodes / 10));
+
+    function step() {
+      const thisChunk = Math.min(chunkSize, totalEpisodes - done);
+      for (let i = 0; i < thisChunk; i++) {
+        const progress = (done + i) / totalEpisodes;
+        const epsilon = epsilonStart + (epsilonEnd - epsilonStart) * progress;
+        playOneSelfPlayEpisode(qTable, epsilon);
+      }
+      done += thisChunk;
+      trainStats.episodes += thisChunk;
+
+      if (Math.floor(done / checkpointEvery) !== Math.floor((done - thisChunk) / checkpointEvery) || done === totalEpisodes) {
+        const evalResult = evaluateAgainstHeuristic(qTable, 40);
+        trainStats.history.push({ episode: trainStats.episodes, winRate: (evalResult.wins + evalResult.draws * 0.5) / evalResult.games });
+        if (trainStats.history.length > 24) trainStats.history.shift();
+      }
+
+      updateTrainUI(done, totalEpisodes);
+
+      if (done < totalEpisodes) {
+        setTimeout(step, 0);
+      } else {
+        training = false;
+        saveJSON(STORAGE_KEYS.qtable, qTable);
+        saveJSON(STORAGE_KEYS.trainStats, trainStats);
+        if (onDone) onDone();
+      }
+    }
+    step();
+  }
+
+  // ---------- game engine: state machine, mirrors §16-17 ----------
+  let board = emptyBoard();
+  let gameState = "IN_PROGRESS"; // IN_PROGRESS | X_WINS | O_WINS | DRAW
+  let currentTurn = "X";
+  let startingSymbol = "X";
+  let animCell = null, animStart = 0;
+
+  function config() {
+    return {
+      X: { name: nameInput("xName") || "Player One", type: document.getElementById("xType").value },
+      O: { name: nameInput("oName") || "Player Two", type: document.getElementById("oType").value }
+    };
+  }
+  function nameInput(id) { return document.getElementById(id).value.trim(); }
+
+  let gameGeneration = 0;
+
+  function resetGame() {
+    gameGeneration++; // invalidates any AI move still scheduled for the game this replaces
+    board = emptyBoard();
+    gameState = "IN_PROGRESS";
+    currentTurn = startingSymbol;
+    document.getElementById("resultBanner").hidden = true;
+    render();
+    maybeTriggerAiMove();
+  }
+
+  function attemptMove(cell) {
+    if (gameState !== "IN_PROGRESS") return;
+    if (board.cells[cell] !== null) return;
+    const cfg = config()[currentTurn];
+    if (cfg.type !== "human") return; // block manual clicks on an AI's turn
+
+    applyMove(cell);
+  }
+
+  function applyMove(cell) {
+    place(board, cell, currentTurn);
+    animCell = cell; animStart = performance.now();
+
+    if (hasWon(board, currentTurn)) {
+      gameState = currentTurn === "X" ? "X_WINS" : "O_WINS";
+      finishGame();
+    } else if (isFull(board)) {
+      gameState = "DRAW";
+      finishGame();
+    } else {
+      currentTurn = opponentOf(currentTurn);
+    }
+    render();
+    maybeTriggerAiMove();
+  }
+
+  function finishGame() {
+    const cfg = config();
+    const winnerSymbol = gameState === "X_WINS" ? "X" : gameState === "O_WINS" ? "O" : null;
+    recordScore(cfg.X.name, cfg.O.name, gameState);
+    showResultBanner(cfg, winnerSymbol);
+    advanceContestIfActive(winnerSymbol, cfg);
+  }
+
+  function showResultBanner(cfg, winnerSymbol) {
+    const el = document.getElementById("resultBanner");
+    el.hidden = false;
+    if (winnerSymbol) {
+      const winnerName = cfg[winnerSymbol].name;
+      el.className = "result-banner win";
+      el.textContent = winnerName + " wins as " + winnerSymbol + ".";
+    } else {
+      el.className = "result-banner draw";
+      el.innerHTML = "Draw &mdash; the board is full.";
+    }
+  }
+
+  function maybeTriggerAiMove() {
+    if (gameState !== "IN_PROGRESS") return;
+    const cfg = config()[currentTurn];
+    if (cfg.type === "human") return;
+    const scheduledGeneration = gameGeneration;
+    const symbolToMove = currentTurn;
+    setTimeout(() => {
+      if (gameGeneration !== scheduledGeneration) return; // this game was reset before this move fired -- stale
+      if (gameState !== "IN_PROGRESS") return;
+      const cell = AiStrategies[cfg.type](board, symbolToMove);
+      if (cell !== null && cell !== undefined) applyMove(cell);
+    }, 420);
+  }
+
+  // ---------- score repository (§40-42) ----------
+  let scores = loadJSON(STORAGE_KEYS.scores, {});
+  function recordScore(nameX, nameO, result) {
+    const recX = scores[nameX] || (scores[nameX] = { wins: 0, losses: 0, draws: 0 });
+    const recO = scores[nameO] || (scores[nameO] = { wins: 0, losses: 0, draws: 0 });
+    if (result === "X_WINS") { recX.wins++; recO.losses++; }
+    else if (result === "O_WINS") { recO.wins++; recX.losses++; }
+    else { recX.draws++; recO.draws++; }
+    saveJSON(STORAGE_KEYS.scores, scores);
+    renderScores();
+  }
+  function renderScores() {
+    const body = document.getElementById("scoresBody");
+    const entries = Object.entries(scores).sort((a, b) => b[1].wins - a[1].wins);
+    document.getElementById("scoresEmpty").hidden = entries.length > 0;
+    body.innerHTML = entries.map(([name, r]) => {
+      const total = r.wins + r.losses + r.draws;
+      const pct = total ? Math.round((r.wins / total) * 100) : 0;
+      return "<tr><td>" + escapeHtml(name) + "</td><td class='num'>" + r.wins + "</td><td class='num'>" + r.losses + "</td><td class='num'>" + r.draws + "</td><td class='num'>" + pct + "%</td></tr>";
+    }).join("");
+  }
+
+  // ---------- contest / prize ledger (§43-47) ----------
+  let ledger = loadJSON(STORAGE_KEYS.ledger, {});
+  let contest = loadJSON(STORAGE_KEYS.contest, null);
+
+  function startContest() {
+    const cfg = config();
+    const bestOf = parseInt(document.getElementById("contestBestOf").value, 10);
+    const prize = Math.max(10, parseInt(document.getElementById("contestPrize").value, 10) || 0);
+    contest = {
+      id: "c-" + Date.now(),
+      nameA: cfg.X.name, nameB: cfg.O.name,
+      bestOf, gamesToWin: Math.ceil(bestOf / 2), prize,
+      scoreA: 0, scoreB: 0, status: "active"
+    };
+    saveJSON(STORAGE_KEYS.contest, contest);
+    renderContest();
+    resetGame();
+  }
+
+  function advanceContestIfActive(winnerSymbol, cfg) {
+    if (!contest || contest.status !== "active") return;
+    if (winnerSymbol === "X") contest.scoreA++;
+    else if (winnerSymbol === "O") contest.scoreB++;
+    // a draw advances the series with no point awarded to either side
+
+    if (contest.scoreA >= contest.gamesToWin || contest.scoreB >= contest.gamesToWin) {
+      contest.status = "complete";
+      const winnerName = contest.scoreA >= contest.gamesToWin ? contest.nameA : contest.nameB;
+      creditPrize(winnerName, contest.prize, contest.id);
+    }
+    saveJSON(STORAGE_KEYS.contest, contest);
+    renderContest();
+  }
+
+  function creditPrize(playerName, amount, contestId) {
+    const rec = ledger[playerName] || (ledger[playerName] = { contestsWon: 0, points: 0, paidContestIds: [] });
+    if (rec.paidContestIds && rec.paidContestIds.includes(contestId)) return; // idempotent -- never double-pay
+    rec.contestsWon++;
+    rec.points += amount;
+    rec.paidContestIds = (rec.paidContestIds || []).concat(contestId);
+    saveJSON(STORAGE_KEYS.ledger, ledger);
+    renderLedger();
+  }
+
+  function cancelContest() {
+    contest = null;
+    saveJSON(STORAGE_KEYS.contest, null);
+    renderContest();
+  }
+
+  function renderContest() {
+    const setup = document.getElementById("contestSetup");
+    const active = document.getElementById("contestActive");
+    if (!contest) { setup.hidden = false; active.hidden = true; return; }
+    setup.hidden = true; active.hidden = false;
+    document.getElementById("contestScoreA").textContent = contest.scoreA;
+    document.getElementById("contestScoreB").textContent = contest.scoreB;
+    document.getElementById("contestNameA").textContent = contest.nameA;
+    document.getElementById("contestNameB").textContent = contest.nameB;
+    const note = document.getElementById("contestStatusNote");
+    if (contest.status === "complete") {
+      const winnerName = contest.scoreA >= contest.gamesToWin ? contest.nameA : contest.nameB;
+      note.textContent = winnerName + " won the series and " + contest.prize + " points. Start a new contest to play again.";
+    } else {
+      note.textContent = "Best of " + contest.bestOf + " · first to " + contest.gamesToWin + " · " + contest.prize + " points on the line.";
+    }
+  }
+  function renderLedger() {
+    const body = document.getElementById("ledgerBody");
+    const entries = Object.entries(ledger).sort((a, b) => b[1].points - a[1].points);
+    document.getElementById("ledgerEmpty").hidden = entries.length > 0;
+    body.innerHTML = entries.map(([name, r]) =>
+      "<tr><td>" + escapeHtml(name) + "</td><td class='num'>" + r.contestsWon + "</td><td class='num'>" + r.points + "</td></tr>"
+    ).join("");
+  }
+
+  function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+  // ---------- canvas rendering ----------
+  const canvas = document.getElementById("board");
+  const ctx = canvas.getContext("2d");
+
+  function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  function setupCanvasScale() {
+    const dpr = window.devicePixelRatio || 1;
+    const cssSize = canvas.getBoundingClientRect().width || 420;
+    canvas.width = cssSize * dpr;
+    canvas.height = cssSize * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return cssSize;
+  }
+
+  function cellCenter(size, index) {
+    const col = index % 3, row = Math.floor(index / 3);
+    const pad = size * 0.06, cell = (size - pad * 2) / 3;
+    return { x: pad + cell * col + cell / 2, y: pad + cell * row + cell / 2, cell };
+  }
+
+  function render() {
+    const size = setupCanvasScale();
+    const pad = size * 0.06;
+    const cell = (size - pad * 2) / 3;
+    ctx.clearRect(0, 0, size, size);
+
+    ctx.strokeStyle = cssVar("--border");
+    ctx.lineWidth = Math.max(2, size * 0.008);
+    ctx.lineCap = "round";
+    for (let i = 1; i < 3; i++) {
+      ctx.beginPath(); ctx.moveTo(pad + cell * i, pad); ctx.lineTo(pad + cell * i, size - pad); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(pad, pad + cell * i); ctx.lineTo(size - pad, pad + cell * i); ctx.stroke();
+    }
+
+    const now = performance.now();
+    for (let i = 0; i < 9; i++) {
+      const symbol = board.cells[i];
+      if (!symbol) continue;
+      const { x, y } = cellCenter(size, i);
+      let scale = 1;
+      if (animCell === i) {
+        const t = Math.min(1, (now - animStart) / 180);
+        scale = 0.5 + 0.5 * (1 - Math.pow(1 - t, 3));
+        if (t < 1) requestAnimationFrame(render);
+      }
+      drawMark(x, y, cell * 0.32 * scale, symbol);
+    }
+
+    if (gameState !== "IN_PROGRESS" && gameState !== "DRAW") {
+      const symbol = gameState === "X_WINS" ? "X" : "O";
+      const mask = winningLine(board, symbol);
+      if (mask !== null) drawWinLine(size, mask, symbol);
+    }
+
+    renderStatus();
+  }
+
+  function drawMark(x, y, r, symbol) {
+    ctx.lineCap = "round";
+    ctx.lineWidth = r * 0.34;
+    if (symbol === "X") {
+      ctx.strokeStyle = cssVar("--accent-x");
+      ctx.beginPath(); ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r); ctx.stroke();
+    } else {
+      ctx.strokeStyle = cssVar("--accent-o");
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+
+  function drawWinLine(size, mask, symbol) {
+    const cells = [];
+    for (let i = 0; i < 9; i++) if (mask & (1 << i)) cells.push(i);
+    const start = cellCenter(size, cells[0]);
+    const end = cellCenter(size, cells[2]);
+    ctx.strokeStyle = symbol === "X" ? cssVar("--accent-x") : cssVar("--accent-o");
+    ctx.lineWidth = size * 0.02;
+    ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(start.x, start.y); ctx.lineTo(end.x, end.y); ctx.stroke();
+  }
+
+  function renderStatus() {
+    const cfg = config();
+    const row = document.getElementById("statusRow");
+    if (gameState === "IN_PROGRESS") {
+      const who = cfg[currentTurn];
+      row.innerHTML = "<span class='pill " + currentTurn.toLowerCase() + "'><span class='dot'></span>" + escapeHtml(who.name) + "'s turn (" + currentTurn + ")</span>";
+    } else if (gameState === "DRAW") {
+      row.innerHTML = "<span class='pill draw'>Draw</span>";
+    } else {
+      const winnerSymbol = gameState === "X_WINS" ? "X" : "O";
+      row.innerHTML = "<span class='pill win'>" + escapeHtml(cfg[winnerSymbol].name) + " wins</span>";
+    }
+    if (contest && contest.status === "active") {
+      row.innerHTML += "<span class='pill'>Contest: " + contest.scoreA + "&ndash;" + contest.scoreB + "</span>";
+    }
+  }
+
+  // ---------- training UI ----------
+  function updateTrainUI(done, total) {
+    document.getElementById("trainProgress").style.width = Math.round((done / total) * 100) + "%";
+    document.getElementById("statEpisodes").textContent = trainStats.episodes;
+    document.getElementById("statStates").textContent = Object.keys(qTable).length;
+    const last = trainStats.history[trainStats.history.length - 1];
+    document.getElementById("statWinRate").textContent = last ? Math.round(last.winRate * 100) + "%" : "—";
+    drawTrainChart();
+  }
+
+  function drawTrainChart() {
+    const c = document.getElementById("trainChart");
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = c.getBoundingClientRect().width || 380, cssH = 90;
+    c.width = cssW * dpr; c.height = cssH * dpr;
+    const cctx = c.getContext("2d");
+    cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cctx.clearRect(0, 0, cssW, cssH);
+
+    const pts = trainStats.history;
+    cctx.strokeStyle = cssVar("--border");
+    cctx.lineWidth = 1;
+    for (let f = 0; f <= 1; f += 0.5) {
+      const y = cssH - 10 - f * (cssH - 20);
+      cctx.beginPath(); cctx.moveTo(0, y); cctx.lineTo(cssW, y); cctx.stroke();
+    }
+    if (pts.length < 2) return;
+
+    cctx.strokeStyle = cssVar("--accent-x");
+    cctx.lineWidth = 2.5;
+    cctx.lineCap = "round"; cctx.lineJoin = "round";
+    cctx.beginPath();
+    pts.forEach((p, i) => {
+      const x = (i / (pts.length - 1)) * cssW;
+      const y = cssH - 10 - p.winRate * (cssH - 20);
+      if (i === 0) cctx.moveTo(x, y); else cctx.lineTo(x, y);
+    });
+    cctx.stroke();
+
+    const lastPt = pts[pts.length - 1];
+    const lx = cssW, ly = cssH - 10 - lastPt.winRate * (cssH - 20);
+    cctx.fillStyle = cssVar("--accent-x");
+    cctx.beginPath(); cctx.arc(lx - 4, ly, 3.5, 0, Math.PI * 2); cctx.fill();
+  }
+
+  // ---------- wiring ----------
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      const target = tab.dataset.tab;
+      document.querySelectorAll(".tab-panel").forEach(p => p.hidden = p.dataset.panel !== target);
+    });
+  });
+
+  canvas.addEventListener("click", (evt) => {
+    const rect = canvas.getBoundingClientRect();
+    const size = rect.width;
+    const x = evt.clientX - rect.left, y = evt.clientY - rect.top;
+    const pad = size * 0.06, cell = (size - pad * 2) / 3;
+    const col = Math.floor((x - pad) / cell), row = Math.floor((y - pad) / cell);
+    if (col < 0 || col > 2 || row < 0 || row > 2) return;
+    attemptMove(row * 3 + col);
+  });
+
+  document.getElementById("newGameBtn").addEventListener("click", () => resetGame());
+  document.getElementById("swapStartBtn").addEventListener("click", () => {
+    startingSymbol = opponentOf(startingSymbol);
+    resetGame();
+  });
+  document.getElementById("resetAllBtn").addEventListener("click", () => {
+    scores = {}; ledger = {}; contest = null; qTable = {}; trainStats = { episodes: 0, history: [] };
+    Object.values(STORAGE_KEYS).forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+    renderScores(); renderLedger(); renderContest();
+    updateTrainUI(0, 1);
+    resetGame();
+  });
+
+  document.getElementById("trainBtn").addEventListener("click", () => {
+    const episodes = Math.max(200, Math.min(20000, parseInt(document.getElementById("episodeCount").value, 10) || 3000));
+    document.getElementById("trainBtn").disabled = true;
+    document.getElementById("trainNote").textContent = "Training in progress — this runs entirely in your browser, in small chunks so the page stays responsive.";
+    trainInChunks(episodes, () => {
+      document.getElementById("trainBtn").disabled = false;
+      document.getElementById("trainNote").textContent = "Training complete. Select \"Trained (Q-learning)\" for a player on the Play tab to try it.";
+    });
+  });
+  document.getElementById("resetTrainingBtn").addEventListener("click", () => {
+    qTable = {}; trainStats = { episodes: 0, history: [] };
+    try { localStorage.removeItem(STORAGE_KEYS.qtable); localStorage.removeItem(STORAGE_KEYS.trainStats); } catch (e) {}
+    updateTrainUI(0, 1);
+  });
+
+  document.getElementById("startContestBtn").addEventListener("click", startContest);
+  document.getElementById("cancelContestBtn").addEventListener("click", cancelContest);
+
+  ["xType", "oType"].forEach(id => document.getElementById(id).addEventListener("change", () => { render(); maybeTriggerAiMove(); }));
+  ["xName", "oName"].forEach(id => document.getElementById(id).addEventListener("input", renderStatus));
+
+  window.addEventListener("resize", render);
+
+  // ---------- boot ----------
+  function boot(saved) {
+    renderScores();
+    renderLedger();
+    renderContest();
+    updateTrainUI(0, 1);
+    resetGame();
+  }
+  if (window.claude && window.claude.hot) {
+    window.claude.hot.ready ? window.claude.hot.ready(boot) : boot(window.claude.hot.data || {});
+  } else {
+    boot({});
+  }
+})();
+</script>
+
+</body></html>

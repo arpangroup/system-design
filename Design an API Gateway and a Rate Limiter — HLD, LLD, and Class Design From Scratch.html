@@ -1,0 +1,1451 @@
+<meta charset="utf-8">
+<title>Design an API Gateway and a Rate Limiter — HLD, LLD, and Class Design From Scratch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; system design guide</div>
+      <h1>Design an API Gateway and a Rate Limiter — HLD, LLD, and Class Design From Scratch</h1>
+      <p class="dek">An API gateway and its rate limiter, designed from scratch as a system-design interview, end to end: a pluggable Chain-of-Responsibility filter pipeline (auth, rate limiting, logging), dynamic routing with hot reload, service discovery and health checks, Strategy-based load balancing, a State-pattern circuit breaker, and JWT/API-key authentication at the edge &mdash; then a deep dive into rate limiting specifically: five real algorithms (fixed window, sliding window log, sliding window counter, token bucket, leaky bucket), the exact race condition that breaks a naive distributed rate limiter, an atomically-correct fix using a Redis-style Lua script, a local/distributed hybrid for low latency, layered per-key limits, and sharding the shared store at scale &mdash; with real Java code and a class diagram for every core mechanism.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-the-interview-framed">Why This Matters (The Interview, Framed)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-step-1-clarifying-requirements-before-designing-anything">Step 1 — Clarifying Requirements Before Designing Anything</a></li><li class="toc-lvl-2"><a href="#7-functional-requirements">Functional Requirements</a></li><li class="toc-lvl-2"><a href="#8-non-functional-requirements">Non-Functional Requirements</a></li><li class="toc-lvl-2"><a href="#9-follow-up-question-1-what-are-the-core-responsibilities-here-before-we-draw-any-boxes">Follow-up Question 1 — "What Are the Core Responsibilities Here, Before We Draw Any Boxes?"</a></li><li class="toc-lvl-2"><a href="#10-identifying-the-core-domain-entities-and-responsibilities">Identifying the Core Domain Entities and Responsibilities</a></li><li class="toc-lvl-2"><a href="#11-high-level-architecture-overview">High-Level Architecture Overview</a></li><li class="toc-lvl-2"><a href="#12-follow-up-question-2-why-not-just-let-clients-call-services-directly-what-does-a-gateway-actually-buy-you">Follow-up Question 2 — "Why Not Just Let Clients Call Services Directly? What Does a Gateway Actually Buy You?"</a></li><li class="toc-lvl-2"><a href="#13-the-case-for-an-api-gateway-cross-cutting-concerns-centralized">The Case for an API Gateway: Cross-Cutting Concerns Centralized</a></li><li class="toc-lvl-2"><a href="#14-follow-up-question-3-walk-me-through-one-request-end-to-end-through-the-gateway">Follow-up Question 3 — "Walk Me Through One Request, End to End, Through the Gateway."</a></li><li class="toc-lvl-2"><a href="#15-the-filter-chain-chain-of-responsibility-for-cross-cutting-concerns">The Filter Chain: Chain of Responsibility for Cross-Cutting Concerns</a></li><li class="toc-lvl-2"><a href="#16-implementing-the-filter-pipeline-in-java">Implementing the Filter Pipeline in Java</a></li><li class="toc-lvl-2"><a href="#17-follow-up-question-4-how-does-the-gateway-know-where-to-route-a-request">Follow-up Question 4 — "How Does the Gateway Know Where to Route a Request?"</a></li><li class="toc-lvl-2"><a href="#18-the-route-registry-path-and-host-based-matching">The Route Registry: Path- and Host-Based Matching</a></li><li class="toc-lvl-2"><a href="#19-implementing-route-matching-and-a-route-registry">Implementing Route Matching and a Route Registry</a></li><li class="toc-lvl-2"><a href="#20-follow-up-question-5-routes-change-as-services-deploy-how-do-you-update-routing-without-restarting-the-gateway">Follow-up Question 5 — "Routes Change as Services Deploy. How Do You Update Routing Without Restarting the Gateway?"</a></li><li class="toc-lvl-2"><a href="#21-dynamic-route-configuration-and-hot-reload">Dynamic Route Configuration and Hot Reload</a></li><li class="toc-lvl-2"><a href="#22-follow-up-question-6-how-does-the-gateway-find-a-healthy-instance-of-the-backend-service">Follow-up Question 6 — "How Does the Gateway Find a Healthy Instance of the Backend Service?"</a></li><li class="toc-lvl-2"><a href="#23-service-discovery-integration-and-health-checks">Service Discovery Integration and Health Checks</a></li><li class="toc-lvl-2"><a href="#24-follow-up-question-7-multiple-healthy-instances-exist-how-do-you-pick-one">Follow-up Question 7 — "Multiple Healthy Instances Exist. How Do You Pick One?"</a></li><li class="toc-lvl-2"><a href="#25-load-balancing-strategies-round-robin-weighted-and-least-connections">Load Balancing Strategies: Round Robin, Weighted, and Least-Connections</a></li><li class="toc-lvl-2"><a href="#26-implementing-a-pluggable-loadbalancer">Implementing a Pluggable LoadBalancer</a></li><li class="toc-lvl-2"><a href="#27-follow-up-question-8-a-backend-instance-is-failing-repeatedly-how-do-you-stop-hammering-it">Follow-up Question 8 — "A Backend Instance Is Failing Repeatedly. How Do You Stop Hammering It?"</a></li><li class="toc-lvl-2"><a href="#28-the-circuit-breaker-a-state-machine-for-failing-dependencies">The Circuit Breaker: A State Machine for Failing Dependencies</a></li><li class="toc-lvl-2"><a href="#29-implementing-the-circuit-breaker">Implementing the Circuit Breaker</a></li><li class="toc-lvl-2"><a href="#30-follow-up-question-9-how-does-the-gateway-authenticate-requests-at-the-edge">Follow-up Question 9 — "How Does the Gateway Authenticate Requests at the Edge?"</a></li><li class="toc-lvl-2"><a href="#31-authentication-and-authorization-at-the-edge-api-keys-and-jwt-validation">Authentication and Authorization at the Edge: API Keys and JWT Validation</a></li><li class="toc-lvl-2"><a href="#32-high-level-architecture-diagram-assembled">High-Level Architecture Diagram, Assembled</a></li><li class="toc-lvl-2"><a href="#33-class-diagram-the-gateway-core">Class Diagram: The Gateway Core</a></li><li class="toc-lvl-2"><a href="#34-follow-up-question-10-now-the-hard-part-design-the-rate-limiter">Follow-up Question 10 — "Now the Hard Part. Design the Rate Limiter."</a></li><li class="toc-lvl-2"><a href="#35-why-rate-limit-at-all-protecting-backends-and-enforcing-fairness">Why Rate Limit At All: Protecting Backends and Enforcing Fairness</a></li><li class="toc-lvl-2"><a href="#36-rate-limiting-requirements-what-correct-actually-means-here">Rate Limiting Requirements: What "Correct" Actually Means Here</a></li><li class="toc-lvl-2"><a href="#37-follow-up-question-11-start-simple-whats-the-naive-approach-and-whats-wrong-with-it">Follow-up Question 11 — "Start Simple. What's the Naive Approach, and What's Wrong With It?"</a></li><li class="toc-lvl-2"><a href="#38-the-fixed-window-counter-simple-and-its-boundary-burst-flaw">The Fixed Window Counter: Simple, and Its Boundary-Burst Flaw</a></li><li class="toc-lvl-2"><a href="#39-follow-up-question-12-how-do-you-fix-the-boundary-burst-problem">Follow-up Question 12 — "How Do You Fix the Boundary-Burst Problem?"</a></li><li class="toc-lvl-2"><a href="#40-the-sliding-window-log-accurate-but-memory-heavy">The Sliding Window Log: Accurate, But Memory-Heavy</a></li><li class="toc-lvl-2"><a href="#41-the-sliding-window-counter-an-accuracymemory-compromise">The Sliding Window Counter: An Accuracy/Memory Compromise</a></li><li class="toc-lvl-2"><a href="#42-follow-up-question-13-what-about-allowing-controlled-bursts-not-just-a-flat-rate">Follow-up Question 13 — "What About Allowing Controlled Bursts, Not Just a Flat Rate?"</a></li><li class="toc-lvl-2"><a href="#43-the-token-bucket-algorithm">The Token Bucket Algorithm</a></li><li class="toc-lvl-2"><a href="#44-implementing-a-real-token-bucket-rate-limiter">Implementing a Real Token Bucket Rate Limiter</a></li><li class="toc-lvl-2"><a href="#45-the-leaky-bucket-algorithm-and-how-it-differs-from-token-bucket">The Leaky Bucket Algorithm, and How It Differs From Token Bucket</a></li><li class="toc-lvl-2"><a href="#46-follow-up-question-14-this-all-assumed-one-machine-you-have-50-gateway-instances-behind-a-load-balancer-now-what">Follow-up Question 14 — "This All Assumed One Machine. You Have 50 Gateway Instances Behind a Load Balancer. Now What?"</a></li><li class="toc-lvl-2"><a href="#47-why-a-local-in-memory-counter-breaks-under-multiple-gateway-instances">Why a Local, In-Memory Counter Breaks Under Multiple Gateway Instances</a></li><li class="toc-lvl-2"><a href="#48-distributed-rate-limiting-with-a-shared-store">Distributed Rate Limiting With a Shared Store</a></li><li class="toc-lvl-2"><a href="#49-follow-up-question-15-two-gateway-instances-check-then-increment-at-the-same-time-what-goes-wrong">Follow-up Question 15 — "Two Gateway Instances Check-Then-Increment at the Same Time. What Goes Wrong?"</a></li><li class="toc-lvl-2"><a href="#50-the-race-condition-and-why-atomicity-is-non-negotiable">The Race Condition, and Why Atomicity Is Non-Negotiable</a></li><li class="toc-lvl-2"><a href="#51-an-atomic-token-bucket-using-a-redis-style-lua-script">An Atomic Token Bucket Using a Redis-Style Lua Script</a></li><li class="toc-lvl-2"><a href="#52-follow-up-question-16-a-round-trip-to-the-shared-store-on-every-single-request-adds-latency-how-do-you-reduce-that">Follow-up Question 16 — "A Round Trip to the Shared Store on Every Single Request Adds Latency. How Do You Reduce That?"</a></li><li class="toc-lvl-2"><a href="#53-hybrid-rate-limiting-local-approximation-plus-periodic-sync">Hybrid Rate Limiting: Local Approximation Plus Periodic Sync</a></li><li class="toc-lvl-2"><a href="#54-follow-up-question-17-how-do-you-rate-limit-by-api-key-by-user-and-by-route-all-at-once">Follow-up Question 17 — "How Do You Rate-Limit by API Key, by User, AND by Route, All at Once?"</a></li><li class="toc-lvl-2"><a href="#55-rate-limit-key-design-and-layeredcomposite-limits">Rate Limit Key Design and Layered/Composite Limits</a></li><li class="toc-lvl-2"><a href="#56-the-rate-limiter-as-a-gateway-filter-wiring-it-all-together">The Rate Limiter as a Gateway Filter: Wiring It All Together</a></li><li class="toc-lvl-2"><a href="#57-rate-limit-response-contract-429-retry-after-and-the-x-ratelimit-headers">Rate Limit Response Contract: 429, Retry-After, and the X-RateLimit-* Headers</a></li><li class="toc-lvl-2"><a href="#58-follow-up-question-18-at-millions-of-requests-per-second-across-thousands-of-tenants-what-breaks-first">Follow-up Question 18 — "At Millions of Requests Per Second Across Thousands of Tenants, What Breaks First?"</a></li><li class="toc-lvl-2"><a href="#59-sharding-the-rate-limiters-shared-store">Sharding the Rate Limiter's Shared Store</a></li><li class="toc-lvl-2"><a href="#60-class-diagram-the-rate-limiter">Class Diagram: The Rate Limiter</a></li><li class="toc-lvl-2"><a href="#61-full-worked-example-one-request-rate-limited-end-to-end">Full Worked Example: One Request, Rate-Limited, End to End</a></li><li class="toc-lvl-2"><a href="#62-final-architecture-diagram">Final Architecture Diagram</a></li><li class="toc-lvl-2"><a href="#63-design-patterns-used-throughout-this-guide">Design Patterns Used Throughout This Guide</a></li><li class="toc-lvl-2"><a href="#64-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#65-common-mistakes-when-building-this-yourself">Common Mistakes When Building This Yourself</a></li><li class="toc-lvl-2"><a href="#66-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#67-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#68-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#69-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>The interview question this guide answers:</strong></p>
+<p><em>"Design an API gateway that sits in front of a set of microservices. Cover routing, authentication, load balancing, and resilience. Then — this is usually where the interview gets serious — design the rate limiter the gateway uses to protect those services, in real depth: the algorithm, and how it stays correct across many gateway instances running at once."</em></p>
+<p>This guide is structured exactly as that interview unfolds: a requirements-gathering phase, a high-level gateway architecture built up decision by decision, and then a deep low-level dive into rate limiting specifically — because that second half is almost always where a candidate's design either holds up under real pressure or quietly falls apart.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<p>We are building <strong>MiniGate</strong> — an API gateway and its rate limiter, covering:</p>
+<ul>
+<li><strong>Functional requirements</strong>: request routing, a pluggable cross-cutting-concern pipeline, load balancing, service discovery integration, circuit breaking, edge authentication, and a correct, production-grade rate limiter.</li>
+<li><strong>High-level design</strong>: why a gateway exists at all, the filter-chain architecture that makes it extensible, and how every cross-cutting concern (auth, rate limiting, logging) plugs into that one pipeline without touching the others.</li>
+<li><strong>Low-level design</strong>: a genuinely pluggable filter chain (Chain of Responsibility), a Strategy-based load balancer, a State-pattern circuit breaker, and — the deep dive — five real rate-limiting algorithms building from a naive fixed window up to a distributed, atomically-correct token bucket that stays correct across dozens of gateway instances.</li>
+<li><strong>Scaling concerns</strong>: the exact race condition that breaks a naive distributed rate limiter, atomicity via a Lua script, a local/distributed hybrid to cut latency, and sharding the shared counter store.</li>
+</ul>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                              Client
+                                |
+                          API Gateway (this guide)
+                    +-----------+-----------+
+                    |    Filter Chain       |
+                    |  auth -&gt; rate-limit -&gt; |
+                    |  routing -&gt; logging    |
+                    +-----------+-----------+
+                                |
+                    Load Balancer + Circuit Breaker
+                                |
+        +---------+---------+---------+---------+
+        v         v         v         v         v
+     Orders   Inventory  Payments   Users    Notifications
+    Service    Service    Service   Service     Service
+                                |
+                    Shared Rate-Limit Store
+                    (Redis-style, atomic Lua script)
+</code></pre></div>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to:</p>
+<ul>
+<li>Justify why an API gateway exists at all — not as a buzzword, but as a specific answer to specific cross-cutting-concern duplication across services.</li>
+<li>Design a genuinely pluggable filter pipeline (the Chain of Responsibility pattern) so adding a new cross-cutting concern never touches existing filters.</li>
+<li>Design load balancing and circuit breaking as pluggable, testable components (Strategy and State), not inline <code>if/else</code> logic bolted onto the routing code.</li>
+<li>Explain, precisely, why a single-node in-memory rate limiter is wrong the moment there is more than one gateway instance — and fix it correctly with a shared store and an atomic check-and-increment.</li>
+<li>Compare five rate-limiting algorithms (fixed window, sliding window log, sliding window counter, token bucket, leaky bucket) by their actual accuracy/memory/burst-tolerance tradeoffs, not by name recognition alone.</li>
+<li>Reason about what breaks first at millions of requests per second across thousands of tenants, and name the specific technique (sharding, a local/distributed hybrid) that addresses it.</li>
+</ul>
+<hr>
+<h2 id="3-why-this-matters-the-interview-framed">3. Why This Matters (The Interview, Framed)</h2>
+<p>"Design an API gateway" is a common senior/staff systems-design question precisely because it has a shallow answer and a deep one, and the interview is designed to find out which one a candidate actually has. The shallow answer is a box labeled "gateway" with arrows to some services. The deep answer requires:</p>
+<ul>
+<li><strong>Architecture that's genuinely extensible</strong> — a real gateway accumulates cross-cutting concerns over its lifetime (auth today, rate limiting next quarter, request signing after that); a design that requires editing a central class for each new one doesn't survive contact with a real roadmap.</li>
+<li><strong>Resilience reasoning</strong> — a gateway sits in the request path of <em>everything</em>; a naive design turns "one backend service is unhealthy" into "the entire platform is unhealthy," which is precisely the failure mode a circuit breaker exists to prevent.</li>
+<li><strong>The rate limiter, in real depth</strong> — this is where the interview usually escalates hardest, because "just count requests and reject over the limit" sounds trivial until the very next question is <em>"you have 50 gateway instances. Where does that count even live?"</em> — and the honest answer to that question is where most of the genuinely hard engineering in this entire guide lives.</li>
+</ul>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language</td>
+<td>Java 21</td>
+<td>Matches this guide's interfaces and pattern implementations (Chain of Responsibility, Strategy, State).</td>
+</tr>
+<tr>
+<td>Shared rate-limit store</td>
+<td>An in-memory key-value store with atomic scripting (Redis-style, <code>EVAL</code>/Lua)</td>
+<td>A gateway cluster needs one shared, atomically-updated counter per rate-limit key — exactly what Redis's single-threaded execution plus Lua scripting guarantees (§51).</td>
+</tr>
+<tr>
+<td>Service discovery</td>
+<td>A registry with health checks (Consul/Eureka-style)</td>
+<td>The gateway must route only to instances known to be alive right now (§23).</td>
+</tr>
+<tr>
+<td>Load balancer transport</td>
+<td>Plain HTTP/1.1 or HTTP/2 to backends</td>
+<td>The gateway's own concern is <em>which</em> instance to call, not the wire protocol — this guide stays protocol-agnostic on purpose.</td>
+</tr>
+<tr>
+<td>Observability</td>
+<td>Structured logs + a correlation ID propagated end to end</td>
+<td>Every filter in the chain (§15-§16) can attach context to one traceable request.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>minigate/
+├── src/main/java/com/example/minigate/
+│   ├── filter/
+│   │   ├── Filter.java, FilterChain.java                  // §16
+│   │   ├── AuthenticationFilter.java                       // §31
+│   │   ├── RateLimitFilter.java                             // §56
+│   │   └── LoggingFilter.java
+│   ├── routing/
+│   │   ├── Route.java, RouteRegistry.java                  // §18-§19
+│   │   └── RouteConfigWatcher.java                          // §21
+│   ├── discovery/
+│   │   └── ServiceDiscoveryClient.java, HealthChecker.java  // §23
+│   ├── loadbalancer/
+│   │   ├── LoadBalancer.java                                // §26
+│   │   ├── RoundRobinLoadBalancer.java, WeightedLoadBalancer.java, LeastConnectionsLoadBalancer.java
+│   ├── resilience/
+│   │   └── CircuitBreaker.java, CircuitState.java           // §28-§29
+│   ├── auth/
+│   │   └── ApiKeyValidator.java, JwtValidator.java          // §31
+│   └── ratelimit/
+│       ├── RateLimitAlgorithm.java                          // §38
+│       ├── FixedWindowCounter.java                          // §38
+│       ├── SlidingWindowLog.java, SlidingWindowCounter.java // §40-§41
+│       ├── TokenBucket.java, LeakyBucket.java                // §44-§45
+│       ├── DistributedTokenBucket.java (Lua-script backed)  // §51
+│       ├── HybridRateLimiter.java                            // §53
+│       └── RateLimitKeyResolver.java                         // §55
+└── src/test/java/com/example/minigate/
+    ├── FilterChainOrderingTest.java
+    ├── RateLimiterAccuracyTest.java
+    └── DistributedRateLimiterRaceConditionTest.java
+</code></pre></div>
+<hr>
+<h2 id="6-step-1-clarifying-requirements-before-designing-anything">6. Step 1 — Clarifying Requirements Before Designing Anything</h2>
+<blockquote>
+<p><strong>Candidate's clarifying questions:</strong> <em>"How many backend services and gateway instances are we talking about — tens, or thousands? Is rate limiting per API key, per user, per IP, or all three layered together? Do we need hard limits (reject over the limit) or soft/bursty limits (allow short bursts above the sustained rate)? Is exact accuracy required, or is a reasonable approximation acceptable if it buys much lower latency?"</em></p>
+</blockquote>
+<p>Exactly as <a href="Design a Workflow Automation System — HLD, LLD, and Class Design From Scratch.md">the Workflow Automation guide's opening</a> and <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA-style guide's opening</a> both argue, narrowing an intentionally broad prompt before designing anything is the first move that separates a strong answer from a shallow one. For this guide, we settle on a concrete, realistic scope: <strong>dozens of gateway instances</strong> behind a load balancer, <strong>hundreds of backend services</strong>, rate limiting <strong>layered by API key, user, and route simultaneously</strong> (§55), <strong>bursts allowed up to a bucket capacity</strong> (favoring the token bucket, §43-§44), and <strong>a reasonable, bounded approximation accepted in exchange for lower added latency</strong> (§53's hybrid design) — the realistic, industry-standard tradeoff, not an unrealistically perfect one.</p>
+<hr>
+<h2 id="7-functional-requirements">7. Functional Requirements</h2>
+<ul>
+<li><strong>Route</strong> incoming requests to the correct backend service, by path and/or host.</li>
+<li>Support a <strong>pluggable pipeline</strong> of cross-cutting concerns (authentication, rate limiting, logging, request/response transformation) applied to every request, in a configurable order.</li>
+<li><strong>Discover</strong> healthy backend instances dynamically, and stop sending traffic to instances that fail health checks.</li>
+<li><strong>Load balance</strong> across multiple healthy instances of the same service, with more than one selection strategy available.</li>
+<li><strong>Circuit break</strong> on a backend that is failing repeatedly, to protect both that backend and the gateway's own resources.</li>
+<li><strong>Authenticate</strong> requests at the edge (API key or JWT) before they ever reach a backend service.</li>
+<li><strong>Rate limit</strong> requests, correctly, across every gateway instance in the cluster — not per-instance, but per logical client, cluster-wide.</li>
+<li>Update <strong>routes</strong> and <strong>rate-limit configuration</strong> without restarting the gateway.</li>
+</ul>
+<hr>
+<h2 id="8-non-functional-requirements">8. Non-Functional Requirements</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>What it means concretely</th>
+<th>Where this guide addresses it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Low added latency</strong></td>
+<td>The gateway itself should add single-digit milliseconds, not become the platform's bottleneck</td>
+<td>The local/distributed hybrid rate limiter (§53), non-blocking filter chain (§16)</td>
+</tr>
+<tr>
+<td><strong>High availability</strong></td>
+<td>No single gateway instance, and no single backend instance, is a single point of failure</td>
+<td>Multiple gateway instances behind their own load balancer; the circuit breaker (§28-§29)</td>
+</tr>
+<tr>
+<td><strong>Correctness under concurrency</strong></td>
+<td>A rate limit must hold even when many gateway instances check it at the same moment</td>
+<td>Atomic distributed rate limiting (§49-§51)</td>
+</tr>
+<tr>
+<td><strong>Extensibility</strong></td>
+<td>Adding a new cross-cutting concern must never require modifying existing filters</td>
+<td>The Filter Chain (Chain of Responsibility, §15-§16)</td>
+</tr>
+<tr>
+<td><strong>Fairness</strong></td>
+<td>One noisy client must never exhaust capacity meant for others</td>
+<td>Per-key rate limiting (§55), layered limits</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="9-follow-up-question-1-what-are-the-core-responsibilities-here-before-we-draw-any-boxes">9. Follow-up Question 1 — "What Are the Core Responsibilities Here, Before We Draw Any Boxes?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Before services and diagrams — what does 'the gateway' actually have to DO, as a list of responsibilities? Not components. Responsibilities."</em></p>
+</blockquote>
+<p>This is the same deliberate pivot <a href="Design a Workflow Automation System — HLD, LLD, and Class Design From Scratch.md">the Workflow Automation guide's own Follow-up 1</a> makes — naming responsibilities before naming classes keeps the design honest about what actually needs solving, rather than reaching for familiar component names first.</p>
+<hr>
+<h2 id="10-identifying-the-core-domain-entities-and-responsibilities">10. Identifying the Core Domain Entities and Responsibilities</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Entity / Responsibility</th>
+<th>Represents</th>
+<th>Key relationships</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Request</strong></td>
+<td>One incoming HTTP call</td>
+<td>Flows through the <code>FilterChain</code> (§16), matched against a <code>Route</code></td>
+</tr>
+<tr>
+<td><strong>Route</strong></td>
+<td>A mapping from a path/host pattern to a backend service</td>
+<td>Held in the <code>RouteRegistry</code> (§19), resolved once per request</td>
+</tr>
+<tr>
+<td><strong>Filter</strong></td>
+<td>One cross-cutting concern (auth, rate limit, logging)</td>
+<td>Composed into an ordered <code>FilterChain</code> (§15-§16)</td>
+</tr>
+<tr>
+<td><strong>ServiceInstance</strong></td>
+<td>One running, discoverable instance of a backend service</td>
+<td>Tracked by <code>ServiceDiscoveryClient</code> (§23), health-checked continuously</td>
+</tr>
+<tr>
+<td><strong>LoadBalancer</strong></td>
+<td>The strategy for picking one <code>ServiceInstance</code> among several healthy ones</td>
+<td>Pluggable (§26), consulted once per request after routing</td>
+</tr>
+<tr>
+<td><strong>CircuitBreaker</strong></td>
+<td>Per-backend failure-tracking state machine</td>
+<td>Wraps every call to a <code>ServiceInstance</code> (§28-§29)</td>
+</tr>
+<tr>
+<td><strong>RateLimiter</strong></td>
+<td>The thing that decides "allow" or "reject," per key, per request</td>
+<td>The deep-dive subject of Part 2 (§34 onward)</td>
+</tr>
+<tr>
+<td><strong>RateLimitKey</strong></td>
+<td>What a limit is actually measured against (an API key, a user, a route, or a composite)</td>
+<td>Resolved once per request (§55), before the limiter is ever consulted</td>
+</tr>
+</tbody>
+</table></div>
+<p>Every section from §11 onward either builds infrastructure <strong>around</strong> these entities or builds the entities <strong>themselves</strong> as real, working class designs — nothing introduced later is untraceable back to this table.</p>
+<hr>
+<h2 id="11-high-level-architecture-overview">11. High-Level Architecture Overview</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                                    Client
+                                       |
+                          Load Balancer (in front of the gateway cluster itself)
+                                       |
+                    +------------------+------------------+
+                    v                  v                  v
+              Gateway Instance   Gateway Instance   Gateway Instance
+                    |                  |                  |
+                    +------------------+------------------+
+                                       |
+                          Shared Rate-Limit Store (§48, one per cluster, NOT per instance)
+                                       |
+                          Service Discovery + Health Checks (§23)
+                                       |
+                    +------------------+------------------+
+                    v                  v                  v
+               Orders Service    Payments Service    Users Service
+              (N instances)       (N instances)       (N instances)
+</code></pre></div>
+<p>The single most important line in this diagram is the <strong>shared rate-limit store</strong>, sitting <em>outside</em> every individual gateway instance — every other piece of this architecture (routing, load balancing, circuit breaking) can be entirely per-instance and still be correct, but rate limiting specifically cannot, which §46-§51 exist to prove and fix.</p>
+<hr>
+<h2 id="12-follow-up-question-2-why-not-just-let-clients-call-services-directly-what-does-a-gateway-actually-buy-you">12. Follow-up Question 2 — "Why Not Just Let Clients Call Services Directly? What Does a Gateway Actually Buy You?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"You have five services. Why not just give clients five URLs? What does inserting a gateway in the middle actually solve?"</em></p>
+</blockquote>
+<p>The honest answer is <strong>not</strong> "because that's the standard architecture" — it's a specific, concrete cost that duplicating cross-cutting concerns across every service imposes. §13 names that cost precisely.</p>
+<hr>
+<h2 id="13-the-case-for-an-api-gateway-cross-cutting-concerns-centralized">13. The Case for an API Gateway: Cross-Cutting Concerns Centralized</h2>
+<p>Without a gateway, every one of the five services in §12 needs its <strong>own</strong> authentication logic, its <strong>own</strong> rate limiting, its <strong>own</strong> request logging and correlation-ID handling — five copies of the same concern, each one an independent place for a bug or an inconsistency to creep in (service A validates a JWT slightly differently than service B; service C forgot to rate-limit an endpoint entirely). An API gateway centralizes exactly these <strong>cross-cutting</strong> concerns — the ones that apply uniformly across services and have nothing to do with any single service's actual business logic — into one place, built once, tested once, applied consistently everywhere. This is precisely the same "duplication across boundaries is the actual cost, not a stylistic preference" argument <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA-style guide's Observer-pattern section</a> makes for notification side effects — just applied at the network-boundary level instead of the in-process event level.</p>
+<hr>
+<h2 id="14-follow-up-question-3-walk-me-through-one-request-end-to-end-through-the-gateway">14. Follow-up Question 3 — "Walk Me Through One Request, End to End, Through the Gateway."</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A request for <code>GET /orders/42</code> arrives. Trace it through your gateway, step by step, until a response goes back to the client."</em></p>
+</blockquote>
+<p>§15-§16 build the mechanism that makes this trace possible to describe precisely rather than hand-wave: a <strong>filter chain</strong>, each filter handling exactly one cross-cutting concern, composed in a fixed, explicit order.</p>
+<hr>
+<h2 id="15-the-filter-chain-chain-of-responsibility-for-cross-cutting-concerns">15. The Filter Chain: Chain of Responsibility for Cross-Cutting Concerns</h2>
+<p>Every cross-cutting concern — authentication, rate limiting, logging, request transformation — is a <code>Filter</code>, and every request passes through an ordered chain of them before ever reaching routing and load balancing. This is the textbook <strong>Chain of Responsibility</strong> pattern: each filter decides whether to continue the chain, short-circuit it (reject the request), or wrap the eventual response on the way back out.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Request
+   |
+   v
+AuthenticationFilter --(unauthenticated)--&gt; reject: 401
+   |
+   v
+RateLimitFilter --(over limit)--&gt; reject: 429
+   |
+   v
+LoggingFilter (attaches a correlation ID, logs the request)
+   |
+   v
+Routing + Load Balancing + Circuit Breaker (§17-§29)
+   |
+   v
+Backend Service
+   |
+   v  (response flows back UP through the same chain, in reverse)
+LoggingFilter (logs the response, timing)
+   |
+   v
+Response to Client
+</code></pre></div>
+<hr>
+<h2 id="16-implementing-the-filter-pipeline-in-java">16. Implementing the Filter Pipeline in Java</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface Filter {
+    void doFilter(GatewayRequest request, GatewayResponse response, FilterChain chain) throws GatewayException;
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class FilterChain {
+
+    private final List&lt;Filter&gt; filters;
+    private final int index;
+    private final BackendInvoker backendInvoker; // §17-§29 -- routing, load balancing, circuit breaking
+
+    private FilterChain(List&lt;Filter&gt; filters, int index, BackendInvoker backendInvoker) {
+        this.filters = filters;
+        this.index = index;
+        this.backendInvoker = backendInvoker;
+    }
+
+    public static FilterChain of(List&lt;Filter&gt; filters, BackendInvoker backendInvoker) {
+        return new FilterChain(filters, 0, backendInvoker);
+    }
+
+    public void doFilter(GatewayRequest request, GatewayResponse response) throws GatewayException {
+        if (index &gt;= filters.size()) {
+            backendInvoker.invoke(request, response); // end of the chain -- actually call the backend
+            return;
+        }
+        Filter current = filters.get(index);
+        FilterChain next = new FilterChain(filters, index + 1, backendInvoker);
+        current.doFilter(request, response, next);
+    }
+}
+</code></pre></div>
+<p>Each filter never knows how many filters come after it, or what they do — it only ever calls <code>chain.doFilter(request, response)</code> to continue, or writes a rejection directly to <code>response</code> and simply <strong>doesn't</strong> call <code>chain.doFilter(...)</code> to short-circuit. Adding a new cross-cutting concern (request signing, say) is: implement <code>Filter</code>, insert it into the configured list at the right position — nothing about <code>FilterChain</code> itself, or any existing filter, ever changes. This is the Open/Closed Principle (§64) made concrete at the very center of the gateway's design.</p>
+<hr>
+<h2 id="17-follow-up-question-4-how-does-the-gateway-know-where-to-route-a-request">17. Follow-up Question 4 — "How Does the Gateway Know Where to Route a Request?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"<code>GET /orders/42</code> comes in. How does the gateway know that means 'call the Orders service'?"</em></p>
+</blockquote>
+<p>§18-§19 build a <code>Route</code> model and a registry that matches an incoming path/host against configured patterns — the mechanism the end of §15's filter chain hands off to.</p>
+<hr>
+<h2 id="18-the-route-registry-path-and-host-based-matching">18. The Route Registry: Path- and Host-Based Matching</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record Route(String routeId, String pathPattern, String hostPattern /* nullable */, String serviceName,
+                     List&lt;String&gt; filterOverrides /* nullable -- per-route filter tweaks */) { }
+</code></pre></div>
+<p>A <code>pathPattern</code> like <code>/orders/**</code> or <code>/users/{id}/profile</code> is matched against the incoming request's path; an optional <code>hostPattern</code> additionally requires a specific <code>Host</code> header, supporting the common case of one gateway fronting multiple domains, each with its own route table.</p>
+<hr>
+<h2 id="19-implementing-route-matching-and-a-route-registry">19. Implementing Route Matching and a Route Registry</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class RouteRegistry {
+
+    private volatile List&lt;Route&gt; routes; // §21 -- volatile so a config reload is visible to every request thread immediately
+
+    public RouteRegistry(List&lt;Route&gt; initialRoutes) {
+        this.routes = List.copyOf(initialRoutes);
+    }
+
+    public Optional&lt;Route&gt; match(GatewayRequest request) {
+        return routes.stream()
+                .filter(route -&gt; hostMatches(route, request) &amp;&amp; pathMatches(route, request))
+                .findFirst(); // first-match-wins -- route ORDER is a real, documented part of the configuration contract
+    }
+
+    private boolean hostMatches(Route route, GatewayRequest request) {
+        return route.hostPattern() == null || route.hostPattern().equals(request.host());
+    }
+
+    private boolean pathMatches(Route route, GatewayRequest request) {
+        return AntStylePathMatcher.matches(route.pathPattern(), request.path()); // `**`/`{var}` semantics, elided here
+    }
+
+    public void replaceAll(List&lt;Route&gt; newRoutes) {
+        this.routes = List.copyOf(newRoutes); // §21 -- an atomic, single-write swap, never a partial in-place edit
+    }
+}
+</code></pre></div>
+<p><code>replaceAll</code> swapping the entire list in one atomic reference write — rather than mutating the existing list in place — means a concurrent <code>match()</code> call from another request thread always sees either the <em>complete</em> old route table or the <em>complete</em> new one, never a route table half-updated mid-reload. This is the same "never let a reader observe a partially-applied change" discipline the <a href="TinyDB Storage Engine — Step-by-Step Implementation Guide.md">TinyDB Storage Engine guide's WAL-before-flush rule</a> enforces for a different kind of durable state.</p>
+<hr>
+<h2 id="20-follow-up-question-5-routes-change-as-services-deploy-how-do-you-update-routing-without-restarting-the-gateway">20. Follow-up Question 5 — "Routes Change as Services Deploy. How Do You Update Routing Without Restarting the Gateway?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A new service ships, or an existing route's path changes. You can't restart every gateway instance for every deploy. How does route configuration actually get updated live?"</em></p>
+</blockquote>
+<p>§19's <code>replaceAll</code> already made the <em>application</em> of a new route table atomic and safe; §21 covers <em>where the new table comes from</em> and how it reaches every running instance.</p>
+<hr>
+<h2 id="21-dynamic-route-configuration-and-hot-reload">21. Dynamic Route Configuration and Hot Reload</h2>
+<p>A <code>RouteConfigWatcher</code> subscribes to a configuration source (a config-management service, a versioned file in object storage, or a dedicated config database) and, on any change, fetches the full new route list and calls <code>RouteRegistry.replaceAll</code> (§19) — never an incremental patch, which would require correctly diffing additions, removals, and re-orderings and risks applying a diff out of order relative to another concurrent update. Every gateway instance runs its <strong>own</strong> <code>RouteConfigWatcher</code>, polling or subscribing independently — routing configuration is deliberately <strong>not</strong> something that needs the same cluster-wide atomicity guarantee the rate limiter does (§48), because a route table briefly disagreeing between two gateway instances for a few seconds during a rollout is a minor, self-correcting inconsistency, not a correctness violation the way a rate limit being briefly wrong would be.</p>
+<hr>
+<h2 id="22-follow-up-question-6-how-does-the-gateway-find-a-healthy-instance-of-the-backend-service">22. Follow-up Question 6 — "How Does the Gateway Find a Healthy Instance of the Backend Service?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A route says 'send this to the Orders service.' The Orders service has 12 running instances, and 2 of them are currently unhealthy. How does the gateway know that?"</em></p>
+</blockquote>
+<p>§23 answers this with a discovery client and a continuous health-check loop, so "which instances exist" and "which instances are actually usable right now" are tracked as two separate, continuously-updated facts.</p>
+<hr>
+<h2 id="23-service-discovery-integration-and-health-checks">23. Service Discovery Integration and Health Checks</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record ServiceInstance(String instanceId, String host, int port, boolean healthy) { }
+
+public interface ServiceDiscoveryClient {
+    List&lt;ServiceInstance&gt; instancesFor(String serviceName); // only instances currently believed healthy
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class HealthChecker {
+
+    private final Map&lt;String, ServiceInstance&gt; instancesById = new ConcurrentHashMap&lt;&gt;();
+    private final HttpClient httpClient;
+
+    public HealthChecker(HttpClient httpClient) { this.httpClient = httpClient; }
+
+    /** Called on a fixed schedule (e.g. every 5 seconds) by a background thread, per registered instance. */
+    public void checkOne(ServiceInstance instance) {
+        boolean healthy = pingHealthEndpoint(instance);
+        instancesById.put(instance.instanceId(), new ServiceInstance(instance.instanceId(), instance.host(), instance.port(), healthy));
+    }
+
+    public List&lt;ServiceInstance&gt; healthyInstancesFor(String serviceName) {
+        return instancesById.values().stream()
+                .filter(ServiceInstance::healthy)
+                .filter(instance -&gt; belongsTo(instance, serviceName))
+                .toList();
+    }
+
+    private boolean pingHealthEndpoint(ServiceInstance instance) {
+        try {
+            HttpResponse&lt;Void&gt; response = httpClient.send(
+                    HttpRequest.newBuilder(URI.create(&quot;http://&quot; + instance.host() + &quot;:&quot; + instance.port() + &quot;/health&quot;)).build(),
+                    HttpResponse.BodyHandlers.discarding());
+            return response.statusCode() == 200;
+        } catch (IOException | InterruptedException e) {
+            return false; // unreachable is unhealthy -- fail closed, never assume health on a network error
+        }
+    }
+}
+</code></pre></div>
+<p>An instance that fails its health check is never <em>removed</em> from <code>instancesById</code> — it's marked <code>healthy=false</code> and kept, so it can be automatically restored to rotation the moment a later check succeeds, without needing a separate re-registration flow. Failing <strong>closed</strong> on a network error (treating "I couldn't reach it" as "it's unhealthy," never as "it's probably fine") is the conservative, correct default — the alternative risks routing live traffic to an instance that's actually down.</p>
+<hr>
+<h2 id="24-follow-up-question-7-multiple-healthy-instances-exist-how-do-you-pick-one">24. Follow-up Question 7 — "Multiple Healthy Instances Exist. How Do You Pick One?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"§23 gives you a list of healthy instances. You need exactly one to actually send this request to. What's the selection logic, and does it ever change?"</em></p>
+</blockquote>
+<p>It changes constantly, in practice — which is exactly why §25-§26 make instance selection a pluggable <strong>Strategy</strong>, not a single hard-coded algorithm.</p>
+<hr>
+<h2 id="25-load-balancing-strategies-round-robin-weighted-and-least-connections">25. Load Balancing Strategies: Round Robin, Weighted, and Least-Connections</h2>
+<ul>
+<li><strong>Round robin</strong>: cycle through healthy instances in order — simple, fair when every instance has equal capacity.</li>
+<li><strong>Weighted round robin</strong>: some instances get proportionally more traffic (a bigger instance, or one still warming up after a deploy gets less).</li>
+<li><strong>Least connections</strong>: send the next request to whichever healthy instance currently has the fewest in-flight requests — self-correcting under uneven request durations, where round robin can accidentally pile requests onto an already-slow instance.</li>
+</ul>
+<hr>
+<h2 id="26-implementing-a-pluggable-loadbalancer">26. Implementing a Pluggable LoadBalancer</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface LoadBalancer {
+    ServiceInstance select(List&lt;ServiceInstance&gt; healthyInstances);
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class RoundRobinLoadBalancer implements LoadBalancer {
+    private final Map&lt;String, AtomicInteger&gt; counters = new ConcurrentHashMap&lt;&gt;();
+
+    @Override
+    public ServiceInstance select(List&lt;ServiceInstance&gt; healthyInstances) {
+        if (healthyInstances.isEmpty()) throw new NoHealthyInstanceException();
+        AtomicInteger counter = counters.computeIfAbsent(healthyInstances.get(0).instanceId(), k -&gt; new AtomicInteger(0));
+        int index = Math.floorMod(counter.getAndIncrement(), healthyInstances.size());
+        return healthyInstances.get(index);
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class LeastConnectionsLoadBalancer implements LoadBalancer {
+    private final Map&lt;String, AtomicInteger&gt; inFlightByInstanceId = new ConcurrentHashMap&lt;&gt;();
+
+    @Override
+    public ServiceInstance select(List&lt;ServiceInstance&gt; healthyInstances) {
+        if (healthyInstances.isEmpty()) throw new NoHealthyInstanceException();
+        return healthyInstances.stream()
+                .min(Comparator.comparingInt(instance -&gt; inFlightByInstanceId.getOrDefault(instance.instanceId(), new AtomicInteger(0)).get()))
+                .orElseThrow();
+    }
+
+    public void onRequestStarted(String instanceId) { inFlightByInstanceId.computeIfAbsent(instanceId, k -&gt; new AtomicInteger(0)).incrementAndGet(); }
+    public void onRequestFinished(String instanceId) { inFlightByInstanceId.computeIfAbsent(instanceId, k -&gt; new AtomicInteger(0)).decrementAndGet(); }
+}
+</code></pre></div>
+<p>Swapping <code>RoundRobinLoadBalancer</code> for <code>LeastConnectionsLoadBalancer</code> — per route, even — is a one-line configuration change; nothing in the routing or filter-chain code needs to know which strategy is active, which is precisely the Strategy pattern doing its job (§63).</p>
+<hr>
+<h2 id="27-follow-up-question-8-a-backend-instance-is-failing-repeatedly-how-do-you-stop-hammering-it">27. Follow-up Question 8 — "A Backend Instance Is Failing Repeatedly. How Do You Stop Hammering It?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"An instance starts timing out on every call. Your load balancer keeps sending it traffic anyway, because health checks are still 5 seconds apart and it hasn't failed one yet. What's missing?"</em></p>
+</blockquote>
+<p>A <strong>circuit breaker</strong> — a mechanism that reacts to <em>live call failures</em>, not just periodic health checks, and stops sending traffic the moment a backend looks unhealthy from the gateway's own direct experience, faster than the next scheduled health check could ever catch it.</p>
+<hr>
+<h2 id="28-the-circuit-breaker-a-state-machine-for-failing-dependencies">28. The Circuit Breaker: A State Machine for Failing Dependencies</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>   CLOSED (normal operation, calls pass through)
+      |
+      | failure rate exceeds threshold
+      v
+   OPEN (calls fail IMMEDIATELY, without even attempting the backend -- protects both sides)
+      |
+      | after a cooldown period elapses
+      v
+   HALF_OPEN (a small number of trial calls are allowed through)
+      |
+      +-- trial calls succeed --&gt; back to CLOSED
+      |
+      +-- trial calls fail --&gt; back to OPEN (cooldown restarts)
+</code></pre></div>
+<p>This is the exact same <strong>State pattern</strong> discipline <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA-style guide's issue-status workflow</a> and <a href="Design a Workflow Automation System — HLD, LLD, and Class Design From Scratch.md">the Workflow Automation guide's run/step lifecycle</a> both already apply to a different status field — here applied to a backend's <em>health</em>, as directly observed by the gateway's own calls, entirely independent of §23's periodic health checks.</p>
+<hr>
+<h2 id="29-implementing-the-circuit-breaker">29. Implementing the Circuit Breaker</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class CircuitBreaker {
+
+    private final int failureThreshold;
+    private final Duration cooldown;
+    private final int halfOpenTrialCount;
+
+    private volatile CircuitState state = CircuitState.CLOSED;
+    private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
+    private volatile Instant openedAt;
+    private final AtomicInteger halfOpenTrialsRemaining = new AtomicInteger(0);
+
+    public CircuitBreaker(int failureThreshold, Duration cooldown, int halfOpenTrialCount) {
+        this.failureThreshold = failureThreshold;
+        this.cooldown = cooldown;
+        this.halfOpenTrialCount = halfOpenTrialCount;
+    }
+
+    public boolean allowRequest() {
+        if (state == CircuitState.OPEN) {
+            if (Instant.now().isAfter(openedAt.plus(cooldown))) {
+                state = CircuitState.HALF_OPEN;
+                halfOpenTrialsRemaining.set(halfOpenTrialCount);
+            } else {
+                return false; // still cooling down -- fail fast, never even attempt the backend
+            }
+        }
+        if (state == CircuitState.HALF_OPEN) {
+            return halfOpenTrialsRemaining.getAndDecrement() &gt; 0;
+        }
+        return true; // CLOSED
+    }
+
+    public void onSuccess() {
+        consecutiveFailures.set(0);
+        if (state == CircuitState.HALF_OPEN) state = CircuitState.CLOSED; // trial succeeded -- fully recovered
+    }
+
+    public void onFailure() {
+        if (state == CircuitState.HALF_OPEN) {
+            reopen(); // a single trial failure during HALF_OPEN is enough -- don't risk more real traffic on it
+            return;
+        }
+        if (consecutiveFailures.incrementAndGet() &gt;= failureThreshold) {
+            reopen();
+        }
+    }
+
+    private void reopen() {
+        state = CircuitState.OPEN;
+        openedAt = Instant.now();
+        consecutiveFailures.set(0);
+    }
+}
+</code></pre></div>
+<p>Every call to a backend instance is wrapped: <code>if (!breaker.allowRequest()) throw new CircuitOpenException();</code> before the call, then <code>breaker.onSuccess()</code>/<code>breaker.onFailure()</code> after it returns or throws. Failing <strong>immediately</strong> while <code>OPEN</code> — never even attempting the network call — is the entire point: it protects the <em>already-struggling</em> backend from more load, and protects the gateway's own threads/connections from piling up waiting on a backend that's very unlikely to respond in time anyway.</p>
+<hr>
+<h2 id="30-follow-up-question-9-how-does-the-gateway-authenticate-requests-at-the-edge">30. Follow-up Question 9 — "How Does the Gateway Authenticate Requests at the Edge?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"You don't want every backend service re-implementing authentication. How does the gateway validate a caller's identity once, centrally?"</em></p>
+</blockquote>
+<p>Two common mechanisms, both implemented as <code>Filter</code>s (§15-§16) that run <strong>before</strong> routing ever happens — rejecting an unauthenticated request before it costs the gateway a route lookup, a load-balancer decision, or a backend call.</p>
+<hr>
+<h2 id="31-authentication-and-authorization-at-the-edge-api-keys-and-jwt-validation">31. Authentication and Authorization at the Edge: API Keys and JWT Validation</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class AuthenticationFilter implements Filter {
+
+    private final ApiKeyValidator apiKeyValidator;
+    private final JwtValidator jwtValidator;
+
+    public AuthenticationFilter(ApiKeyValidator apiKeyValidator, JwtValidator jwtValidator) {
+        this.apiKeyValidator = apiKeyValidator;
+        this.jwtValidator = jwtValidator;
+    }
+
+    @Override
+    public void doFilter(GatewayRequest request, GatewayResponse response, FilterChain chain) throws GatewayException {
+        String apiKey = request.header(&quot;X-Api-Key&quot;);
+        String bearerToken = request.bearerToken();
+
+        AuthResult result = apiKey != null ? apiKeyValidator.validate(apiKey)
+                           : bearerToken != null ? jwtValidator.validate(bearerToken)
+                           : AuthResult.unauthenticated();
+
+        if (!result.authenticated()) {
+            response.reject(401, &quot;Unauthorized&quot;);
+            return; // deliberately never calls chain.doFilter -- short-circuits here, §15
+        }
+        request.setPrincipal(result.principal()); // later filters (§56's rate limiter) read this to resolve a key
+        chain.doFilter(request, response);
+    }
+}
+</code></pre></div>
+<p><code>request.setPrincipal(...)</code> is what makes rate limiting <em>by user</em> (§55), not just by raw IP, possible at all — every filter after this one in the chain can read the authenticated identity, without needing to re-validate a token or an API key itself.</p>
+<hr>
+<h2 id="32-high-level-architecture-diagram-assembled">32. High-Level Architecture Diagram, Assembled</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                                     Client
+                                       |
+                            Gateway Instance (any one of many)
+                                       |
+                    AuthenticationFilter (§31) --(fail)--&gt; 401
+                                       |
+                    RateLimitFilter (§56) --(fail)--&gt; 429  [reads the SHARED store, §48]
+                                       |
+                    LoggingFilter (correlation ID attached)
+                                       |
+                    RouteRegistry.match() (§19) --(no match)--&gt; 404
+                                       |
+                    HealthChecker.healthyInstancesFor(...) (§23)
+                                       |
+                    LoadBalancer.select(...) (§26)
+                                       |
+                    CircuitBreaker.allowRequest() (§29) --(open)--&gt; 503, fail fast
+                                       |
+                              Backend Service Instance
+                                       |
+                    (response flows back up through Logging + any response-transforming filters)
+                                       |
+                                    Client
+</code></pre></div>
+<hr>
+<h2 id="33-class-diagram-the-gateway-core">33. Class Diagram: The Gateway Core</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Filter &lt;&lt;interface&gt;&gt;                          FilterChain
++ doFilter(request, response, chain)          + doFilter(request, response)
+      ^                                              |
+      | implements                                   | terminates into
+  +---+------------+------------+                    v
+Auth   RateLimit   Logging      BackendInvoker
+Filter   Filter     Filter      + invoke(request, response)
+                                        |
+                    +-------------------+-------------------+
+                    v                   v                   v
+              RouteRegistry      LoadBalancer          CircuitBreaker
+              + match(request)   &lt;&lt;interface&gt;&gt;          + allowRequest()
+                    |             + select(instances)    + onSuccess()/onFailure()
+                    v                   ^                       |
+                 Route          +-------+-------+               v
+                              RoundRobin   LeastConnections  CircuitState
+                                                              (CLOSED/OPEN/HALF_OPEN)
+</code></pre></div>
+<p>Everything above this line is the <strong>gateway core</strong> — extensible, pluggable, and (deliberately) entirely per-instance-safe, meaning no two gateway instances need to coordinate with each other to run any of it correctly. Everything from §34 onward is the one component where that stops being true.</p>
+<hr>
+<h2 id="34-follow-up-question-10-now-the-hard-part-design-the-rate-limiter">34. Follow-up Question 10 — "Now the Hard Part. Design the Rate Limiter."</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Everything so far has been solid, standard gateway design. Now I want real depth: design the rate limiter this gateway uses. Start from the requirements, and don't skip the part where it has to work correctly across every gateway instance at once."</em></p>
+</blockquote>
+<p>This is the pivot point the entire rest of this guide exists for. §35-§36 restate requirements specifically for the rate limiter; §37 onward builds five algorithms, in increasing sophistication, ending at the one that's actually correct under concurrency and at scale.</p>
+<hr>
+<h2 id="35-why-rate-limit-at-all-protecting-backends-and-enforcing-fairness">35. Why Rate Limit At All: Protecting Backends and Enforcing Fairness</h2>
+<p>Three genuinely distinct reasons, worth naming separately because they sometimes call for different limits: <strong>protecting backend capacity</strong> (a backend service can only handle so much load before its own latency degrades for everyone, regardless of who's calling); <strong>enforcing fair usage and tiered plans</strong> (a free-tier caller should not be able to consume the capacity a paying enterprise tier is guaranteed); and <strong>abuse and denial-of-service resistance</strong> (a misbehaving or malicious client hammering an endpoint should be capped, cheaply, at the edge, before it ever costs a backend service any real work).</p>
+<hr>
+<h2 id="36-rate-limiting-requirements-what-correct-actually-means-here">36. Rate Limiting Requirements: What "Correct" Actually Means Here</h2>
+<ul>
+<li>A client that has exceeded its limit is rejected with <code>429 Too Many Requests</code> (§57), not silently dropped or slowed.</li>
+<li>The limit is enforced <strong>cluster-wide</strong> — a client's true request rate across <em>all</em> gateway instances combined, never per-instance (§46-§48).</li>
+<li>Short bursts up to a configured capacity are allowed; the limit is on <strong>sustained</strong> rate, not a rigid "exactly N per second, no more, ever" (§43-§44's token bucket).</li>
+<li>The limiter must remain <strong>correct under concurrency</strong> — two gateway instances checking the same client's limit at the same instant must never both succeed when only one request's worth of quota remains (§49-§50).</li>
+<li>Checking a rate limit must add <strong>minimal latency</strong> to every single request — this rules out anything requiring multiple sequential round trips to a shared store per check (§51's single-atomic-operation requirement, §53's hybrid optimization).</li>
+</ul>
+<hr>
+<h2 id="37-follow-up-question-11-start-simple-whats-the-naive-approach-and-whats-wrong-with-it">37. Follow-up Question 11 — "Start Simple. What's the Naive Approach, and What's Wrong With It?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Forget distribution for a second — one machine, one client, one limit. What's the simplest thing that could possibly work, and where does it break?"</em></p>
+</blockquote>
+<p>§38 builds it — a fixed window counter — and shows precisely where "simplest" stops being "correct enough."</p>
+<hr>
+<h2 id="38-the-fixed-window-counter-simple-and-its-boundary-burst-flaw">38. The Fixed Window Counter: Simple, and Its Boundary-Burst Flaw</h2>
+<p>Every algorithm from here through §53 implements one shared interface, so <code>RateLimitFilter</code> (§56) never needs to know or care which specific algorithm is actually configured:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface RateLimitAlgorithm {
+    boolean allow(String key); // true = allowed, false = reject with 429 (§57)
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class FixedWindowCounter implements RateLimitAlgorithm {
+
+    private final int limit;
+    private final Duration windowSize;
+    private final Map&lt;String, WindowState&gt; stateByKey = new ConcurrentHashMap&lt;&gt;();
+
+    private record WindowState(long windowStartEpochMillis, AtomicInteger count) { }
+
+    public FixedWindowCounter(int limit, Duration windowSize) {
+        this.limit = limit;
+        this.windowSize = windowSize;
+    }
+
+    @Override
+    public boolean allow(String key) {
+        long now = System.currentTimeMillis();
+        long windowStart = (now / windowSize.toMillis()) * windowSize.toMillis();
+
+        WindowState state = stateByKey.compute(key, (k, existing) -&gt; {
+            if (existing == null || existing.windowStartEpochMillis() != windowStart) {
+                return new WindowState(windowStart, new AtomicInteger(0)); // a NEW window -- resets the count to zero
+            }
+            return existing;
+        });
+        return state.count().incrementAndGet() &lt;= limit;
+    }
+}
+</code></pre></div>
+<p>Simple, and genuinely wrong at the boundary: a limit of "100 requests per minute" allows 100 requests in the last millisecond of one window <strong>and</strong> another 100 in the first millisecond of the next — 200 requests in a two-millisecond span, twice the intended sustained rate, purely because the window edges reset the count to zero with no memory of what just happened in the <em>previous</em> window. This is not a rare edge case; a client with any reason to burst near a window boundary hits it reliably.</p>
+<hr>
+<h2 id="39-follow-up-question-12-how-do-you-fix-the-boundary-burst-problem">39. Follow-up Question 12 — "How Do You Fix the Boundary-Burst Problem?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"You just showed me a real gap. Fix it — and show me the tradeoff, because I doubt the fix is free."</em></p>
+</blockquote>
+<p>Two standard fixes, with a genuine accuracy-vs-memory tradeoff between them: §40's sliding window log (perfectly accurate, memory scales with request volume) and §41's sliding window counter (an approximation, memory stays constant).</p>
+<hr>
+<h2 id="40-the-sliding-window-log-accurate-but-memory-heavy">40. The Sliding Window Log: Accurate, But Memory-Heavy</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class SlidingWindowLog implements RateLimitAlgorithm {
+
+    private final int limit;
+    private final Duration windowSize;
+    private final Map&lt;String, Deque&lt;Long&gt;&gt; timestampsByKey = new ConcurrentHashMap&lt;&gt;();
+
+    public SlidingWindowLog(int limit, Duration windowSize) {
+        this.limit = limit;
+        this.windowSize = windowSize;
+    }
+
+    @Override
+    public synchronized boolean allow(String key) { // synchronized -- the deque mutation below must be atomic per key
+        long now = System.currentTimeMillis();
+        long windowStartCutoff = now - windowSize.toMillis();
+
+        Deque&lt;Long&gt; timestamps = timestampsByKey.computeIfAbsent(key, k -&gt; new ArrayDeque&lt;&gt;());
+        while (!timestamps.isEmpty() &amp;&amp; timestamps.peekFirst() &lt; windowStartCutoff) {
+            timestamps.pollFirst(); // evict every timestamp that has aged out of the CURRENT sliding window
+        }
+        if (timestamps.size() &gt;= limit) return false;
+        timestamps.addLast(now);
+        return true;
+    }
+}
+</code></pre></div>
+<p>Every single request's exact timestamp is stored, and the window slides continuously — evaluated at the <em>instant</em> of each check, not snapped to a fixed boundary — which makes this perfectly accurate: there is no boundary anywhere for a client to exploit. The cost is exactly what it looks like: memory proportional to the limit itself, per key, forever (a limit of 10,000 requests/minute means up to 10,000 stored timestamps per client, at all times) — fine for a modest limit, genuinely expensive at a high one across millions of distinct keys.</p>
+<hr>
+<h2 id="41-the-sliding-window-counter-an-accuracymemory-compromise">41. The Sliding Window Counter: An Accuracy/Memory Compromise</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class SlidingWindowCounter implements RateLimitAlgorithm {
+
+    private final int limit;
+    private final Duration windowSize;
+    private final Map&lt;String, long[]&gt; windowsByKey = new ConcurrentHashMap&lt;&gt;(); // [windowStart, previousCount, currentCount]
+
+    public SlidingWindowCounter(int limit, Duration windowSize) {
+        this.limit = limit;
+        this.windowSize = windowSize;
+    }
+
+    @Override
+    public synchronized boolean allow(String key) {
+        long windowMillis = windowSize.toMillis();
+        long now = System.currentTimeMillis();
+        long currentWindowStart = (now / windowMillis) * windowMillis;
+
+        long[] state = windowsByKey.computeIfAbsent(key, k -&gt; new long[]{currentWindowStart, 0, 0});
+        if (state[0] != currentWindowStart) {
+            boolean adjacentWindow = (currentWindowStart - state[0]) == windowMillis;
+            state[0] = currentWindowStart;
+            state[1] = adjacentWindow ? state[2] : 0; // only carry the count forward from the IMMEDIATELY preceding window
+            state[2] = 0;
+        }
+
+        double elapsedFractionOfWindow = (now - currentWindowStart) / (double) windowMillis;
+        double weightedCount = state[1] * (1 - elapsedFractionOfWindow) + state[2];
+
+        if (weightedCount &gt;= limit) return false;
+        state[2]++;
+        return true;
+    }
+}
+</code></pre></div>
+<p>The insight: instead of storing every timestamp (§40), keep just <strong>two fixed-window counts</strong> — the previous window's total and the current window's running total — and estimate the true sliding-window count as a weighted blend of the two, based on how far into the current window "now" is. This is an <strong>approximation</strong>, not perfectly exact (it assumes requests were spread evenly across the previous window, which is usually close enough in practice), but its memory footprint per key is now a small, constant handful of numbers regardless of the limit's size — the standard, industry-common compromise between §38's flawed simplicity and §40's exact-but-expensive accuracy.</p>
+<hr>
+<h2 id="42-follow-up-question-13-what-about-allowing-controlled-bursts-not-just-a-flat-rate">42. Follow-up Question 13 — "What About Allowing Controlled Bursts, Not Just a Flat Rate?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Every algorithm so far treats the limit as a hard, flat ceiling. What if I want to allow a short burst above the sustained rate — say, a client that's usually well under its limit should be allowed to briefly spike, as long as it settles back down?"</em></p>
+</blockquote>
+<p>Neither §38, §40, nor §41 was designed for this — all three enforce a ceiling <em>within</em> a window, with no concept of "saved-up" capacity from a quiet period. §43-§44 build the algorithm actually designed for exactly this case: the <strong>token bucket</strong>.</p>
+<hr>
+<h2 id="43-the-token-bucket-algorithm">43. The Token Bucket Algorithm</h2>
+<p>A bucket holds up to <code>capacity</code> tokens, refilling at a steady <code>refillRate</code> (tokens per second); every request consumes one token, and is allowed only if a token is available. A client that's been quiet accumulates tokens up to the bucket's capacity, and can then spend them all in a genuine burst — exactly the "smooth sustained rate, but tolerate a burst" behavior §42 asked for. This is a genuinely different use of the same underlying bucket-and-refill mechanism the <a href="Design a Workflow Automation System — HLD, LLD, and Class Design From Scratch.md">Workflow Automation guide's retry policy</a> uses exponential backoff for: that guide smooths <em>outgoing</em> retries against a flaky dependency, while this section caps <em>incoming</em> request rate — the same "control a rate against a budget that refills over time" idea, applied in opposite directions.</p>
+<hr>
+<h2 id="44-implementing-a-real-token-bucket-rate-limiter">44. Implementing a Real Token Bucket Rate Limiter</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TokenBucket implements RateLimitAlgorithm {
+
+    private final long capacity;
+    private final double refillTokensPerMillisecond;
+    private final Map&lt;String, BucketState&gt; stateByKey = new ConcurrentHashMap&lt;&gt;();
+
+    private static final class BucketState {
+        double tokens;
+        long lastRefillTimestampMillis;
+        BucketState(double tokens, long lastRefillTimestampMillis) {
+            this.tokens = tokens;
+            this.lastRefillTimestampMillis = lastRefillTimestampMillis;
+        }
+    }
+
+    public TokenBucket(long capacity, double refillTokensPerSecond) {
+        this.capacity = capacity;
+        this.refillTokensPerMillisecond = refillTokensPerSecond / 1000.0;
+    }
+
+    @Override
+    public boolean allow(String key) {
+        BucketState state = stateByKey.computeIfAbsent(key, k -&gt; new BucketState(capacity, System.currentTimeMillis()));
+        synchronized (state) { // per-KEY lock, not global -- one noisy key never blocks checks for every other key
+            long now = System.currentTimeMillis();
+            long elapsedMillis = now - state.lastRefillTimestampMillis;
+            state.tokens = Math.min(capacity, state.tokens + elapsedMillis * refillTokensPerMillisecond);
+            state.lastRefillTimestampMillis = now;
+
+            if (state.tokens &gt;= 1.0) {
+                state.tokens -= 1.0;
+                return true;
+            }
+            return false;
+        }
+    }
+}
+</code></pre></div>
+<p>Refilling <strong>lazily</strong>, computed from elapsed time at the moment of each check, rather than running a background timer per key that ticks tokens in continuously, is the standard, efficient implementation — it means a key nobody has called in an hour costs zero background work, and still refills to full capacity correctly (capped at <code>capacity</code>) the instant it's checked again. Locking <strong>per key</strong> (<code>synchronized (state)</code>), never with one global lock across every key, is exactly the same "isolate contention to the smallest necessary scope" discipline the <a href="Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide.md">ConcurrentHashMap guide's bucket-level locking</a> builds from scratch for a general-purpose map.</p>
+<hr>
+<h2 id="45-the-leaky-bucket-algorithm-and-how-it-differs-from-token-bucket">45. The Leaky Bucket Algorithm, and How It Differs From Token Bucket</h2>
+<p>A <strong>leaky bucket</strong> models the same "bucket" intuition inverted: incoming requests fill the bucket (up to its capacity, beyond which new requests are rejected), and the bucket <strong>leaks</strong> — processes queued requests — at a constant, fixed rate, regardless of how full it is. The practical difference from a token bucket matters: a token bucket allows a burst to pass through the gateway <strong>immediately</strong>, back-to-back, as long as tokens are available; a leaky bucket <strong>smooths</strong> a burst out, queuing excess requests and releasing them at the steady leak rate rather than letting them all through at once. A token bucket is the right choice when the goal is "cap the sustained rate but don't punish a legitimate short burst" (§42's requirement); a leaky bucket is the right choice when the goal is "guarantee a perfectly smooth, constant outgoing rate regardless of how bursty the incoming traffic is" — for MiniGate's stated requirements (§36), the token bucket is the better fit, and is what §51 onward builds out to a full distributed implementation.</p>
+<hr>
+<h2 id="46-follow-up-question-14-this-all-assumed-one-machine-you-have-50-gateway-instances-behind-a-load-balancer-now-what">46. Follow-up Question 14 — "This All Assumed One Machine. You Have 50 Gateway Instances Behind a Load Balancer. Now What?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Every algorithm you've shown me lives in one process's memory. A client's requests get spread across 50 different gateway instances by your own load balancer. What happens to their rate limit?"</em></p>
+</blockquote>
+<p>This is the question every prior section was building toward, and it's where a design that looked complete quietly falls apart. §47 states exactly why; §48 fixes it.</p>
+<hr>
+<h2 id="47-why-a-local-in-memory-counter-breaks-under-multiple-gateway-instances">47. Why a Local, In-Memory Counter Breaks Under Multiple Gateway Instances</h2>
+<p>Every algorithm built in §38-§45 stores its state in a <code>Map</code> living inside <strong>one JVM process</strong>. With 50 gateway instances, a client whose requests happen to be spread evenly across all 50 gets a <em>true</em> effective limit 50 times higher than configured — each instance independently thinks the client has used 0 out of, say, 100 requests, allows all 100, and has no idea the other 49 instances just did the exact same thing. The limit was never actually violated <strong>from any one instance's point of view</strong> — it was violated in aggregate, which is the only view that was ever supposed to matter. A rate limiter whose correctness depends on which specific instance happens to receive a given request is not a correct rate limiter at all.</p>
+<hr>
+<h2 id="48-distributed-rate-limiting-with-a-shared-store">48. Distributed Rate Limiting With a Shared Store</h2>
+<p>The fix is unsurprising once §47 is stated plainly: <strong>the counter cannot live in any one gateway instance's memory — it must live in one shared store every instance reads and writes.</strong> A Redis-style in-memory key-value store, reachable by every gateway instance over the network, replaces the <code>Map&lt;String, ...&gt;</code> at the center of every algorithm in §38-§45 — the <em>algorithm</em> (fixed window, sliding window, token bucket) stays conceptually identical; only <em>where its state lives</em> changes. This alone is not sufficient, though — §49 shows exactly what still goes wrong even with a shared store, if the store is used carelessly.</p>
+<hr>
+<h2 id="49-follow-up-question-15-two-gateway-instances-check-then-increment-at-the-same-time-what-goes-wrong">49. Follow-up Question 15 — "Two Gateway Instances Check-Then-Increment at the Same Time. What Goes Wrong?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"You've moved the counter to Redis. Instance A reads the count, sees 99 out of 100 remaining, and prepares to increment. At the exact same moment, Instance B does the same read, also sees 99. What happens next?"</em></p>
+</blockquote>
+<p>§50 names this precisely: it's a classic check-then-act race condition, and it lets exactly one extra request through every time it happens — which, at real traffic volume, is not a rare accident, it's routine.</p>
+<hr>
+<h2 id="50-the-race-condition-and-why-atomicity-is-non-negotiable">50. The Race Condition, and Why Atomicity Is Non-Negotiable</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Instance A: GET count for key &quot;user:42&quot;     -&gt; 99
+Instance B: GET count for key &quot;user:42&quot;     -&gt; 99   (before A's increment lands)
+Instance A: count &lt; limit (100) -&gt; ALLOW, then SET count = 100
+Instance B: count &lt; limit (100) -&gt; ALLOW, then SET count = 100   (should have been REJECTED -- limit already reached)
+</code></pre></div>
+<p>Two separate network round trips — a <code>GET</code> to check, then a <code>SET</code>/<code>INCR</code> to update — is exactly the same "check-then-act must be one atomic step, not two" hazard the <a href="Build Your Own ConcurrentHashMap From Scratch — Bucket-Level Locking and Multithreading Step-by-Step Guide.md">ConcurrentHashMap guide</a> and the <a href="Optimistic vs Pessimistic Locking — A Practical, Step-by-Step Guide With a Custom Java Implementation.md">Optimistic vs Pessimistic Locking guide</a> both build entire mechanisms to solve for a single in-process map or a single database row — here the same hazard shows up across a network, between two entirely separate processes, which makes an in-process lock useless (Instance A's lock protects nothing Instance B can see). The fix has to be atomicity <strong>inside the shared store itself</strong>, not in either gateway instance.</p>
+<hr>
+<h2 id="51-an-atomic-token-bucket-using-a-redis-style-lua-script">51. An Atomic Token Bucket Using a Redis-Style Lua Script</h2>
+<p>Redis executes a submitted Lua script as a single, indivisible operation — no other client's command can interleave in the middle of it, even though many different gateway instances are calling it concurrently. This turns "read the bucket state, compute, write it back" from three separate round trips (each individually race-able, as §50 showed) into <strong>one</strong> atomic round trip:</p>
+<div class="code-wrap"><span class="code-lang">Lua</span><pre class="code-block"><code>-- KEYS[1] = the bucket's key, e.g. &quot;ratelimit:user:42&quot;
+-- ARGV[1] = capacity, ARGV[2] = refillTokensPerMillisecond, ARGV[3] = now (epoch millis)
+
+local capacity = tonumber(ARGV[1])
+local refillRate = tonumber(ARGV[2])
+local now = tonumber(ARGV[3])
+
+local bucket = redis.call(&quot;HMGET&quot;, KEYS[1], &quot;tokens&quot;, &quot;lastRefill&quot;)
+local tokens = tonumber(bucket[1])
+local lastRefill = tonumber(bucket[2])
+
+if tokens == nil then
+    tokens = capacity
+    lastRefill = now
+end
+
+local elapsed = now - lastRefill
+tokens = math.min(capacity, tokens + elapsed * refillRate)
+
+local allowed = 0
+if tokens &gt;= 1 then
+    tokens = tokens - 1
+    allowed = 1
+end
+
+redis.call(&quot;HMSET&quot;, KEYS[1], &quot;tokens&quot;, tokens, &quot;lastRefill&quot;, now)
+redis.call(&quot;EXPIRE&quot;, KEYS[1], 3600)  -- bound memory: a key nobody touches for an hour is reclaimed automatically
+
+return allowed
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class DistributedTokenBucket implements RateLimitAlgorithm {
+
+    private final RedisScriptClient redis; // EVAL-capable client
+    private final String scriptSha;         // the §51 Lua script above, loaded once at startup via SCRIPT LOAD
+    private final long capacity;
+    private final double refillTokensPerMillisecond;
+
+    public DistributedTokenBucket(RedisScriptClient redis, String scriptSha, long capacity, double refillTokensPerSecond) {
+        this.redis = redis;
+        this.scriptSha = scriptSha;
+        this.capacity = capacity;
+        this.refillTokensPerMillisecond = refillTokensPerSecond / 1000.0;
+    }
+
+    @Override
+    public boolean allow(String key) {
+        long allowed = redis.evalSha(scriptSha,
+                List.of(&quot;ratelimit:&quot; + key),
+                List.of(String.valueOf(capacity), String.valueOf(refillTokensPerMillisecond), String.valueOf(System.currentTimeMillis())));
+        return allowed == 1L;
+    }
+}
+</code></pre></div>
+<p>Every gateway instance calls the exact same script, against the exact same key, and Redis's single-threaded command execution guarantees that two concurrent <code>EVALSHA</code> calls for the same key are processed <strong>one at a time</strong>, never interleaved — the read-compute-write sequence inside the script is exactly as atomic as a single <code>INCR</code> would be, just with real logic (refill math, a capacity cap) attached to it. This is the one design decision that actually makes distributed rate limiting <em>correct</em>, not merely "probably fine most of the time" — everything in §38-§45 was correct algorithm design; §51 is what makes it correct <strong>across machines</strong>.</p>
+<hr>
+<h2 id="52-follow-up-question-16-a-round-trip-to-the-shared-store-on-every-single-request-adds-latency-how-do-you-reduce-that">52. Follow-up Question 16 — "A Round Trip to the Shared Store on Every Single Request Adds Latency. How Do You Reduce That?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Every request now pays a network round trip to Redis before it can even be routed. At your target scale, that's real, measurable added latency on the hot path. What do you do about it?"</em></p>
+</blockquote>
+<p>§53 answers with a hybrid: keep §48's shared store as the source of truth, but stop consulting it on <strong>every single</strong> request.</p>
+<hr>
+<h2 id="53-hybrid-rate-limiting-local-approximation-plus-periodic-sync">53. Hybrid Rate Limiting: Local Approximation Plus Periodic Sync</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class HybridRateLimiter implements RateLimitAlgorithm {
+
+    private final DistributedTokenBucket sharedTruth;      // §51 -- consulted periodically, not per-request
+    private final Map&lt;String, LocalAllowance&gt; localState = new ConcurrentHashMap&lt;&gt;();
+    private final int localBudgetPerSyncInterval;           // this instance's own slice of the global capacity
+
+    private record LocalAllowance(AtomicInteger remaining, volatile long fetchedAtMillis) { }
+
+    public HybridRateLimiter(DistributedTokenBucket sharedTruth, int localBudgetPerSyncInterval) {
+        this.sharedTruth = sharedTruth;
+        this.localBudgetPerSyncInterval = localBudgetPerSyncInterval;
+    }
+
+    @Override
+    public boolean allow(String key) {
+        LocalAllowance allowance = localState.computeIfAbsent(key, k -&gt; fetchNewAllowance());
+        if (allowance.remaining().get() &gt; 0 &amp;&amp; !expired(allowance)) {
+            return allowance.remaining().getAndDecrement() &gt; 0;
+        }
+        // Local budget exhausted or stale -- fall back to a real, atomic check against the shared truth (§51).
+        boolean allowedByShared = sharedTruth.allow(key);
+        localState.put(key, fetchNewAllowance()); // refresh -- give this instance a fresh local slice either way
+        return allowedByShared;
+    }
+
+    private LocalAllowance fetchNewAllowance() {
+        return new LocalAllowance(new AtomicInteger(localBudgetPerSyncInterval), System.currentTimeMillis());
+    }
+
+    private boolean expired(LocalAllowance allowance) {
+        return System.currentTimeMillis() - allowance.fetchedAtMillis() &gt; 1000; // re-sync at least once a second
+    }
+}
+</code></pre></div>
+<p>The tradeoff, stated honestly rather than hidden: this is <strong>not</strong> perfectly precise the way §51 alone is — an instance can allow slightly more than its exact fair share within one sync interval before it re-checks, meaning the true cluster-wide limit can be modestly over-shot for a brief window. In exchange, the overwhelming majority of requests are decided <strong>entirely locally, in memory, with zero network round trip</strong> — only the (comparatively rare) local-budget-exhausted case pays §51's network cost. This is the exact same "accept a small, bounded, honestly-stated inaccuracy in exchange for dramatically better latency" tradeoff §41's sliding window counter already made for a single-node algorithm, now applied to the distributed case.</p>
+<hr>
+<h2 id="54-follow-up-question-17-how-do-you-rate-limit-by-api-key-by-user-and-by-route-all-at-once">54. Follow-up Question 17 — "How Do You Rate-Limit by API Key, by User, AND by Route, All at Once?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Real limits are layered — a per-route cap so no single endpoint gets hammered, a per-user cap so no single caller monopolizes the platform, maybe a per-API-key tier cap on top of that. How does your design support all three simultaneously, cleanly?"</em></p>
+</blockquote>
+<p>None of §38-§53's algorithm implementations care what a "key" <em>means</em> — every one of them takes an opaque <code>String key</code> and tracks a bucket/window/counter against it. §55 exploits that directly: layered limits are just <strong>multiple calls</strong> to the same algorithm, with <strong>different key strings</strong>, not a different algorithm.</p>
+<hr>
+<h2 id="55-rate-limit-key-design-and-layeredcomposite-limits">55. Rate Limit Key Design and Layered/Composite Limits</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class RateLimitKeyResolver {
+
+    public List&lt;String&gt; keysFor(GatewayRequest request) {
+        List&lt;String&gt; keys = new ArrayList&lt;&gt;();
+        keys.add(&quot;route:&quot; + request.matchedRoute().routeId());                       // protects one endpoint from overload
+        if (request.principal() != null) {
+            keys.add(&quot;user:&quot; + request.principal().userId());                          // protects fairness across users
+            keys.add(&quot;apikey-tier:&quot; + request.principal().apiKeyTier());               // enforces the caller's plan
+        } else {
+            keys.add(&quot;ip:&quot; + request.remoteIp());                                      // the only identity an unauthenticated caller has
+        }
+        return keys;
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public boolean allowAllLayers(GatewayRequest request, RateLimitAlgorithm limiter, RateLimitKeyResolver keyResolver) {
+    for (String key : keyResolver.keysFor(request)) {
+        if (!limiter.allow(key)) return false; // ANY layer rejecting rejects the whole request -- the strictest limit wins
+    }
+    return true;
+}
+</code></pre></div>
+<p>Each layer typically has its <strong>own</strong> configured capacity and refill rate (a route-level limit is usually much higher than any single user's share of it) — in practice this means each key string above maps to a <em>differently-configured</em> <code>RateLimitAlgorithm</code> instance, not one shared configuration reused across layers, even though they're all the same algorithm implementation.</p>
+<hr>
+<h2 id="56-the-rate-limiter-as-a-gateway-filter-wiring-it-all-together">56. The Rate Limiter as a Gateway Filter: Wiring It All Together</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class RateLimitFilter implements Filter {
+
+    private final RateLimitKeyResolver keyResolver; // §55
+    private final RateLimitAlgorithm limiter;         // §53's HybridRateLimiter, in production
+
+    public RateLimitFilter(RateLimitKeyResolver keyResolver, RateLimitAlgorithm limiter) {
+        this.keyResolver = keyResolver;
+        this.limiter = limiter;
+    }
+
+    @Override
+    public void doFilter(GatewayRequest request, GatewayResponse response, FilterChain chain) throws GatewayException {
+        for (String key : keyResolver.keysFor(request)) {
+            if (!limiter.allow(key)) {
+                response.reject(429, &quot;Too Many Requests&quot;); // §57 -- with the standard headers attached
+                return; // short-circuits, §15 -- never even reaches routing
+            }
+        }
+        chain.doFilter(request, response);
+    }
+}
+</code></pre></div>
+<p>Placing <code>RateLimitFilter</code> <strong>after</strong> <code>AuthenticationFilter</code> (§31) in the chain (§15, §32's diagram) is deliberate: <code>request.principal()</code> must already be populated for §55's <code>user:</code>/<code>apikey-tier:</code> keys to resolve to anything meaningful — an unauthenticated request only ever gets the <code>ip:</code> fallback key, which is exactly the right, conservative behavior for a caller the gateway can't otherwise identify.</p>
+<hr>
+<h2 id="57-rate-limit-response-contract-429-retry-after-and-the-x-ratelimit-headers">57. Rate Limit Response Contract: 429, Retry-After, and the X-RateLimit-* Headers</h2>
+<p>A rejected request is never just a bare <code>429</code> — a well-designed rate limiter tells the caller enough to behave correctly on its own:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>HTTP/1.1 429 Too Many Requests
+Retry-After: 4
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1735689600
+</code></pre></div>
+<p><code>Retry-After</code> (seconds until it's worth trying again) lets a well-behaved client back off correctly without guessing or polling aggressively; <code>X-RateLimit-Limit</code>/<code>Remaining</code>/<code>Reset</code> let a client proactively throttle <em>itself</em> before ever getting rejected, by watching how much headroom it has left. These headers cost nothing extra to compute — §44's <code>TokenBucket</code>/§51's Lua script already know exactly how many tokens remain and when the bucket will next have capacity; §56's filter just needs to surface those numbers on every response, allowed or rejected, not only on a rejection.</p>
+<hr>
+<h2 id="58-follow-up-question-18-at-millions-of-requests-per-second-across-thousands-of-tenants-what-breaks-first">58. Follow-up Question 18 — "At Millions of Requests Per Second Across Thousands of Tenants, What Breaks First?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Single Redis instance backing every gateway instance's rate limiter. What's the first thing that falls over as traffic grows, and what's the standard fix?"</em></p>
+</blockquote>
+<p>The shared store itself, precisely because §48 deliberately centralized everything onto it — §59 shards it the same way <a href="Design a Workflow Automation System — HLD, LLD, and Class Design From Scratch.md">the Workflow Automation guide's execution-engine partitioning</a> and <a href="Design Your Own File Storage System — Block, File, Object Storage, and RAID From Scratch.md">the File Storage guide's consistent-hashing object stores</a> both shard their own respective bottlenecks.</p>
+<hr>
+<h2 id="59-sharding-the-rate-limiters-shared-store">59. Sharding the Rate Limiter's Shared Store</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class ShardedRedisClient {
+
+    private final List&lt;RedisScriptClient&gt; shards;
+
+    public ShardedRedisClient(List&lt;RedisScriptClient&gt; shards) { this.shards = shards; }
+
+    public RedisScriptClient shardFor(String rateLimitKey) {
+        int shardIndex = Math.floorMod(rateLimitKey.hashCode(), shards.size()); // consistent hashing across shards
+        return shards.get(shardIndex);
+    }
+}
+</code></pre></div>
+<p>Every rate-limit key is independent of every other one — nothing about §51's Lua script, or §55's layered keys, ever needs to read or write <em>two different</em> keys atomically together — which is exactly what makes this sharding trivially safe: a given key always hashes to the same shard, so every check for that key is still atomic (still one Redis instance, still one Lua script execution), and overall throughput now scales by adding shards, the same horizontal-scaling story every consistently-hashed system in this guide series tells.</p>
+<hr>
+<h2 id="60-class-diagram-the-rate-limiter">60. Class Diagram: The Rate Limiter</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>RateLimitAlgorithm &lt;&lt;interface&gt;&gt;                    RateLimitKeyResolver
++ allow(key): boolean                                + keysFor(request): List&lt;String&gt;
+      ^                                                        |
+      | implements                                             | resolves, per request
+  +---+--------+--------+--------+--------+                    v
+Fixed    Sliding   Sliding   Token    Leaky        RateLimitFilter  &lt;&lt;Filter&gt;&gt;
+Window   Window    Window    Bucket   Bucket       + doFilter(request, response, chain)
+Counter  Log       Counter   (§44)    (§45)              |  calls .allow(key) for EVERY resolved key (§55)
+(§38)    (§40)     (§41)                                 |  ANY rejection -&gt; 429 (§57)
+                                                           v
+                                                    HybridRateLimiter  (implements RateLimitAlgorithm too)
+                                                    + allow(key): boolean
+                                                           |
+                                          +----------------+----------------+
+                                          v                                 v
+                                 LocalAllowance                    DistributedTokenBucket
+                                 (per-instance, in-memory,          + allow(key): boolean
+                                  §53 -- no network round trip)            |
+                                                                           v
+                                                                 ShardedRedisClient (§59)
+                                                                 + shardFor(key): RedisScriptClient
+                                                                           |
+                                                                           v
+                                                              Redis Shard 0..N, each running
+                                                              the SAME atomic Lua script (§51)
+</code></pre></div>
+<p>Two things this diagram makes visible that prose alone can blur: first, <code>HybridRateLimiter</code> <strong>itself</strong> implements <code>RateLimitAlgorithm</code> (§53) — it is not a special case <code>RateLimitFilter</code> treats differently, it's simply the algorithm configured in production, indistinguishable from the call site's point of view from swapping in a bare <code>TokenBucket</code> for a test. Second, every box below <code>HybridRateLimiter</code> exists purely to make the <em>single</em> interface above it fast in the common case and correct in every case — <code>RateLimitFilter</code> (§56), and every filter around it, never needs to know a shared store, a shard, or a Lua script exists at all.</p>
+<hr>
+<h2 id="61-full-worked-example-one-request-rate-limited-end-to-end">61. Full Worked Example: One Request, Rate-Limited, End to End</h2>
+<p><code>GET /orders/42</code>, with a valid JWT, arriving at Gateway Instance 7 of 50, against a Redis cluster of 4 shards.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1.  AuthenticationFilter (§31): JwtValidator validates the bearer token -&gt; principal set: userId=u_88, apiKeyTier=pro
+2.  RateLimitKeyResolver.keysFor() (§55) -&gt; [&quot;route:orders-get&quot;, &quot;user:u_88&quot;, &quot;apikey-tier:pro&quot;]
+3.  RateLimitFilter (§56) checks each key against the HybridRateLimiter (§53):
+      &quot;route:orders-get&quot;   -&gt; local budget has capacity -- ALLOWED, zero network round trip
+      &quot;user:u_88&quot;          -&gt; local budget exhausted for this instance's slice -- falls back to §51
+                              ShardedRedisClient.shardFor(&quot;user:u_88&quot;) -&gt; shard 2
+                              EVALSHA against shard 2 -- atomic read-refill-check-decrement -- ALLOWED
+      &quot;apikey-tier:pro&quot;    -&gt; local budget has capacity -- ALLOWED
+4.  Response headers attached (§57): X-RateLimit-Remaining reflects the &quot;user:u_88&quot; bucket's post-decrement count
+5.  LoggingFilter attaches a correlation ID, logs the request
+6.  RouteRegistry.match() (§19) -&gt; Route(routeId=&quot;orders-get&quot;, serviceName=&quot;orders-service&quot;)
+7.  HealthChecker.healthyInstancesFor(&quot;orders-service&quot;) (§23) -&gt; 11 of 12 instances healthy
+8.  LoadBalancer.select(...) (§26) -&gt; instance &quot;orders-7&quot;
+9.  CircuitBreaker for &quot;orders-7&quot; (§29): state=CLOSED -&gt; allowRequest() returns true
+10. Backend call succeeds -&gt; CircuitBreaker.onSuccess(); response flows back up through the chain to the client
+</code></pre></div>
+<p>Every numbered line traces to a section this guide built real code for — including step 3's mixed outcome (two layers decided locally, one fell through to the atomic distributed check), which is exactly the everyday case §53's hybrid design was built for, not a rare exception.</p>
+<hr>
+<h2 id="62-final-architecture-diagram">62. Final Architecture Diagram</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                                          Client
+                                             |
+                              Load Balancer (in front of the gateway cluster)
+                                             |
+                    +------------------------+------------------------+
+                    v                        v                        v
+             Gateway Instance          Gateway Instance          Gateway Instance
+             AuthN (§31) -&gt; RateLimit (§56, hybrid §53) -&gt; Logging -&gt; Route (§19)
+                    |                        |                        |
+                    +------------------------+------------------------+
+                                             |
+                    LoadBalancer (§26) + CircuitBreaker (§29) per backend
+                                             |
+                    +------------------------+------------------------+
+                    v                        v                        v
+               Orders Service          Payments Service          Users Service
+              (health-checked, §23)   (health-checked, §23)    (health-checked, §23)
+
+                              Sharded Rate-Limit Store (§59)
+                    Shard 0        Shard 1        Shard 2        Shard 3
+              each an atomic, Lua-scripted token bucket (§51), consulted only on a
+              local-budget miss (§53) -- the source of truth every instance defers to
+</code></pre></div>
+<hr>
+<h2 id="63-design-patterns-used-throughout-this-guide">63. Design Patterns Used Throughout This Guide</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Where</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Chain of Responsibility</strong></td>
+<td><code>Filter</code>/<code>FilterChain</code> (§15-§16)</td>
+<td>Every cross-cutting concern is an independent link; adding one never touches another.</td>
+</tr>
+<tr>
+<td><strong>Strategy</strong></td>
+<td><code>LoadBalancer</code> (§26), <code>RateLimitAlgorithm</code> (§38-§53)</td>
+<td>Both the instance-selection policy and the rate-limiting algorithm are swappable behind one interface each.</td>
+</tr>
+<tr>
+<td><strong>State</strong></td>
+<td><code>CircuitBreaker</code>/<code>CircuitState</code> (§28-§29)</td>
+<td>CLOSED/OPEN/HALF_OPEN transitions live in one place, never a scattered <code>if/else</code> on a raw flag.</td>
+</tr>
+<tr>
+<td><strong>Facade</strong></td>
+<td>The gateway's own request-handling entry point</td>
+<td>Auth, rate limiting, routing, load balancing, and circuit breaking are all invisible to the client behind one HTTP endpoint.</td>
+</tr>
+<tr>
+<td><strong>Proxy</strong></td>
+<td>The gateway itself, relative to every backend service</td>
+<td>Clients never talk to a backend directly; every call is transparently intercepted and mediated.</td>
+</tr>
+<tr>
+<td><strong>Observer (conceptually)</strong></td>
+<td><code>HealthChecker</code> updating instance health (§23)</td>
+<td>Load balancing and circuit breaking both react to health state changing, without polling for it themselves.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="64-solid-principles-applied">64. SOLID Principles Applied</h2>
+<ul>
+<li><strong>Single Responsibility</strong>: <code>RouteRegistry</code> only matches routes; <code>HealthChecker</code> only tracks liveness; <code>RateLimitAlgorithm</code> implementations only decide allow/reject. None of them know how to route a request end to end.</li>
+<li><strong>Open/Closed</strong>: adding a new <code>Filter</code> (§16), a new <code>LoadBalancer</code> strategy (§26), or a new <code>RateLimitAlgorithm</code> (§38-§53) never requires modifying <code>FilterChain</code>, the backend invoker, or the rate-limit filter — all three are consumed purely through their interfaces.</li>
+<li><strong>Liskov Substitution</strong>: any <code>RateLimitAlgorithm</code> — a <code>FixedWindowCounter</code>, a <code>TokenBucket</code>, a <code>HybridRateLimiter</code> — is fully substitutable wherever the interface type is used (§56's <code>RateLimitFilter</code> never changes based on which one is configured).</li>
+<li><strong>Interface Segregation</strong>: <code>Filter</code> exposes exactly one method; <code>LoadBalancer</code> exposes exactly one method (<code>select</code>) — neither interface forces an implementation to support behavior it doesn't need.</li>
+<li><strong>Dependency Inversion</strong>: <code>RateLimitFilter</code> (§56) depends on <code>RateLimitAlgorithm</code> and <code>RateLimitKeyResolver</code> — both interfaces, injected through its constructor — never on <code>DistributedTokenBucket</code> or <code>HybridRateLimiter</code> directly.</li>
+</ul>
+<hr>
+<h2 id="65-common-mistakes-when-building-this-yourself">65. Common Mistakes When Building This Yourself</h2>
+<ul>
+<li><strong>Rate limiting per gateway instance, in-memory, and calling it done</strong> (§47) — the single most common mistake in this entire domain; it works perfectly in a single-instance test and silently multiplies the true limit by the instance count in production.</li>
+<li><strong>Using separate <code>GET</code>-then-<code>SET</code> calls against the shared store instead of one atomic script</strong> (§49-§50) — looks correct under light load, and lets extra requests through under real concurrent traffic, exactly when the limit matters most.</li>
+<li><strong>A fixed window counter presented as "good enough" without naming its boundary-burst flaw</strong> (§38) — it may genuinely be good enough for a given use case, but that has to be a stated, deliberate tradeoff, not an unnoticed gap.</li>
+<li><strong>A single global lock across every rate-limit key</strong> (§44) — serializes checks for every client through one lock, when a per-key lock (or, better, a lock-free per-key atomic structure) costs nothing extra and removes the contention entirely.</li>
+<li><strong>No <code>Retry-After</code>/<code>X-RateLimit-*</code> headers on a rejection</strong> (§57) — technically correct, needlessly unhelpful; a well-behaved client is left guessing when it's safe to retry.</li>
+<li><strong>Failing open when the shared rate-limit store is unreachable</strong> — silently disabling rate limiting during exactly the kind of infrastructure incident (Redis under load, a network partition) when abusive or runaway traffic is most likely to be happening; failing closed (reject, or fall back to a conservative local-only limit) is the safer default, and which one to choose is worth stating explicitly as a decision, not defaulting to accidentally.</li>
+</ul>
+<hr>
+<h2 id="66-testing-strategy">66. Testing Strategy</h2>
+<ul>
+<li><strong><code>FixedWindowCounter</code>/<code>SlidingWindowLog</code>/<code>SlidingWindowCounter</code>/<code>TokenBucket</code></strong> (§38-§44): a burst test confirms each algorithm's actual boundary behavior matches its documented tradeoff (the fixed window's boundary flaw should be <em>reproducible</em> in a test, not just described in prose); a sustained-rate test over many windows confirms the long-run average matches the configured limit.</li>
+<li><strong><code>DistributedTokenBucket</code></strong> (§51): a concurrency test firing many simultaneous <code>allow()</code> calls for the <em>same</em> key from multiple threads (simulating multiple gateway instances) confirms the total allowed count never exceeds the configured capacity plus refill — this is the test that would have caught §50's race condition had a naive <code>GET</code>-then-<code>SET</code> implementation been used instead.</li>
+<li><strong><code>HybridRateLimiter</code></strong> (§53): confirms the bounded-overshoot property is genuinely bounded (never exceeds the documented worst case), and that a local-budget-exhausted key correctly falls through to the shared store rather than silently allowing or rejecting.</li>
+<li><strong><code>CircuitBreaker</code></strong> (§29): a sequence of failures reaching the threshold transitions to <code>OPEN</code>; <code>allowRequest()</code> returns <code>false</code> throughout the cooldown; after the cooldown, exactly <code>halfOpenTrialCount</code> calls are allowed through in <code>HALF_OPEN</code>, and either outcome (success or failure) transitions correctly.</li>
+<li><strong><code>RouteRegistry</code></strong> (§19): a config reload mid-traffic never causes an in-flight request to see a partially-applied route table (§19's atomic swap).</li>
+</ul>
+<hr>
+<h2 id="67-suggested-future-enhancements">67. Suggested Future Enhancements</h2>
+<ul>
+<li><strong>Adaptive rate limits</strong> that tighten automatically when a backend's circuit breaker (§29) trips — the gateway's own resilience signal feeding directly back into how aggressively it protects that backend, rather than the two mechanisms operating in complete isolation.</li>
+<li><strong>A request-cost model</strong>, where different endpoints consume a different number of tokens per call (a heavy search query costs more than a cheap health check), rather than every request costing exactly one token uniformly.</li>
+<li><strong>GeoDNS-aware routing</strong>, sending a client to the nearest regional gateway cluster, each with its own regional rate-limit shard set (§59), reducing both latency and the blast radius of any one region's traffic spike.</li>
+<li><strong>A canary/traffic-shifting load balancer strategy</strong> (§26), gradually shifting a small, increasing percentage of traffic to a newly-deployed backend version before fully cutting over.</li>
+<li><strong>Per-tenant dashboards</strong> surfacing real-time rate-limit consumption, using the exact same <code>X-RateLimit-*</code> values (§57) already computed for every request, aggregated rather than recomputed.</li>
+</ul>
+<hr>
+<h2 id="68-progressive-interview-question-set">68. Progressive Interview Question Set</h2>
+<ol>
+<li>Why does the Chain of Responsibility pattern make adding a new cross-cutting concern safe, concretely — what specifically would have to change in <code>FilterChain</code> if it didn't use this pattern?</li>
+<li>Walk through exactly why a fixed window counter allows more than the configured limit near a window boundary, with concrete numbers.</li>
+<li>What's the actual memory/accuracy tradeoff between a sliding window log and a sliding window counter, and when would each be the right choice?</li>
+<li>Why does a token bucket allow bursts while a leaky bucket smooths them out — what's the mechanical difference in how each one processes a batch of requests that all arrive at once?</li>
+<li>A single gateway instance's in-memory rate limiter is 100% correct by itself. Why is a cluster of them running the identical code still wrong?</li>
+<li>Walk through the exact race condition two gateway instances hit against a naive <code>GET</code>-then-<code>SET</code> distributed counter, and explain precisely why a Lua script fixes it.</li>
+<li>Why is a per-key lock the right granularity for a token bucket implementation, rather than one global lock?</li>
+<li>What's the actual cost the hybrid local/distributed rate limiter pays in exchange for lower latency, and is that cost acceptable for a payments API versus an analytics-tracking endpoint?</li>
+<li>Why must a route-config reload swap the entire route table atomically, rather than patching it incrementally in place?</li>
+<li>If asked to add a "burst allowance that resets daily, separate from the per-minute sustained limit," how would you implement it using pieces this guide already built, without inventing a sixth algorithm?</li>
+</ol>
+<hr>
+<h2 id="69-final-takeaway">69. Final Takeaway</h2>
+<p>An API gateway's hard problem is not routing — routing is a lookup. The hard problem is centralizing cross-cutting concerns without turning that centralization into a single point of failure or a wall of hard-coded <code>if/else</code>, which is exactly what the Chain of Responsibility, Strategy, and State patterns solve, each for a different concern. The rate limiter's hard problem is not the algorithm — token bucket versus sliding window is a well-understood, well-documented choice. The hard problem is that the moment a rate limiter has to run correctly across more than one process, "count requests and compare to a limit" stops being a data-structure question and becomes a <strong>distributed-systems atomicity</strong> question — and the entire back half of this guide exists because that transition is where a design that sounds complete on a whiteboard quietly stops being correct in production.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Design an API Gateway and a Rate Limiter — HLD, LLD, and Class Design From Scratch.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

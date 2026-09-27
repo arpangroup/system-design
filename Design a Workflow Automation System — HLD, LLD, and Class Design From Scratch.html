@@ -1,0 +1,1654 @@
+<meta charset="utf-8">
+<title>Design a Workflow Automation System — HLD, LLD, and Class Design From Scratch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; system design guide</div>
+      <h1>Design a Workflow Automation System — HLD, LLD, and Class Design From Scratch</h1>
+      <p class="dek">A workflow automation engine (Zapier/n8n/Temporal-style) designed from scratch as a system-design interview, end to end: functional and non-functional requirements, a DAG-based workflow definition DSL, a crash-safe durable execution engine built on an append-only event log, a pluggable Strategy-based connector layer, an expression language for step-to-step data mapping, branching/parallel fan-out-fan-in/loops, retries with idempotency keys, human-in-the-loop approval steps that never block a thread, Saga-style compensation for partial failures, sticky workflow versioning, and partitioned multi-tenant scaling &mdash; all following SOLID principles, with real Java code and a class diagram for every core mechanism.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-the-interview-framed">Why This Matters (The Interview, Framed)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-step-1-clarifying-requirements-before-designing-anything">Step 1 — Clarifying Requirements Before Designing Anything</a></li><li class="toc-lvl-2"><a href="#7-functional-requirements">Functional Requirements</a></li><li class="toc-lvl-2"><a href="#8-non-functional-requirements">Non-Functional Requirements</a></li><li class="toc-lvl-2"><a href="#9-follow-up-question-1-what-are-the-core-nouns-in-this-system-before-we-draw-any-boxes">Follow-up Question 1 — "What Are the Core Nouns in This System, Before We Draw Any Boxes?"</a></li><li class="toc-lvl-2"><a href="#10-identifying-the-core-domain-entities">Identifying the Core Domain Entities</a></li><li class="toc-lvl-2"><a href="#11-high-level-architecture-overview">High-Level Architecture Overview</a></li><li class="toc-lvl-2"><a href="#12-follow-up-question-2-monolith-or-microservices-justify-it">Follow-up Question 2 — "Monolith or Microservices? Justify It."</a></li><li class="toc-lvl-2"><a href="#13-service-decomposition-definition-trigger-orchestration-worker-connector">Service Decomposition: Definition, Trigger, Orchestration, Worker, Connector</a></li><li class="toc-lvl-2"><a href="#14-api-design-the-core-rest-endpoints">API Design: The Core REST Endpoints</a></li><li class="toc-lvl-2"><a href="#15-data-storage-choices-relational-metadata-plus-a-durable-event-log">Data Storage Choices: Relational Metadata Plus a Durable Event Log</a></li><li class="toc-lvl-2"><a href="#16-follow-up-question-3-how-do-you-represent-a-workflow-definition-so-its-both-human-editable-and-machine-executable">Follow-up Question 3 — "How Do You Represent a Workflow Definition So It's Both Human-Editable and Machine-Executable?"</a></li><li class="toc-lvl-2"><a href="#17-the-workflow-definition-model-a-dag-based-dsl">The Workflow Definition Model: A DAG-Based DSL</a></li><li class="toc-lvl-2"><a href="#18-validating-a-workflow-definition-cycle-detection-and-reachability">Validating a Workflow Definition: Cycle Detection and Reachability</a></li><li class="toc-lvl-2"><a href="#19-follow-up-question-4-walk-me-through-executing-a-workflow-step-by-step-in-memory">Follow-up Question 4 — "Walk Me Through Executing a Workflow, Step by Step, In Memory"</a></li><li class="toc-lvl-2"><a href="#20-the-naive-in-memory-execution-loop-and-why-its-not-enough">The Naive In-Memory Execution Loop (and Why It's Not Enough)</a></li><li class="toc-lvl-2"><a href="#21-follow-up-question-5-what-happens-if-the-worker-process-crashes-mid-run">Follow-up Question 5 — "What Happens If the Worker Process Crashes Mid-Run?"</a></li><li class="toc-lvl-2"><a href="#22-durable-execution-an-event-log-per-run">Durable Execution: An Event Log Per Run</a></li><li class="toc-lvl-2"><a href="#23-resuming-a-run-after-a-crash-replay-and-idempotent-re-dispatch">Resuming a Run After a Crash: Replay and Idempotent Re-Dispatch</a></li><li class="toc-lvl-2"><a href="#24-follow-up-question-6-how-do-triggers-actually-kick-off-a-run-webhook-schedule-event">Follow-up Question 6 — "How Do Triggers Actually Kick Off a Run — Webhook, Schedule, Event?"</a></li><li class="toc-lvl-2"><a href="#25-trigger-types-webhook-schedule-internal-event-manual">Trigger Types: Webhook, Schedule, Internal Event, Manual</a></li><li class="toc-lvl-2"><a href="#26-the-schedule-trigger-a-time-ordered-priority-queue-of-next-fire-times">The Schedule Trigger: A Time-Ordered Priority Queue of Next-Fire-Times</a></li><li class="toc-lvl-2"><a href="#27-the-webhook-trigger-ingestion-verification-and-de-duplication">The Webhook Trigger: Ingestion, Verification, and De-duplication</a></li><li class="toc-lvl-2"><a href="#28-high-level-architecture-diagram-assembled">High-Level Architecture Diagram, Assembled</a></li><li class="toc-lvl-2"><a href="#29-follow-up-question-7-lets-get-concrete-design-the-class-model-for-a-run-and-its-steps">Follow-up Question 7 — "Let's Get Concrete. Design the Class Model for a Run and Its Steps."</a></li><li class="toc-lvl-2"><a href="#30-the-workflowrun-and-stepexecution-classes">The WorkflowRun and StepExecution Classes</a></li><li class="toc-lvl-2"><a href="#31-class-diagram-core-domain-entities">Class Diagram: Core Domain Entities</a></li><li class="toc-lvl-2"><a href="#32-follow-up-question-8-how-do-you-model-runstep-status-so-the-logic-isnt-a-giant-ifelse">Follow-up Question 8 — "How Do You Model Run/Step Status So the Logic Isn't a Giant If/Else?"</a></li><li class="toc-lvl-2"><a href="#33-the-state-pattern-for-step-execution-status">The State Pattern for Step Execution Status</a></li><li class="toc-lvl-2"><a href="#34-the-state-pattern-for-run-level-status">The State Pattern for Run-Level Status</a></li><li class="toc-lvl-2"><a href="#35-class-diagram-the-execution-state-machine">Class Diagram: The Execution State Machine</a></li><li class="toc-lvl-2"><a href="#36-follow-up-question-9-how-do-users-add-a-new-integration-without-touching-your-core-engine">Follow-up Question 9 — "How Do Users Add a New Integration Without Touching Your Core Engine?"</a></li><li class="toc-lvl-2"><a href="#37-the-actionexecutor-strategy-interface-and-a-plugin-registry">The ActionExecutor Strategy Interface and a Plugin Registry</a></li><li class="toc-lvl-2"><a href="#38-implementing-two-concrete-actionexecutors-http-and-email">Implementing Two Concrete ActionExecutors: HTTP and Email</a></li><li class="toc-lvl-2"><a href="#39-class-diagram-the-pluggable-action-layer-and-per-connector-worker-pools">Class Diagram: The Pluggable Action Layer, and Per-Connector Worker Pools</a></li><li class="toc-lvl-2"><a href="#40-follow-up-question-10-how-do-you-pass-one-steps-output-into-the-next-steps-input">Follow-up Question 10 — "How Do You Pass One Step's Output Into the Next Step's Input?"</a></li><li class="toc-lvl-2"><a href="#41-an-expression-language-for-data-mapping-between-steps">An Expression Language for Data Mapping Between Steps</a></li><li class="toc-lvl-2"><a href="#42-implementing-a-simple-expression-evaluator">Implementing a Simple Expression Evaluator</a></li><li class="toc-lvl-2"><a href="#43-follow-up-question-11-how-do-you-support-branching-parallel-fan-outfan-in-and-loops">Follow-up Question 11 — "How Do You Support Branching, Parallel Fan-Out/Fan-In, and Loops?"</a></li><li class="toc-lvl-2"><a href="#44-conditional-branches-and-the-graph-walker">Conditional Branches and the Graph Walker</a></li><li class="toc-lvl-2"><a href="#45-parallel-fan-out-and-fan-in-join-semantics">Parallel Fan-Out and Fan-In: Join Semantics</a></li><li class="toc-lvl-2"><a href="#46-the-for-each-loop-step-iterating-over-a-collection">The For-Each Loop Step: Iterating Over a Collection</a></li><li class="toc-lvl-2"><a href="#47-follow-up-question-12-external-calls-are-flaky-how-do-you-retry-without-duplicating-side-effects">Follow-up Question 12 — "External Calls Are Flaky. How Do You Retry Without Duplicating Side Effects?"</a></li><li class="toc-lvl-2"><a href="#48-retry-policy-exponential-backoff-with-jitter">Retry Policy: Exponential Backoff With Jitter</a></li><li class="toc-lvl-2"><a href="#49-applying-the-retry-policy-where-it-plugs-into-the-engine">Applying the Retry Policy: Where It Plugs Into the Engine</a></li><li class="toc-lvl-2"><a href="#50-idempotency-keys-for-side-effecting-steps">Idempotency Keys for Side-Effecting Steps</a></li><li class="toc-lvl-2"><a href="#51-the-dead-letter-queue-for-permanently-failed-steps">The Dead-Letter Queue for Permanently Failed Steps</a></li><li class="toc-lvl-2"><a href="#52-follow-up-question-13-an-approval-step-might-wait-three-days-how-do-you-not-just-block-a-thread">Follow-up Question 13 — "An Approval Step Might Wait Three Days. How Do You Not Just Block a Thread?"</a></li><li class="toc-lvl-2"><a href="#53-suspend-and-resume-the-waiting-state-and-external-callbacks">Suspend and Resume: The WAITING State and External Callbacks</a></li><li class="toc-lvl-2"><a href="#54-follow-up-question-14-step-3-failed-after-steps-1-and-2-already-had-real-side-effects-now-what">Follow-up Question 14 — "Step 3 Failed After Steps 1 and 2 Already Had Real Side Effects. Now What?"</a></li><li class="toc-lvl-2"><a href="#55-the-saga-pattern-compensating-actions">The Saga Pattern: Compensating Actions</a></li><li class="toc-lvl-2"><a href="#56-implementing-a-compensating-steps-trigger-point">Implementing a Compensating Step's Trigger Point</a></li><li class="toc-lvl-2"><a href="#57-follow-up-question-15-a-definition-changes-while-thousands-of-runs-are-still-in-flight-what-happens">Follow-up Question 15 — "A Definition Changes While Thousands of Runs Are Still In Flight. What Happens?"</a></li><li class="toc-lvl-2"><a href="#58-workflow-versioning-sticky-versions-for-in-flight-runs">Workflow Versioning: Sticky Versions for In-Flight Runs</a></li><li class="toc-lvl-2"><a href="#59-follow-up-question-16-youre-at-millions-of-runs-a-day-thousands-of-tenants-what-breaks-first">Follow-up Question 16 — "You're At Millions of Runs a Day, Thousands of Tenants. What Breaks First?"</a></li><li class="toc-lvl-2"><a href="#60-partitioning-the-execution-engine-by-tenant-and-run-id">Partitioning the Execution Engine by Tenant and Run ID</a></li><li class="toc-lvl-2"><a href="#61-backpressure-and-rate-limiting-per-connector-per-tenant">Backpressure and Rate Limiting Per Connector, Per Tenant</a></li><li class="toc-lvl-2"><a href="#62-worker-autoscaling-and-queue-depth-driven-scheduling">Worker Autoscaling and Queue-Depth-Driven Scheduling</a></li><li class="toc-lvl-2"><a href="#63-full-worked-example-a-complete-run-end-to-end">Full Worked Example: A Complete Run, End to End</a></li><li class="toc-lvl-2"><a href="#64-final-architecture-diagram">Final Architecture Diagram</a></li><li class="toc-lvl-2"><a href="#65-design-patterns-used-throughout-this-guide">Design Patterns Used Throughout This Guide</a></li><li class="toc-lvl-2"><a href="#66-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#67-common-mistakes-when-building-this-yourself">Common Mistakes When Building This Yourself</a></li><li class="toc-lvl-2"><a href="#68-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#69-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#70-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#71-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>The interview question this guide answers:</strong></p>
+<p><em>"Design a workflow automation system — something like Zapier, n8n, or a lightweight Temporal/Airflow. Cover both high-level design (services, data flow, scaling) and low-level design (class diagrams, core algorithms), and make sure your design follows SOLID principles. Be ready to justify every decision when I push back."</em></p>
+<p>This guide is structured exactly as that interview unfolds: a requirements-gathering phase, a high-level architecture built up decision by decision, a low-level class design deep dive, and a sequence of escalating <strong>follow-up questions</strong> — each answered with real reasoning and, where it matters, real Java code — not a single static diagram presented as if no one ever questioned it.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<p>We are building <strong>MiniFlow</strong> — a workflow automation engine covering:</p>
+<ul>
+<li><strong>Functional requirements</strong>: user-defined workflows made of triggers and steps, conditional branching, parallel fan-out/fan-in, loops, retries, human-approval steps, sub-workflows, and a pluggable integration ("connector") layer.</li>
+<li><strong>High-level design</strong>: service decomposition, API shape, data storage choices, trigger ingestion (webhook/schedule/event), and asynchronous, durable execution.</li>
+<li><strong>Low-level design</strong>: a DAG-based workflow definition model, a genuinely pluggable execution engine (the State pattern for run/step lifecycle), a Strategy-based connector layer, an expression evaluator for step-to-step data mapping, and a Saga-style compensation mechanism for partial failures.</li>
+<li><strong>Reliability concerns</strong>: crash-safe durable execution via an event log, retries with idempotency, dead-lettering, workflow versioning for in-flight runs, and partitioned scaling.</li>
+</ul>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    Trigger sources (webhook / cron / internal events / manual)
+                                          |
+                                   Trigger Service
+                                          |
+                                Orchestration Engine  &lt;----&gt; Definition Store (versioned DAGs)
+                                          |                          |
+                          +---------------+----------------+   Event Log (durable, per-run)
+                          v               v                v
+                    Worker Pool     Worker Pool      Worker Pool
+                   (HTTP action)   (email action)   (custom code)
+                          |               |                |
+                          +-------+-------+-------+--------+
+                                  v
+                         External systems / connectors
+                     (Slack, Stripe, Salesforce, plain HTTP, ...)
+</code></pre></div>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to:</p>
+<ul>
+<li>Gather and state functional/non-functional requirements for an ambiguous "design a workflow automation tool" prompt, before designing anything.</li>
+<li>Model a workflow as a <strong>DAG</strong> (directed acyclic graph) that is simultaneously human-editable (a DSL) and machine-executable, and validate it (cycle detection, reachability) before it ever runs.</li>
+<li>Design an execution engine whose run/step lifecycle is driven by the <strong>State pattern</strong>, not a hard-coded status <code>if/else</code> chain — and make that engine <strong>crash-safe</strong> using an append-only event log, the same durability discipline a database's write-ahead log provides.</li>
+<li>Design a genuinely pluggable <strong>connector layer</strong> (the Strategy pattern plus a registry) so adding a new integration never requires touching the orchestration engine.</li>
+<li>Explain, with real code, how retries avoid duplicate side effects (idempotency keys), how a multi-day human-approval step doesn't block a thread, and how a partially-completed workflow rolls back its real-world side effects (the Saga pattern).</li>
+<li>Reason about what breaks first at millions of runs per day across thousands of tenants, and name the specific techniques (partitioning, backpressure, autoscaling) that address each bottleneck.</li>
+</ul>
+<hr>
+<h2 id="3-why-this-matters-the-interview-framed">3. Why This Matters (The Interview, Framed)</h2>
+<p>A workflow automation system is a favorite senior/staff design question for a specific reason: it looks, on the surface, like "just a task queue with extra steps," but a candidate who treats it that way misses almost everything that makes it hard. The question forces movement across the same three levels every serious system-design interview probes:</p>
+<ul>
+<li><strong>Requirements-driven scoping</strong> — "workflow automation" spans everything from a simple linear Zapier-style "if this, then that" to a Temporal-style durable-execution runtime for long-lived business processes. A strong candidate narrows this explicitly, the same discipline <a href="Design Your Own File Storage System — Block, File, Object Storage, and RAID From Scratch.md">the file storage guide's opening</a> and <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA-style guide's opening</a> both insist on.</li>
+<li><strong>High-level architecture</strong> — trigger ingestion, a durable execution engine, a worker pool, and a connector layer, each with real scaling and failure-mode reasoning behind it, not a diagram memorized without understanding.</li>
+<li><strong>Low-level, code-level design</strong> — this is where the question actually separates candidates: translating "steps can run in parallel, retry on failure, and sometimes wait for a human" into a real class model that survives a crash mid-run without corrupting or duplicating anything. Most of the genuinely hard engineering in a workflow engine lives exactly here.</li>
+</ul>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language</td>
+<td>Java 21</td>
+<td>Matches this guide's class diagrams and pattern implementations (State, Strategy, Command).</td>
+</tr>
+<tr>
+<td>Definition store</td>
+<td>A relational database (Postgres-style, or <a href="Build Your Own Database From Scratch — TinyDB Step-by-Step Guide.md">TinyDB</a> from the companion guide)</td>
+<td>Workflow definitions are structured, versioned, and queried by ID — a natural fit for real transactions (§58).</td>
+</tr>
+<tr>
+<td>Execution event log</td>
+<td>An append-only, durable log (Kafka-style, or the WAL discipline from the <a href="TinyDB Storage Engine — Step-by-Step Implementation Guide.md">TinyDB Storage Engine guide</a>)</td>
+<td>Crash-safe resumability (§21-§23) needs exactly the "durable before acted upon" guarantee a write-ahead log already provides.</td>
+</tr>
+<tr>
+<td>Task dispatch</td>
+<td>A durable work queue (SQS/Kafka-style)</td>
+<td>Decouples "a step is ready to run" from "a specific worker happens to be free right now" (§13, §61-§62).</td>
+</tr>
+<tr>
+<td>Worker pool</td>
+<td>A bounded thread/process pool per connector type</td>
+<td>The exact core-queue-max-reject shape the <a href="Build Your Own Executor Framework From Scratch — A Java Concurrency Step-by-Step Guide.md">Build Your Own Executor Framework guide</a> already builds from scratch, reused here per connector (§39).</td>
+</tr>
+<tr>
+<td>Cache</td>
+<td>An in-memory key-value store (Redis-style)</td>
+<td>Hot-path reads (a workflow's current definition, a tenant's rate-limit counters) avoid a database round trip on every step dispatch.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>miniflow/
+├── src/main/java/com/example/miniflow/
+│   ├── definition/
+│   │   ├── WorkflowDefinition.java, StepDefinition.java, Edge.java  // §17
+│   │   ├── WorkflowValidator.java                                   // §18
+│   │   └── WorkflowDefinitionRegistry.java                          // §58
+│   ├── execution/
+│   │   ├── WorkflowRun.java, StepExecution.java                     // §30
+│   │   ├── RunStatus.java, StepStatus.java (State pattern)          // §33-§34
+│   │   ├── OrchestrationEngine.java                                 // §20, §23, §44-§46
+│   │   └── ExpressionEvaluator.java                                 // §42
+│   ├── eventlog/
+│   │   ├── WorkflowEvent.java (sealed)                               // §22
+│   │   └── EventLog.java                                             // §22-§23
+│   ├── connectors/
+│   │   ├── ActionExecutor.java, ActionExecutorRegistry.java          // §37
+│   │   ├── HttpActionExecutor.java, EmailActionExecutor.java         // §38
+│   │   └── RetryPolicy.java, ExponentialBackoffRetryPolicy.java      // §48
+│   ├── triggers/
+│   │   ├── ScheduleTrigger.java, TriggerScheduler.java                // §26
+│   │   └── WebhookTrigger.java                                       // §27
+│   ├── saga/
+│   │   └── CompensableStep.java                                      // §55
+│   └── idempotency/
+│       └── IdempotencyKey.java                                       // §50
+└── src/test/java/com/example/miniflow/
+    ├── OrchestrationEngineCrashRecoveryTest.java
+    ├── RetryAndIdempotencyTest.java
+    └── SagaCompensationTest.java
+</code></pre></div>
+<hr>
+<h2 id="6-step-1-clarifying-requirements-before-designing-anything">6. Step 1 — Clarifying Requirements Before Designing Anything</h2>
+<blockquote>
+<p><strong>Candidate's clarifying questions:</strong> <em>"Is this single-tenant or a multi-tenant SaaS product? Do workflows need to support long-running, multi-day steps (like waiting for a human approval), or is everything expected to finish in seconds? What's the expected scale — thousands or millions of runs a day? Do users write workflows in a visual builder, a YAML/JSON DSL, or both? Do we need exactly-once execution guarantees for side-effecting steps, or is at-least-once with idempotency acceptable?"</em></p>
+</blockquote>
+<p>Exactly as <a href="Design Your Own File Storage System — Block, File, Object Storage, and RAID From Scratch.md">the file storage guide's opening</a> argues, jumping straight to boxes-and-arrows without narrowing "design a workflow automation system" is the first mistake a candidate can make. The answers determine whether durable, multi-day execution (§21, §52-§53) and Saga-style compensation (§54-§56) are core requirements or premature complexity.</p>
+<p>For this guide, we settle on a concrete, realistic scope: <strong>multi-tenant SaaS</strong>, workflows that <strong>may run for days</strong> (human approval steps are a first-class feature), targeting <strong>millions of runs per day</strong>, definitions authored as a <strong>JSON/YAML DSL</strong>, with <strong>at-least-once execution plus idempotency</strong> as the realistic, honestly-stated guarantee (exactly-once execution of arbitrary external side effects is not achievable in general — §50 explains precisely why, and what idempotency keys actually buy instead).</p>
+<hr>
+<h2 id="7-functional-requirements">7. Functional Requirements</h2>
+<ul>
+<li>Define a <strong>workflow</strong> as a graph of <strong>steps</strong> connected by <strong>edges</strong>, optionally with conditions on those edges.</li>
+<li>Support step types: an <strong>action</strong> step (call a connector — HTTP, email, Slack, custom code), a <strong>condition</strong> step (branch), a <strong>parallel</strong> step (fan-out), a <strong>join</strong> (fan-in), a <strong>for-each</strong> step (loop over a collection), an <strong>approval</strong> step (pause for a human), and a <strong>sub-workflow</strong> step (compose another workflow as one step).</li>
+<li>Trigger a workflow run via a <strong>webhook</strong>, a <strong>schedule</strong> (cron), an <strong>internal event</strong>, or a <strong>manual</strong> invocation.</li>
+<li>Retry a failed step automatically, with a configurable backoff policy, without duplicating the step's real-world side effects.</li>
+<li>Let a workflow <strong>roll back</strong> its already-completed side effects if a later step fails permanently (compensation).</li>
+<li>Let users add <strong>new connectors</strong> (integrations) without modifying the orchestration engine itself.</li>
+<li>Let a <strong>new version</strong> of a workflow definition be published without breaking runs that are already in flight on the old version.</li>
+<li>Provide a <strong>run history</strong> view: every step's status, inputs, outputs, and timing, for debugging a specific failed run.</li>
+</ul>
+<hr>
+<h2 id="8-non-functional-requirements">8. Non-Functional Requirements</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>What it means concretely</th>
+<th>Where this guide addresses it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Durability</strong></td>
+<td>A crash of any worker or orchestrator process must never silently lose or duplicate a run's progress</td>
+<td>The event log and replay-based recovery (§21-§23)</td>
+</tr>
+<tr>
+<td><strong>Scalability</strong></td>
+<td>Millions of runs/day across thousands of tenants, without a redesign</td>
+<td>Partitioning by run ID (§60), per-connector backpressure (§61), worker autoscaling (§62)</td>
+</tr>
+<tr>
+<td><strong>Extensibility</strong></td>
+<td>Adding a new step type or connector must never require modifying the orchestration engine</td>
+<td>The Strategy pattern for connectors (§38), the sealed <code>StepDefinition</code> hierarchy for step types (§30)</td>
+</tr>
+<tr>
+<td><strong>Resilience to flaky externals</strong></td>
+<td>A transient failure calling Slack or Stripe must not fail the whole run, and a retry must not double-charge anyone</td>
+<td>Exponential backoff (§49), idempotency keys (§50), dead-lettering (§51)</td>
+</tr>
+<tr>
+<td><strong>Long-running steps</strong></td>
+<td>An approval step waiting three days must not hold a thread, a connection, or any other scarce resource for those three days</td>
+<td>The <code>WAITING</code> state and external-callback resume (§52-§53)</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="9-follow-up-question-1-what-are-the-core-nouns-in-this-system-before-we-draw-any-boxes">9. Follow-up Question 1 — "What Are the Core Nouns in This System, Before We Draw Any Boxes?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Before services and databases — what actually exists in this system, and how does it relate?"</em></p>
+</blockquote>
+<p>Exactly the same deliberate pivot <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA-style guide's own Follow-up 1</a> makes: a service boundary or schema that doesn't reflect a clearly-understood domain model invites painful rework later. §10 answers it directly; §17 and §30 build every one of these entities as real code.</p>
+<hr>
+<h2 id="10-identifying-the-core-domain-entities">10. Identifying the Core Domain Entities</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>Represents</th>
+<th>Key relationships</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>WorkflowDefinition</strong></td>
+<td>The versioned, immutable-once-published blueprint of a workflow</td>
+<td>Made of <code>StepDefinition</code>s connected by <code>Edge</code>s</td>
+</tr>
+<tr>
+<td><strong>StepDefinition</strong></td>
+<td>One node in the graph — an action, condition, parallel, join, for-each, approval, or sub-workflow</td>
+<td>Has zero or more outgoing <code>Edge</code>s</td>
+</tr>
+<tr>
+<td><strong>Edge</strong></td>
+<td>A directed connection between two steps, optionally guarded by a condition</td>
+<td>Connects exactly two <code>StepDefinition</code>s</td>
+</tr>
+<tr>
+<td><strong>WorkflowRun</strong></td>
+<td>One executing (or completed) instance of a <code>WorkflowDefinition</code></td>
+<td>Has many <code>StepExecution</code>s, pinned to one definition version</td>
+</tr>
+<tr>
+<td><strong>StepExecution</strong></td>
+<td>The runtime record of one step within one run — its status, input, output, attempt count</td>
+<td>Belongs to exactly one <code>WorkflowRun</code></td>
+</tr>
+<tr>
+<td><strong>Trigger</strong></td>
+<td>The thing that starts a <code>WorkflowRun</code> — webhook, schedule, event, or manual</td>
+<td>Bound to exactly one <code>WorkflowDefinition</code></td>
+</tr>
+<tr>
+<td><strong>Connector / ActionExecutor</strong></td>
+<td>The pluggable code that actually performs one action step's real-world effect</td>
+<td>Selected by a step's declared type, via a registry (§38)</td>
+</tr>
+<tr>
+<td><strong>WorkflowEvent</strong></td>
+<td>One immutable, durable fact appended to a run's event log — "step X started," "step X succeeded with output Y"</td>
+<td>The source of truth <code>WorkflowRun</code>/<code>StepExecution</code> state is <em>derived from</em> (§22)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Every section from §11 onward either builds infrastructure <strong>around</strong> these entities or builds the entities <strong>themselves</strong> as real, working class designs — nothing introduced later is untraceable back to this table.</p>
+<hr>
+<h2 id="11-high-level-architecture-overview">11. High-Level Architecture Overview</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                                Client (workflow builder UI / API)
+                                          |
+                             API Gateway / Load Balancer
+                                          |
+        +---------------+---------------+---------------+---------------+
+        v               v               v               v               v
+   Definition       Trigger      Orchestration        Worker          Connector
+    Service         Service          Engine            Pool            Service
+        |               |               |               |               |
+        +---------------+-------+-------+-------+-------+---------------+
+                                v               v
+                     Definition Store      Event Log (durable, append-only)
+                     (relational)          + a durable work queue for dispatch
+</code></pre></div>
+<p>Six cooperating pieces, each with one job: <strong>Definition Service</strong> owns publishing and validating <code>WorkflowDefinition</code>s; <strong>Trigger Service</strong> owns webhook ingestion and cron scheduling; <strong>Orchestration Engine</strong> owns walking a run's graph and deciding what's next; <strong>Worker Pool</strong> owns actually executing one step's connector call; <strong>Connector Service</strong> owns the pluggable integration layer; the <strong>Event Log</strong> is the durable spine everything else is built on top of.</p>
+<hr>
+<h2 id="12-follow-up-question-2-monolith-or-microservices-justify-it">12. Follow-up Question 2 — "Monolith or Microservices? Justify It."</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"You've drawn six boxes. Are those six separate deployable services, or one application with six modules? Why?"</em></p>
+</blockquote>
+<p>The honest answer: <strong>a modular monolith at first, split only where scaling or failure-isolation genuinely demands it.</strong> The Worker Pool is the one component with a real, independent reason to scale separately and fail independently from the rest — a burst of Slack-connector calls should never starve the orchestration engine's ability to keep walking other runs' graphs forward. Everything else (Definition Service, Trigger Service, Orchestration Engine) can start as modules inside one process talking to the same database and event log, and split out later purely as a scaling decision, not an architectural requirement decided on day one — the same "don't reach for microservices reflexively" discipline <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA-style guide's Follow-up 2</a> argues for issue tracking.</p>
+<hr>
+<h2 id="13-service-decomposition-definition-trigger-orchestration-worker-connector">13. Service Decomposition: Definition, Trigger, Orchestration, Worker, Connector</h2>
+<ul>
+<li><strong>Definition Service</strong> — CRUD and versioning for <code>WorkflowDefinition</code>s; runs <code>WorkflowValidator</code> (§18) before ever marking a version publishable.</li>
+<li><strong>Trigger Service</strong> — ingests webhooks (§27), runs the cron scheduler (§26), and subscribes to the internal event bus; on a fire, calls the Orchestration Engine's <code>startRun</code>.</li>
+<li><strong>Orchestration Engine</strong> — the graph walker (§20, §44-§46); on each step completion, decides which step(s) become ready next, and enqueues their dispatch.</li>
+<li><strong>Worker Pool</strong> — one bounded thread/process pool per connector <em>type</em> (an HTTP pool, an email pool, a custom-code sandbox pool), so one slow connector can never starve another — precisely the isolated-pool argument the <a href="Build Your Own Executor Framework From Scratch — A Java Concurrency Step-by-Step Guide.md">Executor Framework guide</a> makes for isolating slow tasks from fast ones.</li>
+<li><strong>Connector Service</strong> — the <code>ActionExecutor</code> registry (§38) workers call into; this is the one piece third-party integration authors ever touch.</li>
+</ul>
+<hr>
+<h2 id="14-api-design-the-core-rest-endpoints">14. API Design: The Core REST Endpoints</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>POST   /workflows                         Create a new WorkflowDefinition (draft)
+POST   /workflows/{id}/versions           Publish a new version (validated, §18)
+GET    /workflows/{id}                    Fetch the current (or a specific) version
+
+POST   /workflows/{id}/runs               Manually start a run
+GET    /runs/{runId}                      Run status + full step history
+POST   /runs/{runId}/steps/{stepId}/resume  Resume a WAITING approval step (§53)
+POST   /runs/{runId}/cancel               Cancel an in-flight run
+
+POST   /webhooks/{triggerId}              Webhook ingestion endpoint (§27)
+</code></pre></div>
+<hr>
+<h2 id="15-data-storage-choices-relational-metadata-plus-a-durable-event-log">15. Data Storage Choices: Relational Metadata Plus a Durable Event Log</h2>
+<p>Two fundamentally different kinds of data need two fundamentally different storage shapes: <code>WorkflowDefinition</code>s are structured, versioned, and queried by ID and tenant — a relational store, with real foreign keys and transactions, is the right fit. A run's execution history is instead an append-only sequence of immutable facts ("step X started," "step X succeeded") — exactly the shape a <strong>durable, ordered log</strong> (not a mutable row that gets overwritten in place) is built for, and exactly the shape §22's Event Sourcing model uses. Deriving a <code>WorkflowRun</code>'s <em>current</em> state by replaying its event log, rather than storing "current state" as the only source of truth, is what makes crash recovery (§23) and human-approval resume (§53) both reuse the <em>same</em> mechanism instead of needing two different ones.</p>
+<hr>
+<h2 id="16-follow-up-question-3-how-do-you-represent-a-workflow-definition-so-its-both-human-editable-and-machine-executable">16. Follow-up Question 3 — "How Do You Represent a Workflow Definition So It's Both Human-Editable and Machine-Executable?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Users need to author these things — visually, or by hand in a config file. But your engine also needs to execute them deterministically. How do those two needs coexist in one model?"</em></p>
+</blockquote>
+<p>The standard answer, used by every real system in this space (GitHub Actions, AWS Step Functions, Temporal, n8n): a <strong>declarative DSL</strong> (JSON or YAML) that serializes directly into an in-memory <strong>DAG</strong> — a directed graph of steps and edges, required to be acyclic so "what runs next" is always well-defined and a workflow can never infinitely loop on itself by construction. §17 defines the class model; §18 builds the validator that rejects a cycle <em>before</em> a definition is ever published, not after a run gets stuck in one.</p>
+<hr>
+<h2 id="17-the-workflow-definition-model-a-dag-based-dsl">17. The Workflow Definition Model: A DAG-Based DSL</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public sealed interface StepDefinition permits ActionStep, ConditionStep, ParallelStep, JoinStep, ForEachStep, ApprovalStep, SubWorkflowStep {
+    String id();
+    List&lt;Edge&gt; outgoingEdges();
+}
+
+public record ActionStep(String id, String connectorType, Map&lt;String, String&gt; inputTemplate, List&lt;Edge&gt; outgoingEdges) implements StepDefinition { }
+public record ConditionStep(String id, String expression, List&lt;Edge&gt; outgoingEdges) implements StepDefinition { }        // §44
+public record ParallelStep(String id, List&lt;Edge&gt; outgoingEdges) implements StepDefinition { }                            // §45 -- fan-out
+public record JoinStep(String id, int expectedIncomingCount, List&lt;Edge&gt; outgoingEdges) implements StepDefinition { }     // §45 -- fan-in
+public record ForEachStep(String id, String collectionExpression, StepDefinition body, List&lt;Edge&gt; outgoingEdges) implements StepDefinition { } // §46
+public record ApprovalStep(String id, String approverGroup, List&lt;Edge&gt; outgoingEdges) implements StepDefinition { }       // §52-§53
+public record SubWorkflowStep(String id, String subWorkflowId, List&lt;Edge&gt; outgoingEdges) implements StepDefinition { }
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record Edge(String fromStepId, String toStepId, String condition /* nullable -- null means unconditional */) { }
+
+public record WorkflowDefinition(
+        String workflowId,
+        int version,
+        String triggerType,               // &quot;webhook&quot; | &quot;schedule&quot; | &quot;event&quot; | &quot;manual&quot; -- §25
+        Map&lt;String, StepDefinition&gt; stepsById,
+        String startStepId
+) { }
+</code></pre></div>
+<p>A <code>sealed interface</code> for <code>StepDefinition</code>, exhaustively matched everywhere the engine has to decide "how do I execute this kind of step" (§20's dispatcher, §44's graph walker), is the same compiler-enforced-completeness discipline this session's other guides lean on for AST dispatch — adding an eighth step type is then a compile error at every <code>switch</code> until every one of them is updated, never a silent runtime gap.</p>
+<hr>
+<h2 id="18-validating-a-workflow-definition-cycle-detection-and-reachability">18. Validating a Workflow Definition: Cycle Detection and Reachability</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class WorkflowValidator {
+
+    public List&lt;String&gt; validate(WorkflowDefinition definition) {
+        List&lt;String&gt; errors = new ArrayList&lt;&gt;();
+
+        if (!definition.stepsById().containsKey(definition.startStepId())) {
+            errors.add(&quot;startStepId '&quot; + definition.startStepId() + &quot;' does not exist&quot;);
+            return errors; // nothing else can be checked meaningfully without a valid start
+        }
+
+        Set&lt;String&gt; reachable = reachableFrom(definition.startStepId(), definition);
+        for (String stepId : definition.stepsById().keySet()) {
+            if (!reachable.contains(stepId)) {
+                errors.add(&quot;Step '&quot; + stepId + &quot;' is unreachable from the start step&quot;);
+            }
+        }
+
+        if (hasCycle(definition)) {
+            errors.add(&quot;Workflow graph contains a cycle -- a DAG cannot contain one by definition&quot;);
+        }
+
+        for (StepDefinition step : definition.stepsById().values()) {
+            for (Edge edge : step.outgoingEdges()) {
+                if (!definition.stepsById().containsKey(edge.toStepId())) {
+                    errors.add(&quot;Edge from '&quot; + step.id() + &quot;' targets unknown step '&quot; + edge.toStepId() + &quot;'&quot;);
+                }
+            }
+        }
+        return errors;
+    }
+
+    private Set&lt;String&gt; reachableFrom(String startStepId, WorkflowDefinition definition) {
+        Set&lt;String&gt; visited = new HashSet&lt;&gt;();
+        Deque&lt;String&gt; stack = new ArrayDeque&lt;&gt;(List.of(startStepId));
+        while (!stack.isEmpty()) {
+            String current = stack.pop();
+            if (!visited.add(current)) continue;
+            StepDefinition step = definition.stepsById().get(current);
+            if (step == null) continue;
+            for (Edge edge : step.outgoingEdges()) stack.push(edge.toStepId());
+        }
+        return visited;
+    }
+
+    private boolean hasCycle(WorkflowDefinition definition) {
+        Set&lt;String&gt; visiting = new HashSet&lt;&gt;();
+        Set&lt;String&gt; done = new HashSet&lt;&gt;();
+        for (String stepId : definition.stepsById().keySet()) {
+            if (!done.contains(stepId) &amp;&amp; dfsHasCycle(stepId, definition, visiting, done)) return true;
+        }
+        return false;
+    }
+
+    private boolean dfsHasCycle(String stepId, WorkflowDefinition definition, Set&lt;String&gt; visiting, Set&lt;String&gt; done) {
+        if (visiting.contains(stepId)) return true;   // currently on the DFS stack -- a back edge, i.e. a cycle
+        if (done.contains(stepId)) return false;       // already fully explored, known cycle-free from here
+        visiting.add(stepId);
+        StepDefinition step = definition.stepsById().get(stepId);
+        if (step != null) {
+            for (Edge edge : step.outgoingEdges()) {
+                if (dfsHasCycle(edge.toStepId(), definition, visiting, done)) return true;
+            }
+        }
+        visiting.remove(stepId);
+        done.add(stepId);
+        return false;
+    }
+</code></pre></div>
+<p>The classic three-color DFS (<code>visiting</code> = gray, <code>done</code> = black, unvisited = white) is what makes cycle detection correct on a graph with shared sub-paths (two steps both feeding into one join step, say) rather than a simple visited-set check, which would falsely flag re-visiting a node through a <em>different</em> path as a cycle. A definition failing either check here is rejected at publish time (§14's <code>POST /workflows/{id}/versions</code>) — never at run time, where a stuck run is a far more expensive way to discover the same bug.</p>
+<hr>
+<h2 id="19-follow-up-question-4-walk-me-through-executing-a-workflow-step-by-step-in-memory">19. Follow-up Question 4 — "Walk Me Through Executing a Workflow, Step by Step, In Memory"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Forget durability for a second. Given a validated <code>WorkflowDefinition</code> and a starting input, how does your engine actually walk the graph and produce a result?"</em></p>
+</blockquote>
+<p>This is deliberately asked before durability, because the <em>shape</em> of the walk has to be right before worrying about surviving a crash mid-walk. §20 builds the naive, in-memory-only version; §21's follow-up is exactly the question that breaks it.</p>
+<hr>
+<h2 id="20-the-naive-in-memory-execution-loop-and-why-its-not-enough">20. The Naive In-Memory Execution Loop (and Why It's Not Enough)</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class NaiveOrchestrator {
+
+    private final ActionExecutorRegistry registry; // §37
+
+    public NaiveOrchestrator(ActionExecutorRegistry registry) { this.registry = registry; }
+
+    public Map&lt;String, Object&gt; run(WorkflowDefinition definition, Map&lt;String, Object&gt; triggerInput) {
+        Map&lt;String, Object&gt; context = new HashMap&lt;&gt;();
+        context.put(&quot;trigger&quot;, triggerInput);
+
+        Deque&lt;String&gt; ready = new ArrayDeque&lt;&gt;(List.of(definition.startStepId()));
+        Set&lt;String&gt; completed = new HashSet&lt;&gt;();
+
+        while (!ready.isEmpty()) {
+            String stepId = ready.poll();
+            StepDefinition step = definition.stepsById().get(stepId);
+            Object output = execute(step, context); // §37's registry dispatch, by step type
+            context.put(stepId, output);
+            completed.add(stepId);
+
+            for (Edge edge : step.outgoingEdges()) {
+                if (edge.condition() == null || evaluateCondition(edge.condition(), context)) {
+                    ready.add(edge.toStepId());
+                }
+            }
+        }
+        return context;
+    }
+
+    // execute(...)/evaluateCondition(...) elided here -- §37 and §41 build them for real.
+}
+</code></pre></div>
+<p>This is correct for a straight-line or simple branching workflow, entirely in one process, with no crash to survive. It is also, deliberately, missing everything that makes a <em>production</em> workflow engine hard: nothing here is written to disk, so a crash mid-loop loses the run's entire progress; nothing here waits — an <code>ApprovalStep</code> would need to literally block this thread for however long a human takes to respond; and nothing here retries a flaky connector call. Every one of §21 through §53 is a specific, necessary answer to one of those gaps — none of them invalidates this loop's basic shape (a ready-queue driven walk over a graph), they make it durable, non-blocking, and resilient.</p>
+<hr>
+<h2 id="21-follow-up-question-5-what-happens-if-the-worker-process-crashes-mid-run">21. Follow-up Question 5 — "What Happens If the Worker Process Crashes Mid-Run?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Say step 3 of a 10-step workflow just finished, and the process running §20's loop crashes right before moving to step 4. What happens to this run?"</em></p>
+</blockquote>
+<p>With §20's loop as written: <strong>the run is gone.</strong> <code>context</code>, <code>completed</code>, and <code>ready</code> are all local, in-memory state — the moment the process dies, nothing durable remembers that steps 1-3 already ran, and restarting from scratch would re-execute them, very possibly re-sending an email or re-charging a customer a second time. This is the single most important reliability property a real workflow engine has to solve, and §22-§23 solve it the same way every durable-execution system (Temporal, Cadence, AWS Step Functions) actually does: <strong>never treat in-memory state as the source of truth — treat a durable, append-only log as the source of truth, and derive everything else from it.</strong></p>
+<hr>
+<h2 id="22-durable-execution-an-event-log-per-run">22. Durable Execution: An Event Log Per Run</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public sealed interface WorkflowEvent permits RunStarted, StepStarted, StepSucceeded, StepFailed, RunCompleted, RunFailed {
+    String runId();
+    Instant occurredAt();
+}
+
+public record RunStarted(String runId, Instant occurredAt, String workflowId, int definitionVersion, Map&lt;String, Object&gt; triggerInput) implements WorkflowEvent { }
+public record StepStarted(String runId, Instant occurredAt, String stepId, int attempt, Map&lt;String, Object&gt; input) implements WorkflowEvent { }
+public record StepSucceeded(String runId, Instant occurredAt, String stepId, int attempt, Map&lt;String, Object&gt; output) implements WorkflowEvent { }
+public record StepFailed(String runId, Instant occurredAt, String stepId, int attempt, String errorMessage) implements WorkflowEvent { }
+public record RunCompleted(String runId, Instant occurredAt, Map&lt;String, Object&gt; finalOutput) implements WorkflowEvent { }
+public record RunFailed(String runId, Instant occurredAt, String reason) implements WorkflowEvent { }
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface EventLog {
+    void append(WorkflowEvent event);              // durable BEFORE the caller is told it succeeded -- the same
+                                                     // WAL discipline the TinyDB Storage Engine guide builds (§13 there)
+    List&lt;WorkflowEvent&gt; readAll(String runId);      // in append order -- the entire history of one run
+}
+</code></pre></div>
+<p>Every fact about a run — which steps have started, succeeded, failed, and how many times each was attempted — is captured as one of these immutable events, appended in order, and <strong>never mutated after the fact.</strong> This is the Event Sourcing pattern the <a href="Design a Real-Time Collaboration Tool — HLD, LLD, and Class Design From Scratch.md">Real-Time Collaboration guide</a> already builds for a different reason (concurrent-edit convergence); here it exists for durability: a <code>WorkflowRun</code>'s current status, and a <code>StepExecution</code>'s current status, are never stored as the primary record — they are <strong>derived</strong> by replaying <code>readAll(runId)</code> forward, which is exactly what makes crash recovery (§23) and a multi-day approval resume (§53) both reducible to "replay the log, then continue."</p>
+<hr>
+<h2 id="23-resuming-a-run-after-a-crash-replay-and-idempotent-re-dispatch">23. Resuming a Run After a Crash: Replay and Idempotent Re-Dispatch</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class OrchestrationEngine {
+
+    private final EventLog eventLog;
+    private final ActionExecutorRegistry registry;
+    private final WorkflowDefinitionRegistry definitions; // §58
+
+    public OrchestrationEngine(EventLog eventLog, ActionExecutorRegistry registry, WorkflowDefinitionRegistry definitions) {
+        this.eventLog = eventLog;
+        this.registry = registry;
+        this.definitions = definitions;
+    }
+
+    /** Called once per run, on startup -- rebuilds in-memory state purely from durable events, then keeps going. */
+    public void resume(String runId) {
+        List&lt;WorkflowEvent&gt; history = eventLog.readAll(runId);
+        if (history.isEmpty()) return; // not a real run, or already fully replayed elsewhere
+
+        RunStarted started = (RunStarted) history.get(0);
+        WorkflowDefinition definition = definitions.resolve(started.workflowId(), started.definitionVersion()); // §58 -- pinned version
+
+        Map&lt;String, Object&gt; context = new HashMap&lt;&gt;();
+        context.put(&quot;trigger&quot;, started.triggerInput());
+        Set&lt;String&gt; succeededStepIds = new HashSet&lt;&gt;();
+
+        for (WorkflowEvent event : history) {
+            switch (event) {
+                case StepSucceeded succeeded -&gt; {
+                    context.put(succeeded.stepId(), succeeded.output());
+                    succeededStepIds.add(succeeded.stepId());
+                }
+                case RunCompleted ignored -&gt; { return; } // already finished before the crash -- nothing to resume
+                case RunFailed ignored -&gt; { return; }
+                default -&gt; { /* RunStarted/StepStarted/StepFailed carry no state to rebuild here */ }
+            }
+        }
+
+        continueFrom(definition, context, succeededStepIds, runId);
+    }
+
+    private void continueFrom(WorkflowDefinition definition, Map&lt;String, Object&gt; context, Set&lt;String&gt; succeeded, String runId) {
+        for (String stepId : readyStepsGiven(definition, succeeded)) {
+            dispatch(definition.stepsById().get(stepId), context, runId); // enqueued to the worker pool, §39
+        }
+    }
+
+    // readyStepsGiven(...) is §44-§46's graph-walking logic (branching, joins, and loops); dispatch(...) is elided here, built in full in §39.
+}
+</code></pre></div>
+<p>The idempotency this depends on: a step whose <code>StepSucceeded</code> event is already in the log is <strong>never re-executed</strong> — <code>succeededStepIds</code> short-circuits it, exactly the same "does this already reflect the change?" idempotency check the <a href="TinyDB Storage Engine — Step-by-Step Implementation Guide.md">TinyDB Storage Engine guide's redo phase</a> uses <code>page.pageLsn() &gt;= record.lsn()</code> for. A step that only got as far as <code>StepStarted</code> before the crash (no matching <code>StepSucceeded</code> yet) is correctly treated as <em>not yet done</em>, and re-dispatched — which is exactly why every <code>ActionExecutor</code> (§37) must be safe to call more than once for the same logical attempt, using the idempotency keys §50 builds.</p>
+<hr>
+<h2 id="24-follow-up-question-6-how-do-triggers-actually-kick-off-a-run-webhook-schedule-event">24. Follow-up Question 6 — "How Do Triggers Actually Kick Off a Run — Webhook, Schedule, Event?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"You keep saying 'a run starts.' Where does that first <code>RunStarted</code> event actually come from?"</em></p>
+</blockquote>
+<p>Four distinct trigger types, each with a genuinely different mechanism behind it — §25 names all four; §26-§27 build the two with real scheduling/ingestion logic worth showing in code.</p>
+<hr>
+<h2 id="25-trigger-types-webhook-schedule-internal-event-manual">25. Trigger Types: Webhook, Schedule, Internal Event, Manual</h2>
+<ul>
+<li><strong>Webhook</strong>: an external system POSTs to <code>/webhooks/{triggerId}</code> (§14) the moment something happens on its end (a form submission, a payment). §27 builds ingestion, signature verification, and de-duplication.</li>
+<li><strong>Schedule (cron)</strong>: a recurring, time-based fire — "every day at 9am," "every 15 minutes." §26 builds the scheduler.</li>
+<li><strong>Internal event</strong>: MiniFlow's own event bus (an issue changed, a user signed up) triggers a workflow — structurally identical to <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA-style guide's Observer-pattern event system</a>, just with "start a workflow run" as the listener's action instead of "send a notification."</li>
+<li><strong>Manual</strong>: a user or API caller explicitly starts a run via <code>POST /workflows/{id}/runs</code> (§14) — no scheduling or ingestion machinery needed at all.</li>
+</ul>
+<hr>
+<h2 id="26-the-schedule-trigger-a-time-ordered-priority-queue-of-next-fire-times">26. The Schedule Trigger: A Time-Ordered Priority Queue of Next-Fire-Times</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record ScheduledTrigger(String triggerId, String workflowId, String cronExpression, Instant nextFireTime) { }
+
+public final class TriggerScheduler {
+
+    private final PriorityQueue&lt;ScheduledTrigger&gt; heap =
+            new PriorityQueue&lt;&gt;(Comparator.comparing(ScheduledTrigger::nextFireTime));
+    private final CronExpressionEvaluator cronEvaluator; // computes the next fire time after a given instant
+    private final Consumer&lt;ScheduledTrigger&gt; onFire;      // starts a run, §23's entry point
+
+    public TriggerScheduler(CronExpressionEvaluator cronEvaluator, Consumer&lt;ScheduledTrigger&gt; onFire) {
+        this.cronEvaluator = cronEvaluator;
+        this.onFire = onFire;
+    }
+
+    public synchronized void register(String triggerId, String workflowId, String cronExpression) {
+        Instant next = cronEvaluator.nextFireTimeAfter(cronExpression, Instant.now());
+        heap.add(new ScheduledTrigger(triggerId, workflowId, cronExpression, next));
+    }
+
+    /** Called once per polling tick by a single background thread. */
+    public synchronized void tick() {
+        Instant now = Instant.now();
+        while (!heap.isEmpty() &amp;&amp; !heap.peek().nextFireTime().isAfter(now)) {
+            ScheduledTrigger due = heap.poll();
+            onFire.accept(due);
+            Instant next = cronEvaluator.nextFireTimeAfter(due.cronExpression(), now);
+            heap.add(new ScheduledTrigger(due.triggerId(), due.workflowId(), due.cronExpression(), next));
+        }
+    }
+}
+</code></pre></div>
+<p>A min-heap ordered by <code>nextFireTime</code> means <code>tick()</code> never has to scan every registered trigger to find which ones are due — it only ever looks at the single soonest one, <code>heap.peek()</code>, and stops the moment that one isn't due yet either. Re-inserting each trigger with its <em>newly computed</em> next fire time, immediately after it fires, is what keeps a recurring cron trigger recurring without needing a separate "recompute all schedules" pass.</p>
+<hr>
+<h2 id="27-the-webhook-trigger-ingestion-verification-and-de-duplication">27. The Webhook Trigger: Ingestion, Verification, and De-duplication</h2>
+<p>A webhook handler has three jobs, in this order, before it's allowed to start a run: <strong>verify</strong> the request is genuinely from the expected source (an HMAC signature check against a per-trigger shared secret — never trust an unauthenticated POST to kick off a tenant's workflow); <strong>de-duplicate</strong> (many webhook providers retry a delivery on a timeout even if the first attempt actually succeeded — a <code>providerDeliveryId</code>, stored and checked against previously-seen IDs for this trigger, turns "maybe delivered twice" into "processed exactly once"); then <strong>start the run</strong> by appending a <code>RunStarted</code> event (§22) with the webhook's payload as the trigger input. Skipping de-duplication specifically is a common, expensive mistake (§67) — a payment-provider webhook retried three times without it means three workflow runs, and very possibly three emails or three shipments, for one real event.</p>
+<hr>
+<h2 id="28-high-level-architecture-diagram-assembled">28. High-Level Architecture Diagram, Assembled</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                              Webhook            Cron Scheduler         Internal Event Bus
+                            (§27, HMAC-           (§26, min-heap          (Observer pattern,
+                          verified, de-duped)      of next-fire)           JIRA-guide style)
+                                  \                    |                       /
+                                   \                   |                      /
+                                    v                   v                    v
+                                          Trigger Service --&gt; append RunStarted (§22)
+                                                          |
+                                                          v
+                                          Orchestration Engine (§23, §44-§46)
+                                     reads the Event Log, decides what's ready
+                                          /              |               \
+                                         v                v                v
+                                Worker Pool         Worker Pool       Worker Pool
+                               (HTTP conn., §39)   (email conn.)     (custom code,
+                                                                      sandboxed)
+                                         \                |                /
+                                          v                v               v
+                                            External systems / connectors
+                                                          |
+                                                          v
+                                       StepStarted / StepSucceeded / StepFailed
+                                              appended back to the Event Log
+                                                          |
+                                                          v
+                                            Definition Store (versioned, §58)
+                                            resolves which DAG this run follows
+</code></pre></div>
+<p>Every arrow in this diagram is a call this guide has already built real code for — nothing here is drawn from memory of what a workflow engine "probably" looks like.</p>
+<hr>
+<h2 id="29-follow-up-question-7-lets-get-concrete-design-the-class-model-for-a-run-and-its-steps">29. Follow-up Question 7 — "Let's Get Concrete. Design the Class Model for a Run and Its Steps."</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"You've shown me the definition side. Now show me what actually exists, as data, while a specific run is executing."</em></p>
+</blockquote>
+<p>§30 builds <code>WorkflowRun</code> and <code>StepExecution</code> as real classes; §31 assembles the full domain-entity class diagram, definition side and runtime side together.</p>
+<hr>
+<h2 id="30-the-workflowrun-and-stepexecution-classes">30. The WorkflowRun and StepExecution Classes</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class WorkflowRun {
+
+    private final String runId;
+    private final String workflowId;
+    private final int definitionVersion;      // pinned at start -- §58's sticky-versioning guarantee
+    private final Instant startedAt;
+    private RunStatus status;                 // §34's State pattern -- never a raw enum switch
+    private final Map&lt;String, StepExecution&gt; stepExecutionsByStepId = new LinkedHashMap&lt;&gt;();
+
+    public WorkflowRun(String runId, String workflowId, int definitionVersion, Instant startedAt) {
+        this.runId = runId;
+        this.workflowId = workflowId;
+        this.definitionVersion = definitionVersion;
+        this.startedAt = startedAt;
+        this.status = RunStatus.RUNNING;
+    }
+
+    public String runId() { return runId; }
+    public int definitionVersion() { return definitionVersion; }
+    public RunStatus status() { return status; }
+    public void transitionTo(RunStatus next) { this.status = status.transitionTo(next); } // §34
+
+    public StepExecution stepExecution(String stepId) { return stepExecutionsByStepId.get(stepId); }
+    public void record(StepExecution execution) { stepExecutionsByStepId.put(execution.stepId(), execution); }
+    public Collection&lt;StepExecution&gt; allStepExecutions() { return stepExecutionsByStepId.values(); }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class StepExecution {
+
+    private final String stepId;
+    private int attempt;
+    private StepStatus status;                // §33's State pattern
+    private Map&lt;String, Object&gt; input;
+    private Map&lt;String, Object&gt; output;
+    private String lastErrorMessage;
+
+    public StepExecution(String stepId) {
+        this.stepId = stepId;
+        this.attempt = 0;
+        this.status = StepStatus.PENDING;
+    }
+
+    public String stepId() { return stepId; }
+    public int attempt() { return attempt; }
+    public StepStatus status() { return status; }
+    public Map&lt;String, Object&gt; output() { return output; }
+
+    public void startAttempt(Map&lt;String, Object&gt; input) {
+        this.attempt++;
+        this.input = input;
+        this.status = status.transitionTo(StepStatus.RUNNING); // §33
+    }
+    public void succeed(Map&lt;String, Object&gt; output) {
+        this.output = output;
+        this.status = status.transitionTo(StepStatus.SUCCEEDED);
+    }
+    public void fail(String errorMessage) {
+        this.lastErrorMessage = errorMessage;
+        this.status = status.transitionTo(StepStatus.FAILED);
+    }
+}
+</code></pre></div>
+<p>Both classes intentionally never expose a raw setter for <code>status</code> — every transition goes through <code>transitionTo</code>, which (§33-§34) validates the transition is actually legal before allowing it, the same discipline <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA-style guide's issue-status workflow</a> already applies to a business-domain status field, here applied to the engine's own execution lifecycle instead.</p>
+<hr>
+<h2 id="31-class-diagram-core-domain-entities">31. Class Diagram: Core Domain Entities</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>WorkflowDefinition                          WorkflowRun
++ workflowId, version                       + runId, workflowId, definitionVersion
++ triggerType                               + status: RunStatus
++ stepsById: Map&lt;String,StepDefinition&gt;     + stepExecutionsByStepId
++ startStepId                                     |
+      | 1                                          | 1..*
+      | contains                                   | tracks
+      v *                                          v
+StepDefinition (sealed)                     StepExecution
++ ActionStep                                + stepId, attempt
++ ConditionStep                             + status: StepStatus
++ ParallelStep / JoinStep                    + input, output, lastErrorMessage
++ ForEachStep
++ ApprovalStep
++ SubWorkflowStep
+      | *
+      | connects via
+      v
+    Edge
++ fromStepId, toStepId, condition
+
+
+Trigger (bound to one WorkflowDefinition)          WorkflowEvent (sealed, §22)
++ ScheduleTrigger (cron)                            + RunStarted / StepStarted
++ WebhookTrigger (HMAC-verified)                    + StepSucceeded / StepFailed
++ EventTrigger (internal bus)                       + RunCompleted / RunFailed
+                                                           |
+                                                           | replayed to derive
+                                                           v
+                                                  WorkflowRun + StepExecution
+                                                  (never the primary record, §22)
+</code></pre></div>
+<p>The two halves of this diagram deliberately never merge: the <strong>definition side</strong> (top-left) is static, versioned data describing what <em>could</em> happen; the <strong>runtime side</strong> (top-right, bottom-right) is what <em>actually</em> happened, one run at a time, always derivable from the event log alone. Conflating them — storing a run's live status as a mutable field directly on a shared, cached <code>WorkflowDefinition</code> object, say — is exactly the kind of shortcut that breaks the crash-recovery story §23 depends on.</p>
+<hr>
+<h2 id="32-follow-up-question-8-how-do-you-model-runstep-status-so-the-logic-isnt-a-giant-ifelse">32. Follow-up Question 8 — "How Do You Model Run/Step Status So the Logic Isn't a Giant If/Else?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A step can be pending, running, succeeded, failed, retrying, waiting on a human, or skipped. A run can be running, completed, failed, or cancelled. How do you keep the rules for 'what can transition to what' from turning into an unmaintainable tangle of conditionals?"</em></p>
+</blockquote>
+<p>The exact same answer <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA-style guide gives for issue status</a>, applied to a different status field: the <strong>State pattern</strong>. Each status is an object that knows its own legal next-states, so "is this transition allowed" is a single polymorphic call, never a hand-maintained table of <code>if (current == X &amp;&amp; next == Y)</code> checks scattered across the codebase.</p>
+<hr>
+<h2 id="33-the-state-pattern-for-step-execution-status">33. The State Pattern for Step Execution Status</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public enum StepStatus {
+    PENDING {
+        @Override public StepStatus transitionTo(StepStatus next) {
+            return requireLegal(next, Set.of(RUNNING, SKIPPED));
+        }
+    },
+    RUNNING {
+        @Override public StepStatus transitionTo(StepStatus next) {
+            return requireLegal(next, Set.of(SUCCEEDED, FAILED, WAITING));
+        }
+    },
+    WAITING {                                     // §52-§53 -- a human approval step, possibly for days
+        @Override public StepStatus transitionTo(StepStatus next) {
+            return requireLegal(next, Set.of(SUCCEEDED, FAILED));
+        }
+    },
+    FAILED {
+        @Override public StepStatus transitionTo(StepStatus next) {
+            return requireLegal(next, Set.of(RUNNING)); // a retry -- §49
+        }
+    },
+    SUCCEEDED {
+        @Override public StepStatus transitionTo(StepStatus next) {
+            throw new IllegalStateException(&quot;SUCCEEDED is terminal -- cannot transition to &quot; + next);
+        }
+    },
+    SKIPPED {
+        @Override public StepStatus transitionTo(StepStatus next) {
+            throw new IllegalStateException(&quot;SKIPPED is terminal -- cannot transition to &quot; + next);
+        }
+    };
+
+    public abstract StepStatus transitionTo(StepStatus next);
+
+    protected StepStatus requireLegal(StepStatus next, Set&lt;StepStatus&gt; legalNextStates) {
+        if (!legalNextStates.contains(next)) {
+            throw new IllegalStateException(&quot;Illegal step transition: &quot; + this + &quot; -&gt; &quot; + next);
+        }
+        return next;
+    }
+}
+</code></pre></div>
+<p><code>FAILED -&gt; RUNNING</code> being legal, but nothing else being able to reach <code>RUNNING</code> a second time except through <code>FAILED</code>, is what makes §49's retry logic <em>structurally</em> correct — a step can only ever be re-attempted after actually failing, never accidentally re-run from <code>SUCCEEDED</code> or mid-flight from <code>WAITING</code>.</p>
+<hr>
+<h2 id="34-the-state-pattern-for-run-level-status">34. The State Pattern for Run-Level Status</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public enum RunStatus {
+    RUNNING {
+        @Override public RunStatus transitionTo(RunStatus next) {
+            return requireLegal(next, Set.of(COMPLETED, FAILED, CANCELLED));
+        }
+    },
+    COMPLETED {
+        @Override public RunStatus transitionTo(RunStatus next) {
+            throw new IllegalStateException(&quot;COMPLETED is terminal -- cannot transition to &quot; + next);
+        }
+    },
+    FAILED {
+        @Override public RunStatus transitionTo(RunStatus next) {
+            throw new IllegalStateException(&quot;FAILED is terminal -- cannot transition to &quot; + next);
+        }
+    },
+    CANCELLED {
+        @Override public RunStatus transitionTo(RunStatus next) {
+            throw new IllegalStateException(&quot;CANCELLED is terminal -- cannot transition to &quot; + next);
+        }
+    };
+
+    public abstract RunStatus transitionTo(RunStatus next);
+
+    protected RunStatus requireLegal(RunStatus next, Set&lt;RunStatus&gt; legalNextStates) {
+        if (!legalNextStates.contains(next)) {
+            throw new IllegalStateException(&quot;Illegal run transition: &quot; + this + &quot; -&gt; &quot; + next);
+        }
+        return next;
+    }
+}
+</code></pre></div>
+<p>A run's status has exactly one non-terminal state (<code>RUNNING</code>) and three terminal ones — deliberately simpler than a step's, because a run's overall outcome is a <em>summary</em> of its steps' outcomes (a run is <code>COMPLETED</code> once the graph walker, §44-§46, finds no further ready steps and every reachable step has reached a terminal <code>StepStatus</code>), not an independent thing with its own rich lifecycle.</p>
+<hr>
+<h2 id="35-class-diagram-the-execution-state-machine">35. Class Diagram: The Execution State Machine</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    StepStatus                                RunStatus
+                                                                  RUNNING
+                    PENDING                                     /   |   \
+                   /       \                                   v    v    v
+                  v         v                              COMPLETED FAILED CANCELLED
+              RUNNING    SKIPPED (terminal)               (terminal) (terminal) (terminal)
+             /   |   \
+            v    v    v
+      SUCCEEDED FAILED WAITING
+     (terminal)  |        |
+                 v        v
+               RUNNING  SUCCEEDED / FAILED
+              (retry, §49)
+</code></pre></div>
+<p>Every arrow in this diagram corresponds to exactly one <code>Set.of(...)</code> entry in §33/§34's code — the diagram and the code are two views of the identical rule set, which is the entire point of the State pattern: the legal-transitions table lives in exactly one place, not duplicated between a diagram nobody re-checks and code that quietly drifts from it.</p>
+<hr>
+<h2 id="36-follow-up-question-9-how-do-users-add-a-new-integration-without-touching-your-core-engine">36. Follow-up Question 9 — "How Do Users Add a New Integration Without Touching Your Core Engine?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Today you support HTTP and email. Tomorrow someone wants Slack, then Stripe, then a custom Python script. How does adding the hundredth connector not mean editing the orchestration engine's source for the hundredth time?"</em></p>
+</blockquote>
+<p>The Strategy pattern, plus a registry keyed by connector type — the exact mechanism that makes <code>ActionStep.connectorType()</code> (§17) a lookup key instead of a hard-coded branch. §37 defines the interface and registry; §38 implements two real connectors against it; §39 explains why each connector type gets its own worker pool, not a shared one.</p>
+<hr>
+<h2 id="37-the-actionexecutor-strategy-interface-and-a-plugin-registry">37. The ActionExecutor Strategy Interface and a Plugin Registry</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface ActionExecutor {
+    String connectorType();                                                  // e.g. &quot;http&quot;, &quot;email&quot;, &quot;slack&quot;
+    Map&lt;String, Object&gt; execute(Map&lt;String, Object&gt; resolvedInput, IdempotencyKey idempotencyKey) throws ActionExecutionException;
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class ActionExecutorRegistry {
+
+    private final Map&lt;String, ActionExecutor&gt; executorsByType = new ConcurrentHashMap&lt;&gt;(); // registered at startup, resolved by every worker thread concurrently
+
+    public void register(ActionExecutor executor) {
+        executorsByType.put(executor.connectorType(), executor);
+    }
+
+    public ActionExecutor resolve(String connectorType) {
+        ActionExecutor executor = executorsByType.get(connectorType);
+        if (executor == null) {
+            throw new IllegalArgumentException(&quot;No ActionExecutor registered for connector type: &quot; + connectorType);
+        }
+        return executor;
+    }
+}
+</code></pre></div>
+<p>Adding Slack support is now: implement <code>ActionExecutor</code>, call <code>register(new SlackActionExecutor(...))</code> once at startup — nothing in <code>OrchestrationEngine</code> (§23), <code>WorkflowValidator</code> (§18), or any other core class changes. This is the Open/Closed Principle made concrete (§66): the system is open to a new connector type, closed to modification of the code that dispatches to one.</p>
+<hr>
+<h2 id="38-implementing-two-concrete-actionexecutors-http-and-email">38. Implementing Two Concrete ActionExecutors: HTTP and Email</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class HttpActionExecutor implements ActionExecutor {
+
+    private final HttpClient httpClient;
+
+    public HttpActionExecutor(HttpClient httpClient) { this.httpClient = httpClient; }
+
+    @Override public String connectorType() { return &quot;http&quot;; }
+
+    @Override
+    public Map&lt;String, Object&gt; execute(Map&lt;String, Object&gt; input, IdempotencyKey idempotencyKey) throws ActionExecutionException {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create((String) input.get(&quot;url&quot;)))
+                    .header(&quot;Idempotency-Key&quot;, idempotencyKey.value()) // §50 -- the callee's job to de-duplicate on this
+                    .POST(HttpRequest.BodyPublishers.ofString((String) input.getOrDefault(&quot;body&quot;, &quot;&quot;)))
+                    .build();
+            HttpResponse&lt;String&gt; response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() &gt;= 500) {
+                throw new ActionExecutionException(&quot;HTTP &quot; + response.statusCode() + &quot; -- treated as retryable&quot;); // §49
+            }
+            return Map.of(&quot;statusCode&quot;, response.statusCode(), &quot;body&quot;, response.body());
+        } catch (IOException | InterruptedException e) {
+            throw new ActionExecutionException(&quot;HTTP call failed: &quot; + e.getMessage(), e); // network errors -- retryable
+        }
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class EmailActionExecutor implements ActionExecutor {
+
+    private final EmailClient emailClient;
+
+    public EmailActionExecutor(EmailClient emailClient) { this.emailClient = emailClient; }
+
+    @Override public String connectorType() { return &quot;email&quot;; }
+
+    @Override
+    public Map&lt;String, Object&gt; execute(Map&lt;String, Object&gt; input, IdempotencyKey idempotencyKey) throws ActionExecutionException {
+        // Most email providers accept an idempotency/message key directly -- passing it through means a retried
+        // send after a timeout, where the FIRST send actually succeeded, never results in a duplicate email.
+        String messageId = emailClient.send((String) input.get(&quot;to&quot;), (String) input.get(&quot;subject&quot;),
+                (String) input.get(&quot;body&quot;), idempotencyKey.value());
+        return Map.of(&quot;messageId&quot;, messageId);
+    }
+}
+</code></pre></div>
+<p>Both throw <code>ActionExecutionException</code> for anything §49 should retry, and return a plain <code>Map&lt;String, Object&gt;</code> output — the same shape <code>StepSucceeded.output()</code> (§22) stores and later steps' expression templates (§42) read from, deliberately, so a connector author never needs to think about the event log or the expression language at all.</p>
+<hr>
+<h2 id="39-class-diagram-the-pluggable-action-layer-and-per-connector-worker-pools">39. Class Diagram: The Pluggable Action Layer, and Per-Connector Worker Pools</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>      ActionExecutor  &lt;&lt;interface&gt;&gt;
+      + connectorType(): String
+      + execute(input, idempotencyKey): Map
+             ^
+             | implements
+     +-------+---------+------------------+
+     |                 |                  |
+HttpActionExecutor  EmailActionExecutor  SlackActionExecutor (future, §67)
+
+
+      ActionExecutorRegistry
+      + register(executor)
+      + resolve(connectorType): ActionExecutor
+             |
+             | one bounded worker pool PER connectorType, e.g.:
+             v
+   &quot;http&quot;   -&gt; ThreadPoolExecutor(core=20, max=50, queue=500)
+   &quot;email&quot;  -&gt; ThreadPoolExecutor(core=5,  max=10, queue=1000)
+   &quot;custom&quot; -&gt; a sandboxed pool, isolated by design (§67)
+</code></pre></div>
+<p>A single shared pool for every connector type would let one slow, misbehaving integration (a partner's API having a bad day) starve dispatch for every <em>other</em> connector, including fast, healthy ones — the exact "isolate slow tasks from fast ones with separate pools" argument the <a href="Build Your Own Executor Framework From Scratch — A Java Concurrency Step-by-Step Guide.md">Executor Framework guide</a> makes in general, applied here per connector type specifically because that's the natural failure-isolation boundary in this domain.</p>
+<hr>
+<h2 id="40-follow-up-question-10-how-do-you-pass-one-steps-output-into-the-next-steps-input">40. Follow-up Question 10 — "How Do You Pass One Step's Output Into the Next Step's Input?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Step 2 needs the customer email address that step 1's HTTP call returned. The user configures this in the workflow builder UI, not in Java code. How does that actually work at runtime?"</em></p>
+</blockquote>
+<p>An <strong>expression language</strong>, evaluated against the run's accumulated <code>context</code> map (§20, §23) — every step's declared <code>inputTemplate</code> (§17's <code>ActionStep</code>) contains placeholders like <code>{{steps.step1.output.email}}</code>, resolved just before that step executes. §41 designs the syntax; §42 implements the evaluator.</p>
+<hr>
+<h2 id="41-an-expression-language-for-data-mapping-between-steps">41. An Expression Language for Data Mapping Between Steps</h2>
+<p>The syntax deliberately stays small: a dotted path inside <code>{{ }}</code>, rooted at either <code>trigger</code> (the run's original input) or <code>steps.&lt;stepId&gt;.output</code> (a previously-executed step's result):</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>{{trigger.customerId}}
+{{steps.fetchCustomer.output.email}}
+{{steps.checkInventory.output.items[0].sku}}
+</code></pre></div>
+<p>This is the same "small, purpose-built expression grammar, not a general-purpose scripting language" decision the <a href="TinyDB Query Engine and SQL Parser — Step-by-Step Implementation Guide.md">TinyDB Query Engine guide's <code>Expression</code>/<code>ExpressionEvaluator</code></a> makes for SQL <code>WHERE</code> clauses — embedding a full scripting language here would be a substantial security surface (arbitrary code referencing arbitrary context data) for a feature that only ever needs to <em>read</em> a value out of a nested map.</p>
+<hr>
+<h2 id="42-implementing-a-simple-expression-evaluator">42. Implementing a Simple Expression Evaluator</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class ExpressionEvaluator {
+
+    private static final Pattern PLACEHOLDER = Pattern.compile(&quot;\\{\\{\\s*([^}]+?)\\s*\\}\\}&quot;);
+
+    public String resolveTemplate(String template, Map&lt;String, Object&gt; context) {
+        Matcher matcher = PLACEHOLDER.matcher(template);
+        StringBuilder result = new StringBuilder();
+        int lastEnd = 0;
+        while (matcher.find()) {
+            result.append(template, lastEnd, matcher.start());
+            Object resolved = resolvePath(matcher.group(1), context);
+            result.append(resolved == null ? &quot;&quot; : resolved.toString());
+            lastEnd = matcher.end();
+        }
+        result.append(template, lastEnd, template.length());
+        return result.toString();
+    }
+
+    public Object resolvePath(String path, Map&lt;String, Object&gt; context) {
+        Object current = context;
+        for (String segment : path.split(&quot;\\.&quot;)) {
+            String key = segment;
+            Integer index = null;
+            int bracket = segment.indexOf('[');
+            if (bracket != -1) {
+                key = segment.substring(0, bracket);
+                index = Integer.parseInt(segment.substring(bracket + 1, segment.indexOf(']')));
+            }
+            if (!(current instanceof Map&lt;?, ?&gt; map)) return null;
+            current = map.get(key);
+            if (index != null) {
+                if (!(current instanceof List&lt;?&gt; list) || index &gt;= list.size()) return null;
+                current = list.get(index);
+            }
+        }
+        return current;
+    }
+}
+</code></pre></div>
+<p>Every step's <code>inputTemplate</code> (a <code>Map&lt;String, String&gt;</code>, §17) is resolved field-by-field through <code>resolveTemplate</code> immediately before dispatch — <code>ActionStep</code>'s input to <code>execute()</code> (§38) is always the <em>fully resolved</em> map, never a template string, which is precisely why an <code>ActionExecutor</code> implementation never needs to know this expression language exists at all: by the time it sees an input map, every placeholder is already gone.</p>
+<hr>
+<h2 id="43-follow-up-question-11-how-do-you-support-branching-parallel-fan-outfan-in-and-loops">43. Follow-up Question 11 — "How Do You Support Branching, Parallel Fan-Out/Fan-In, and Loops?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Real workflows aren't a straight line. Show me a conditional branch, two steps running in parallel that both feed into a third, and a loop over a list of items."</em></p>
+</blockquote>
+<p>§17 already defined the four step types this needs (<code>ConditionStep</code>, <code>ParallelStep</code>, <code>JoinStep</code>, <code>ForEachStep</code>); §44-§46 build the graph-walking logic that gives each one real, correct semantics.</p>
+<hr>
+<h2 id="44-conditional-branches-and-the-graph-walker">44. Conditional Branches and the Graph Walker</h2>
+<p>A <code>ConditionStep</code>'s <code>expression</code> (§17) is evaluated with §42's evaluator against the run's context, and the <strong>edge's own <code>condition</code></strong> (§17's <code>Edge</code>, e.g. <code>"true"</code>/<code>"false"</code>, or an arbitrary boolean expression) decides which outgoing edge(s) actually fire:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private List&lt;String&gt; nextStepsAfter(StepDefinition step, Map&lt;String, Object&gt; context) {
+    List&lt;String&gt; next = new ArrayList&lt;&gt;();
+    for (Edge edge : step.outgoingEdges()) {
+        if (edge.condition() == null || evaluateBoolean(edge.condition(), context)) {
+            next.add(edge.toStepId());
+        }
+    }
+    return next;
+}
+</code></pre></div>
+<p>A <code>ConditionStep</code> is deliberately <em>not</em> special-cased with its own dispatch branch — it's just a step whose outgoing edges happen to carry conditions, and the exact same <code>nextStepsAfter</code> walk that every other step type already uses handles it for free. This is why <code>ConditionStep</code>'s <code>sealed interface</code> case (§17) has no <code>expression</code>-specific execution logic of its own beyond contributing to which edges are considered — the branching <em>is</em> the edge conditions, not a separate mechanism.</p>
+<hr>
+<h2 id="45-parallel-fan-out-and-fan-in-join-semantics">45. Parallel Fan-Out and Fan-In: Join Semantics</h2>
+<p>A <code>ParallelStep</code> (§17) has multiple outgoing edges with no conditions at all — <code>nextStepsAfter</code> (§44) already fires every one of them, so fan-out needs no new mechanism. Fan-<strong>in</strong> is the genuinely new piece: a <code>JoinStep</code> must wait for <strong>all</strong> of its expected incoming branches before it's allowed to run, not just the first one to finish:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public boolean isReady(JoinStep join, Set&lt;String&gt; succeededStepIds, WorkflowDefinition definition) {
+    long incomingSucceeded = definition.stepsById().values().stream()
+            .flatMap(s -&gt; s.outgoingEdges().stream())
+            .filter(edge -&gt; edge.toStepId().equals(join.id()))
+            .map(Edge::fromStepId)
+            .filter(succeededStepIds::contains)
+            .count();
+    return incomingSucceeded &gt;= join.expectedIncomingCount(); // §17 -- declared explicitly, not inferred
+}
+</code></pre></div>
+<p>Declaring <code>expectedIncomingCount</code> explicitly on the <code>JoinStep</code> (§17), rather than inferring it by counting incoming edges in the graph, matters for one specific case: a <code>ParallelStep</code> whose branches include a <code>ConditionStep</code> might legitimately have fewer than all branches actually complete (one branch's condition was false, so it never even started) — an explicit expected count, set correctly at design time, is what lets a join distinguish "waiting on a branch that's still running" from "this branch was never going to run at all," which a pure edge-count would get wrong.</p>
+<hr>
+<h2 id="46-the-for-each-loop-step-iterating-over-a-collection">46. The For-Each Loop Step: Iterating Over a Collection</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record ForEachStepExecution(String stepId, List&lt;Object&gt; items, int nextIndex) { }
+
+private List&lt;Map&lt;String, Object&gt;&gt; executeForEach(ForEachStep step, Map&lt;String, Object&gt; context) {
+    Object rawCollection = expressionEvaluator.resolvePath(step.collectionExpression(), context); // §42
+    List&lt;?&gt; items = (rawCollection instanceof List&lt;?&gt; list) ? list : List.of();
+
+    List&lt;Map&lt;String, Object&gt;&gt; results = new ArrayList&lt;&gt;();
+    for (Object item : items) {
+        Map&lt;String, Object&gt; iterationContext = new HashMap&lt;&gt;(context);
+        iterationContext.put(&quot;item&quot;, item); // §17's step.body() references {{item}}, resolved per iteration
+        results.add(executeStep(step.body(), iterationContext)); // recursive -- body is itself a StepDefinition
+    }
+    return results;
+}
+</code></pre></div>
+<p>Making <code>ForEachStep.body()</code> (§17) itself a <code>StepDefinition</code>, rather than a special-cased list of actions, means the loop body can be <em>any</em> step type this engine supports — including another <code>ActionStep</code>, a nested <code>ConditionStep</code>, or even another <code>ForEachStep</code> — for free, purely because <code>executeStep</code> is written generically over the <code>sealed interface</code> rather than assuming what kind of step it's given.</p>
+<hr>
+<h2 id="47-follow-up-question-12-external-calls-are-flaky-how-do-you-retry-without-duplicating-side-effects">47. Follow-up Question 12 — "External Calls Are Flaky. How Do You Retry Without Duplicating Side Effects?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A Slack call times out. Was the message actually sent, or not? If you retry blindly, what stops a user from getting the same Slack message three times?"</em></p>
+</blockquote>
+<p>Two genuinely separate concerns, each needing its own mechanism: <strong>when and how often to retry</strong> (§48-§49 — backoff), and <strong>making a retried call safe even if the previous attempt actually succeeded despite looking like it failed</strong> (§50 — idempotency keys). Confusing these two, or building only the first, is the single most common mistake in a homegrown workflow engine (§67).</p>
+<hr>
+<h2 id="48-retry-policy-exponential-backoff-with-jitter">48. Retry Policy: Exponential Backoff With Jitter</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface RetryPolicy {
+    boolean shouldRetry(int attemptNumber, Exception lastError);
+    Duration delayBefore(int attemptNumber);
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class ExponentialBackoffRetryPolicy implements RetryPolicy {
+
+    private final int maxAttempts;
+    private final Duration baseDelay;
+    private final Duration maxDelay;
+
+    public ExponentialBackoffRetryPolicy(int maxAttempts, Duration baseDelay, Duration maxDelay) {
+        this.maxAttempts = maxAttempts;
+        this.baseDelay = baseDelay;
+        this.maxDelay = maxDelay;
+    }
+
+    @Override
+    public boolean shouldRetry(int attemptNumber, Exception lastError) {
+        if (attemptNumber &gt;= maxAttempts) return false;
+        return lastError instanceof ActionExecutionException; // §38 -- only errors explicitly marked retryable
+    }
+
+    @Override
+    public Duration delayBefore(int attemptNumber) {
+        long exponentialMillis = baseDelay.toMillis() * (1L &lt;&lt; Math.min(attemptNumber, 20)); // cap the shift, avoid overflow
+        long cappedMillis = Math.min(exponentialMillis, maxDelay.toMillis());
+        long jitterMillis = ThreadLocalRandom.current().nextLong(cappedMillis / 2, cappedMillis + 1);
+        return Duration.ofMillis(jitterMillis);
+    }
+}
+</code></pre></div>
+<p><strong>Jitter</strong> — randomizing within a range rather than always waiting the exact computed delay — exists for a specific, well-documented reason: without it, a burst of steps that all failed at the same instant (a downstream outage) would all retry at exactly the same future instant too, turning one outage into a synchronized "thundering herd" the moment the downstream recovers. Randomizing spreads that retry burst out instead of concentrating it.</p>
+<hr>
+<h2 id="49-applying-the-retry-policy-where-it-plugs-into-the-engine">49. Applying the Retry Policy: Where It Plugs Into the Engine</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private void dispatchWithRetry(StepDefinition step, StepExecution execution, Map&lt;String, Object&gt; context, RetryPolicy retryPolicy) {
+    try {
+        execution.startAttempt(resolvedInput(step, context)); // §33's PENDING/FAILED -&gt; RUNNING
+        Map&lt;String, Object&gt; output = registry.resolve(connectorTypeOf(step))
+                .execute(execution.input(), IdempotencyKey.forAttempt(execution)); // §50
+        execution.succeed(output); // §33's RUNNING -&gt; SUCCEEDED
+        eventLog.append(new StepSucceeded(runId, Instant.now(), step.id(), execution.attempt(), output));
+    } catch (ActionExecutionException e) {
+        execution.fail(e.getMessage()); // §33's RUNNING -&gt; FAILED
+        eventLog.append(new StepFailed(runId, Instant.now(), step.id(), execution.attempt(), e.getMessage()));
+        if (retryPolicy.shouldRetry(execution.attempt(), e)) {
+            scheduleRetryAfter(retryPolicy.delayBefore(execution.attempt()), () -&gt; dispatchWithRetry(step, execution, context, retryPolicy));
+        } else {
+            sendToDeadLetterQueue(step, execution, runId); // §51 -- permanently failed, needs a human
+        }
+    }
+}
+</code></pre></div>
+<p>Every retry attempt is its own <code>StepStarted</code>/<code>StepFailed</code> pair in the event log (§22), each carrying its own <code>attempt</code> number — a run's full history shows exactly how many times a step was tried and why each attempt failed, which is precisely the debugging visibility §7's "run history" requirement asks for.</p>
+<hr>
+<h2 id="50-idempotency-keys-for-side-effecting-steps">50. Idempotency Keys for Side-Effecting Steps</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record IdempotencyKey(String value) {
+    public static IdempotencyKey forAttempt(StepExecution execution) {
+        // Deterministic and STABLE across a re-dispatch of the SAME logical attempt (e.g. after a crash and
+        // resume, §23) -- runId+stepId+attempt is unique per real-world side effect this engine intends to
+        // cause, and identical every time that exact attempt is (re-)dispatched, which is exactly what lets
+        // a downstream connector (Stripe, an email provider, this guide's own §38 executors) recognize &quot;I've
+        // already done this&quot; and return the ORIGINAL result instead of performing the action a second time.
+        return new IdempotencyKey(execution.runId() + &quot;:&quot; + execution.stepId() + &quot;:&quot; + execution.attempt());
+    }
+}
+</code></pre></div>
+<p>This is the honest answer to §6's "exactly-once execution" question: MiniFlow itself only ever guarantees <strong>at-least-once dispatch</strong> of a step (a crash can always cause a re-dispatch, §23) — true exactly-once execution of an arbitrary external side effect isn't something an orchestrator can unilaterally guarantee, because it doesn't control the downstream system. What it <em>can</em> guarantee, and does, is that every dispatch of the same logical attempt carries the same idempotency key, so any downstream connector that honors it (as §38's <code>HttpActionExecutor</code>/<code>EmailActionExecutor</code> both do, passing it straight through) turns "retried at-least-once" into "effectively exactly-once" from the user's point of view — the same distinction a payment provider's own idempotency-key API is built around.</p>
+<hr>
+<h2 id="51-the-dead-letter-queue-for-permanently-failed-steps">51. The Dead-Letter Queue for Permanently Failed Steps</h2>
+<p>A step that exhausts <code>RetryPolicy.shouldRetry</code> (§48) is not silently dropped — its <code>StepExecution</code> (still <code>FAILED</code>, §33) and its run are routed to a <strong>dead-letter queue</strong>: a durable, queryable list of "this needs a human" cases, surfaced in the run-history UI (§7) with the full failure history already captured in the event log (§22, every failed attempt's error message). A human can then either fix the underlying issue and trigger a manual retry (re-entering <code>dispatchWithRetry</code>, §49, with a fresh attempt count), or explicitly mark the run as permanently failed, which is exactly the trigger for §55's compensation logic if earlier steps in that same run already had real side effects.</p>
+<hr>
+<h2 id="52-follow-up-question-13-an-approval-step-might-wait-three-days-how-do-you-not-just-block-a-thread">52. Follow-up Question 13 — "An Approval Step Might Wait Three Days. How Do You Not Just Block a Thread?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A human needs to click 'approve' before the workflow continues, and that might take five minutes or five days. Your worker pools are bounded — what happens to the thread that's 'waiting' for that approval?"</em></p>
+</blockquote>
+<p>Nothing waits. §33 already gave <code>StepStatus</code> a <code>WAITING</code> state for exactly this; §53 shows precisely how a step <em>enters</em> <code>WAITING</code> (and gives up its thread entirely) and how an external callback, arriving whenever it arrives, <em>resumes</em> the run without anything having stayed blocked in the meantime.</p>
+<hr>
+<h2 id="53-suspend-and-resume-the-waiting-state-and-external-callbacks">53. Suspend and Resume: The WAITING State and External Callbacks</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private void dispatchApprovalStep(ApprovalStep step, StepExecution execution, String runId) {
+    execution.startAttempt(Map.of());
+    execution.transitionToWaiting(); // §33 -- RUNNING -&gt; WAITING; the thread returns immediately, holds nothing
+    eventLog.append(new StepStarted(runId, Instant.now(), step.id(), execution.attempt(), Map.of()));
+    notifyApprovers(step.approverGroup(), runId, step.id()); // an email/Slack message with a link to §14's resume endpoint
+    // No thread, connection, or lock is held past this point. The run is durably parked at WAITING
+    // in the event log -- exactly the same &quot;state lives in the log, not in memory&quot; property §22 built
+    // for crash recovery, now reused for a completely different reason: a wait that can outlast any
+    // single process's uptime by orders of magnitude.
+}
+
+/** Called by POST /runs/{runId}/steps/{stepId}/resume (§14), whenever a human actually responds. */
+public void resumeApprovalStep(String runId, String stepId, Map&lt;String, Object&gt; approvalOutcome) {
+    eventLog.append(new StepSucceeded(runId, Instant.now(), stepId, currentAttempt(runId, stepId), approvalOutcome));
+    resume(runId); // §23 -- the IDENTICAL replay-and-continue call crash recovery already uses
+}
+</code></pre></div>
+<p>The reuse in that last line is the entire design insight this section exists to make explicit: <strong>resuming after a crash and resuming after a three-day human approval are the same operation</strong> — both are "append the fact that just became known, then replay the log and continue from wherever it now says to continue." Building <code>resume(runId)</code> once, in §23, and calling it from two different triggers (a process restart, an HTTP callback) is a direct, deliberate consequence of never treating in-memory state as authoritative in the first place.</p>
+<hr>
+<h2 id="54-follow-up-question-14-step-3-failed-after-steps-1-and-2-already-had-real-side-effects-now-what">54. Follow-up Question 14 — "Step 3 Failed After Steps 1 and 2 Already Had Real Side Effects. Now What?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Step 1 charged a customer's card. Step 2 created a shipment. Step 3 — reserving warehouse inventory — fails permanently. You can't just mark the run 'failed' and walk away; there's a charge and a shipment that shouldn't exist anymore. How do you design for that?"</em></p>
+</blockquote>
+<p>This is the hardest, most consequential follow-up in the entire workflow-automation domain, and the honest answer is: <strong>you cannot undo an external side effect by rolling back a database transaction, because the side effect already happened outside your database.</strong> The standard technique is the <strong>Saga pattern</strong> (§55) — every step that has a real-world effect also declares how to <em>compensate</em> for it, and a permanently-failed run walks its already-succeeded steps <strong>in reverse</strong>, calling each one's compensation.</p>
+<hr>
+<h2 id="55-the-saga-pattern-compensating-actions">55. The Saga Pattern: Compensating Actions</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface CompensableStep {
+    Map&lt;String, Object&gt; compensate(Map&lt;String, Object&gt; originalOutput, Map&lt;String, Object&gt; originalInput) throws ActionExecutionException;
+}
+
+// An ActionExecutor MAY additionally implement CompensableStep -- not every action has something
+// meaningful to compensate (an idempotent read has nothing to undo), but a charge or a shipment does.
+public final class ChargeCardActionExecutor implements ActionExecutor, CompensableStep {
+
+    private final PaymentGatewayClient gateway;
+
+    public ChargeCardActionExecutor(PaymentGatewayClient gateway) { this.gateway = gateway; }
+
+    @Override public String connectorType() { return &quot;charge-card&quot;; }
+
+    @Override
+    public Map&lt;String, Object&gt; execute(Map&lt;String, Object&gt; input, IdempotencyKey idempotencyKey) throws ActionExecutionException {
+        String chargeId = gateway.charge((String) input.get(&quot;customerId&quot;), (long) input.get(&quot;amountCents&quot;), idempotencyKey.value());
+        return Map.of(&quot;chargeId&quot;, chargeId);
+    }
+
+    @Override
+    public Map&lt;String, Object&gt; compensate(Map&lt;String, Object&gt; originalOutput, Map&lt;String, Object&gt; originalInput) throws ActionExecutionException {
+        gateway.refund((String) originalOutput.get(&quot;chargeId&quot;)); // the natural inverse of &quot;charge&quot;
+        return Map.of(&quot;refunded&quot;, true);
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>private void runCompensation(WorkflowRun run, WorkflowDefinition definition) {
+    List&lt;StepExecution&gt; succeededInOrder = run.allStepExecutions().stream()
+            .filter(e -&gt; e.status() == StepStatus.SUCCEEDED)
+            .toList(); // already in execution order, §30's LinkedHashMap iteration order
+
+    for (int i = succeededInOrder.size() - 1; i &gt;= 0; i--) { // REVERSE order -- undo the most recent effect first
+        StepExecution execution = succeededInOrder.get(i);
+        StepDefinition step = definition.stepsById().get(execution.stepId());
+        ActionExecutor executor = registry.resolve(connectorTypeOf(step));
+        if (executor instanceof CompensableStep compensable) {
+            try {
+                Map&lt;String, Object&gt; compensationResult = compensable.compensate(execution.output(), execution.input());
+                eventLog.append(new StepSucceeded(run.runId(), Instant.now(), execution.stepId() + &quot;:compensation&quot;, 1, compensationResult));
+            } catch (ActionExecutionException e) {
+                // compensation itself failing is its own dead-letter case (§51) -- surfaced to a human, never swallowed
+                eventLog.append(new StepFailed(run.runId(), Instant.now(), execution.stepId() + &quot;:compensation&quot;, 1, e.getMessage()));
+            }
+        }
+    }
+}
+</code></pre></div>
+<p>Walking already-completed work <strong>in reverse order</strong>, undoing the most recent effect first, is precisely the same shape as the <a href="TinyDB Storage Engine — Step-by-Step Implementation Guide.md">TinyDB Storage Engine guide's Undo phase</a> walking a transaction's WAL records backward — a database transaction and a Saga are solving the same underlying problem (atomicity across a sequence of effects) at two different layers: one where the "effects" are page mutations with a beforeImage to restore to, the other where the effects are external systems with a domain-specific inverse operation (refund undoes charge; cancel-shipment undoes create-shipment) instead of a byte-level undo.</p>
+<hr>
+<h2 id="56-implementing-a-compensating-steps-trigger-point">56. Implementing a Compensating Step's Trigger Point</h2>
+<p>Compensation is invoked from exactly one place: the moment a run's status is about to become <code>FAILED</code> (§34) after a step permanently exhausts retries and lands in the dead-letter queue (§51) — never automatically for a run a human hasn't yet decided is unrecoverable, since some dead-lettered runs <em>are</em> fixed and manually retried forward (§51) rather than rolled back. Whether compensation runs automatically or requires an explicit human "roll this back" action is itself a product decision worth stating explicitly in an interview — automatic compensation is more convenient but riskier (a compensation bug now runs unattended on every permanent failure), and a reasonable, defensible default is: automatic for steps explicitly marked safe to auto-compensate, human-gated for everything else.</p>
+<hr>
+<h2 id="57-follow-up-question-15-a-definition-changes-while-thousands-of-runs-are-still-in-flight-what-happens">57. Follow-up Question 15 — "A Definition Changes While Thousands of Runs Are Still In Flight. What Happens?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A user edits their workflow — adds a step, removes another — and publishes a new version. Ten thousand runs started under the OLD version are still executing. Do they suddenly see the new graph mid-run?"</em></p>
+</blockquote>
+<p>They must not — and the reason is exactly what §22-§23 already built: a run's correctness depends on replaying its event log against the <em>same</em> definition it started with. §58 makes the pinning this requires explicit.</p>
+<hr>
+<h2 id="58-workflow-versioning-sticky-versions-for-in-flight-runs">58. Workflow Versioning: Sticky Versions for In-Flight Runs</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class WorkflowDefinitionRegistry {
+
+    private final Map&lt;String, NavigableMap&lt;Integer, WorkflowDefinition&gt;&gt; versionsByWorkflowId = new ConcurrentHashMap&lt;&gt;();
+
+    public void publish(WorkflowDefinition definition) {
+        versionsByWorkflowId
+                .computeIfAbsent(definition.workflowId(), id -&gt; new ConcurrentSkipListMap&lt;&gt;())
+                .put(definition.version(), definition);
+    }
+
+    /** The ONLY lookup a running WorkflowRun is ever allowed to use -- always an EXACT, pinned version. */
+    public WorkflowDefinition resolve(String workflowId, int version) {
+        WorkflowDefinition definition = versionsByWorkflowId.getOrDefault(workflowId, Collections.emptyNavigableMap()).get(version);
+        if (definition == null) {
+            throw new IllegalStateException(&quot;Workflow &quot; + workflowId + &quot; version &quot; + version + &quot; not found -- versions are never deleted, only superseded&quot;);
+        }
+        return definition;
+    }
+
+    /** The lookup a NEW trigger fire uses -- always the latest published version. */
+    public WorkflowDefinition resolveLatest(String workflowId) {
+        var versions = versionsByWorkflowId.get(workflowId);
+        if (versions == null || versions.isEmpty()) throw new IllegalStateException(&quot;No published version for &quot; + workflowId);
+        return versions.lastEntry().getValue();
+    }
+}
+</code></pre></div>
+<p><code>WorkflowRun.definitionVersion()</code> (§30) is set exactly once, from <code>RunStarted.definitionVersion()</code> (§22), at the moment a run begins — and <code>resume()</code> (§23) always calls <code>resolve(workflowId, started.definitionVersion())</code>, the pinned-exact-version lookup, never <code>resolveLatest</code>. A version is <strong>never deleted, only superseded</strong> by a newer one, precisely so that a run pinned to version 3 can still resolve it correctly on day 40, long after version 7 has become the default for brand-new triggers. This is the identical "old data must remain readable after the reading code evolves" discipline the <a href="TinyDB Storage Engine — Step-by-Step Implementation Guide.md">TinyDB Storage Engine guide's page header format</a> states for its own on-disk contract, applied here to a workflow's DAG shape instead of a page's byte layout.</p>
+<hr>
+<h2 id="59-follow-up-question-16-youre-at-millions-of-runs-a-day-thousands-of-tenants-what-breaks-first">59. Follow-up Question 16 — "You're At Millions of Runs a Day, Thousands of Tenants. What Breaks First?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Single orchestrator process, single event log, single set of worker pools. Where does this fall over first as load grows, and what's the standard fix?"</em></p>
+</blockquote>
+<p>Three distinct bottlenecks, each with its own standard answer: the <strong>orchestration engine itself</strong> running out of capacity to walk every in-flight run's graph (§60 — partition by run ID); <strong>one tenant's traffic burst starving every other tenant</strong> sharing the same connector worker pool (§61 — per-tenant rate limiting and backpressure); and <strong>worker pool sizing</strong> not adapting to load at all (§62 — queue-depth-driven autoscaling).</p>
+<hr>
+<h2 id="60-partitioning-the-execution-engine-by-tenant-and-run-id">60. Partitioning the Execution Engine by Tenant and Run ID</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class RunPartitioner {
+
+    private final int partitionCount;
+
+    public RunPartitioner(int partitionCount) { this.partitionCount = partitionCount; }
+
+    public int partitionFor(String runId) {
+        // Consistent hashing, the same technique the File Storage guide's object-store design uses for
+        // sharding objects across nodes -- here sharding RUNS across orchestrator instances instead.
+        return Math.floorMod(runId.hashCode(), partitionCount);
+    }
+}
+</code></pre></div>
+<p>Every orchestrator instance is responsible for exactly the runs whose <code>partitionFor(runId)</code> matches its own assigned partition — a run's entire event log, and every event ever appended to it, only ever needs to be read by <em>one</em> orchestrator instance at a time, which is what makes horizontal scaling of the orchestration tier as simple as adding more instances and rebalancing partitions, the identical scaling story <a href="Design Your Own File Storage System — Block, File, Object Storage, and RAID From Scratch.md">the File Storage guide's consistent-hashing section</a> already tells for object storage nodes.</p>
+<hr>
+<h2 id="61-backpressure-and-rate-limiting-per-connector-per-tenant">61. Backpressure and Rate Limiting Per Connector, Per Tenant</h2>
+<p>A shared connector worker pool (§39) protects against one connector <em>type</em> starving another, but not against one <strong>tenant</strong> starving every other tenant on the <em>same</em> connector — a tenant blasting ten thousand Slack messages a minute would otherwise consume the entire "slack" pool's capacity. The fix is a per-<code>(tenantId, connectorType)</code> token-bucket rate limiter checked <em>before</em> a step is even handed to the worker pool:</p>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TokenBucketRateLimiter {
+
+    private final Map&lt;String, AtomicLong&gt; tokensByKey = new ConcurrentHashMap&lt;&gt;();
+    private final long capacity;
+    private final long refillPerSecond;
+
+    public TokenBucketRateLimiter(long capacity, long refillPerSecond) {
+        this.capacity = capacity;
+        this.refillPerSecond = refillPerSecond;
+    }
+
+    public boolean tryAcquire(String tenantId, String connectorType) {
+        String key = tenantId + &quot;:&quot; + connectorType;
+        AtomicLong tokens = tokensByKey.computeIfAbsent(key, k -&gt; new AtomicLong(capacity));
+        long current = tokens.get();
+        if (current &lt;= 0) return false;
+        return tokens.compareAndSet(current, current - 1); // CAS, not a plain decrement -- the same check-then-act
+                                                             // race the ConcurrentHashMap guide's bucket locking avoids,
+                                                             // solved here with a lock-free retry instead of a lock
+    }
+
+    // A background refill task adds refillPerSecond tokens per key, once per second, capped at `capacity`.
+}
+</code></pre></div>
+<p>A step whose <code>tryAcquire</code> returns <code>false</code> is not failed — it's simply <strong>re-queued with a short delay</strong> (reusing §49's own scheduled-retry mechanism), which is what turns "one noisy tenant" into "one noisy tenant's steps queue up a little longer," never "every tenant's steps queue up."</p>
+<hr>
+<h2 id="62-worker-autoscaling-and-queue-depth-driven-scheduling">62. Worker Autoscaling and Queue-Depth-Driven Scheduling</h2>
+<p>Each connector's worker pool (§39) exposes its current queue depth as a metric; an autoscaler watches that metric per connector type and adjusts <code>corePoolSize</code> within the pool's configured <code>[min, max]</code> bounds — a sustained deep queue on the "http" pool scales <em>that</em> pool up independently of the "email" pool sitting comfortably idle. This is the same core-vs-max distinction the <a href="Build Your Own Executor Framework From Scratch — A Java Concurrency Step-by-Step Guide.md">Executor Framework guide</a> builds from scratch, driven here by an external control loop instead of <code>ThreadPoolExecutor</code>'s own built-in queue-then-grow-to-max behavior, because a workflow engine additionally wants that scaling decision visible and tunable per connector, not just automatic and opaque.</p>
+<hr>
+<h2 id="63-full-worked-example-a-complete-run-end-to-end">63. Full Worked Example: A Complete Run, End to End</h2>
+<p>A "new customer onboarding" workflow: webhook trigger on signup -&gt; charge a setup fee -&gt; parallel(send welcome email, provision account) -&gt; join -&gt; approval (manager sign-off for enterprise accounts) -&gt; create shipment (welcome kit).</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1.  POST /webhooks/signup-trigger  --  HMAC verified (§27), delivery ID not seen before (dedup, §27)
+2.  RunStarted appended (§22): runId=r1, workflowId=onboarding, definitionVersion=4 (pinned, §58)
+3.  OrchestrationEngine.resume(r1) (§23) -- fresh run, replays nothing, starts at &quot;chargeSetupFee&quot;
+4.  dispatchWithRetry(chargeSetupFee) (§49) -- ChargeCardActionExecutor.execute(), idempotencyKey=r1:chargeSetupFee:1
+    -&gt; StepSucceeded appended, output={chargeId: &quot;ch_abc&quot;}
+5.  nextStepsAfter (§44) -&gt; ParallelStep fans out to [sendWelcomeEmail, provisionAccount] (§45)
+6.  Both dispatched to their own worker pools (§39) -- sendWelcomeEmail succeeds; provisionAccount succeeds
+7.  JoinStep.isReady() (§45) -- expectedIncomingCount=2, both succeeded -&gt; ready, dispatched
+8.  ApprovalStep dispatched (§53) -- transitions to WAITING, notifyApprovers() sent, thread released immediately
+    -- ... two days pass; NOTHING is polling, blocked, or holding a connection for those two days ...
+9.  POST /runs/r1/steps/approval/resume {&quot;approved&quot;: true}  (§14, §53)
+    -&gt; StepSucceeded appended -&gt; resume(r1) called -- the SAME method step 3 called
+10. nextStepsAfter -&gt; createShipment dispatched -&gt; StepSucceeded -&gt; RunCompleted appended (§22)
+</code></pre></div>
+<p>Every numbered line traces to a section this guide built real code for — including the two-day gap in step 8, which is exactly the point: nothing in this trace requires a thread, a lock, or a connection to survive that gap, only a durable log entry and a webhook that arrives whenever it arrives.</p>
+<hr>
+<h2 id="64-final-architecture-diagram">64. Final Architecture Diagram</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                         Definition Service (§13-§18)         Trigger Service (§25-§27)
+                       WorkflowDefinition, versioned (§58)    Webhook / Cron / Event / Manual
+                                    |                                    |
+                                    +-------------------+-----------------+
+                                                         v
+                                          Orchestration Engine (§20, §23, §44-§46)
+                                    reads/appends the per-run Event Log (§22), partitioned by
+                                    runId across instances (§60), pins each run to its definition version
+                                                         |
+                          +------------------------------+------------------------------+
+                          v                              v                              v
+                Worker Pool (&quot;http&quot;)           Worker Pool (&quot;email&quot;)          Worker Pool (&quot;custom&quot;)
+                rate-limited per tenant (§61)   autoscaled by queue depth (§62)   sandboxed (§67)
+                          |                              |                              |
+                          +------------------------------+------------------------------+
+                                                         v
+                                         ActionExecutorRegistry (§37) --&gt; External systems
+                                                         |
+                                    RetryPolicy (§48-§49) + IdempotencyKey (§50) on every call
+                                                         |
+                                On permanent failure: Dead-Letter Queue (§51) --&gt; Saga Compensation (§55-§56)
+</code></pre></div>
+<hr>
+<h2 id="65-design-patterns-used-throughout-this-guide">65. Design Patterns Used Throughout This Guide</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Where</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>State</strong></td>
+<td><code>StepStatus</code>/<code>RunStatus</code> (§33-§34)</td>
+<td>Legal transitions live in one place, enforced polymorphically, never a scattered <code>if/else</code> on a raw enum.</td>
+</tr>
+<tr>
+<td><strong>Strategy</strong></td>
+<td><code>ActionExecutor</code> (§37)</td>
+<td>Each connector type is an interchangeable implementation, selected at runtime by <code>connectorType()</code>.</td>
+</tr>
+<tr>
+<td><strong>Command</strong></td>
+<td><code>WorkflowEvent</code> (§22)</td>
+<td>Every event is a small, self-contained, replayable record of "what happened" — exactly what makes replay (§23) possible.</td>
+</tr>
+<tr>
+<td><strong>Event Sourcing</strong></td>
+<td>The event log as the source of truth (§22-§23)</td>
+<td>Current state is always <em>derived</em>, never independently stored, which is what unifies crash recovery and human-approval resume into one mechanism (§53).</td>
+</tr>
+<tr>
+<td><strong>Saga</strong></td>
+<td><code>CompensableStep</code> (§55)</td>
+<td>Atomicity across real-world side effects, achieved with domain-specific inverse operations instead of a database rollback.</td>
+</tr>
+<tr>
+<td><strong>Composite (conceptually)</strong></td>
+<td><code>SubWorkflowStep</code>, <code>ForEachStep.body()</code> (§17, §46)</td>
+<td>A workflow step can itself contain another step (or another whole workflow), executed by the same generic machinery as any leaf step.</td>
+</tr>
+<tr>
+<td><strong>Facade</strong></td>
+<td><code>OrchestrationEngine</code> (§23)</td>
+<td>Triggers, resumes, and retries all funnel through one entry point that hides the event log, the registry, and the definition registry from every caller.</td>
+</tr>
+<tr>
+<td><strong>Observer (conceptually)</strong></td>
+<td>The internal event-bus trigger (§25)</td>
+<td>A workflow run starting in reaction to "something else happened" is the same publish/listen shape <a href="Design a Project Management Tool Like JIRA — HLD, LLD, and Class Design From Scratch.md">the JIRA-style guide's Observer-based notifications</a> already builds.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="66-solid-principles-applied">66. SOLID Principles Applied</h2>
+<ul>
+<li><strong>Single Responsibility</strong>: <code>WorkflowValidator</code> only validates; <code>EventLog</code> only appends and reads; <code>ExpressionEvaluator</code> only resolves paths against a context. None of them know how to dispatch a step or retry a failure.</li>
+<li><strong>Open/Closed</strong>: adding a new connector (§37) or a new <code>RetryPolicy</code> implementation requires zero changes to <code>OrchestrationEngine</code> — both are consumed purely through their interfaces.</li>
+<li><strong>Liskov Substitution</strong>: any <code>ActionExecutor</code> is fully substitutable wherever the interface type is used (§37's registry) — <code>HttpActionExecutor</code> and <code>EmailActionExecutor</code> (§38) are interchangeable from the orchestrator's point of view, differing only in behavior, never in contract.</li>
+<li><strong>Interface Segregation</strong>: <code>ActionExecutor</code> exposes exactly two methods; <code>CompensableStep</code> (§55) is a <em>separate</em>, optional interface an executor implements only if it actually has something to compensate — an executor with nothing to undo (a pure read) is never forced to implement a meaningless <code>compensate()</code>.</li>
+<li><strong>Dependency Inversion</strong>: <code>OrchestrationEngine</code> (§23) depends on <code>EventLog</code>, <code>ActionExecutorRegistry</code>, and <code>WorkflowDefinitionRegistry</code> — all interfaces/registries injected through its constructor — never on <code>FileEventLog</code> or any other concrete storage implementation directly.</li>
+</ul>
+<hr>
+<h2 id="67-common-mistakes-when-building-this-yourself">67. Common Mistakes When Building This Yourself</h2>
+<ul>
+<li><strong>Treating in-memory execution state as authoritative</strong> (§21) — the single most common design flaw; if a crash can lose progress that was never durably logged, every other guarantee this guide makes collapses.</li>
+<li><strong>Retrying without an idempotency key</strong> (§50) — a retry that reaches a downstream system successfully both times produces a duplicate side effect, silently, in exactly the cases that matter most (payments, shipments).</li>
+<li><strong>Blocking a thread for a human-approval step</strong> (§52-§53) — holding a worker-pool thread, a database connection, or a lock for however long a human takes to respond exhausts a bounded resource for no benefit; the <code>WAITING</code> state exists specifically so nothing is held.</li>
+<li><strong>A shared worker pool across every connector type or every tenant</strong> (§39, §61) — one slow integration, or one noisy tenant, silently starves every unrelated one sharing the same pool.</li>
+<li><strong>Compensating in forward order instead of reverse</strong> (§55) — undoing effects in the order they happened, rather than the reverse, can attempt to compensate a step whose <em>own</em> prerequisite (an earlier step) hasn't been undone yet, when the compensation logic assumed it would be.</li>
+<li><strong>Letting an in-flight run silently pick up a newly-published definition version</strong> (§57-§58) — a run's graph shifting underneath it mid-execution is a correctness bug users experience as "the workflow ran differently for no reason," often days after the version change that actually caused it.</li>
+<li><strong>A workflow definition that permits a cycle</strong> (§18) — without validating this at publish time, a mistake in a condition's edges can produce a run that loops forever, discovered only by an on-call engineer staring at a suspiciously long-running run.</li>
+</ul>
+<hr>
+<h2 id="68-testing-strategy">68. Testing Strategy</h2>
+<ul>
+<li><strong><code>WorkflowValidator</code></strong> (§18): a definition with a genuine cycle is rejected; a definition with an unreachable step is rejected; a definition with a dangling edge (pointing at a non-existent step) is rejected; a valid, non-trivial DAG (including one with a <code>JoinStep</code>) passes cleanly.</li>
+<li><strong><code>OrchestrationEngine.resume</code></strong> (§23): replaying a log containing only <code>RunStarted</code> + one <code>StepSucceeded</code> correctly resumes from the step <em>after</em> the succeeded one, never re-dispatching the succeeded one; replaying a log ending in <code>RunCompleted</code> is a no-op.</li>
+<li><strong>Retry and idempotency</strong> (§48-§50): a step that fails twice then succeeds ends with exactly one <code>StepSucceeded</code> event and the correct <code>attempt</code> count; the idempotency key passed to the connector is identical across all attempts of the same logical step execution.</li>
+<li><strong>The Saga path</strong> (§55-§56): a three-step run where step 3 permanently fails results in steps 1 and 2's <code>compensate()</code> being called, in strict reverse order, with the original step's own output as input to its compensation.</li>
+<li><strong>Approval suspend/resume</strong> (§52-§53): a run reaches <code>WAITING</code> and genuinely returns control (no thread, connection, or lock held); calling the resume endpoint after the process has <em>restarted</em> (simulating exactly the crash-recovery machinery, §23) still correctly continues the run.</li>
+<li><strong>Versioning</strong> (§57-§58): a run started under version 3 continues to resolve version 3 even after versions 4 and 5 are published mid-run; a brand-new trigger fire always resolves the latest version.</li>
+</ul>
+<hr>
+<h2 id="69-suggested-future-enhancements">69. Suggested Future Enhancements</h2>
+<ul>
+<li><strong>A visual workflow builder</strong> compiling directly to the §17 DSL, with <code>WorkflowValidator</code> (§18) run live as the user edits, surfacing a cycle or an unreachable step immediately rather than at publish time.</li>
+<li><strong>A richer expression language</strong> — comparison/boolean operators, simple string functions — while still deliberately stopping short of a general-purpose scripting language, for the same security-surface reason §41 gives.</li>
+<li><strong>A sandboxed custom-code step</strong> (arbitrary user-supplied logic) — genuinely useful, and genuinely dangerous without strict resource limits, network egress controls, and a dedicated, isolated worker pool (already named as a placeholder in §39's diagram).</li>
+<li><strong>Fuzzy, non-quiescent checkpointing of the event log</strong> for very long-running workflows with thousands of events, mirroring the exact tradeoff the <a href="TinyDB Storage Engine — Step-by-Step Implementation Guide.md">TinyDB Storage Engine guide's checkpoint section</a> names for its own recovery-time bound.</li>
+<li><strong>A workflow-of-workflows dependency graph</strong>, so publishing a breaking change to a sub-workflow (§17's <code>SubWorkflowStep</code>) can warn about every parent workflow that references it, before publishing, not after something downstream breaks.</li>
+<li><strong>Per-tenant SLAs on run completion time</strong>, feeding directly into §62's autoscaling signal so a tenant paying for a faster tier gets prioritized queue placement, not just a bigger pool.</li>
+</ul>
+<hr>
+<h2 id="70-progressive-interview-question-set">70. Progressive Interview Question Set</h2>
+<ol>
+<li>Why must a workflow definition be acyclic, and how do you detect a cycle in a graph that also has shared sub-paths (two branches feeding into one join)?</li>
+<li>Walk through exactly what happens, event by event, when a worker process crashes between two steps.</li>
+<li>Why does redoing a step during crash recovery need to be idempotent, and how does an idempotency key make a <em>downstream connector</em> idempotent too, not just your own engine?</li>
+<li>Explain why a human-approval step doesn't block a thread, and name the one method that both crash recovery and approval-resume both call.</li>
+<li>Why does a <code>JoinStep</code> need an explicitly declared <code>expectedIncomingCount</code> rather than inferring it from the graph?</li>
+<li>What's the difference between retrying a step and compensating a step, and why does a Saga need to walk completed steps in <em>reverse</em> order?</li>
+<li>Why must an in-flight run stay pinned to the workflow definition version it started with, even after a newer version is published?</li>
+<li>What specifically breaks first as this system scales to millions of runs a day, and what's the standard fix for each bottleneck you name?</li>
+<li>Why does adding a new connector type never require modifying <code>OrchestrationEngine</code>, concretely — which interface makes that true?</li>
+<li>If asked to add a "wait until a specific timestamp" step (not tied to any external event), how would you implement it using pieces this guide already built, without introducing a new blocking mechanism?</li>
+</ol>
+<hr>
+<h2 id="71-final-takeaway">71. Final Takeaway</h2>
+<p>A workflow automation system is not, at its core, a scheduling problem or an integrations problem — it is a <strong>durability</strong> problem wearing a graph-execution costume. Every genuinely hard piece of this design — surviving a crash mid-run, resuming a three-day approval without holding a thread, retrying a flaky call without duplicating its side effect, rolling back a partially-completed run — reduces to the same single decision made once, early, in §22: <strong>treat an append-only, durable event log as the only source of truth, and derive everything else from it.</strong> The DAG, the State pattern, the Strategy-based connectors, and the Saga compensation are all real, necessary pieces of engineering — but none of them would be <em>safe</em> pieces of engineering without that one durability decision underneath all of them.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Design a Workflow Automation System — HLD, LLD, and Class Design From Scratch.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

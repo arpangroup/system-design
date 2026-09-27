@@ -1,0 +1,498 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Vending Machine Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chivo+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f2f0eb;
+    --surface: #ffffff;
+    --surface-2: #e8e5dc;
+    --border: #d9d3c3;
+    --text: #201e1a;
+    --text-muted: #6b6457;
+    --accent: #1d4ed8;
+    --accent-soft: rgba(29,78,216,.12);
+    --coin: #b45309;
+    --coin-soft: rgba(180,83,9,.14);
+    --good: #15803d;
+    --good-soft: rgba(21,128,61,.12);
+    --bad: #b91c1c;
+    --bad-soft: rgba(185,28,28,.14);
+    --shadow: 0 1px 2px rgba(20,20,15,.04), 0 10px 30px -14px rgba(20,20,15,.25);
+    --radius: 16px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14120e;
+      --surface: #1e1b16;
+      --surface-2: #26221b;
+      --border: #38322a;
+      --text: #f2efe9;
+      --text-muted: #a89f8f;
+      --accent: #60a5fa;
+      --accent-soft: rgba(96,165,250,.16);
+      --coin: #fbbf24;
+      --coin-soft: rgba(251,191,36,.14);
+      --good: #4ade80;
+      --good-soft: rgba(74,222,128,.14);
+      --bad: #f87171;
+      --bad-soft: rgba(248,113,113,.16);
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14120e;
+    --surface: #1e1b16;
+    --surface-2: #26221b;
+    --border: #38322a;
+    --text: #f2efe9;
+    --text-muted: #a89f8f;
+    --accent: #60a5fa;
+    --accent-soft: rgba(96,165,250,.16);
+    --coin: #fbbf24;
+    --coin-soft: rgba(251,191,36,.14);
+    --good: #4ade80;
+    --good-soft: rgba(74,222,128,.14);
+    --bad: #f87171;
+    --bad-soft: rgba(248,113,113,.16);
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text); font-family: 'Manrope', system-ui, sans-serif;
+    padding: clamp(16px, 4vw, 40px); padding-block: clamp(20px, 4vw, 48px);
+    display: flex; justify-content: center;
+  }
+  .app { width: 100%; max-width: 1120px; }
+
+  .topbar { margin-bottom: 24px; }
+  .eyebrow { font-family: 'Chivo Mono', monospace; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+  h1 { font-family: 'Chivo Mono', monospace; font-size: clamp(28px, 4.5vw, 40px); font-weight: 700; margin: 0 0 8px; text-wrap: balance; letter-spacing: -.01em; }
+  .dek { color: var(--text-muted); max-width: 68ch; line-height: 1.55; margin: 0; font-size: 15px; }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 24px; align-items: start; }
+  @media (max-width: 780px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+
+  .board-panel { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .slot {
+    border: 1px solid var(--border); border-radius: 10px; padding: 10px 8px; background: var(--surface-2);
+    cursor: pointer; text-align: center; transition: transform .12s ease;
+  }
+  .slot:hover { transform: translateY(-1px); }
+  .slot.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .slot.empty { opacity: .4; cursor: not-allowed; }
+  .slot.empty:hover { transform: none; }
+  .slot .name { font-size: 12px; font-weight: 700; }
+  .slot .price { font-family: 'Chivo Mono', monospace; font-size: 13px; color: var(--accent); margin-top: 4px; }
+  .slot .stock { font-size: 10.5px; color: var(--text-muted); margin-top: 2px; }
+
+  .balance-row { display: flex; align-items: baseline; justify-content: space-between; padding: 10px 12px; background: var(--coin-soft); border-radius: 10px; }
+  .balance-row .num { font-family: 'Chivo Mono', monospace; font-size: 22px; font-weight: 700; color: var(--coin); }
+
+  .coin-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  button {
+    font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 13.5px;
+    padding: 10px 16px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--text); color: var(--bg); cursor: pointer;
+    transition: transform .12s ease, opacity .12s ease;
+  }
+  button:hover { transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  button.ghost { background: transparent; color: var(--text); }
+  button.accent { background: var(--accent); color: #eff6ff; border-color: transparent; }
+  button.small { padding: 7px 10px; font-size: 12px; }
+  button.coin { background: var(--coin-soft); color: var(--coin); border-color: transparent; }
+
+  .status-banner { font-family: 'Chivo Mono', monospace; font-size: 13px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); }
+  .status-banner.ok { background: var(--good-soft); color: var(--good); border-color: transparent; }
+  .status-banner.bad { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+
+  .control-panel { padding: 16px; display: flex; flex-direction: column; gap: 16px; min-height: 480px; }
+  .tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; }
+  .tab { flex: 1; background: transparent; color: var(--text-muted); border: none; padding: 9px 6px; font-size: 12.5px; font-weight: 700; border-radius: 8px; box-shadow: none; }
+  .tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .tab:hover { transform: none; }
+
+  .tab-panel { display: flex; flex-direction: column; gap: 16px; }
+  .tab-panel[hidden] { display: none; }
+
+  .field-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); font-weight: 700; }
+  label.inline { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--text-muted); }
+  select, input[type="number"] { font-family: 'Manrope', sans-serif; font-size: 13.5px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); width: 100%; }
+  .card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--surface-2); }
+
+  .duel-row { display: flex; gap: 10px; }
+  .duel-col { flex: 1; border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: var(--surface-2); }
+  .duel-col.winner { border-color: var(--good); box-shadow: 0 0 0 2px var(--good-soft); }
+  .duel-col .who { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; margin-bottom: 6px; }
+  .duel-col .count { font-family: 'Chivo Mono', monospace; font-size: 22px; font-weight: 700; }
+  .duel-col .coins { font-family: 'Chivo Mono', monospace; font-size: 12px; color: var(--text-muted); margin-top: 6px; word-break: break-all; }
+
+  .stat-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .stat-tile { flex: 1; min-width: 96px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .stat-tile .num { font-family: 'Chivo Mono', monospace; font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-tile .label { font-size: 10.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; }
+  td.num, th.num { text-align: right; font-family: 'Chivo Mono', monospace; font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow-x: auto; }
+
+  .note { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+  .divider { height: 1px; background: var(--border); border: none; margin: 2px 0; }
+
+  footer { margin-top: 28px; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+</style>
+
+<div class="app">
+  <header class="topbar">
+    <div class="eyebrow">Interactive Systems Lab &middot; Companion to the Design Guide</div>
+    <h1>Vending Machine Lab</h1>
+    <p class="dek">Buy a snack and watch real change-making run, or head straight to the Change Duel tab to prove the guide's central claim yourself: for the denomination set {1, 3, 4}, greedy really does give 3 coins for 6 cents while dynamic programming finds the true minimum of 2. Then stress-test atomic dispensing against a naive double-press.</p>
+  </header>
+
+  <main class="layout">
+    <section class="panel board-panel">
+      <div class="field-label">Products</div>
+      <div class="slot-grid" id="slotGrid"></div>
+      <div class="balance-row">
+        <span>Inserted</span>
+        <span class="num" id="balanceDisplay">$0.00</span>
+      </div>
+      <div class="coin-buttons">
+        <button class="coin" data-cents="25">+25&cent;</button>
+        <button class="coin" data-cents="100">+$1</button>
+        <button class="coin" data-cents="500">+$5</button>
+      </div>
+      <div class="status-banner" id="statusBanner">Select a product, then insert money.</div>
+      <button class="ghost" id="cancelBtn">Cancel &amp; refund</button>
+    </section>
+
+    <section class="panel control-panel">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="duel" role="tab">Change Duel</button>
+        <button class="tab" data-tab="concurrency" role="tab">Concurrency</button>
+        <button class="tab" data-tab="log" role="tab">Log</button>
+      </div>
+
+      <div class="tab-panel" data-panel="duel">
+        <div class="card">
+          <div class="field-label">Denomination set</div>
+          <label class="inline">Preset
+            <select id="denomPreset">
+              <option value="canonical">Canonical: 25, 10, 5, 1 (real currency)</option>
+              <option value="noncanonical" selected>Non-canonical: 4, 3, 1 (the guide's own counterexample)</option>
+            </select>
+          </label>
+          <label class="inline">Target amount (cents)
+            <input type="number" id="targetAmount" value="6" min="1" max="200">
+          </label>
+          <button class="accent" id="runDuelBtn">Run the duel</button>
+        </div>
+        <div class="duel-row" id="duelResults"></div>
+        <button class="ghost small" id="runBatchBtn">Run 2,000 random targets and report the failure rate</button>
+        <p class="note" id="batchResult"></p>
+      </div>
+
+      <div class="tab-panel" data-panel="concurrency" hidden>
+        <div class="field-label">Atomic vs. naive dispense</div>
+        <p class="note">Sets a slot's stock to exactly 1, then fires many genuinely concurrent purchase attempts at it. Naive check-then-decrement can dispense more than one item for one unit of stock; atomic check-and-decrement never can.</p>
+        <label class="inline">Concurrent attempts
+          <select id="concurrencySelect">
+            <option value="10">10</option>
+            <option value="30" selected>30</option>
+            <option value="80">80</option>
+          </select>
+        </label>
+        <button class="ghost small" id="fireNaiveBtn">Fire at a naive dispenser</button>
+        <button class="accent small" id="fireAtomicBtn">Fire at an atomic dispenser</button>
+        <div class="stat-row">
+          <div class="stat-tile"><div class="num" id="statDispensed">&mdash;</div><div class="label">Items dispensed</div></div>
+          <div class="stat-tile"><div class="num" id="statStockLeft">&mdash;</div><div class="label">Stock started at 1</div></div>
+        </div>
+        <div class="status-banner" id="concurrencyBanner" hidden></div>
+      </div>
+
+      <div class="tab-panel" data-panel="log" hidden>
+        <div class="field-label">Recent activity</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Event</th><th class="num">Detail</th></tr></thead>
+            <tbody id="logBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Runnable companion to <em>Design a Vending Machine &mdash; HLD, LLD, and Class Design From Scratch</em>. All purchases are simulated locally; nothing is sent anywhere or actually charged.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const DENOMS = {
+    canonical: [25, 10, 5, 1],
+    noncanonical: [4, 3, 1]
+  };
+
+  let products = [
+    { name: "Chips", priceCents: 150, stock: 5 },
+    { name: "Soda", priceCents: 200, stock: 3 },
+    { name: "Candy", priceCents: 100, stock: 0 },
+    { name: "Water", priceCents: 125, stock: 6 },
+    { name: "Gum", priceCents: 75, stock: 4 },
+    { name: "Cookies", priceCents: 175, stock: 2 }
+  ];
+  let selectedIndex = null;
+  let balanceCents = 0;
+  let recentLog = [];
+
+  function fmt(cents) { return "$" + (cents / 100).toFixed(2); }
+
+  // ---------- change-making algorithms, mirror the design guide's §20-25 exactly ----------
+  function greedyChange(owedCents, denominationsDescending) {
+    const coins = [];
+    let remaining = owedCents;
+    for (const d of denominationsDescending) {
+      while (remaining >= d) { coins.push(d); remaining -= d; }
+    }
+    if (remaining !== 0) return null; // cannot make exact change
+    return coins;
+  }
+
+  function dpChange(owedCents, denominations) {
+    const minCoins = new Array(owedCents + 1).fill(Infinity);
+    const lastCoin = new Array(owedCents + 1).fill(0);
+    minCoins[0] = 0;
+    for (let amount = 1; amount <= owedCents; amount++) {
+      for (const d of denominations) {
+        if (d <= amount && minCoins[amount - d] + 1 < minCoins[amount]) {
+          minCoins[amount] = minCoins[amount - d] + 1;
+          lastCoin[amount] = d;
+        }
+      }
+    }
+    if (minCoins[owedCents] === Infinity) return null;
+    const coins = [];
+    let remaining = owedCents;
+    while (remaining > 0) { coins.push(lastCoin[remaining]); remaining -= lastCoin[remaining]; }
+    return coins;
+  }
+
+  // ---------- rendering: product grid ----------
+  function renderSlots() {
+    const grid = document.getElementById("slotGrid");
+    grid.innerHTML = "";
+    products.forEach((p, i) => {
+      const el = document.createElement("div");
+      el.className = "slot" + (p.stock === 0 ? " empty" : "") + (selectedIndex === i ? " selected" : "");
+      el.innerHTML = "<div class='name'>" + p.name + "</div><div class='price'>" + fmt(p.priceCents) + "</div><div class='stock'>" + (p.stock === 0 ? "OUT OF STOCK" : p.stock + " left") + "</div>";
+      el.addEventListener("click", () => selectSlot(i));
+      grid.appendChild(el);
+    });
+  }
+
+  function selectSlot(i) {
+    if (products[i].stock === 0) return;
+    selectedIndex = i;
+    renderSlots();
+    setStatus("Selected " + products[i].name + " (" + fmt(products[i].priceCents) + "). Insert money.", "");
+  }
+
+  function setStatus(text, cls) {
+    const el = document.getElementById("statusBanner");
+    el.textContent = text;
+    el.className = "status-banner" + (cls ? " " + cls : "");
+  }
+
+  function insertMoney(cents) {
+    if (selectedIndex === null) { setStatus("Select a product first.", "bad"); return; }
+    balanceCents += cents;
+    document.getElementById("balanceDisplay").textContent = fmt(balanceCents);
+    const product = products[selectedIndex];
+    if (balanceCents >= product.priceCents) {
+      dispense();
+    } else {
+      setStatus("Inserted " + fmt(balanceCents) + " of " + fmt(product.priceCents) + " needed.", "");
+    }
+  }
+
+  function dispense() {
+    const product = products[selectedIndex];
+    product.stock--;
+    const owed = balanceCents - product.priceCents;
+    const denoms = DENOMS[document.getElementById("denomPreset").value].slice().sort((a, b) => b - a);
+    const changeCoins = dpChange(owed, denoms) || [];
+    balanceCents = 0;
+    document.getElementById("balanceDisplay").textContent = fmt(balanceCents);
+    setStatus(product.name + " dispensed. Change: " + (changeCoins.length ? changeCoins.map(fmt).join(" + ") : "none") + ".", "ok");
+    recentLog.unshift({ event: "Purchased " + product.name, detail: changeCoins.length + " coins change" });
+    renderLog();
+    selectedIndex = null;
+    renderSlots();
+  }
+
+  function cancelAndRefund() {
+    if (balanceCents > 0) {
+      setStatus("Refunded " + fmt(balanceCents) + ".", "");
+      recentLog.unshift({ event: "Cancelled", detail: fmt(balanceCents) + " refunded" });
+      renderLog();
+    } else {
+      setStatus("Select a product, then insert money.", "");
+    }
+    balanceCents = 0;
+    selectedIndex = null;
+    document.getElementById("balanceDisplay").textContent = fmt(0);
+    renderSlots();
+  }
+
+  // ---------- change duel ----------
+  function runDuel() {
+    const preset = document.getElementById("denomPreset").value;
+    const denoms = DENOMS[preset].slice().sort((a, b) => b - a);
+    const target = Math.max(1, parseInt(document.getElementById("targetAmount").value, 10) || 1);
+
+    const greedyResult = greedyChange(target, denoms);
+    const dpResult = dpChange(target, denoms);
+
+    const container = document.getElementById("duelResults");
+    if (!greedyResult || !dpResult) {
+      container.innerHTML = "<p class='note'>No exact combination exists for " + target + " cents with this denomination set.</p>";
+      return;
+    }
+    const greedyBetter = greedyResult.length <= dpResult.length;
+    container.innerHTML =
+      "<div class='duel-col" + (greedyBetter ? " winner" : "") + "'><div class='who'>Greedy</div><div class='count'>" + greedyResult.length + " coins</div><div class='coins'>" + greedyResult.map(fmt).join(" + ") + "</div></div>" +
+      "<div class='duel-col" + (!greedyBetter ? " winner" : "") + "'><div class='who'>Dynamic programming</div><div class='count'>" + dpResult.length + " coins</div><div class='coins'>" + dpResult.map(fmt).join(" + ") + "</div></div>";
+
+    recentLog.unshift({ event: "Duel: " + fmt(target), detail: "greedy " + greedyResult.length + " vs DP " + dpResult.length });
+    renderLog();
+  }
+
+  function runBatch() {
+    const preset = document.getElementById("denomPreset").value;
+    const denoms = DENOMS[preset].slice().sort((a, b) => b - a);
+    let tested = 0, greedySuboptimal = 0;
+    for (let target = 1; target <= 400; target++) {
+      const g = greedyChange(target, denoms);
+      const d = dpChange(target, denoms);
+      if (!g || !d) continue;
+      tested++;
+      if (g.length > d.length) greedySuboptimal++;
+    }
+    const runs = 2000;
+    let extra = 0;
+    for (let i = 0; i < runs - tested; i++) {
+      const target = 1 + Math.floor(Math.random() * 400);
+      const g = greedyChange(target, denoms);
+      const d = dpChange(target, denoms);
+      if (g && d && g.length > d.length) extra++;
+    }
+    const totalSuboptimal = greedySuboptimal + extra;
+    const pct = ((totalSuboptimal / runs) * 100).toFixed(1);
+    document.getElementById("batchResult").textContent =
+      totalSuboptimal > 0
+        ? "Greedy was suboptimal in " + totalSuboptimal + " of " + runs + " targets tested (" + pct + "%)."
+        : "Greedy matched the true minimum in all " + runs + " targets tested — this denomination set is canonical.";
+  }
+
+  // ---------- concurrency demo, mirrors the design guide's §28-30 ----------
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  function jitter(base) { return base + Math.random() * base; }
+
+  async function naiveDispense(slot) {
+    await sleep(jitter(10));
+    const stockSeen = slot.stock;
+    await sleep(jitter(10));
+    if (stockSeen <= 0) return false;
+    slot.stock = stockSeen - 1; // NOTHING re-checks stock here -- the exact bug from §28-29
+    return true;
+  }
+  async function atomicDispense(slot) {
+    if (slot.stock <= 0) return false; // no `await` between check and decrement -- nothing can interleave
+    slot.stock -= 1;
+    return true;
+  }
+
+  async function fireConcurrency(strategyFn) {
+    const concurrency = parseInt(document.getElementById("concurrencySelect").value, 10);
+    const slot = { stock: 1 };
+    const attempts = [];
+    for (let i = 0; i < concurrency; i++) attempts.push(strategyFn(slot));
+    const results = await Promise.all(attempts);
+    const dispensedCount = results.filter(Boolean).length;
+
+    document.getElementById("statDispensed").textContent = dispensedCount;
+    document.getElementById("statStockLeft").textContent = "1";
+
+    const banner = document.getElementById("concurrencyBanner");
+    banner.hidden = false;
+    if (dispensedCount > 1) {
+      banner.className = "status-banner bad";
+      banner.textContent = "BUG: " + dispensedCount + " items dispensed for a slot that only had 1 in stock.";
+    } else {
+      banner.className = "status-banner ok";
+      banner.textContent = "Correct: exactly 1 item dispensed from a slot that had 1 in stock.";
+    }
+    recentLog.unshift({ event: (strategyFn === naiveDispense ? "Naive" : "Atomic") + " dispense test", detail: dispensedCount + "/" + concurrency + " succeeded" });
+    renderLog();
+  }
+
+  function renderLog() {
+    if (recentLog.length > 14) recentLog.length = 14;
+    document.getElementById("logBody").innerHTML = recentLog.map(e =>
+      "<tr><td>" + e.event + "</td><td class='num'>" + e.detail + "</td></tr>"
+    ).join("") || "<tr><td colspan='2' style='color:var(--text-muted)'>Nothing yet.</td></tr>";
+  }
+
+  // ---------- wiring ----------
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      const target = tab.dataset.tab;
+      document.querySelectorAll(".tab-panel").forEach(p => p.hidden = p.dataset.panel !== target);
+    });
+  });
+
+  document.querySelectorAll(".coin").forEach(btn => {
+    btn.addEventListener("click", () => insertMoney(parseInt(btn.dataset.cents, 10)));
+  });
+  document.getElementById("cancelBtn").addEventListener("click", cancelAndRefund);
+  document.getElementById("runDuelBtn").addEventListener("click", runDuel);
+  document.getElementById("runBatchBtn").addEventListener("click", runBatch);
+  document.getElementById("fireNaiveBtn").addEventListener("click", () => fireConcurrency(naiveDispense));
+  document.getElementById("fireAtomicBtn").addEventListener("click", () => fireConcurrency(atomicDispense));
+  document.getElementById("denomPreset").addEventListener("change", () => {
+    document.getElementById("targetAmount").value = document.getElementById("denomPreset").value === "noncanonical" ? "6" : "35";
+  });
+
+  function boot() {
+    renderSlots();
+    renderLog();
+    runDuel();
+  }
+  if (window.claude && window.claude.hot) {
+    window.claude.hot.ready ? window.claude.hot.ready(boot) : boot();
+  } else {
+    boot();
+  }
+})();
+</script>
+
+</body></html>

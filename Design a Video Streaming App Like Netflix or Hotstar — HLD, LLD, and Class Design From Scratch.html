@@ -1,0 +1,1252 @@
+<meta charset="utf-8">
+<title>Design a Video Streaming App Like Netflix or Hotstar — HLD, LLD, and Class Design From Scratch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; system design guide</div>
+      <h1>Design a Video Streaming App Like Netflix or Hotstar — HLD, LLD, and Class Design From Scratch</h1>
+      <p class="dek">A video streaming platform designed from scratch as a system-design interview, end to end: a multi-bitrate encoding pipeline modeled as a real state machine, adaptive bitrate streaming (renditions, segments, manifests) built on a Composite-pattern content model, a genuine buffer-and-throughput-aware client-side bitrate-selection algorithm, a tiered CDN architecture with request-coalescing at every tier boundary, DRM-protected delivery via signed and expiring URLs, idempotent cross-device playback-position tracking, a real collaborative-filtering recommender, and entitlements tying subscriptions to what a profile can watch &mdash; then the domain's single hardest problem in real depth: how a live cricket final concentrates tens of millions of concurrent viewers on the exact same bytes at the exact same instant, and the hierarchical fan-out and prewarming architecture that specific flash-crowd problem requires. Real Java code and a class diagram for every core mechanism, following SOLID throughout.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-the-interview-framed">Why This Matters (The Interview, Framed)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-step-1-clarifying-requirements-before-designing-anything">Step 1 — Clarifying Requirements Before Designing Anything</a></li><li class="toc-lvl-2"><a href="#7-functional-requirements">Functional Requirements</a></li><li class="toc-lvl-2"><a href="#8-non-functional-requirements">Non-Functional Requirements</a></li><li class="toc-lvl-2"><a href="#9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</a></li><li class="toc-lvl-2"><a href="#10-identifying-the-core-domain-entities">Identifying the Core Domain Entities</a></li><li class="toc-lvl-2"><a href="#11-high-level-architecture-overview">High-Level Architecture Overview</a></li><li class="toc-lvl-2"><a href="#12-follow-up-question-2-walk-me-through-the-pipeline-from-a-raw-uploaded-file-to-something-a-phone-can-actually-play">Follow-up Question 2 — "Walk Me Through the Pipeline From a Raw Uploaded File to Something a Phone Can Actually Play."</a></li><li class="toc-lvl-2"><a href="#13-the-content-ingestion-and-encoding-pipeline">The Content Ingestion and Encoding Pipeline</a></li><li class="toc-lvl-2"><a href="#14-follow-up-question-3-why-cant-you-just-store-one-file-per-video-and-serve-it-directly">Follow-up Question 3 — "Why Can't You Just Store One File Per Video and Serve It Directly?"</a></li><li class="toc-lvl-2"><a href="#15-adaptive-bitrate-streaming-renditions-segments-and-manifests">Adaptive Bitrate Streaming: Renditions, Segments, and Manifests</a></li><li class="toc-lvl-2"><a href="#16-the-domain-model-videoasset-rendition-segment-manifest">The Domain Model: VideoAsset, Rendition, Segment, Manifest</a></li><li class="toc-lvl-2"><a href="#17-implementing-the-domain-model">Implementing the Domain Model</a></li><li class="toc-lvl-2"><a href="#18-follow-up-question-4-the-encoding-pipeline-has-multiple-stages-some-parallel-how-do-you-model-that">Follow-up Question 4 — "The Encoding Pipeline Has Multiple Stages, Some Parallel. How Do You Model That?"</a></li><li class="toc-lvl-2"><a href="#19-the-encoding-pipeline-as-a-state-machine">The Encoding Pipeline as a State Machine</a></li><li class="toc-lvl-2"><a href="#20-implementing-the-encoding-pipeline-state-machine">Implementing the Encoding Pipeline State Machine</a></li><li class="toc-lvl-2"><a href="#21-follow-up-question-5-how-does-a-clients-video-player-actually-decide-which-bitrate-to-request-next">Follow-up Question 5 — "How Does a Client's Video Player Actually Decide Which Bitrate to Request Next?"</a></li><li class="toc-lvl-2"><a href="#22-the-adaptive-bitrate-selection-problem">The Adaptive Bitrate Selection Problem</a></li><li class="toc-lvl-2"><a href="#23-implementing-a-real-abr-algorithm">Implementing a Real ABR Algorithm</a></li><li class="toc-lvl-2"><a href="#24-follow-up-question-6-how-do-you-get-video-from-one-origin-to-millions-of-devices-worldwide-without-your-origin-servers-melting">Follow-up Question 6 — "How Do You Get Video From One Origin to Millions of Devices Worldwide Without Your Origin Servers Melting?"</a></li><li class="toc-lvl-2"><a href="#25-cdn-architecture-edge-regional-and-origin-tiers">CDN Architecture: Edge, Regional, and Origin Tiers</a></li><li class="toc-lvl-2"><a href="#26-implementing-cache-key-design-and-the-origin-shield">Implementing Cache-Key Design and the Origin Shield</a></li><li class="toc-lvl-2"><a href="#27-follow-up-question-7-how-do-you-protect-paid-content-from-being-downloaded-and-redistributed">Follow-up Question 7 — "How Do You Protect Paid Content From Being Downloaded and Redistributed?"</a></li><li class="toc-lvl-2"><a href="#28-drm-and-secure-content-delivery">DRM and Secure Content Delivery</a></li><li class="toc-lvl-2"><a href="#29-implementing-signed-expiring-playback-urls">Implementing Signed, Expiring Playback URLs</a></li><li class="toc-lvl-2"><a href="#30-follow-up-question-8-how-do-you-track-playback-position-so-continue-watching-works-across-devices">Follow-up Question 8 — "How Do You Track Playback Position So 'Continue Watching' Works Across Devices?"</a></li><li class="toc-lvl-2"><a href="#31-the-playback-session-and-position-tracking">The Playback Session and Position Tracking</a></li><li class="toc-lvl-2"><a href="#32-implementing-playbacksession-with-idempotent-position-updates">Implementing PlaybackSession With Idempotent Position Updates</a></li><li class="toc-lvl-2"><a href="#33-class-diagram-playback-and-content-delivery">Class Diagram: Playback and Content Delivery</a></li><li class="toc-lvl-2"><a href="#34-follow-up-question-9-how-do-you-personalize-recommendations-for-millions-of-users">Follow-up Question 9 — "How Do You Personalize Recommendations for Millions of Users?"</a></li><li class="toc-lvl-2"><a href="#35-the-recommendation-problem-collaborative-vs-content-based-filtering">The Recommendation Problem: Collaborative vs. Content-Based Filtering</a></li><li class="toc-lvl-2"><a href="#36-implementing-a-simple-collaborative-filtering-recommender">Implementing a Simple Collaborative-Filtering Recommender</a></li><li class="toc-lvl-2"><a href="#37-follow-up-question-10-how-does-search-work-across-a-huge-constantly-changing-catalog">Follow-up Question 10 — "How Does Search Work Across a Huge, Constantly-Changing Catalog?"</a></li><li class="toc-lvl-2"><a href="#38-search-architecture-a-secondary-search-index">Search Architecture: A Secondary Search Index</a></li><li class="toc-lvl-2"><a href="#39-follow-up-question-11-multi-profile-accounts-subscriptions-entitlements-how-do-you-model-who-can-watch-what">Follow-up Question 11 — "Multi-Profile Accounts, Subscriptions, Entitlements — How Do You Model Who Can Watch What?"</a></li><li class="toc-lvl-2"><a href="#40-accounts-profiles-and-entitlements">Accounts, Profiles, and Entitlements</a></li><li class="toc-lvl-2"><a href="#41-implementing-an-entitlementchecker">Implementing an EntitlementChecker</a></li><li class="toc-lvl-2"><a href="#42-class-diagram-accounts-catalog-and-entitlements">Class Diagram: Accounts, Catalog, and Entitlements</a></li><li class="toc-lvl-2"><a href="#43-follow-up-question-12-a-live-cricket-final-gets-thirty-million-concurrent-viewers-what-breaks-and-how-do-you-fix-it">Follow-up Question 12 — "A Live Cricket Final Gets Thirty Million Concurrent Viewers. What Breaks, and How Do You Fix It?"</a></li><li class="toc-lvl-2"><a href="#44-why-live-streaming-at-massive-scale-is-a-fundamentally-harder-problem-than-vod">Why Live Streaming at Massive Scale Is a Fundamentally Harder Problem Than VOD</a></li><li class="toc-lvl-2"><a href="#45-the-flash-crowd-problem-and-hierarchical-cdn-fan-out">The Flash-Crowd Problem and Hierarchical CDN Fan-Out</a></li><li class="toc-lvl-2"><a href="#46-implementing-a-low-latency-live-segment-publishing-pipeline">Implementing a Low-Latency Live Segment Publishing Pipeline</a></li><li class="toc-lvl-2"><a href="#47-follow-up-question-13-how-do-you-keep-live-viewers-roughly-in-sync-so-a-wicket-or-goal-doesnt-spoil-itself-across-devices">Follow-up Question 13 — "How Do You Keep Live Viewers Roughly in Sync, So a Wicket or Goal Doesn't Spoil Itself Across Devices?"</a></li><li class="toc-lvl-2"><a href="#48-low-latency-live-streaming-and-synchronized-playback">Low-Latency Live Streaming and Synchronized Playback</a></li><li class="toc-lvl-2"><a href="#49-follow-up-question-14-how-do-you-know-if-playback-quality-is-actually-good-for-real-users-not-just-in-a-lab">Follow-up Question 14 — "How Do You Know If Playback Quality Is Actually Good for Real Users, Not Just in a Lab?"</a></li><li class="toc-lvl-2"><a href="#50-quality-of-experience-telemetry">Quality of Experience Telemetry</a></li><li class="toc-lvl-2"><a href="#51-implementing-qoe-event-collection">Implementing QoE Event Collection</a></li><li class="toc-lvl-2"><a href="#52-follow-up-question-15-at-petabyte-scale-content-and-millions-of-concurrent-streams-what-breaks-first">Follow-up Question 15 — "At Petabyte-Scale Content and Millions of Concurrent Streams, What Breaks First?"</a></li><li class="toc-lvl-2"><a href="#53-storage-scaling-content-lifecycle-and-cold-storage-tiering">Storage Scaling: Content Lifecycle and Cold Storage Tiering</a></li><li class="toc-lvl-2"><a href="#54-encoding-pipeline-scaling-a-distributed-worker-pool">Encoding Pipeline Scaling: A Distributed Worker Pool</a></li><li class="toc-lvl-2"><a href="#55-full-worked-example-a-user-presses-play-end-to-end">Full Worked Example: A User Presses Play, End to End</a></li><li class="toc-lvl-2"><a href="#56-full-worked-example-a-live-match-goes-viral-end-to-end">Full Worked Example: A Live Match Goes Viral, End to End</a></li><li class="toc-lvl-2"><a href="#57-final-architecture-diagram">Final Architecture Diagram</a></li><li class="toc-lvl-2"><a href="#58-design-patterns-used-throughout-this-guide">Design Patterns Used Throughout This Guide</a></li><li class="toc-lvl-2"><a href="#59-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#60-common-mistakes-when-building-this-yourself">Common Mistakes When Building This Yourself</a></li><li class="toc-lvl-2"><a href="#61-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#62-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#63-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#64-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>The interview question this guide answers:</strong></p>
+<p><em>"Design a video streaming platform like Netflix or Hotstar. Cover both high-level design (content ingestion, delivery at global scale, personalization) and low-level design (class diagrams, core algorithms). Follow SOLID design principles, and be ready to justify every decision when I push back — including the part where a live cricket final gets thirty million concurrent viewers at once."</em></p>
+<p>This guide is structured exactly as that interview unfolds: a requirements-gathering phase, a high-level architecture built up decision by decision, a low-level class design deep dive, and a sequence of escalating <strong>follow-up questions</strong> — each answered with real reasoning and, where it matters, real Java code — ending with the single hardest, most distinctive problem this domain has: live streaming at flash-crowd scale, the exact problem that separates a Netflix-style on-demand catalog from a Hotstar-style live-sports platform.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<p>We are building <strong>MiniStream</strong> — a video streaming platform covering:</p>
+<ul>
+<li><strong>Functional requirements</strong>: a content catalog (movies, shows, seasons/episodes), an ingestion-and-encoding pipeline turning a raw uploaded file into adaptive-bitrate streamable video, global content delivery, user accounts/profiles/entitlements, playback with resumable position tracking, personalized recommendations, search, and — the domain's hardest problem — live streaming to tens of millions of concurrent viewers.</li>
+<li><strong>High-level design</strong>: the encoding pipeline, adaptive bitrate streaming (renditions, segments, manifests), a tiered CDN architecture, DRM-protected delivery, and the specific flash-crowd fan-out problem live sports streaming creates that on-demand video never has to solve.</li>
+<li><strong>Low-level design</strong>: a Composite-pattern content model (asset/rendition/segment/manifest), a State-pattern encoding pipeline, a real client-side adaptive-bitrate-selection algorithm, an idempotent playback-position tracker, a real collaborative-filtering recommender, and an entitlement checker tying subscriptions to what a profile is actually allowed to watch.</li>
+<li><strong>Scaling concerns</strong>: petabyte-scale content storage and lifecycle tiering, a distributed encoding worker pool, and — in real depth — how a single live event can be watched by tens of millions of people at the exact same instant without the origin infrastructure collapsing.</li>
+</ul>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                     Raw upload -&gt; Encoding Pipeline (multi-bitrate, §13-§20)
+                                          |
+                              Object Storage (all renditions/segments)
+                                          |
+                         Origin  -&gt;  Regional Cache  -&gt;  Edge/CDN  -&gt;  Device
+                        (§25-§26, tiered fan-out -- the SAME tier structure that
+                         becomes existential at live-event scale, §43-§46)
+                                          |
+                    Playback Service (manifests, signed URLs (§27-§32), entitlements (§39-§41))
+</code></pre></div>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to:</p>
+<ul>
+<li>Explain why video is never stored or served as one file, and design the rendition/segment/manifest model adaptive bitrate streaming is actually built on.</li>
+<li>Model a multi-stage, partly-parallel encoding pipeline as a real state machine, not an implicit sequence of method calls.</li>
+<li>Implement a genuine client-side adaptive-bitrate-selection algorithm, and explain the specific oscillation failure mode a naive "always pick the fastest measured bitrate" approach falls into.</li>
+<li>Design a tiered CDN architecture and explain precisely why "the origin serves every device directly" cannot scale, independent of how much origin bandwidth you provision.</li>
+<li>Explain the single problem that makes live sports streaming (Hotstar) fundamentally harder than on-demand catalog streaming (Netflix), and design the fan-out architecture that specific problem requires.</li>
+<li>Reason about what breaks first at petabyte-scale storage and tens-of-millions-of-concurrent-viewer live events, and name the specific technique that addresses each bottleneck.</li>
+</ul>
+<hr>
+<h2 id="3-why-this-matters-the-interview-framed">3. Why This Matters (The Interview, Framed)</h2>
+<p>"Design a video streaming platform" is a favorite senior/staff systems-design question because it looks, on the surface, like a content-delivery problem with a database attached — and a candidate who treats it that way misses the two things that actually make it hard:</p>
+<ul>
+<li><strong>Requirements-driven scoping</strong> — "video streaming" spans a pure video-on-demand catalog (classic Netflix) and a platform that also carries live sporting events to a genuinely enormous simultaneous audience (Hotstar during a cricket final). A strong candidate states which one — or both — before designing anything, the same discipline every guide in this series insists on.</li>
+<li><strong>High-level architecture with real engineering behind it</strong> — the encoding pipeline, adaptive bitrate streaming, and a tiered CDN are each real, substantial systems, not a single "and then it streams" hand-wave.</li>
+<li><strong>The live-streaming flash-crowd problem, specifically</strong> — this is where the interview usually escalates hardest, and where it separates candidates who've internalized "video streaming = CDN" from candidates who understand that a live event concentrates tens of millions of requests for the <em>exact same bytes</em> at the <em>exact same instant</em>, a load pattern on-demand catalog streaming almost never produces and that changes which architectural decisions actually matter.</li>
+</ul>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language</td>
+<td>Java 21</td>
+<td>Matches this guide's class diagrams and pattern implementations (State, Strategy, Composite, Observer).</td>
+</tr>
+<tr>
+<td>Video packaging</td>
+<td>HLS/DASH-style segmented delivery</td>
+<td>The industry-standard approach to adaptive bitrate streaming — a manifest referencing many short segments at many bitrates (§15-§17).</td>
+</tr>
+<tr>
+<td>Object storage</td>
+<td>A content-addressable, durable object store</td>
+<td>Video segments are immutable once encoded — a natural fit for the same content-addressable storage idea this project's own version-control-system guide builds from scratch.</td>
+</tr>
+<tr>
+<td>CDN</td>
+<td>A tiered edge/regional/origin cache hierarchy</td>
+<td>The single architectural decision that makes global delivery, and later, live flash-crowd fan-out, possible at all (§25-§26, §45).</td>
+</tr>
+<tr>
+<td>Encoding</td>
+<td>A distributed worker pool, one job per rendition</td>
+<td>Encoding one video into 6-10 bitrate/resolution renditions is embarrassingly parallel — real horizontal scaling, not a bigger single machine (§54).</td>
+</tr>
+<tr>
+<td>Recommendations</td>
+<td>Item-based collaborative filtering</td>
+<td>A real, tractable algorithm this guide implements in full, rather than gesturing at "a machine learning model" (§36).</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>ministream/
+├── src/main/java/com/example/ministream/
+│   ├── content/
+│   │   ├── VideoAsset.java, Rendition.java, Segment.java, Manifest.java  // §16-§17
+│   │   └── ContentCatalog.java
+│   ├── encoding/
+│   │   ├── EncodingJob.java, EncodingStatus.java (State pattern)         // §19-§20
+│   │   └── EncodingPipeline.java
+│   ├── playback/
+│   │   ├── AdaptiveBitrateSelector.java                                  // §22-§23
+│   │   ├── PlaybackSession.java, PlaybackPositionTracker.java             // §31-§32
+│   │   └── SignedUrlGenerator.java                                        // §29
+│   ├── delivery/
+│   │   ├── CdnTier.java, OriginShield.java                                 // §26
+│   │   └── LiveFanoutTree.java                                             // §45-§46
+│   ├── accounts/
+│   │   ├── Account.java, Profile.java, Subscription.java                   // §40
+│   │   └── EntitlementChecker.java                                         // §41
+│   ├── recommendations/
+│   │   └── CollaborativeFilteringRecommender.java                          // §36
+│   ├── search/
+│   │   └── CatalogSearchIndex.java                                         // §38
+│   └── telemetry/
+│       └── QoeEvent.java (sealed), QoeEventPublisher.java                  // §51
+└── src/test/java/com/example/ministream/
+    ├── EncodingPipelineStateTransitionTest.java
+    ├── AdaptiveBitrateSelectorOscillationTest.java
+    └── LiveFanoutLoadTest.java
+</code></pre></div>
+<hr>
+<h2 id="6-step-1-clarifying-requirements-before-designing-anything">6. Step 1 — Clarifying Requirements Before Designing Anything</h2>
+<blockquote>
+<p><strong>Candidate's clarifying questions:</strong> <em>"Is this purely video-on-demand, like classic Netflix, or does it also need to carry live events, like Hotstar's cricket coverage? What's the expected peak concurrency — thousands, or tens of millions during a single live event? Do we need DRM/piracy protection in real depth, or is that out of scope? Is personalization (recommendations) a core requirement, or a nice-to-have?"</em></p>
+</blockquote>
+<p>Exactly as every prior guide in this series argues, narrowing an intentionally broad prompt before designing anything is the first move that separates a strong answer from a shallow one. For this guide, we settle on a concrete, realistic scope: <strong>both on-demand and live</strong> (the Hotstar case specifically, since it's the harder one, §43 onward), targeting <strong>tens of millions of concurrent viewers during a single live event</strong>, with <strong>DRM covered at the architecture level</strong> (not hand-rolled cryptography, §28), and <strong>personalization as a genuine core requirement</strong>, not an afterthought.</p>
+<hr>
+<h2 id="7-functional-requirements">7. Functional Requirements</h2>
+<ul>
+<li>Ingest a raw uploaded video file and encode it into <strong>multiple bitrate/resolution renditions</strong>.</li>
+<li>Package encoded video into <strong>adaptive-bitrate-streamable</strong> segments and manifests.</li>
+<li><strong>Deliver</strong> video globally, at low latency, to any device with a reasonable network connection.</li>
+<li>Support <strong>accounts</strong> with <strong>multiple profiles</strong> per account, and a <strong>subscription/entitlement</strong> model deciding what each profile can watch.</li>
+<li>Track <strong>playback position</strong> per profile, per title, so "Continue Watching" works across devices.</li>
+<li>Provide <strong>personalized recommendations</strong> and <strong>catalog search</strong>.</li>
+<li>Protect paid content with <strong>DRM</strong>, delivered through <strong>signed, expiring URLs</strong>.</li>
+<li>Support <strong>live streaming</strong> of scheduled events (a cricket match, a season finale premiere) to a massive simultaneous audience.</li>
+<li>Collect <strong>quality-of-experience telemetry</strong> (buffering events, bitrate switches, startup latency) from real playback sessions.</li>
+</ul>
+<hr>
+<h2 id="8-non-functional-requirements">8. Non-Functional Requirements</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>What it means concretely</th>
+<th>Where this guide addresses it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Global low latency</strong></td>
+<td>Playback should start quickly and stream smoothly regardless of the viewer's location</td>
+<td>The tiered CDN architecture (§25-§26)</td>
+</tr>
+<tr>
+<td><strong>Massive burst scalability</strong></td>
+<td>A single live event can concentrate tens of millions of concurrent requests for the same content at the same instant</td>
+<td>The flash-crowd fan-out architecture (§43-§46) — the defining non-functional requirement of this entire domain</td>
+</tr>
+<tr>
+<td><strong>Storage scalability</strong></td>
+<td>A catalog and its many renditions can reach petabyte scale</td>
+<td>Content lifecycle tiering (§53)</td>
+</tr>
+<tr>
+<td><strong>Adaptive to network conditions</strong></td>
+<td>Playback should degrade gracefully (lower bitrate) rather than stall, on a poor connection</td>
+<td>The adaptive-bitrate-selection algorithm (§22-§23)</td>
+</tr>
+<tr>
+<td><strong>Content security</strong></td>
+<td>Paid/licensed content must not be trivially downloadable or redistributable</td>
+<td>DRM and signed URLs (§28-§29)</td>
+</tr>
+<tr>
+<td><strong>Extensibility</strong></td>
+<td>Adding a new recommendation strategy or ABR algorithm must not require rewriting the playback pipeline</td>
+<td>The Strategy pattern applied to both (§58)</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">9. Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Before architecture — what actually exists in this system, and how does it relate?"</em></p>
+</blockquote>
+<p>This is the same deliberate pivot every prior guide in this series makes — naming the domain model before naming components keeps the design honest about what actually needs solving.</p>
+<hr>
+<h2 id="10-identifying-the-core-domain-entities">10. Identifying the Core Domain Entities</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>Represents</th>
+<th>Key relationships</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>VideoAsset</strong></td>
+<td>One title (a movie, or one episode of a show)</td>
+<td>Has many <code>Rendition</code>s, one per bitrate/resolution (§16-§17)</td>
+</tr>
+<tr>
+<td><strong>Rendition</strong></td>
+<td>One encoded bitrate/resolution variant of a VideoAsset</td>
+<td>Made of many <code>Segment</code>s</td>
+</tr>
+<tr>
+<td><strong>Segment</strong></td>
+<td>A short (2-10 second) chunk of encoded video</td>
+<td>The actual unit fetched over HTTP during playback</td>
+</tr>
+<tr>
+<td><strong>Manifest</strong></td>
+<td>The index tying Renditions and Segments together for a player to request</td>
+<td>A Master playlist (lists Renditions) + Media playlists (list Segments per Rendition)</td>
+</tr>
+<tr>
+<td><strong>EncodingJob</strong></td>
+<td>One in-progress encode of a raw upload into all Renditions</td>
+<td>State-machine driven (§19-§20)</td>
+</tr>
+<tr>
+<td><strong>Account / Profile</strong></td>
+<td>A billing entity, and the individual viewers under it</td>
+<td>A Profile has its own watch history, recommendations, and position tracking (§40)</td>
+</tr>
+<tr>
+<td><strong>Subscription / Entitlement</strong></td>
+<td>What tier an Account pays for, and what that grants a Profile</td>
+<td>Checked before every playback session starts (§41)</td>
+</tr>
+<tr>
+<td><strong>PlaybackSession</strong></td>
+<td>One instance of a Profile watching one VideoAsset</td>
+<td>Tracks position, current Rendition, and QoE telemetry (§31-§32)</td>
+</tr>
+<tr>
+<td><strong>LiveEvent</strong></td>
+<td>A scheduled, time-bound live stream (a match, a premiere)</td>
+<td>The trigger for §43-§46's flash-crowd fan-out concerns</td>
+</tr>
+</tbody>
+</table></div>
+<p>Every section from §11 onward either builds infrastructure <strong>around</strong> these entities or builds the entities <strong>themselves</strong> as real, working class designs — nothing introduced later is untraceable back to this table.</p>
+<hr>
+<h2 id="11-high-level-architecture-overview">11. High-Level Architecture Overview</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                                   Content Team (uploads a raw video file)
+                                                |
+                                    Encoding Pipeline (§13, §19-§20)
+                                    multi-bitrate transcode + package
+                                                |
+                                       Object Storage (all segments)
+                                                |
+                          Origin  ---&gt;  Regional Cache Tier  ---&gt;  Edge/CDN Tier  ---&gt;  Device
+                                    (§25-§26 -- ordinary VOD delivery)
+                                    (§43-§46 -- the SAME tiers, under a completely different load shape, for live)
+                                                |
+                        Playback Service: manifests, entitlements (§41), signed URLs (§29)
+                                                |
+                   Recommendation Service (§36)     Search Service (§38)     QoE Telemetry (§50-§51)
+</code></pre></div>
+<p>Six cooperating pieces, each with one job: the <strong>encoding pipeline</strong> turns a raw file into streamable renditions; <strong>object storage</strong> durably holds every segment ever encoded; the <strong>CDN tiers</strong> deliver bytes at global scale; the <strong>playback service</strong> decides <em>what</em> a specific profile is allowed to watch and hands back a manifest; <strong>recommendations/search</strong> help a viewer find something to watch; <strong>QoE telemetry</strong> measures whether all of the above is actually working for real users.</p>
+<hr>
+<h2 id="12-follow-up-question-2-walk-me-through-the-pipeline-from-a-raw-uploaded-file-to-something-a-phone-can-actually-play">12. Follow-up Question 2 — "Walk Me Through the Pipeline From a Raw Uploaded File to Something a Phone Can Actually Play."</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A content team uploads a single 40 GB ProRes master file. A phone on a 3G connection eventually plays this title. What happens in between?"</em></p>
+</blockquote>
+<p>§13 names every stage of that pipeline; §15-§20 build the model and the state machine that make it real, not just a diagram.</p>
+<hr>
+<h2 id="13-the-content-ingestion-and-encoding-pipeline">13. The Content Ingestion and Encoding Pipeline</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Raw upload (one large master file)
+      |
+Validation (container/codec sanity checks, duration, resolution)
+      |
+Transcoding -- IN PARALLEL, one job per target Rendition (1080p/6Mbps, 720p/3Mbps, 480p/1.2Mbps, ...)
+      |
+Packaging -- segment each Rendition into ~2-10 second chunks, generate Media playlists
+      |
+Manifest generation -- one Master playlist referencing every Rendition's Media playlist
+      |
+Publish -- write every Segment + every playlist to object storage, mark the VideoAsset &quot;available&quot;
+</code></pre></div>
+<p>Transcoding is the one stage that's genuinely <strong>parallel across Renditions</strong> — six target bitrates means six independent encode jobs that can run on six different worker machines simultaneously, with no dependency between them (§54 builds the distributed worker pool this enables). Every other stage is sequential relative to the asset as a whole.</p>
+<hr>
+<h2 id="14-follow-up-question-3-why-cant-you-just-store-one-file-per-video-and-serve-it-directly">14. Follow-up Question 3 — "Why Can't You Just Store One File Per Video and Serve It Directly?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Simplest possible design: one MP4 file per video, served directly from storage. What breaks?"</em></p>
+</blockquote>
+<p>Two things, both fatal: a single file forces every viewer onto the <strong>same bitrate</strong>, regardless of their actual network condition — a viewer on a poor connection either buffers constantly or can't play at all, with no middle ground; and a single large file cannot be <strong>partially cached or resumed efficiently</strong> — seeking to minute 40 of a two-hour film means either downloading the first 40 minutes anyway or requesting a byte range from an origin server, neither of which distributes well across a CDN the way many small, independently-cacheable segments do. §15 names the actual, industry-standard fix.</p>
+<hr>
+<h2 id="15-adaptive-bitrate-streaming-renditions-segments-and-manifests">15. Adaptive Bitrate Streaming: Renditions, Segments, and Manifests</h2>
+<p>The fix: encode every title into <strong>multiple Renditions</strong> at different bitrate/resolution combinations, split each Rendition into short <strong>Segments</strong>, and describe the whole thing with a <strong>Manifest</strong> — a Master playlist listing every available Rendition, and one Media playlist per Rendition listing its Segments in order:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>master.m3u8 (Master playlist)
+  ├── 1080p_6000kbps/playlist.m3u8 (Media playlist)
+  │     ├── segment_0000.ts (0-6s)
+  │     ├── segment_0001.ts (6-12s)
+  │     └── ...
+  ├── 720p_3000kbps/playlist.m3u8
+  │     └── ...
+  └── 480p_1200kbps/playlist.m3u8
+        └── ...
+</code></pre></div>
+<p>A player downloads the Master playlist once, picks a starting Rendition, and from then on requests one Segment at a time — critically, <strong>it can switch Renditions between any two Segments</strong>, which is the entire mechanism adaptive bitrate streaming relies on: a sudden drop in available bandwidth means the <em>next</em> Segment request simply asks for a lower-bitrate Rendition's version of that same time range, with no interruption to playback. §22-§23 build the algorithm a player actually uses to decide when to switch.</p>
+<hr>
+<h2 id="16-the-domain-model-videoasset-rendition-segment-manifest">16. The Domain Model: VideoAsset, Rendition, Segment, Manifest</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>VideoAsset
+├── Rendition (1080p, 6000kbps)
+│     ├── Segment (index 0, 0-6s)
+│     ├── Segment (index 1, 6-12s)
+│     └── ...
+├── Rendition (720p, 3000kbps)
+│     └── ...
+└── Rendition (480p, 1200kbps)
+      └── ...
+</code></pre></div>
+<p>A <code>VideoAsset</code> containing many <code>Rendition</code>s, each containing many <code>Segment</code>s, is a direct application of the <strong>Composite</strong> pattern — the same "a container of items, some of which are themselves containers" structure this project's own version-control-system guide uses for a directory tree of files and subdirectories, here applied to a video's bitrate ladder instead of a filesystem.</p>
+<hr>
+<h2 id="17-implementing-the-domain-model">17. Implementing the Domain Model</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record Segment(int index, String storageKey, double durationSeconds) { }
+
+public record Rendition(String renditionId, int bitrateKbps, int width, int height, List&lt;Segment&gt; segments) {
+    public double totalDurationSeconds() {
+        return segments.stream().mapToDouble(Segment::durationSeconds).sum();
+    }
+}
+
+public record VideoAsset(String assetId, String title, List&lt;Rendition&gt; renditions) {
+    public Rendition renditionAtOrBelow(int targetBitrateKbps) {
+        return renditions.stream()
+                .filter(r -&gt; r.bitrateKbps() &lt;= targetBitrateKbps)
+                .max(Comparator.comparingInt(Rendition::bitrateKbps)) // the HIGHEST quality that still fits the budget
+                .orElseThrow(() -&gt; new NoSuitableRenditionException(targetBitrateKbps));
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record MasterManifest(String assetId, List&lt;RenditionManifestEntry&gt; renditions) { }
+public record RenditionManifestEntry(String renditionId, int bitrateKbps, String mediaPlaylistUrl) { }
+public record MediaPlaylist(String renditionId, List&lt;Segment&gt; segments) { }
+</code></pre></div>
+<p><code>renditionAtOrBelow</code> is the exact method §23's adaptive-bitrate selector calls once it has decided <em>how much bandwidth budget</em> is available — it never picks a bitrate directly, only ever the best Rendition that fits within a computed budget, which is what keeps the bitrate-selection algorithm's own logic completely independent of exactly which Renditions a given title happens to have been encoded into.</p>
+<hr>
+<h2 id="18-follow-up-question-4-the-encoding-pipeline-has-multiple-stages-some-parallel-how-do-you-model-that">18. Follow-up Question 4 — "The Encoding Pipeline Has Multiple Stages, Some Parallel. How Do You Model That?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"§13's pipeline has sequential stages and a parallel one. What tracks an individual EncodingJob's progress through all of that, correctly?"</em></p>
+</blockquote>
+<p>A real <strong>state machine</strong> — the same discipline every prior guide in this series applies to a lifecycle with real, enforceable legal transitions, here applied to one video's encode instead of an issue's status or a workflow run's execution.</p>
+<hr>
+<h2 id="19-the-encoding-pipeline-as-a-state-machine">19. The Encoding Pipeline as a State Machine</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>    UPLOADED
+       |
+   VALIDATING  --(invalid)--&gt; FAILED (terminal)
+       |
+   TRANSCODING  --(any rendition job fails)--&gt; FAILED (terminal)
+       |  (waits for ALL parallel rendition jobs to finish)
+   PACKAGING
+       |
+   PUBLISHING
+       |
+   AVAILABLE (terminal)
+</code></pre></div>
+<p><code>TRANSCODING</code> is the one state that isn't a single linear step — internally it fans out into one job per target Rendition, and the state machine only advances to <code>PACKAGING</code> once <em>every</em> one of those parallel jobs has finished successfully, mirroring exactly the fan-out/fan-in join semantics this project's own workflow-automation-engine guide already builds for a parallel step with multiple branches.</p>
+<hr>
+<h2 id="20-implementing-the-encoding-pipeline-state-machine">20. Implementing the Encoding Pipeline State Machine</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public enum EncodingStatus {
+    UPLOADED {
+        @Override public EncodingStatus transitionTo(EncodingStatus next) { return requireLegal(next, Set.of(VALIDATING)); }
+    },
+    VALIDATING {
+        @Override public EncodingStatus transitionTo(EncodingStatus next) { return requireLegal(next, Set.of(TRANSCODING, FAILED)); }
+    },
+    TRANSCODING {
+        @Override public EncodingStatus transitionTo(EncodingStatus next) { return requireLegal(next, Set.of(PACKAGING, FAILED)); }
+    },
+    PACKAGING {
+        @Override public EncodingStatus transitionTo(EncodingStatus next) { return requireLegal(next, Set.of(PUBLISHING, FAILED)); }
+    },
+    PUBLISHING {
+        @Override public EncodingStatus transitionTo(EncodingStatus next) { return requireLegal(next, Set.of(AVAILABLE, FAILED)); }
+    },
+    AVAILABLE {
+        @Override public EncodingStatus transitionTo(EncodingStatus next) { throw new IllegalStateException(&quot;AVAILABLE is terminal&quot;); }
+    },
+    FAILED {
+        @Override public EncodingStatus transitionTo(EncodingStatus next) { throw new IllegalStateException(&quot;FAILED is terminal&quot;); }
+    };
+
+    public abstract EncodingStatus transitionTo(EncodingStatus next);
+
+    protected EncodingStatus requireLegal(EncodingStatus next, Set&lt;EncodingStatus&gt; legal) {
+        if (!legal.contains(next)) throw new IllegalStateException(&quot;Illegal encoding transition: &quot; + this + &quot; -&gt; &quot; + next);
+        return next;
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class EncodingJob {
+
+    private final String assetId;
+    private EncodingStatus status = EncodingStatus.UPLOADED;
+    private final Map&lt;String, Boolean&gt; renditionJobsCompleted = new ConcurrentHashMap&lt;&gt;(); // keyed by renditionId
+
+    public EncodingJob(String assetId) { this.assetId = assetId; }
+
+    public void beginValidation() { status = status.transitionTo(EncodingStatus.VALIDATING); }
+    public void beginTranscoding(Set&lt;String&gt; renditionIds) {
+        status = status.transitionTo(EncodingStatus.TRANSCODING);
+        renditionIds.forEach(id -&gt; renditionJobsCompleted.put(id, false));
+    }
+
+    /** Called once per rendition job as it finishes -- advances to PACKAGING only when ALL are done. */
+    public void onRenditionComplete(String renditionId) {
+        renditionJobsCompleted.put(renditionId, true);
+        if (renditionJobsCompleted.values().stream().allMatch(done -&gt; done)) {
+            status = status.transitionTo(EncodingStatus.PACKAGING);
+        }
+    }
+
+    public void fail() { status = status.transitionTo(EncodingStatus.FAILED); }
+    public EncodingStatus status() { return status; }
+}
+</code></pre></div>
+<p><code>onRenditionComplete</code> only advancing the overall job once <code>renditionJobsCompleted.values().stream().allMatch(...)</code> is true is the concrete fan-in check — a job with six parallel rendition encodes stays in <code>TRANSCODING</code> until the sixth, slowest one finishes, exactly matching real encoding-pipeline behavior where a single stubborn 4K rendition job routinely determines the whole title's total encode time.</p>
+<hr>
+<h2 id="21-follow-up-question-5-how-does-a-clients-video-player-actually-decide-which-bitrate-to-request-next">21. Follow-up Question 5 — "How Does a Client's Video Player Actually Decide Which Bitrate to Request Next?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"The player has a Master playlist (§15) listing six Renditions. Bandwidth is fluctuating. Walk me through the actual decision logic for which Rendition to request the NEXT segment from."</em></p>
+</blockquote>
+<p>This is a genuinely hard, well-studied algorithmic problem — §22 states it precisely; §23 implements a real, working version, not a hand-wave.</p>
+<hr>
+<h2 id="22-the-adaptive-bitrate-selection-problem">22. The Adaptive Bitrate Selection Problem</h2>
+<p>A naive approach — "measure the last segment's download throughput, request the highest bitrate that fits" — is unstable in practice: throughput measurements are noisy, and a player that reacts to every fluctuation <strong>oscillates</strong> between bitrates, which is worse for a viewer's experience than staying at a slightly-too-low bitrate steadily. A real algorithm has to balance two signals, not one: <strong>measured throughput</strong> (how fast segments are actually arriving) and <strong>buffer health</strong> (how much already-downloaded video is queued up, ready to play) — a healthy buffer means the player can afford to be cautious about switching up; a shrinking buffer means it needs to switch down <em>before</em> playback actually stalls, not after.</p>
+<hr>
+<h2 id="23-implementing-a-real-abr-algorithm">23. Implementing a Real ABR Algorithm</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface AdaptiveBitrateSelector {
+    Rendition selectNextRendition(VideoAsset asset, PlayerState playerState);
+}
+
+public record PlayerState(double bufferedSeconds, double measuredThroughputKbps, int currentBitrateKbps) { }
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class HybridAdaptiveBitrateSelector implements AdaptiveBitrateSelector {
+
+    private static final double SAFETY_MARGIN = 0.8;           // never budget the FULL measured throughput -- leave headroom
+    private static final double LOW_BUFFER_SECONDS = 10.0;      // below this, prioritize stability over quality
+    private static final double HIGH_BUFFER_SECONDS = 30.0;     // above this, safe to be more aggressive about upshifting
+
+    @Override
+    public Rendition selectNextRendition(VideoAsset asset, PlayerState playerState) {
+        int throughputBudgetKbps = (int) (playerState.measuredThroughputKbps() * SAFETY_MARGIN);
+
+        if (playerState.bufferedSeconds() &lt; LOW_BUFFER_SECONDS) {
+            // Buffer is draining -- bias toward the LOWER of (current bitrate, throughput budget), never upshift here.
+            int conservativeBudget = Math.min(playerState.currentBitrateKbps(), throughputBudgetKbps);
+            return asset.renditionAtOrBelow(conservativeBudget);
+        }
+
+        if (playerState.bufferedSeconds() &gt; HIGH_BUFFER_SECONDS) {
+            // Plenty of runway -- safe to use the full throughput budget, allowing an upshift if bandwidth improved.
+            return asset.renditionAtOrBelow(throughputBudgetKbps);
+        }
+
+        // Middle zone -- stay at the current bitrate unless the throughput budget has moved a FULL rendition step
+        // away from it in either direction; this hysteresis is what prevents oscillation between two adjacent
+        // bitrates when measured throughput is merely noisy around one boundary.
+        Rendition candidateByThroughput = asset.renditionAtOrBelow(throughputBudgetKbps);
+        if (Math.abs(candidateByThroughput.bitrateKbps() - playerState.currentBitrateKbps()) &lt; oneStepThreshold(asset)) {
+            return asset.renditionAtOrBelow(playerState.currentBitrateKbps()); // hold steady
+        }
+        return candidateByThroughput;
+    }
+
+    private int oneStepThreshold(VideoAsset asset) {
+        List&lt;Integer&gt; bitrates = asset.renditions().stream().map(Rendition::bitrateKbps).sorted().toList();
+        return bitrates.size() &lt; 2 ? 0 : (bitrates.get(1) - bitrates.get(0)) / 2;
+    }
+}
+</code></pre></div>
+<p>This is a genuine, buffer-aware hybrid algorithm, not a toy: a draining buffer (<code>&lt; 10s</code>) never upshifts, regardless of how good the throughput measurement looks, because a buffer that keeps draining stalls playback outright — the single worst outcome in this entire domain, worse than staying at a lower bitrate indefinitely. A healthy buffer (<code>&gt; 30s</code>) is exactly when it's safe to be aggressive about testing a higher bitrate, since a bad guess there just drains buffer that was going to be spent anyway. The middle zone's hysteresis check is what specifically prevents the oscillation failure mode named in §22 — a throughput estimate that wobbles across one bitrate boundary, without a real, sustained change, is not enough to trigger a switch on its own.</p>
+<hr>
+<h2 id="24-follow-up-question-6-how-do-you-get-video-from-one-origin-to-millions-of-devices-worldwide-without-your-origin-servers-melting">24. Follow-up Question 6 — "How Do You Get Video From One Origin to Millions of Devices Worldwide Without Your Origin Servers Melting?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Segments live in one object store. Millions of devices, globally, need to fetch them. What stops your origin from being hit millions of times per second?"</em></p>
+</blockquote>
+<p>A <strong>tiered cache hierarchy</strong> — the single architectural decision that makes both ordinary global VOD delivery (§25-§26) and, later, live flash-crowd fan-out (§45) possible, because the same tree structure that reduces origin load by 100x for ordinary traffic reduces it by 10,000x or more under a live event's concentrated load.</p>
+<hr>
+<h2 id="25-cdn-architecture-edge-regional-and-origin-tiers">25. CDN Architecture: Edge, Regional, and Origin Tiers</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                              Origin (object storage, the ONE source of truth)
+                                                |
+                          Regional Cache Tier (one per continent/region, e.g. 10-20 nodes)
+                        each regional node serves MANY edge nodes beneath it
+                                                |
+                              Edge/CDN Tier (thousands of PoPs, close to end users)
+                                                |
+                                            Device
+</code></pre></div>
+<p>A device's request for a Segment goes to its nearest <strong>edge</strong> node first; a cache <strong>miss</strong> there goes up to that edge's <strong>regional</strong> parent, never straight to origin; only a regional-tier miss ever reaches <strong>origin</strong>. For a popular title, the overwhelming majority of requests — potentially all of them, after the first — are served entirely from cache, at the edge, without the origin ever seeing them. This is what turns "millions of device requests" into "a small, bounded number of origin fetches, multiplied out by caching at every tier below it."</p>
+<hr>
+<h2 id="26-implementing-cache-key-design-and-the-origin-shield">26. Implementing Cache-Key Design and the Origin Shield</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class CacheKeyBuilder {
+
+    /** A cache key must be identical for every request that should hit the SAME cached bytes, and different
+     *  for every request that shouldn't -- getting this wrong either fragments the cache (many keys for
+     *  logically-identical content, killing hit rate) or collides it (one key for genuinely different content). */
+    public String keyFor(String assetId, String renditionId, int segmentIndex) {
+        return assetId + &quot;/&quot; + renditionId + &quot;/&quot; + segmentIndex; // deliberately EXCLUDES query params, cookies, device type --
+                                                                    // none of those change which bytes this request wants
+    }
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class OriginShield {
+
+    private final Map&lt;String, CompletableFuture&lt;byte[]&gt;&gt; inFlightOriginFetches = new ConcurrentHashMap&lt;&gt;();
+    private final ObjectStore origin;
+
+    public OriginShield(ObjectStore origin) { this.origin = origin; }
+
+    /** Called by a regional node on a cache miss. Coalesces concurrent misses for the SAME key into
+     *  ONE origin fetch -- a flash crowd (§45) can otherwise turn one cache miss into thousands of
+     *  simultaneous, redundant origin requests for bytes that are about to be identical anyway. */
+    public CompletableFuture&lt;byte[]&gt; fetch(String cacheKey) {
+        return inFlightOriginFetches.computeIfAbsent(cacheKey, key -&gt;
+                origin.readAsync(key).whenComplete((result, error) -&gt; inFlightOriginFetches.remove(key)));
+    }
+}
+</code></pre></div>
+<p><code>OriginShield.fetch</code>'s request-coalescing is the single most load-bearing piece of code in this entire delivery architecture: without it, a thousand regional nodes all missing on the same brand-new Segment at the same instant (exactly what happens the moment a new Segment of a live event is published, §46) would issue a thousand simultaneous, redundant origin reads for identical bytes — <code>computeIfAbsent</code> collapses that into exactly one real origin fetch, with every other caller simply awaiting the same in-flight <code>CompletableFuture</code>.</p>
+<hr>
+<h2 id="27-follow-up-question-7-how-do-you-protect-paid-content-from-being-downloaded-and-redistributed">27. Follow-up Question 7 — "How Do You Protect Paid Content From Being Downloaded and Redistributed?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A Segment's URL is, structurally, just an HTTP GET. What stops someone from sharing that URL, or downloading every segment and re-hosting the whole title?"</em></p>
+</blockquote>
+<p>Two complementary mechanisms, addressing two different threats: <strong>DRM</strong> (content encryption plus a license the player must obtain to decrypt it) stops the <em>content itself</em> from being usable outside an authorized player; <strong>signed, expiring URLs</strong> stop a <em>specific request</em> from being replayed or shared beyond its intended, narrow window.</p>
+<hr>
+<h2 id="28-drm-and-secure-content-delivery">28. DRM and Secure Content Delivery</h2>
+<p>Every Segment is encrypted at packaging time (§13); a compliant player cannot decode it without first acquiring a <strong>license</strong> — a small, per-session cryptographic key — from a license server, which issues one only after confirming the requesting profile is entitled to the title (§41). This guide treats the actual DRM systems (Widevine, PlayReady, FairPlay) as <strong>given, standard, already-implemented infrastructure</strong> to integrate with, deliberately — exactly the same engineering judgment call this project's own database-driver guide makes about password hashing and TLS: content encryption and license-key cryptography are precisely the kind of security-critical mechanism you integrate a reviewed, industry-standard system for, never hand-roll, and a guide that pretended to design its own video DRM scheme from scratch would be giving genuinely dangerous advice.</p>
+<hr>
+<h2 id="29-implementing-signed-expiring-playback-urls">29. Implementing Signed, Expiring Playback URLs</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class SignedUrlGenerator {
+
+    private final byte[] hmacSecretKey; // provisioned securely, never hard-coded
+
+    public SignedUrlGenerator(byte[] hmacSecretKey) { this.hmacSecretKey = hmacSecretKey; }
+
+    public String sign(String path, String profileId, Instant expiresAt) {
+        String payload = path + &quot;|&quot; + profileId + &quot;|&quot; + expiresAt.getEpochSecond();
+        String signature = hmacSha256(payload);
+        return path + &quot;?profile=&quot; + profileId + &quot;&amp;expires=&quot; + expiresAt.getEpochSecond() + &quot;&amp;sig=&quot; + signature;
+    }
+
+    public boolean verify(String path, String profileId, long expiresEpochSecond, String providedSignature) {
+        if (Instant.now().getEpochSecond() &gt; expiresEpochSecond) return false; // expired -- reject regardless of signature
+        String payload = path + &quot;|&quot; + profileId + &quot;|&quot; + expiresEpochSecond;
+        String expectedSignature = hmacSha256(payload);
+        return MessageDigest.isEqual(expectedSignature.getBytes(StandardCharsets.UTF_8),
+                providedSignature.getBytes(StandardCharsets.UTF_8)); // constant-time compare -- never String.equals
+    }
+
+    private String hmacSha256(String payload) {
+        try {
+            Mac mac = Mac.getInstance(&quot;HmacSHA256&quot;);
+            mac.init(new SecretKeySpec(hmacSecretKey, &quot;HmacSHA256&quot;));
+            return HexFormat.of().formatHex(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException(&quot;HMAC signing must always succeed with a valid key&quot;, e);
+        }
+    }
+}
+</code></pre></div>
+<p>Every signed URL carries the requesting <code>profileId</code> and an <code>expiresAt</code> baked directly into the signature — a URL shared outside its expiry window (typically minutes, for a Segment) simply stops working, and a URL replayed with a <em>different</em> profile's ID fails signature verification outright, since the profile ID is part of what was signed, not a separate, unverified field an attacker could substitute. Using <code>MessageDigest.isEqual</code> rather than <code>String.equals</code> for the comparison matters specifically to avoid a timing side-channel that could otherwise let an attacker guess a valid signature one byte at a time.</p>
+<hr>
+<h2 id="30-follow-up-question-8-how-do-you-track-playback-position-so-continue-watching-works-across-devices">30. Follow-up Question 8 — "How Do You Track Playback Position So 'Continue Watching' Works Across Devices?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A profile pauses a movie on a phone at the 40-minute mark, then opens the same title on a smart TV that evening. How does the TV know to resume at 40 minutes?"</em></p>
+</blockquote>
+<p>A <strong>PlaybackSession</strong>, persisted continuously via periodic heartbeats, keyed by profile and title — never by device, since the entire point is that position tracking must be device-independent.</p>
+<hr>
+<h2 id="31-the-playback-session-and-position-tracking">31. The Playback Session and Position Tracking</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Player sends a heartbeat every ~10 seconds during playback:
+  { profileId, assetId, positionSeconds, currentRenditionId, deviceId, heartbeatSequence }
+</code></pre></div>
+<p>Two correctness properties this update must have, both familiar from elsewhere in this project's own guides: it must be <strong>idempotent</strong> (a retried heartbeat after a network blip must never move the recorded position <em>backward</em>), and it must <strong>resolve conflicting concurrent writers</strong> correctly (a profile briefly playing the same title on two devices at once — a phone left open, then a TV started — must not have the earlier device's slightly-stale heartbeat silently overwrite the later device's more advanced position).</p>
+<hr>
+<h2 id="32-implementing-playbacksession-with-idempotent-position-updates">32. Implementing PlaybackSession With Idempotent Position Updates</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class PlaybackPositionTracker {
+
+    private final Map&lt;String, StoredPosition&gt; positionsByKey = new ConcurrentHashMap&lt;&gt;(); // key: profileId + &quot;:&quot; + assetId
+
+    private record StoredPosition(double positionSeconds, long lastHeartbeatSequence, Instant lastUpdatedAt) { }
+
+    public void recordHeartbeat(String profileId, String assetId, double positionSeconds, long heartbeatSequence) {
+        String key = profileId + &quot;:&quot; + assetId;
+        positionsByKey.compute(key, (k, existing) -&gt; {
+            if (existing != null &amp;&amp; heartbeatSequence &lt;= existing.lastHeartbeatSequence()) {
+                return existing; // a retried or out-of-order (older) heartbeat -- ignored, never moves position backward
+            }
+            return new StoredPosition(positionSeconds, heartbeatSequence, Instant.now());
+        });
+    }
+
+    public Optional&lt;Double&gt; resumePositionFor(String profileId, String assetId) {
+        return Optional.ofNullable(positionsByKey.get(profileId + &quot;:&quot; + assetId)).map(StoredPosition::positionSeconds);
+    }
+}
+</code></pre></div>
+<p>The <code>heartbeatSequence &lt;= existing.lastHeartbeatSequence()</code> guard is what makes this correct under both failure modes named in §31 at once: a <strong>retried</strong> heartbeat carries the <em>same</em> sequence number as one already recorded, so it's a no-op; a genuinely <strong>older</strong> heartbeat from a second device that started playback earlier (and is therefore behind) carries a <em>lower</em> sequence number than whatever the more up-to-date device has already recorded, so it's correctly ignored too — the monotonically-increasing sequence number, not wall-clock arrival order, is the only thing that decides which position wins, which is exactly what makes this robust to network reordering and retries alike.</p>
+<hr>
+<h2 id="33-class-diagram-playback-and-content-delivery">33. Class Diagram: Playback and Content Delivery</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>VideoAsset                                    PlaybackSession
++ renditions: List&lt;Rendition&gt;                 + profileId, assetId
+      |                                        + currentRenditionId
+      | selects, per segment                   |
+      v                                         v
+AdaptiveBitrateSelector &lt;&lt;interface&gt;&gt;    PlaybackPositionTracker
++ selectNextRendition(asset, state)      + recordHeartbeat(...)
+      ^                                  + resumePositionFor(...)
+      | implements
+HybridAdaptiveBitrateSelector
+
+SignedUrlGenerator                            OriginShield
++ sign(path, profileId, expiresAt)             + fetch(cacheKey): CompletableFuture&lt;byte[]&gt;
++ verify(...)                                        |
+      |                                              v
+      v                                       CacheKeyBuilder
+   CDN Tiers (Edge -&gt; Regional -&gt; Origin, §25)  + keyFor(assetId, renditionId, segmentIndex)
+</code></pre></div>
+<p>Every arrow here is a real, already-built call — a playback session asks the bitrate selector for the next Rendition, the player requests that Rendition's next Segment through a signed URL, and the CDN tiers (backed by the origin shield's request-coalescing) actually deliver the bytes.</p>
+<hr>
+<h2 id="34-follow-up-question-9-how-do-you-personalize-recommendations-for-millions-of-users">34. Follow-up Question 9 — "How Do You Personalize Recommendations for Millions of Users?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"The homepage shows a different row order and different titles for every profile. What's the actual algorithm behind that?"</em></p>
+</blockquote>
+<p>§35 names the two standard families of approach; §36 implements a real, working version of the one that fits this platform's data best.</p>
+<hr>
+<h2 id="35-the-recommendation-problem-collaborative-vs-content-based-filtering">35. The Recommendation Problem: Collaborative vs. Content-Based Filtering</h2>
+<p><strong>Content-based filtering</strong> recommends titles similar to ones a profile already watched, based on shared attributes (genre, cast, director) — it works from day one for a brand-new title with no watch history yet, but tends to over-narrow a profile into one genre. <strong>Collaborative filtering</strong> instead recommends based on what <em>similar profiles</em> watched — profiles who watched the same set of titles as you tend to enjoy the same <em>other</em> titles too — which produces genuinely surprising, often better recommendations, at the cost of needing real watch-history data to work at all (the "cold start" problem for a brand-new profile). A real platform runs both and blends them; this guide implements the collaborative case in full, since it's the one with real, non-obvious algorithmic content.</p>
+<hr>
+<h2 id="36-implementing-a-simple-collaborative-filtering-recommender">36. Implementing a Simple Collaborative-Filtering Recommender</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class CollaborativeFilteringRecommender {
+
+    private final Map&lt;String, Set&lt;String&gt;&gt; watchedTitlesByProfile; // profileId -&gt; set of assetIds watched
+
+    public CollaborativeFilteringRecommender(Map&lt;String, Set&lt;String&gt;&gt; watchedTitlesByProfile) {
+        this.watchedTitlesByProfile = watchedTitlesByProfile;
+    }
+
+    public List&lt;String&gt; recommendFor(String profileId, int limit) {
+        Set&lt;String&gt; myTitles = watchedTitlesByProfile.getOrDefault(profileId, Set.of());
+        Map&lt;String, Double&gt; scoreByTitle = new HashMap&lt;&gt;();
+
+        for (Map.Entry&lt;String, Set&lt;String&gt;&gt; other : watchedTitlesByProfile.entrySet()) {
+            if (other.getKey().equals(profileId)) continue;
+            double similarity = jaccardSimilarity(myTitles, other.getValue());
+            if (similarity == 0.0) continue;
+
+            for (String candidateTitle : other.getValue()) {
+                if (myTitles.contains(candidateTitle)) continue; // never recommend something already watched
+                scoreByTitle.merge(candidateTitle, similarity, Double::sum); // MORE similar co-watchers contribute MORE
+            }
+        }
+
+        return scoreByTitle.entrySet().stream()
+                .sorted(Map.Entry.&lt;String, Double&gt;comparingByValue().reversed())
+                .limit(limit)
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    /** How similar are two profiles' watch histories -- the size of their overlap, relative to the size
+     *  of everything either of them has watched. 0.0 = no overlap at all, 1.0 = identical watch histories. */
+    private double jaccardSimilarity(Set&lt;String&gt; a, Set&lt;String&gt; b) {
+        if (a.isEmpty() || b.isEmpty()) return 0.0;
+        Set&lt;String&gt; intersection = new HashSet&lt;&gt;(a);
+        intersection.retainAll(b);
+        Set&lt;String&gt; union = new HashSet&lt;&gt;(a);
+        union.addAll(b);
+        return (double) intersection.size() / union.size();
+    }
+}
+</code></pre></div>
+<p>Weighting each candidate title's score by <em>how similar</em> the co-watching profile is (<code>scoreByTitle.merge(candidateTitle, similarity, Double::sum)</code>), rather than simply counting how many other profiles watched it, is what makes this a genuine similarity-weighted recommender rather than a bare popularity ranking — a title co-watched by profiles whose taste closely overlaps yours contributes more to its score than the identical title being co-watched by a profile with only a sliver of overlap. This <code>O(profiles²)</code> implementation is the honest, simple starting point named as such — §62 names the real refinement (item-item similarity precomputed offline, looked up online) production systems use at scale.</p>
+<hr>
+<h2 id="37-follow-up-question-10-how-does-search-work-across-a-huge-constantly-changing-catalog">37. Follow-up Question 10 — "How Does Search Work Across a Huge, Constantly-Changing Catalog?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A user types 'brea' into search and expects to see 'Breaking Bad' instantly, ranked above less-relevant partial matches. How?"</em></p>
+</blockquote>
+<p>§38 answers with the same secondary search index pattern this project's own project-management-tool guide already builds for a different domain (searching issues instead of titles) — a relational catalog store is the wrong tool for fast, fuzzy, ranked text search, regardless of which domain sits on top of it.</p>
+<hr>
+<h2 id="38-search-architecture-a-secondary-search-index">38. Search Architecture: A Secondary Search Index</h2>
+<p>The content catalog's relational (or catalog-service) store remains the source of truth for a title's metadata, but every create/update is also asynchronously propagated into a dedicated <strong>inverted-index-based search engine</strong> (Elasticsearch-style) — the same pattern, for the identical reason, this project's own JIRA-style guide already establishes for full-text issue search: fast, ranked, fuzzy text matching over millions of records is a fundamentally different access pattern than a relational store's own strengths, and deserves its own purpose-built index rather than being bolted onto the catalog store as an afterthought.</p>
+<hr>
+<h2 id="39-follow-up-question-11-multi-profile-accounts-subscriptions-entitlements-how-do-you-model-who-can-watch-what">39. Follow-up Question 11 — "Multi-Profile Accounts, Subscriptions, Entitlements — How Do You Model Who Can Watch What?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"One account, four profiles, a mid-tier subscription. One profile tries to play a 4K-exclusive title only the top tier includes. Where does that get checked, and how?"</em></p>
+</blockquote>
+<p>§40 models the entities; §41 implements the actual check, run once, in exactly one place, before every playback session is allowed to start.</p>
+<hr>
+<h2 id="40-accounts-profiles-and-entitlements">40. Accounts, Profiles, and Entitlements</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public enum SubscriptionTier { BASIC, STANDARD, PREMIUM }
+
+public record Subscription(String accountId, SubscriptionTier tier, Instant renewsAt, boolean active) { }
+public record Account(String accountId, Subscription subscription, List&lt;Profile&gt; profiles) { }
+public record Profile(String profileId, String accountId, String displayName, boolean isKidsProfile) { }
+
+public record ContentRestriction(SubscriptionTier minimumTier, boolean kidsProfileAllowed) { }
+</code></pre></div>
+<p>A <code>Subscription</code> belongs to the <code>Account</code>, never to an individual <code>Profile</code> — every profile under one account shares the same tier — while watch history, recommendations, and position tracking (§31-§32) are all keyed by <code>Profile</code>, never by <code>Account</code>. This split is exactly why "what can I watch" and "what have I watched" are two structurally different questions in this domain, checked by two entirely different pieces of code.</p>
+<hr>
+<h2 id="41-implementing-an-entitlementchecker">41. Implementing an EntitlementChecker</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class EntitlementChecker {
+
+    private final Map&lt;String, ContentRestriction&gt; restrictionsByAssetId;
+
+    public EntitlementChecker(Map&lt;String, ContentRestriction&gt; restrictionsByAssetId) {
+        this.restrictionsByAssetId = restrictionsByAssetId;
+    }
+
+    public EntitlementResult check(Account account, Profile profile, String assetId) {
+        if (!account.subscription().active()) {
+            return EntitlementResult.denied(&quot;Subscription is not active&quot;);
+        }
+        ContentRestriction restriction = restrictionsByAssetId.get(assetId);
+        if (restriction == null) return EntitlementResult.allowed(); // no restriction on record -- freely watchable
+
+        if (profile.isKidsProfile() &amp;&amp; !restriction.kidsProfileAllowed()) {
+            return EntitlementResult.denied(&quot;Not available on a kids profile&quot;);
+        }
+        if (tierRank(account.subscription().tier()) &lt; tierRank(restriction.minimumTier())) {
+            return EntitlementResult.denied(&quot;Requires &quot; + restriction.minimumTier() + &quot; tier or above&quot;);
+        }
+        return EntitlementResult.allowed();
+    }
+
+    private int tierRank(SubscriptionTier tier) {
+        return switch (tier) { case BASIC -&gt; 0; case STANDARD -&gt; 1; case PREMIUM -&gt; 2; };
+    }
+}
+
+public record EntitlementResult(boolean allowed, String denialReason) {
+    public static EntitlementResult allowed() { return new EntitlementResult(true, null); }
+    public static EntitlementResult denied(String reason) { return new EntitlementResult(false, reason); }
+}
+</code></pre></div>
+<p><code>EntitlementChecker.check</code> is called from exactly <strong>one</strong> place — the playback service's session-start path, immediately before it ever hands back a manifest or a signed URL (§29) — never re-checked ad hoc by the CDN or the player, which is precisely what keeps "can this profile watch this title" a single, auditable decision instead of a rule scattered and potentially re-implemented inconsistently across several call sites.</p>
+<hr>
+<h2 id="42-class-diagram-accounts-catalog-and-entitlements">42. Class Diagram: Accounts, Catalog, and Entitlements</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Account                                       EntitlementChecker
++ subscription: Subscription                  + check(account, profile, assetId): EntitlementResult
++ profiles: List&lt;Profile&gt;                            |
+      |                                               | consulted BEFORE every playback session
+      | 1..*                                          v
+      v                                        PlaybackSession (§31)
+Profile                                        + profileId, assetId
++ isKidsProfile: boolean                       + currentRenditionId
+      |
+      | has watch history / position tracking
+      v
+PlaybackPositionTracker (§32)          CollaborativeFilteringRecommender (§36)
+                                        + recommendFor(profileId): List&lt;String&gt;
+</code></pre></div>
+<p>Every arrow into <code>EntitlementChecker</code> from the playback path, and every arrow into <code>PlaybackPositionTracker</code>/<code>CollaborativeFilteringRecommender</code> from a <code>Profile</code>, reflects the real dependency direction this guide has built: a <code>Subscription</code> gates <em>whether</em> playback starts at all; everything downstream of that gate is scoped to one <code>Profile</code>, never the account as a whole.</p>
+<hr>
+<h2 id="43-follow-up-question-12-a-live-cricket-final-gets-thirty-million-concurrent-viewers-what-breaks-and-how-do-you-fix-it">43. Follow-up Question 12 — "A Live Cricket Final Gets Thirty Million Concurrent Viewers. What Breaks, and How Do You Fix It?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Everything so far handles a popular catalog title fine — different viewers request it at different times, spread naturally across minutes or hours. Now: one live match, thirty million devices, all watching the exact same live edge of the stream, all requesting new segments within moments of each other, for three straight hours. What actually breaks, and what's structurally different about the fix?"</em></p>
+</blockquote>
+<p>This is the single hardest, most distinctive problem in this entire domain, and it's exactly the problem that separates a Hotstar-style platform from a pure Netflix-style catalog. §44 states precisely why it's a different problem, not just a bigger version of the same one; §45-§46 build the fix.</p>
+<hr>
+<h2 id="44-why-live-streaming-at-massive-scale-is-a-fundamentally-harder-problem-than-vod">44. Why Live Streaming at Massive Scale Is a Fundamentally Harder Problem Than VOD</h2>
+<p>An on-demand catalog title's requests are naturally <strong>spread out</strong>, both across time (viewers start watching at different moments over hours or days) and across content (a catalog has thousands of titles, so load distributes across many different cache keys). A live event collapses <strong>both</strong> of those dimensions at once: every one of thirty million viewers wants segments from the <em>same single stream</em>, arriving at the <em>same wall-clock moments</em> — because a new live segment (§13's ~2-10 second chunks) only exists the instant it's encoded, every viewer following that live edge requests the <em>newest</em> segment within moments of each other, repeatedly, every few seconds, for the entire duration of the event. This is precisely the <strong>flash crowd</strong> pattern: not more total requests spread over more time, but the same or more total requests <strong>concentrated into a vastly narrower window</strong>, against a vastly narrower set of cache keys. A CDN provisioned generously for catalog traffic can still fail catastrophically here, because the bottleneck isn't aggregate bandwidth — it's how many <em>independent</em> cache misses for the <em>same new object</em> hit the origin at once, which §26's <code>OriginShield</code> already named as the single most load-bearing piece of code in the whole delivery architecture for exactly this reason.</p>
+<hr>
+<h2 id="45-the-flash-crowd-problem-and-hierarchical-cdn-fan-out">45. The Flash-Crowd Problem and Hierarchical CDN Fan-Out</h2>
+<p>The fix is not a bigger origin — no plausible amount of origin bandwidth survives thirty million simultaneous first-requesters for the same bytes. The fix is <strong>depth</strong>: the same tiered hierarchy §25 already built (edge -&gt; regional -&gt; origin) does the actual work here, but the <em>math</em> of why it works is worth making explicit:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>30,000,000 viewers
+        |
+   ~10,000 edge nodes, each serving ~3,000 viewers
+        |  each edge node's FIRST miss for a new segment triggers exactly ONE regional request
+        |  (every other viewer behind that same edge node gets served from that edge's own cache)
+   ~20 regional nodes, each serving ~500 edge nodes
+        |  each regional node's FIRST miss triggers exactly ONE origin request
+        |  (every other edge behind that regional node gets served from the regional cache)
+     1 origin
+        |  receives, at most, ~20 requests for this brand-new segment -- not 30,000,000
+</code></pre></div>
+<p>Every additional tier is a multiplicative reduction, not an additive one — the origin sees, in the worst case, exactly one request per <strong>regional</strong> node (roughly 20, in this sketch), regardless of whether the total audience is 30,000 or 30,000,000, because every tier below regional absorbs its own fan-out entirely within itself. This is precisely why §26's <code>OriginShield</code> (coalescing concurrent misses for the same key into one real fetch) matters <em>more</em>, not less, at this scale — a live event is the specific load pattern that turns "many nodes all missing on the same key at the same instant" from a rare edge case into the <em>defining, constant</em> traffic shape for the entire duration of the broadcast.</p>
+<hr>
+<h2 id="46-implementing-a-low-latency-live-segment-publishing-pipeline">46. Implementing a Low-Latency Live Segment Publishing Pipeline</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class LiveSegmentPublisher {
+
+    private final ObjectStore origin;
+    private final List&lt;RegionalPrewarmClient&gt; regionalNodes; // ~20 regional nodes, §45
+
+    public LiveSegmentPublisher(ObjectStore origin, List&lt;RegionalPrewarmClient&gt; regionalNodes) {
+        this.origin = origin;
+        this.regionalNodes = regionalNodes;
+    }
+
+    /** Called the instant a new live segment finishes encoding -- publishing IMMEDIATELY, and proactively
+     *  pushing it to every regional tier, is what keeps the &quot;first viewer's request&quot; case from ever
+     *  becoming thirty million simultaneous cold-cache misses landing on origin at once. */
+    public void publish(String cacheKey, byte[] segmentBytes) {
+        origin.write(cacheKey, segmentBytes); // durability first -- the origin remains the one source of truth
+
+        // Prewarm every regional node CONCURRENTLY, before the manifest even advertises this segment exists --
+        // by the time any viewer's player requests it, most regional caches already have it, turning what
+        // would otherwise be thirty million cold misses into a batch of already-warm cache hits.
+        List&lt;CompletableFuture&lt;Void&gt;&gt; prewarmCalls = regionalNodes.stream()
+                .map(node -&gt; CompletableFuture.runAsync(() -&gt; node.prewarm(cacheKey, segmentBytes)))
+                .toList();
+        CompletableFuture.allOf(prewarmCalls.toArray(CompletableFuture[]::new)).join();
+    }
+}
+</code></pre></div>
+<p>Prewarming — pushing a new segment to every regional cache <strong>before</strong> any player has even asked for it, rather than waiting for organic cache misses to pull it through the hierarchy — is the specific optimization that matters uniquely for live content: an on-demand title can afford to let its cache populate lazily, on first real request, because that first request only ever represents one ordinary viewer; a live segment's "first request" represents the synchronized arrival of every one of thirty million viewers' players at once, and prewarming is what ensures that moment finds an already-warm cache rather than triggering the exact fan-out collapse §44 describes.</p>
+<hr>
+<h2 id="47-follow-up-question-13-how-do-you-keep-live-viewers-roughly-in-sync-so-a-wicket-or-goal-doesnt-spoil-itself-across-devices">47. Follow-up Question 13 — "How Do You Keep Live Viewers Roughly in Sync, So a Wicket or Goal Doesn't Spoil Itself Across Devices?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Two viewers on the same household Wi-Fi, one on a phone, one on a smart TV. A six is hit. If one device is 45 seconds behind the other, someone hears the neighbors cheering before they see it themselves. How do you bound that skew?"</em></p>
+</blockquote>
+<p>§48 answers with the specific lever a live-streaming pipeline has that on-demand playback doesn't need at all: <strong>controlling how much buffer a player is allowed to build up before joining the live edge.</strong></p>
+<hr>
+<h2 id="48-low-latency-live-streaming-and-synchronized-playback">48. Low-Latency Live Streaming and Synchronized Playback</h2>
+<p>A VOD player is free to buffer aggressively (§23's <code>HIGH_BUFFER_SECONDS</code> zone actively encourages it) because there's no "live edge" to fall behind — every viewer of a two-hour film is on their own independent timeline. A live player has the opposite goal: minimize the gap between "this moment was encoded" and "this moment is on screen," which means <strong>capping</strong> buffer size rather than maximizing it, and — critically — <strong>joining the stream close to the live edge</strong> rather than at its earliest available segment. Two concrete levers: shorter Segment durations specifically for live content (2 seconds rather than VOD's more efficient 6-10, trading a little encoding/packaging overhead for a much tighter live-edge window), and a live-specific manifest that only ever advertises the most recent handful of Segments, so a newly-joining player's player naturally starts near the current live moment instead of requesting a Segment from three minutes ago. Neither of these is a change to the CDN or origin architecture at all — §45-§46's fan-out fix and this section's latency bound are two genuinely separate concerns, solved by two genuinely separate mechanisms, that both happen to matter specifically for live content.</p>
+<hr>
+<h2 id="49-follow-up-question-14-how-do-you-know-if-playback-quality-is-actually-good-for-real-users-not-just-in-a-lab">49. Follow-up Question 14 — "How Do You Know If Playback Quality Is Actually Good for Real Users, Not Just in a Lab?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Your ABR algorithm (§23) and your CDN (§25-§26, §45-§46) all look correct on paper. How do you actually find out whether real viewers, on real networks, are having a good experience — and find out fast, during a live event, not a week later in a post-mortem?"</em></p>
+</blockquote>
+<p>§50-§51 answer with real telemetry, collected from real playback sessions, published as events the moment they happen.</p>
+<hr>
+<h2 id="50-quality-of-experience-telemetry">50. Quality of Experience Telemetry</h2>
+<p>Four events matter more than any others, because each one maps directly onto a concrete cause a team can act on: <strong>startup time</strong> (how long from "user pressed play" to "first frame rendered" — a bad number points at manifest-fetch latency or a cold cache); <strong>rebuffering events</strong> (playback stalled because the buffer ran dry — points at either a bad ABR decision or a genuine CDN capacity problem); <strong>bitrate switches</strong> (how often, and in which direction — a player oscillating between two bitrates is exactly §22's failure mode, now visible in production instead of only in theory); and <strong>playback failures</strong> (the session never started at all — points at an entitlement, DRM, or CDN availability problem specifically).</p>
+<hr>
+<h2 id="51-implementing-qoe-event-collection">51. Implementing QoE Event Collection</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public sealed interface QoeEvent permits StartupEvent, RebufferEvent, BitrateSwitchEvent, PlaybackFailureEvent {
+    String sessionId();
+    Instant occurredAt();
+}
+
+public record StartupEvent(String sessionId, Instant occurredAt, double startupLatencyMillis) implements QoeEvent { }
+public record RebufferEvent(String sessionId, Instant occurredAt, double stallDurationMillis) implements QoeEvent { }
+public record BitrateSwitchEvent(String sessionId, Instant occurredAt, int fromBitrateKbps, int toBitrateKbps) implements QoeEvent { }
+public record PlaybackFailureEvent(String sessionId, Instant occurredAt, String reason) implements QoeEvent { }
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class QoeEventPublisher {
+
+    private final List&lt;QoeEventListener&gt; listeners = new CopyOnWriteArrayList&lt;&gt;();
+
+    public void subscribe(QoeEventListener listener) { listeners.add(listener); }
+
+    public void publish(QoeEvent event) {
+        for (QoeEventListener listener : listeners) {
+            listener.onEvent(event); // e.g. a real-time dashboard aggregator, an alerting listener, a data-warehouse sink
+        }
+    }
+}
+
+public interface QoeEventListener {
+    void onEvent(QoeEvent event);
+}
+</code></pre></div>
+<p>Every player emits these events as they happen, during the session itself, to a publisher that fans them out to however many independent listeners care — a real-time dashboard aggregating rebuffer rates <em>during</em> a live event (so an operations team can react within minutes, not after the fact), and a data-warehouse sink for slower, deeper analysis, both subscribing to the identical event stream without either one needing to know the other exists. This is the same <strong>Observer</strong> pattern this project's own JIRA-style guide already uses for a different domain's side effects (notifications, webhooks, an audit log fired off an issue change) — here applied to playback telemetry instead, for the identical reason: adding a new consumer of these events should never require touching the code that emits them.</p>
+<hr>
+<h2 id="52-follow-up-question-15-at-petabyte-scale-content-and-millions-of-concurrent-streams-what-breaks-first">52. Follow-up Question 15 — "At Petabyte-Scale Content and Millions of Concurrent Streams, What Breaks First?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A catalog of 20,000 titles, each encoded into 8 renditions, accumulated over a decade. What's the storage story, and what's the encoding-pipeline story, at that scale?"</em></p>
+</blockquote>
+<p>Two genuinely separate bottlenecks, each with its own standard fix: storage growing without bound (§53), and an encoding pipeline that can't keep up with new content arriving (§54).</p>
+<hr>
+<h2 id="53-storage-scaling-content-lifecycle-and-cold-storage-tiering">53. Storage Scaling: Content Lifecycle and Cold Storage Tiering</h2>
+<p>Not every title is watched equally often, and storage cost scales with total bytes stored regardless of how rarely a given byte is actually requested — a ten-year-old, rarely-watched title's 4K master and every one of its 8 renditions sitting in the same expensive, low-latency storage tier as this week's premiere is a real, ongoing cost with no corresponding benefit. The standard fix is <strong>lifecycle tiering</strong>: content access patterns are tracked (§50's telemetry already has exactly the request-rate data needed), and titles that fall below an access-frequency threshold are moved to progressively cheaper, higher-latency storage tiers — the master file to cold/archival storage first (it's only ever needed again if the title needs re-encoding for a new codec), and eventually even rarely-hit renditions, accepting a higher retrieval latency on the rare cache-miss for a title nobody's watched in years, in exchange for a dramatically lower steady-state storage bill across a catalog where the overwhelming majority of content falls into that long tail.</p>
+<hr>
+<h2 id="54-encoding-pipeline-scaling-a-distributed-worker-pool">54. Encoding Pipeline Scaling: A Distributed Worker Pool</h2>
+<p>§13 already established that transcoding is embarrassingly parallel <em>within</em> one title's set of Renditions; at catalog scale, it's <em>also</em> parallel <strong>across</strong> titles — a distributed worker pool, one job per (title, Rendition) pair, pulled from a durable work queue by however many encoding worker machines are currently provisioned, is what lets encoding throughput scale by adding workers rather than by making any single machine faster. This is the identical bounded-worker-pool shape this project's own guides reach for repeatedly (an API gateway's rate-limited connector pools, a version-control system's delta-compression workers) — a durable queue decoupling "a job is ready" from "a specific worker happens to be free right now," so a burst of new uploads queues cleanly rather than either blocking or overwhelming whatever capacity happens to be online at that moment.</p>
+<hr>
+<h2 id="55-full-worked-example-a-user-presses-play-end-to-end">55. Full Worked Example: A User Presses Play, End to End</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1.  Profile taps &quot;Play&quot; on a catalog title
+2.  EntitlementChecker.check(account, profile, assetId) -&gt; allowed (correct tier, not a kids-restricted title)  (§41)
+3.  SignedUrlGenerator.sign(masterPlaylistPath, profileId, expiresAt=now+5min) -&gt; signed Master playlist URL     (§29)
+4.  Player fetches the Master playlist -&gt; sees 6 available Renditions                                          (§17)
+5.  PlaybackPositionTracker.resumePositionFor(profileId, assetId) -&gt; 42:15 (resume, not start from zero)         (§32)
+6.  HybridAdaptiveBitrateSelector.selectNextRendition(asset, initialPlayerState) -&gt; 720p (conservative start)    (§23)
+7.  Player requests segment_0421.ts of the 720p Media playlist (corresponding to the 42:15 resume point)
+8.  Edge CDN: cache HIT (a popular title) -&gt; served instantly, origin never touched                              (§25-§26)
+9.  Player renders first frame -&gt; StartupEvent published                                                          (§51)
+10. Every ~10s: a heartbeat -&gt; PlaybackPositionTracker.recordHeartbeat(...)                                         (§32)
+11. Bandwidth improves mid-session -&gt; selectNextRendition upshifts to 1080p -&gt; BitrateSwitchEvent published          (§23, §51)
+</code></pre></div>
+<p>Every numbered line traces to a section this guide built real code for — including step 8's cache hit, which is the <em>expected</em>, common-case outcome this entire delivery architecture (§25-§26) exists to make true for the overwhelming majority of requests.</p>
+<hr>
+<h2 id="56-full-worked-example-a-live-match-goes-viral-end-to-end">56. Full Worked Example: A Live Match Goes Viral, End to End</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1.  T-minus 30 minutes: LiveEvent scheduled, regional/edge tiers pre-provisioned for expected peak load
+2.  Match starts: encoder produces a new 2-second live Segment                                                     (§48)
+3.  LiveSegmentPublisher.publish(cacheKey, bytes) -&gt; written to origin, THEN concurrently prewarmed to
+    all ~20 regional nodes BEFORE any player requests it                                                            (§46)
+4.  Live manifest updated to advertise the new Segment, at the current live edge only                                (§48)
+5.  A wicket falls -- 30,000,000 devices' players, all following the live edge, request this Segment within
+    moments of each other
+6.  Every edge node: near-100% cache HIT (regional prewarm already landed the bytes, §45's math: origin sees
+    ~20 requests total for this Segment, not 30,000,000)
+7.  QoeEventPublisher: a live dashboard aggregates RebufferEvent counts in real time across the audience           (§51)
+8.  Rebuffer rate ticks up slightly in one region -&gt; ops team reacts within minutes, not after the broadcast ends
+</code></pre></div>
+<p>Step 6 is the entire payoff of §43-§46's design: the same request volume that would collapse a flat, single-tier CDN is absorbed almost entirely by the hierarchy, with the origin seeing a request count that scales with the number of <em>regional nodes</em>, not the number of <em>viewers</em> — the single fact this whole guide's hardest section exists to establish.</p>
+<hr>
+<h2 id="57-final-architecture-diagram">57. Final Architecture Diagram</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                          Content Team -&gt; Encoding Pipeline (§13, §19-§20) -&gt; Object Storage (Origin)
+                                                                                       |
+                    Live Encoder -&gt; LiveSegmentPublisher (§46, PREWARMS regional tier) |
+                                                                                       |
+                          Origin  ---&gt;  Regional Tier (~20 nodes)  ---&gt;  Edge Tier (~10,000 PoPs)  ---&gt;  Device
+                                        OriginShield request-coalescing (§26) at EVERY tier boundary
+                                                                                       |
+                    EntitlementChecker (§41) -&gt; SignedUrlGenerator (§29) -&gt; Manifest (§17) -&gt; Player
+                                                                                       |
+                    AdaptiveBitrateSelector (§23)     PlaybackPositionTracker (§32)     QoeEventPublisher (§51)
+                    CollaborativeFilteringRecommender (§36)     CatalogSearchIndex (§38)
+</code></pre></div>
+<hr>
+<h2 id="58-design-patterns-used-throughout-this-guide">58. Design Patterns Used Throughout This Guide</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Where</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Composite</strong></td>
+<td><code>VideoAsset</code>/<code>Rendition</code>/<code>Segment</code> (§16-§17)</td>
+<td>A title's bitrate ladder is a uniform container-of-containers structure, hashed and referenced recursively the same way at every level.</td>
+</tr>
+<tr>
+<td><strong>State</strong></td>
+<td><code>EncodingStatus</code> (§19-§20)</td>
+<td>Legal transitions live in one place, enforced polymorphically, including the fan-in join for parallel rendition jobs.</td>
+</tr>
+<tr>
+<td><strong>Strategy</strong></td>
+<td><code>AdaptiveBitrateSelector</code> (§22-§23), the recommender (§35-§36)</td>
+<td>Both the client-side bitrate decision and the personalization algorithm are swappable behind one interface each.</td>
+</tr>
+<tr>
+<td><strong>Observer</strong></td>
+<td><code>QoeEventPublisher</code> (§51)</td>
+<td>Real-time dashboards, alerting, and data-warehouse sinks all subscribe to the identical event stream, independently of each other.</td>
+</tr>
+<tr>
+<td><strong>Facade</strong></td>
+<td>The playback service's session-start path (§41)</td>
+<td>Entitlement checking, position resume, signed-URL generation, and manifest delivery are all invisible to the client behind one "start playback" call.</td>
+</tr>
+<tr>
+<td><strong>Hierarchical Caching</strong></td>
+<td>The tiered CDN (§25-§26, §45-§46)</td>
+<td>Request coalescing and multiplicative fan-out reduction at every tier boundary is what makes both ordinary global delivery and live flash-crowd traffic survivable.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="59-solid-principles-applied">59. SOLID Principles Applied</h2>
+<ul>
+<li><strong>Single Responsibility</strong>: <code>SignedUrlGenerator</code> only signs/verifies URLs; <code>EntitlementChecker</code> only decides watch permission; <code>PlaybackPositionTracker</code> only tracks resume position. None of them know how to select a bitrate or fetch a segment.</li>
+<li><strong>Open/Closed</strong>: adding a new <code>AdaptiveBitrateSelector</code> implementation, or a new <code>QoeEventListener</code>, never requires modifying the playback session logic or the event publisher — both are consumed purely through their interfaces.</li>
+<li><strong>Liskov Substitution</strong>: any <code>AdaptiveBitrateSelector</code> is fully substitutable wherever the interface type is used (§23) — a test double and <code>HybridAdaptiveBitrateSelector</code> are interchangeable from the player's point of view.</li>
+<li><strong>Interface Segregation</strong>: <code>AdaptiveBitrateSelector</code> exposes exactly one method; <code>QoeEventListener</code> exposes exactly one method — neither interface forces an implementation to support behavior it doesn't need.</li>
+<li><strong>Dependency Inversion</strong>: the playback session depends on <code>AdaptiveBitrateSelector</code>, <code>EntitlementChecker</code>, and <code>PlaybackPositionTracker</code> — all interfaces/classes injected, never a hard-coded concrete bitrate algorithm baked directly into player logic.</li>
+</ul>
+<hr>
+<h2 id="60-common-mistakes-when-building-this-yourself">60. Common Mistakes When Building This Yourself</h2>
+<ul>
+<li><strong>Storing and serving one file per video</strong> (§14) — forces every viewer onto one bitrate and makes efficient seeking/caching impossible; the entire reason adaptive bitrate streaming exists.</li>
+<li><strong>A bitrate-selection algorithm that reacts to every throughput fluctuation</strong> (§22) — oscillates between bitrates, a worse experience than holding a steady, slightly conservative bitrate.</li>
+<li><strong>A flat, single-tier CDN with no origin shield</strong> (§25-§26) — survives ordinary catalog traffic and collapses the instant a live event concentrates load, because nothing coalesces the resulting flood of simultaneous same-key misses.</li>
+<li><strong>Treating live streaming as "the same as VOD, just with a different source"</strong> (§44) — misses the defining difference (load concentrated in both time and cache-key space at once) that makes flash-crowd fan-out the actual hard problem, not raw bandwidth.</li>
+<li><strong>Hand-rolling video DRM/encryption</strong> (§28) — exactly the kind of security-critical mechanism a reviewed, industry-standard system exists for; a homegrown scheme is a real, exploitable liability, not a shortcut.</li>
+<li><strong>A playback-position update that isn't idempotent or sequence-ordered</strong> (§32) — a retried or out-of-order heartbeat can silently move a viewer's resume point backward, a small but real, visible bug every time it happens.</li>
+<li><strong>Skipping request coalescing at the origin shield</strong> (§26) — under a flash crowd specifically, this is the single piece of code standing between "the origin handles it" and "the origin falls over."</li>
+</ul>
+<hr>
+<h2 id="61-testing-strategy">61. Testing Strategy</h2>
+<ul>
+<li><strong><code>EncodingJob</code></strong> (§20): a job with six parallel rendition sub-jobs stays in <code>TRANSCODING</code> until the sixth completes; any illegal transition (e.g. <code>AVAILABLE</code> back to <code>TRANSCODING</code>) throws.</li>
+<li><strong><code>HybridAdaptiveBitrateSelector</code></strong> (§23): a simulated noisy-but-flat throughput signal near a bitrate boundary never triggers repeated oscillation; a genuinely draining buffer never upshifts regardless of throughput.</li>
+<li><strong><code>OriginShield</code></strong> (§26): N concurrent callers requesting the identical cache key during a simulated miss result in exactly one real origin fetch, verified by counting calls to the underlying object store.</li>
+<li><strong><code>SignedUrlGenerator</code></strong> (§29): a URL past its <code>expiresAt</code> is rejected even with a correct signature; a signature computed for a different <code>profileId</code> is rejected; tampering with any signed field invalidates the signature.</li>
+<li><strong><code>PlaybackPositionTracker</code></strong> (§32): an out-of-order (lower-sequence) heartbeat never moves the recorded position backward; a retried (same-sequence) heartbeat is a no-op.</li>
+<li><strong><code>EntitlementChecker</code></strong> (§41): an inactive subscription denies every title regardless of tier; a kids profile is denied a restricted title even on the top subscription tier.</li>
+<li><strong>A simulated flash-crowd load test</strong> (§45-§46): thousands of simulated concurrent misses for one brand-new live segment result in a bounded, small number of origin requests — the test that would have caught a missing origin shield before a real live event did.</li>
+</ul>
+<hr>
+<h2 id="62-suggested-future-enhancements">62. Suggested Future Enhancements</h2>
+<ul>
+<li><strong>Precomputed, offline item-item similarity</strong> for recommendations (§36) — replacing the <code>O(profiles²)</code> online computation with a nightly batch job that precomputes similar-title pairs, looked up in constant time at request time.</li>
+<li><strong>A blended recommender</strong>, combining the collaborative-filtering approach (§36) with content-based filtering (§35) specifically to solve the cold-start problem for a brand-new profile with no watch history yet.</li>
+<li><strong>Per-title, per-region cache pre-provisioning driven by scheduling data</strong> — using a <code>LiveEvent</code>'s known start time (§46) to begin regional prewarming and capacity scaling proactively, minutes before the event starts, rather than reactively at first request.</li>
+<li><strong>Multi-CDN failover</strong> — routing a region's traffic across more than one CDN provider, so a single provider's regional outage degrades capacity rather than taking an entire region offline.</li>
+<li><strong>Per-device DRM renewal and offline-download license expiry</strong>, extending §28's DRM integration to the download-for-offline-viewing case named in §7's functional requirements but not built out here.</li>
+<li><strong>A/B-testable ABR strategies</strong> — since <code>AdaptiveBitrateSelector</code> (§22-§23) is already a Strategy-pattern interface, running two implementations against different viewer cohorts and comparing QoE telemetry (§50-§51) is a natural, low-cost next step.</li>
+</ul>
+<hr>
+<h2 id="63-progressive-interview-question-set">63. Progressive Interview Question Set</h2>
+<ol>
+<li>Why can't a single MP4 file per title work, and what specifically does the Rendition/Segment/Manifest model fix?</li>
+<li>Walk through why an encoding pipeline's <code>TRANSCODING</code> state can't advance until every parallel rendition job finishes, and what would go wrong if it advanced early.</li>
+<li>Explain the oscillation failure mode a naive throughput-only ABR algorithm falls into, and how buffer-based hysteresis fixes it.</li>
+<li>Why does a tiered CDN reduce origin load multiplicatively rather than additively, and what's the concrete math for a specific fan-out ratio?</li>
+<li>What's the single load-bearing piece of code that keeps a CDN tier from forwarding a thousand redundant misses to its parent, and why does it matter more during a live event than during ordinary catalog traffic?</li>
+<li>Why is live streaming at flash-crowd scale a fundamentally different problem from serving a popular catalog title, not just a bigger version of the same problem?</li>
+<li>Explain prewarming, and why it matters specifically for live content in a way it doesn't for VOD.</li>
+<li>Why must a playback-position update use a monotonically increasing sequence number instead of wall-clock time to resolve conflicting concurrent writers?</li>
+<li>Why does this design treat DRM and password/TLS-style cryptography as "integrate a standard system," not "design your own" — what's the actual engineering judgment being exercised there?</li>
+<li>If asked to add support for a brand-new profile's cold-start recommendation problem, how would you solve it using pieces this guide already built, without inventing a sixth system from scratch?</li>
+</ol>
+<hr>
+<h2 id="64-final-takeaway">64. Final Takeaway</h2>
+<p>A video streaming platform's hard problems split cleanly into two categories, and conflating them is the most common design mistake in this entire domain. The first category — encoding, adaptive bitrate, entitlements, recommendations, search — is genuinely substantial engineering, but it's the <em>same kind</em> of engineering a well-built catalog application anywhere needs: real state machines, real algorithms, real access control, applied carefully. The second category has exactly one member, and it's the one that defines this domain specifically: a live event concentrates demand in both time and cache-key space simultaneously, at a scale ordinary capacity planning never has to reason about, and the only real fix is a cache hierarchy deep enough, and a request-coalescing discipline strict enough, that the origin never sees more than a small, bounded multiple of its own tier count — regardless of whether the audience behind it is thirty thousand people or thirty million.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Design a Video Streaming App Like Netflix or Hotstar — HLD, LLD, and Class Design From Scratch.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

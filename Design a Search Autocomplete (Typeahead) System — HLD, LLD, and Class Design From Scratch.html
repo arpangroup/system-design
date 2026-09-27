@@ -1,0 +1,917 @@
+<meta charset="utf-8">
+<title>Design a Search Autocomplete (Typeahead) System — HLD, LLD, and Class Design From Scratch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; system design guide</div>
+      <h1>Design a Search Autocomplete (Typeahead) System — HLD, LLD, and Class Design From Scratch</h1>
+      <p class="dek">A search autocomplete/typeahead system designed from scratch as a system-design interview, end to end: why a naive Trie search is too slow no matter how good the data structure is, the one real optimization that fixes it (precomputed, incrementally-maintained top-K suggestion lists cached at every Trie node), an offline batch pipeline that rebuilds the index from aggregated query logs rather than updating it live, and the specific reason hash-based sharding &mdash; the default answer almost everywhere else in this series &mdash; actively breaks a prefix-based structure, replaced with real prefix-range shard routing. Also covers hot-prefix caching, client-side debouncing with request cancellation, compressed (radix) tries, layered personalization, and fuzzy matching named honestly as separate work. Real Java code and a class diagram for every core mechanism, following SOLID throughout.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-the-interview-framed">Why This Matters (The Interview, Framed)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-step-1-clarifying-requirements-before-designing-anything">Step 1 — Clarifying Requirements Before Designing Anything</a></li><li class="toc-lvl-2"><a href="#7-functional-requirements">Functional Requirements</a></li><li class="toc-lvl-2"><a href="#8-non-functional-requirements">Non-Functional Requirements</a></li><li class="toc-lvl-2"><a href="#9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</a></li><li class="toc-lvl-2"><a href="#10-identifying-the-core-domain-entities">Identifying the Core Domain Entities</a></li><li class="toc-lvl-2"><a href="#11-high-level-architecture-overview">High-Level Architecture Overview</a></li><li class="toc-lvl-2"><a href="#12-follow-up-question-2-what-data-structure-actually-answers-give-me-completions-of-this-prefix-and-why">Follow-up Question 2 — "What Data Structure Actually Answers 'Give Me Completions of This Prefix,' and Why?"</a></li><li class="toc-lvl-2"><a href="#13-why-a-trie-is-the-natural-fit">Why a Trie Is the Natural Fit</a></li><li class="toc-lvl-2"><a href="#14-implementing-the-basic-trie">Implementing the Basic Trie</a></li><li class="toc-lvl-2"><a href="#15-follow-up-question-3-a-naive-trie-search-still-has-to-scan-every-completion-under-a-prefix-to-rank-them-how-do-you-make-that-fast">Follow-up Question 3 — "A Naive Trie Search Still Has to Scan Every Completion Under a Prefix to Rank Them. How Do You Make That Fast?"</a></li><li class="toc-lvl-2"><a href="#16-the-real-optimization-precomputed-top-k-at-every-node">The Real Optimization: Precomputed Top-K at Every Node</a></li><li class="toc-lvl-2"><a href="#17-implementing-top-k-propagation-on-insert">Implementing Top-K Propagation on Insert</a></li><li class="toc-lvl-2"><a href="#18-follow-up-question-4-where-does-the-frequency-data-actually-come-from-and-how-often-does-the-trie-update">Follow-up Question 4 — "Where Does the Frequency Data Actually Come From, and How Often Does the Trie Update?"</a></li><li class="toc-lvl-2"><a href="#19-readwrite-ratio-again-why-the-trie-is-batch-rebuilt-not-updated-per-keystroke">Read:Write Ratio, Again: Why the Trie Is Batch-Rebuilt, Not Updated Per Keystroke</a></li><li class="toc-lvl-2"><a href="#20-implementing-the-offline-trie-build-pipeline">Implementing the Offline Trie-Build Pipeline</a></li><li class="toc-lvl-2"><a href="#21-follow-up-question-5-a-trie-holding-billions-of-distinct-queries-doesnt-fit-on-one-machine-how-do-you-shard-it">Follow-up Question 5 — "A Trie Holding Billions of Distinct Queries Doesn't Fit on One Machine. How Do You Shard It?"</a></li><li class="toc-lvl-2"><a href="#22-why-hash-based-sharding-breaks-a-prefix-trie">Why Hash-Based Sharding Breaks a Prefix Trie</a></li><li class="toc-lvl-2"><a href="#23-prefix-range-sharding-the-correct-approach">Prefix-Range Sharding: The Correct Approach</a></li><li class="toc-lvl-2"><a href="#24-implementing-prefix-range-shard-routing">Implementing Prefix-Range Shard Routing</a></li><li class="toc-lvl-2"><a href="#25-follow-up-question-6-how-do-you-make-the-common-case-a-few-very-popular-prefixes-even-faster">Follow-up Question 6 — "How Do You Make the Common Case — a Few Very Popular Prefixes — Even Faster?"</a></li><li class="toc-lvl-2"><a href="#26-caching-hot-prefixes">Caching Hot Prefixes</a></li><li class="toc-lvl-2"><a href="#27-implementing-a-prefix-cache">Implementing a Prefix Cache</a></li><li class="toc-lvl-2"><a href="#28-follow-up-question-7-typing-fires-a-request-per-keystroke-how-do-you-avoid-hammering-the-backend">Follow-up Question 7 — "Typing Fires a Request Per Keystroke. How Do You Avoid Hammering the Backend?"</a></li><li class="toc-lvl-2"><a href="#29-client-side-debouncing-and-request-cancellation">Client-Side Debouncing and Request Cancellation</a></li><li class="toc-lvl-2"><a href="#30-class-diagram-the-trie-and-query-path">Class Diagram: The Trie and Query Path</a></li><li class="toc-lvl-2"><a href="#31-follow-up-question-8-a-trie-has-real-memory-overhead-for-sparse-data-how-do-you-make-it-more-memory-efficient">Follow-up Question 8 — "A Trie Has Real Memory Overhead for Sparse Data. How Do You Make It More Memory-Efficient?"</a></li><li class="toc-lvl-2"><a href="#32-compressed-radix-tries-collapsing-single-child-chains">Compressed (Radix) Tries: Collapsing Single-Child Chains</a></li><li class="toc-lvl-2"><a href="#33-follow-up-question-9-how-do-you-personalize-suggestions-instead-of-showing-the-same-global-top-k-to-everyone">Follow-up Question 9 — "How Do You Personalize Suggestions Instead of Showing the Same Global Top-K to Everyone?"</a></li><li class="toc-lvl-2"><a href="#34-personalization-as-a-layered-re-ranking-step">Personalization as a Layered Re-Ranking Step</a></li><li class="toc-lvl-2"><a href="#35-follow-up-question-10-what-about-typos-should-a-search-for-gogle-still-suggest-google">Follow-up Question 10 — "What About Typos — Should a Search for 'gogle' Still Suggest 'Google'?"</a></li><li class="toc-lvl-2"><a href="#36-fuzzy-matching-and-spell-correction-named-as-real-separate-work">Fuzzy Matching and Spell Correction (Named as Real, Separate Work)</a></li><li class="toc-lvl-2"><a href="#37-follow-up-question-11-at-global-scale-what-breaks-first">Follow-up Question 11 — "At Global Scale, What Breaks First?"</a></li><li class="toc-lvl-2"><a href="#38-scaling-the-read-path-replicated-cached-shards-behind-a-cdn">Scaling the Read Path: Replicated, Cached Shards Behind a CDN</a></li><li class="toc-lvl-2"><a href="#39-full-worked-example-a-user-types-end-to-end">Full Worked Example: A User Types, End to End</a></li><li class="toc-lvl-2"><a href="#40-final-architecture-diagram">Final Architecture Diagram</a></li><li class="toc-lvl-2"><a href="#41-design-patterns-used-throughout-this-guide">Design Patterns Used Throughout This Guide</a></li><li class="toc-lvl-2"><a href="#42-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#43-common-mistakes-when-building-this-yourself">Common Mistakes When Building This Yourself</a></li><li class="toc-lvl-2"><a href="#44-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#45-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#46-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#47-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>The interview question this guide answers:</strong></p>
+<p><em>"Design a search autocomplete / typeahead system, like the suggestions that appear as you type into a search box. Cover both high-level design (data pipeline, sharding, caching) and low-level design (the actual data structure and algorithm that make a suggestion list fast). Follow SOLID design principles, and be ready to justify every decision when I push back — starting with why a naive prefix search isn't fast enough, no matter how good your data structure is."</em></p>
+<p>This guide is structured exactly as that interview unfolds: build the obvious first data structure, show precisely where it's too slow, fix that with the one optimization that actually matters, then follow the same escalating sequence of <strong>follow-up questions</strong> a real interview always asks next — how the underlying popularity data gets there at all, how to shard a data structure that only hash-based sharding usually applies to, and what actually breaks first at global scale.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<p>We are building <strong>MiniTypeahead</strong> — a search autocomplete system covering:</p>
+<ul>
+<li><strong>Functional requirements</strong>: given a partial query prefix, return the top-K most relevant completions, ranked by popularity, fast enough to update on every keystroke.</li>
+<li><strong>High-level design</strong>: a Trie-based index, an offline pipeline that turns raw search-query logs into that index, prefix-aware sharding for a structure too large to fit on one machine, and caching for the small set of prefixes that receive the overwhelming majority of all traffic.</li>
+<li><strong>Low-level design</strong>: a real Trie implementation with precomputed top-K suggestions cached at every node — the one optimization that turns "scan every completion under this prefix" into "read a pre-sorted list in constant time."</li>
+<li><strong>Scaling concerns</strong>: why hash-based sharding, the default answer for almost everything else in this series, actively breaks a prefix-based data structure, and what to do instead.</li>
+</ul>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>   User types &quot;g&quot; -&gt; &quot;go&quot; -&gt; &quot;goo&quot; -&gt; &quot;goog&quot; ...          (one request per keystroke, debounced client-side, §29)
+                        |
+              Prefix Cache (hot prefixes, §26-§27)
+                        | miss
+              Prefix-Range Shard Router (§23-§24)  --&gt;  Trie shard (§13-§17)
+                        |                                   ^
+                        v                                   |
+              top-K suggestions, ALREADY sorted    Offline Trie-Build Pipeline (§19-§20)
+              (no scan, no ranking at query time)   &lt;-- aggregated search-query logs
+</code></pre></div>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to:</p>
+<ul>
+<li>Explain why a Trie is the natural data structure for prefix lookup, and precisely where a naive Trie implementation is still too slow for a real autocomplete workload.</li>
+<li>Implement the single optimization that fixes it: precomputing and maintaining a sorted top-K suggestion list at every Trie node, updated incrementally as popularity data changes.</li>
+<li>Explain why autocomplete's read:write ratio means the index should be rebuilt from an offline pipeline, not updated synchronously on every search.</li>
+<li>Explain precisely why hash-based sharding — the default answer this series reaches for almost everywhere else — actively breaks a prefix-based structure, and design the sharding strategy that actually works instead.</li>
+<li>Design a caching layer for the small number of extremely hot prefixes that dominate real-world traffic, and a client-side debouncing strategy that keeps a keystroke-driven UI from overwhelming the backend.</li>
+</ul>
+<hr>
+<h2 id="3-why-this-matters-the-interview-framed">3. Why This Matters (The Interview, Framed)</h2>
+<p>"Design a search autocomplete system" is a favorite systems-design question because the obvious data structure (a Trie) is correct, well-known, and <em>still</em> not the actual answer on its own — which makes it an excellent test of whether a candidate stops at "I know the textbook data structure" or keeps reasoning past it:</p>
+<ul>
+<li><strong>The data structure alone doesn't solve the problem</strong> — a Trie answers "does this prefix exist" efficiently, but the actual requirement is "give me the top-K <em>most popular</em> completions, ranked," which a plain Trie has no way to answer without an expensive scan at query time. Naming this gap, and fixing it, is the real test.</li>
+<li><strong>Sharding this specific structure inverts the usual answer</strong> — every other guide in this series reaches for hash-based (or consistent) sharding as the default; a prefix-based structure is the specific, instructive counter-example where that default actively breaks the workload, and knowing why is a genuine, transferable systems-design insight.</li>
+<li><strong>The read:write ratio argument shows up again, with a twist</strong> — like URL shortening, reads vastly outnumber writes here too, but the fix isn't caching alone; it's recognizing that "writes" (new popularity data) don't need to be reflected instantly at all, which changes the entire pipeline architecture.</li>
+</ul>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language</td>
+<td>Java 21</td>
+<td>Matches this guide's class diagrams and pattern implementations.</td>
+</tr>
+<tr>
+<td>Core index</td>
+<td>A Trie, with a precomputed top-K list cached at every node</td>
+<td>Turns prefix lookup plus ranking into one <code>O(prefix length)</code> operation, with zero scanning or sorting at query time (§14-§17).</td>
+</tr>
+<tr>
+<td>Index construction</td>
+<td>An offline batch pipeline over aggregated search-query logs</td>
+<td>The read:write ratio means the index can be rebuilt periodically rather than updated synchronously per search (§19-§20).</td>
+</tr>
+<tr>
+<td>Sharding</td>
+<td>Prefix-range partitioning, never a hash</td>
+<td>A hash destroys the prefix locality every lookup depends on — explained precisely in §22-§24.</td>
+</tr>
+<tr>
+<td>Cache</td>
+<td>An in-memory LRU cache for hot prefixes</td>
+<td>Real query traffic is heavily Zipfian — a small number of short, common prefixes account for a large share of all requests (§26-§27).</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>minitypeahead/
+├── src/main/java/com/example/minitypeahead/
+│   ├── trie/
+│   │   ├── TrieNode.java                                   // §14, §17
+│   │   ├── Trie.java                                        // §14, §17
+│   │   └── Suggestion.java
+│   ├── pipeline/
+│   │   └── TrieBuildPipeline.java                            // §20
+│   ├── sharding/
+│   │   ├── PrefixRangeShardRouter.java                        // §24
+│   │   └── ShardRange.java
+│   ├── cache/
+│   │   └── PrefixCache.java (LRU)                              // §27
+│   └── client/
+│       └── DebouncedAutocompleteClient.java                    // §29
+└── src/test/java/com/example/minitypeahead/
+    ├── TopKPropagationTest.java
+    ├── PrefixShardRoutingTest.java
+    └── PrefixCacheEvictionTest.java
+</code></pre></div>
+<hr>
+<h2 id="6-step-1-clarifying-requirements-before-designing-anything">6. Step 1 — Clarifying Requirements Before Designing Anything</h2>
+<blockquote>
+<p><strong>Candidate's clarifying questions:</strong> <em>"How many distinct historical queries are we ranking over — millions, or billions? Does 'popular' mean globally popular, or personalized per user? What's the acceptable staleness for newly-popular queries to show up — seconds, or is a longer delay acceptable? What's the target end-to-end latency per keystroke?"</em></p>
+</blockquote>
+<p>Exactly as every prior guide in this series argues, narrowing an intentionally broad prompt before designing anything is the first move that separates a strong answer from a shallow one. For this guide, we settle on a concrete, realistic scope: <strong>billions of distinct historical queries</strong>, <strong>global popularity ranking</strong> as the core requirement (with personalization named as a real layered enhancement, §33-§34), <strong>staleness on the order of minutes-to-hours acceptable</strong> for newly-trending queries, and a <strong>target of well under 100 milliseconds</strong> end-to-end per keystroke.</p>
+<hr>
+<h2 id="7-functional-requirements">7. Functional Requirements</h2>
+<ul>
+<li>Given a <strong>partial query prefix</strong>, return the <strong>top-K</strong> completions, ranked by historical popularity.</li>
+<li>Update the underlying popularity data from real search-query traffic <strong>continuously</strong>, even though the served index itself refreshes periodically.</li>
+<li>Support <strong>prefixes of any length</strong>, from a single character up to a full query.</li>
+<li>Serve suggestions with <strong>low enough latency</strong> to update as a user types, not just after they stop.</li>
+</ul>
+<hr>
+<h2 id="8-non-functional-requirements">8. Non-Functional Requirements</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>What it means concretely</th>
+<th>Where this guide addresses it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Very low per-keystroke latency</strong></td>
+<td>A suggestion list must feel instantaneous, well under 100ms, on every single character typed</td>
+<td>Precomputed top-K at every Trie node (§16-§17), hot-prefix caching (§26-§27)</td>
+</tr>
+<tr>
+<td><strong>Massive read:write skew</strong></td>
+<td>Autocomplete requests vastly outnumber the rate at which underlying popularity data actually needs to change</td>
+<td>The offline, periodic rebuild pipeline (§19-§20)</td>
+</tr>
+<tr>
+<td><strong>Horizontal scalability of the index itself</strong></td>
+<td>Billions of distinct historical queries do not fit in one machine's memory</td>
+<td>Prefix-range sharding (§22-§24)</td>
+</tr>
+<tr>
+<td><strong>Acceptable staleness, not real-time writes</strong></td>
+<td>A newly-trending query does not need to appear in suggestions within milliseconds of its first occurrence</td>
+<td>The entire batch-pipeline architecture (§18-§20)</td>
+</tr>
+<tr>
+<td><strong>Extensibility</strong></td>
+<td>Adding personalization or fuzzy matching later must not require redesigning the core index</td>
+<td>Both are built as layers on top of the same Trie, never mixed into it (§33-§36)</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">9. Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Before architecture — what actually exists in this system, and how does it relate?"</em></p>
+</blockquote>
+<p>This is the same deliberate pivot every prior guide in this series makes — naming the domain model before naming components keeps the design honest about what actually needs solving.</p>
+<hr>
+<h2 id="10-identifying-the-core-domain-entities">10. Identifying the Core Domain Entities</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>Represents</th>
+<th>Key relationships</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>TrieNode</strong></td>
+<td>One character position in the shared prefix space of every indexed query</td>
+<td>Has children keyed by the next character, and a cached, pre-sorted top-K list (§14, §16-§17)</td>
+</tr>
+<tr>
+<td><strong>Suggestion</strong></td>
+<td>One (query text, popularity score) pair</td>
+<td>What a top-K list actually stores and returns</td>
+</tr>
+<tr>
+<td><strong>QueryLogEntry</strong></td>
+<td>One raw, real search event</td>
+<td>The raw input the offline pipeline aggregates into popularity scores (§19-§20)</td>
+</tr>
+<tr>
+<td><strong>ShardRange</strong></td>
+<td>A contiguous range of the prefix keyspace owned by one Trie shard</td>
+<td>Never a hash bucket — a real character-range interval (§23-§24)</td>
+</tr>
+<tr>
+<td><strong>PrefixCache</strong></td>
+<td>An in-memory cache of hot prefixes' already-computed top-K lists</td>
+<td>Consulted before any shard is ever contacted (§26-§27)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Every section from §11 onward either builds infrastructure <strong>around</strong> these entities or builds the entities <strong>themselves</strong> as real, working class designs — nothing introduced later is untraceable back to this table.</p>
+<hr>
+<h2 id="11-high-level-architecture-overview">11. High-Level Architecture Overview</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                        Search traffic (millions of real queries, continuously)
+                                          |
+                              Query Log Aggregation (§19)
+                                          |
+                              Offline Trie-Build Pipeline (§20)
+                                          |
+                              Published, versioned Trie shards
+                                          |
+   User keystroke -&gt; DebouncedAutocompleteClient (§29) -&gt; PrefixCache (§27) --miss--&gt; ShardRouter (§24) -&gt; Trie shard
+                                          |
+                              top-K suggestions, already ranked
+</code></pre></div>
+<p>Two structurally different data flows, deliberately kept separate: the <strong>write side</strong> (query logs accumulating, periodically aggregated and rebuilt into a new Trie) happens on its own schedule, entirely decoupled from user-facing latency; the <strong>read side</strong> (a keystroke resolving to a ranked suggestion list) is the only path with a real-time latency budget, and every optimization in this guide targets that path specifically.</p>
+<hr>
+<h2 id="12-follow-up-question-2-what-data-structure-actually-answers-give-me-completions-of-this-prefix-and-why">12. Follow-up Question 2 — "What Data Structure Actually Answers 'Give Me Completions of This Prefix,' and Why?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Forget ranking for a second. Given a set of strings and a prefix, what's the right data structure to find every string starting with that prefix, efficiently?"</em></p>
+</blockquote>
+<p>§13 names it; §14 implements it.</p>
+<hr>
+<h2 id="13-why-a-trie-is-the-natural-fit">13. Why a Trie Is the Natural Fit</h2>
+<p>A <strong>Trie</strong> (prefix tree) stores a set of strings by sharing common prefixes as shared paths through a tree of characters — the string <code>"google"</code> and <code>"goggles"</code> share the path <code>g -&gt; o -&gt; g</code>, diverging only at the fourth character. Finding every stored string starting with a given prefix becomes: walk the tree following the prefix's characters one node at a time — an <code>O(prefix length)</code> operation, entirely independent of how many total strings are stored — and then explore the subtree rooted at wherever that walk ends. That second half, exploring the subtree, is exactly where a naive implementation is still too slow, which §15 states precisely.</p>
+<hr>
+<h2 id="14-implementing-the-basic-trie">14. Implementing the Basic Trie</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record Suggestion(String query, long popularity) { }
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TrieNode {
+    final Map&lt;Character, TrieNode&gt; children = new HashMap&lt;&gt;();
+    boolean isEndOfQuery;
+    long popularityIfEndOfQuery; // only meaningful when isEndOfQuery is true
+    List&lt;Suggestion&gt; topKSuggestions = List.of(); // §16-§17 -- the optimization this entire guide is built around
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class Trie {
+
+    private final TrieNode root = new TrieNode();
+
+    public void insert(String query, long popularity) {
+        TrieNode current = root;
+        for (char c : query.toCharArray()) {
+            current = current.children.computeIfAbsent(c, k -&gt; new TrieNode());
+        }
+        current.isEndOfQuery = true;
+        current.popularityIfEndOfQuery = popularity;
+    }
+
+    /** The NAIVE version -- correct, and exactly what §15 shows is too slow at real scale. */
+    public List&lt;Suggestion&gt; searchNaive(String prefix, int k) {
+        TrieNode current = root;
+        for (char c : prefix.toCharArray()) {
+            current = current.children.get(c);
+            if (current == null) return List.of(); // no stored query has this prefix at all
+        }
+        List&lt;Suggestion&gt; allCompletions = new ArrayList&lt;&gt;();
+        collectAllCompletions(current, prefix, allCompletions); // walks the ENTIRE subtree -- §15's problem
+        return allCompletions.stream()
+                .sorted(Comparator.comparingLong(Suggestion::popularity).reversed())
+                .limit(k)
+                .toList();
+    }
+
+    private void collectAllCompletions(TrieNode node, String prefixSoFar, List&lt;Suggestion&gt; out) {
+        if (node.isEndOfQuery) out.add(new Suggestion(prefixSoFar, node.popularityIfEndOfQuery));
+        for (Map.Entry&lt;Character, TrieNode&gt; entry : node.children.entrySet()) {
+            collectAllCompletions(entry.getValue(), prefixSoFar + entry.getKey(), out);
+        }
+    }
+}
+</code></pre></div>
+<p><code>insert</code> is genuinely <code>O(query length)</code> — inserting is never the problem. <code>searchNaive</code>, however, is <code>O(size of the entire subtree under this prefix)</code>: for a short, common prefix like <code>"a"</code>, that subtree can contain millions of stored queries, every one of which gets visited, collected, and sorted <strong>on every single request</strong> — the exact cost §15 names precisely.</p>
+<hr>
+<h2 id="15-follow-up-question-3-a-naive-trie-search-still-has-to-scan-every-completion-under-a-prefix-to-rank-them-how-do-you-make-that-fast">15. Follow-up Question 3 — "A Naive Trie Search Still Has to Scan Every Completion Under a Prefix to Rank Them. How Do You Make That Fast?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"§14's <code>searchNaive</code> walks the entire matching subtree and sorts it, every single request. For a one-character prefix with millions of matches, that's a real, unacceptable cost per keystroke. Fix it."</em></p>
+</blockquote>
+<p>The fix doesn't touch the search path at all — it moves the entire cost to <strong>insert time</strong>, where it's paid once, rarely, instead of on every read.</p>
+<hr>
+<h2 id="16-the-real-optimization-precomputed-top-k-at-every-node">16. The Real Optimization: Precomputed Top-K at Every Node</h2>
+<p>Instead of computing a ranked list at query time, <strong>cache the already-sorted top-K list directly on every node</strong>, computed incrementally as data is inserted. A search for a prefix then becomes: walk to the node (<code>O(prefix length)</code>, unchanged), and simply <strong>read</strong> that node's already-sorted <code>topKSuggestions</code> field — no subtree traversal, no sorting, at query time, ever. The cost this defers is real, not eliminated — every node along an inserted query's path now has to potentially update its cached top-K list — but it's paid exactly once, at insert time, which (per §18's read:write ratio argument) happens at a tiny fraction of the rate reads do.</p>
+<hr>
+<h2 id="17-implementing-top-k-propagation-on-insert">17. Implementing Top-K Propagation on Insert</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class Trie {
+
+    private final TrieNode root = new TrieNode();
+    private final int topK;
+
+    public Trie(int topK) { this.topK = topK; }
+
+    public void insert(String query, long popularity) {
+        TrieNode current = root;
+        Suggestion suggestion = new Suggestion(query, popularity);
+        updateTopK(current, suggestion); // the ROOT's own top-K covers every query with an EMPTY prefix -- i.e. everything
+
+        for (char c : query.toCharArray()) {
+            current = current.children.computeIfAbsent(c, k -&gt; new TrieNode());
+            updateTopK(current, suggestion); // every ancestor along the path is a valid PREFIX of this query
+        }
+        current.isEndOfQuery = true;
+        current.popularityIfEndOfQuery = popularity;
+    }
+
+    /** Inserts `candidate` into this node's cached top-K list if it belongs there -- O(topK), never O(subtree size). */
+    private void updateTopK(TrieNode node, Suggestion candidate) {
+        List&lt;Suggestion&gt; updated = new ArrayList&lt;&gt;(node.topKSuggestions);
+        updated.removeIf(s -&gt; s.query().equals(candidate.query())); // a re-inserted (updated-popularity) query replaces its old entry
+        updated.add(candidate);
+        updated.sort(Comparator.comparingLong(Suggestion::popularity).reversed());
+        node.topKSuggestions = updated.size() &gt; topK ? updated.subList(0, topK) : updated;
+    }
+
+    /** The FAST version -- a pure read, no traversal beyond the prefix itself, no sorting. */
+    public List&lt;Suggestion&gt; search(String prefix) {
+        TrieNode current = root;
+        for (char c : prefix.toCharArray()) {
+            current = current.children.get(c);
+            if (current == null) return List.of();
+        }
+        return current.topKSuggestions; // ALREADY sorted, ALREADY limited to topK -- this IS the entire query cost
+    }
+}
+</code></pre></div>
+<p>Every character of <code>query</code> walked during <code>insert</code> calls <code>updateTopK</code> on that node — because every prefix of <code>query</code> (empty string, first character, first two characters, ..., the full query) is exactly the set of nodes whose cached list <code>query</code> might now belong in. <code>updateTopK</code> itself is bounded by <code>topK</code> (typically 5-10), never by how many total queries share that prefix, which is what keeps insert cost proportional to <code>query length x topK</code> — small and constant-ish, regardless of how popular or rare the query turns out to be. This one method is the entire mechanism that turns §14's per-request scan-and-sort into §17's per-request constant-time read.</p>
+<hr>
+<h2 id="18-follow-up-question-4-where-does-the-frequency-data-actually-come-from-and-how-often-does-the-trie-update">18. Follow-up Question 4 — "Where Does the Frequency Data Actually Come From, and How Often Does the Trie Update?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"§17's <code>insert</code> needs a popularity number for every query. Where does that number come from in a real system, and does the Trie update the instant someone searches something new?"</em></p>
+</blockquote>
+<p>§19 answers with the same read:write asymmetry this project's own URL-shortening guide already leans on, applied here with a twist: the "write" isn't just infrequent relative to reads — it's explicitly allowed to be <em>stale</em>.</p>
+<hr>
+<h2 id="19-readwrite-ratio-again-why-the-trie-is-batch-rebuilt-not-updated-per-keystroke">19. Read:Write Ratio, Again: Why the Trie Is Batch-Rebuilt, Not Updated Per Keystroke</h2>
+<p>Every real search a user performs is a raw signal — one more data point toward "this query is popular." Feeding every single one of those signals into <code>insert</code> synchronously, live, would mean every search anywhere in the world triggers an update walking potentially dozens of Trie nodes' top-K lists, an enormous write amplification for a structure that's read on every keystroke of every <em>other</em> user, constantly. The actual, industry-standard answer: <strong>aggregate raw query logs continuously, but only rebuild the served Trie periodically</strong> — every few minutes to every few hours, depending on how quickly "trending" needs to surface — accepting bounded staleness (§8) explicitly, in exchange for making "write" mean "run one batch job occasionally," not "update a live data structure on every search, everywhere."</p>
+<hr>
+<h2 id="20-implementing-the-offline-trie-build-pipeline">20. Implementing the Offline Trie-Build Pipeline</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record QueryLogEntry(String query, Instant searchedAt) { }
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class TrieBuildPipeline {
+
+    private final int topK;
+
+    public TrieBuildPipeline(int topK) { this.topK = topK; }
+
+    /** Runs periodically (e.g. hourly), over a batch of raw log entries accumulated since the last run. */
+    public Trie buildFrom(List&lt;QueryLogEntry&gt; recentLogEntries, Map&lt;String, Long&gt; priorAggregatedCounts) {
+        Map&lt;String, Long&gt; updatedCounts = new HashMap&lt;&gt;(priorAggregatedCounts);
+        for (QueryLogEntry entry : recentLogEntries) {
+            updatedCounts.merge(entry.query(), 1L, Long::sum); // a real pipeline aggregates by exact query text first
+        }
+
+        Trie newTrie = new Trie(topK); // a BRAND NEW Trie -- built fresh, then swapped in atomically, §20's own note below
+        updatedCounts.forEach(newTrie::insert);
+        return newTrie;
+    }
+}
+</code></pre></div>
+<p>Building a <strong>brand-new</strong> Trie from the full, updated counts — rather than mutating a live, currently-serving Trie in place — is deliberate: the newly-built Trie is validated and warmed up completely offline, then published and <strong>atomically swapped in</strong> as the new "current" version once ready, the identical "build fresh, then swap the pointer" discipline this project's own database-internals guides already use for a page's own atomic route-table swap. A search request in flight during a rebuild is never served a half-updated, inconsistent structure — it's served either the complete old version or the complete new one, never something in between.</p>
+<hr>
+<h2 id="21-follow-up-question-5-a-trie-holding-billions-of-distinct-queries-doesnt-fit-on-one-machine-how-do-you-shard-it">21. Follow-up Question 5 — "A Trie Holding Billions of Distinct Queries Doesn't Fit on One Machine. How Do You Shard It?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Every other system in this series, you'd reach for hash-based or consistent-hash sharding by now. Does that work here?"</em></p>
+</blockquote>
+<p>No — and explaining precisely why not is one of the most instructive moments this entire question offers.</p>
+<hr>
+<h2 id="22-why-hash-based-sharding-breaks-a-prefix-trie">22. Why Hash-Based Sharding Breaks a Prefix Trie</h2>
+<p>Every hash-based sharding scheme this series has built so far shares one assumption: <strong>the full key is known before routing</strong>. A URL shortener's short code, a cache key, a database row's primary key — every one of them is known in its entirety at lookup time, so hashing it and routing to the owning shard works perfectly. An autocomplete request has <strong>only a prefix</strong> — the user hasn't finished typing yet, by definition. Hashing <code>"appl"</code> gives no information at all about which shard holds the <em>completions</em> of <code>"appl"</code> (<code>"apple"</code>, <code>"application"</code>, <code>"applesauce"</code>), because those completions' hashes bear no relationship whatsoever to the prefix's own hash. A hash-sharded Trie would have to <strong>fan every single request out to every shard</strong>, merge the partial results, and re-rank — turning one cheap, local lookup into a full scatter-gather across the entire cluster, on every keystroke.</p>
+<hr>
+<h2 id="23-prefix-range-sharding-the-correct-approach">23. Prefix-Range Sharding: The Correct Approach</h2>
+<p>The fix: shard by <strong>prefix range</strong>, not by hash — a scheme that preserves exactly the locality property a hash destroys. Queries starting <code>"a"</code> through <code>"f"</code> live on shard 0; <code>"g"</code> through <code>"m"</code> on shard 1; and so on, with ranges sized (and re-balanced) according to how many actual stored queries fall in each range, not merely by dividing the alphabet evenly (query volume is wildly uneven across starting letters — many more real queries start with common letters than rare ones). A request for <strong>any</strong> prefix now routes to <strong>exactly one shard</strong>, determined directly from the prefix's own leading characters, with no fan-out and no merge step required at all.</p>
+<hr>
+<h2 id="24-implementing-prefix-range-shard-routing">24. Implementing Prefix-Range Shard Routing</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record ShardRange(String startInclusive, String endExclusive, int shardId) { }
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class PrefixRangeShardRouter {
+
+    private final List&lt;ShardRange&gt; orderedRanges; // sorted by startInclusive -- enables a direct binary search
+
+    public PrefixRangeShardRouter(List&lt;ShardRange&gt; orderedRanges) { this.orderedRanges = orderedRanges; }
+
+    public int shardFor(String prefix) {
+        // Binary search for the range whose [start, end) interval contains this prefix -- O(log shard count),
+        // never a linear scan, and CRUCIALLY never a fan-out to more than one shard.
+        int low = 0, high = orderedRanges.size() - 1;
+        while (low &lt;= high) {
+            int mid = (low + high) / 2;
+            ShardRange range = orderedRanges.get(mid);
+            if (prefix.compareTo(range.startInclusive()) &lt; 0) {
+                high = mid - 1;
+            } else if (prefix.compareTo(range.endExclusive()) &gt;= 0) {
+                low = mid + 1;
+            } else {
+                return range.shardId(); // FOUND -- exactly one shard, no matter how short or long the prefix is
+            }
+        }
+        throw new IllegalStateException(&quot;No shard range covers prefix: &quot; + prefix);
+    }
+}
+</code></pre></div>
+<p>Sorting ranges by <code>startInclusive</code> and binary-searching them is what keeps routing itself cheap (<code>O(log(shard count))</code>) even though the underlying partitioning is uneven and re-balanceable — adding a new shard, or splitting an overloaded range, only ever means inserting or adjusting entries in this one sorted list, never rehashing anything.</p>
+<hr>
+<h2 id="25-follow-up-question-6-how-do-you-make-the-common-case-a-few-very-popular-prefixes-even-faster">25. Follow-up Question 6 — "How Do You Make the Common Case — a Few Very Popular Prefixes — Even Faster?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Real query traffic is heavily skewed — a handful of short, extremely common prefixes account for a huge share of all requests. Even a fast shard lookup is extra work for those. What do you do?"</em></p>
+</blockquote>
+<p>Cache them — the identical hot-key insight this project's own CDN, rate-limiter, and URL-shortening guides all lean on, applied here to prefixes instead of segments, tokens, or short codes.</p>
+<hr>
+<h2 id="26-caching-hot-prefixes">26. Caching Hot Prefixes</h2>
+<p>Query-prefix popularity follows a heavily Zipfian distribution: single- and double-character prefixes (<code>"a"</code>, <code>"th"</code>, <code>"ho"</code>) are requested constantly, by nearly every user, on nearly every search — while the space of all possible longer prefixes is requested comparatively rarely. An in-memory LRU cache sitting directly in front of the shard router turns the overwhelming majority of real-world requests into a pure, local, in-memory lookup, with the underlying shard never even contacted.</p>
+<hr>
+<h2 id="27-implementing-a-prefix-cache">27. Implementing a Prefix Cache</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class PrefixCache {
+
+    private final int capacity;
+    private final LinkedHashMap&lt;String, List&lt;Suggestion&gt;&gt; cache;
+
+    public PrefixCache(int capacity) {
+        this.capacity = capacity;
+        this.cache = new LinkedHashMap&lt;&gt;(capacity, 0.75f, true) { // accessOrder=true -- the entire LRU mechanism
+            @Override
+            protected boolean removeEldestEntry(Map.Entry&lt;String, List&lt;Suggestion&gt;&gt; eldest) {
+                return size() &gt; PrefixCache.this.capacity;
+            }
+        };
+    }
+
+    public synchronized Optional&lt;List&lt;Suggestion&gt;&gt; get(String prefix) {
+        return Optional.ofNullable(cache.get(prefix));
+    }
+
+    public synchronized void put(String prefix, List&lt;Suggestion&gt; suggestions) {
+        cache.put(prefix, suggestions);
+    }
+}
+</code></pre></div>
+<p>This is the same <code>LinkedHashMap(accessOrder=true)</code> zero-extra-code LRU mechanism this project's own database-internals and URL-shortening guides already reuse — applied here for the identical reason: a small, bounded cache in front of a real backend, absorbing the specific, heavily-skewed traffic shape this workload actually has.</p>
+<hr>
+<h2 id="28-follow-up-question-7-typing-fires-a-request-per-keystroke-how-do-you-avoid-hammering-the-backend">28. Follow-up Question 7 — "Typing Fires a Request Per Keystroke. How Do You Avoid Hammering the Backend?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A five-character query typed quickly fires five separate requests, most of them for prefixes the user has already moved past by the time the response arrives. How do you avoid that waste?"</em></p>
+</blockquote>
+<p><strong>Debounce</strong> on the client — deliberately wait for a brief pause in typing before firing a request at all, and <strong>cancel</strong> any still-in-flight request that a newer keystroke has already made obsolete.</p>
+<hr>
+<h2 id="29-client-side-debouncing-and-request-cancellation">29. Client-Side Debouncing and Request Cancellation</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class DebouncedAutocompleteClient {
+
+    private final AutocompleteApi api;
+    private final Duration debounceWindow;
+    private final ScheduledExecutorService scheduler;
+    private ScheduledFuture&lt;?&gt; pendingCall;
+    private CompletableFuture&lt;List&lt;Suggestion&gt;&gt; inFlightRequest;
+
+    public DebouncedAutocompleteClient(AutocompleteApi api, Duration debounceWindow, ScheduledExecutorService scheduler) {
+        this.api = api;
+        this.debounceWindow = debounceWindow;
+        this.scheduler = scheduler;
+    }
+
+    /** Called on EVERY keystroke -- most calls to this method never actually reach the network at all. */
+    public void onKeystroke(String currentPrefix, Consumer&lt;List&lt;Suggestion&gt;&gt; onResult) {
+        if (pendingCall != null) pendingCall.cancel(false); // a newer keystroke supersedes whatever was scheduled
+        if (inFlightRequest != null) inFlightRequest.cancel(true); // and supersedes whatever was ALREADY in flight
+
+        pendingCall = scheduler.schedule(() -&gt; {
+            inFlightRequest = api.suggest(currentPrefix);
+            inFlightRequest.thenAccept(onResult);
+        }, debounceWindow.toMillis(), TimeUnit.MILLISECONDS);
+    }
+}
+</code></pre></div>
+<p>Cancelling a still-<strong>in-flight</strong> request, not just a still-<strong>pending</strong> (not-yet-fired) one, matters specifically for a fast typist: without it, an earlier keystroke's slow response could arrive <strong>after</strong> a later keystroke's response, overwriting the correct, current suggestion list with stale results for a prefix the user has already typed past — a real, user-visible bug debouncing alone (without cancellation) does not fix.</p>
+<hr>
+<h2 id="30-class-diagram-the-trie-and-query-path">30. Class Diagram: The Trie and Query Path</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>TrieNode                                          Trie
++ children: Map&lt;Character, TrieNode&gt;              + insert(query, popularity)
++ isEndOfQuery, popularityIfEndOfQuery             + search(prefix): List&lt;Suggestion&gt;
++ topKSuggestions: List&lt;Suggestion&gt; (CACHED, §16)       |
+                                                          | routes through
+PrefixRangeShardRouter                            PrefixCache
++ shardFor(prefix): shardId                       + get(prefix): Optional&lt;List&lt;Suggestion&gt;&gt;
+      ^                                            + put(prefix, suggestions)
+      | consulted on a cache MISS
+      |
+TrieBuildPipeline                                 DebouncedAutocompleteClient
++ buildFrom(logEntries, priorCounts): Trie          + onKeystroke(prefix, onResult)
+      | produces a NEW Trie, offline                     | the ONLY entry point a real UI ever calls
+      v
+Trie (swapped in atomically, §20)
+</code></pre></div>
+<p>Every arrow here traces a real call this guide built code for — a keystroke debounces, hits the cache, falls through to the shard router only on a miss, and the Trie it eventually reaches was built entirely offline, on its own schedule, by a pipeline the read path never waits on.</p>
+<hr>
+<h2 id="31-follow-up-question-8-a-trie-has-real-memory-overhead-for-sparse-data-how-do-you-make-it-more-memory-efficient">31. Follow-up Question 8 — "A Trie Has Real Memory Overhead for Sparse Data. How Do You Make It More Memory-Efficient?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A long, rarely-branching query like <code>'international shipping regulations'</code> allocates one full <code>TrieNode</code> per character, each with its own <code>HashMap</code>, even though most of those nodes have exactly one child. That's a lot of memory for very little branching. What's the fix?"</em></p>
+</blockquote>
+<p>§32 names the standard fix: <strong>compress chains of single-child nodes into one edge carrying a substring</strong>, rather than one node per character.</p>
+<hr>
+<h2 id="32-compressed-radix-tries-collapsing-single-child-chains">32. Compressed (Radix) Tries: Collapsing Single-Child Chains</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Plain Trie (one node per character):        Compressed (radix) Trie:
+i-n-t-e-r-n-a-t-i-o-n-a-l                    &quot;international&quot; (one edge, one node)
+                                                      |
+                                              (branches only where the data actually branches)
+</code></pre></div>
+<p>A <strong>radix trie</strong> merges any run of nodes that each have exactly one child into a single edge labeled with the entire shared substring, rather than one node per character — a node only stays "split out" on its own where the data genuinely branches (two different queries diverging at that point). This is a real, meaningful memory reduction for exactly the common case named in the follow-up — long, low-branching queries — at the cost of a genuinely more complex insert/split algorithm (an edge sometimes needs to be split mid-substring when a new query diverges partway through an existing compressed edge). Named here as the correct, standard answer to the follow-up, and named honestly as real, additional implementation complexity beyond this guide's own core <code>Trie</code> (§14, §17), rather than built out in full (§45).</p>
+<hr>
+<h2 id="33-follow-up-question-9-how-do-you-personalize-suggestions-instead-of-showing-the-same-global-top-k-to-everyone">33. Follow-up Question 9 — "How Do You Personalize Suggestions Instead of Showing the Same Global Top-K to Everyone?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Two different users type the same prefix. Should they always see the identical suggestion list?"</em></p>
+</blockquote>
+<p>Not necessarily — §34 layers personalization <strong>on top of</strong> the global Trie, rather than building a separate per-user structure.</p>
+<hr>
+<h2 id="34-personalization-as-a-layered-re-ranking-step">34. Personalization as a Layered Re-Ranking Step</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class PersonalizedSuggestionRanker {
+
+    private final Trie globalTrie;                                  // §14, §17 -- UNCHANGED, shared across all users
+    private final Function&lt;String, List&lt;Suggestion&gt;&gt; userHistoryLookup; // a user's own recent/frequent queries
+
+    public PersonalizedSuggestionRanker(Trie globalTrie, Function&lt;String, List&lt;Suggestion&gt;&gt; userHistoryLookup) {
+        this.globalTrie = globalTrie;
+        this.userHistoryLookup = userHistoryLookup;
+    }
+
+    public List&lt;Suggestion&gt; suggestFor(String userId, String prefix, int k) {
+        List&lt;Suggestion&gt; global = globalTrie.search(prefix);                       // the fast, shared, cached path
+        List&lt;Suggestion&gt; personal = userHistoryLookup.apply(userId).stream()
+                .filter(s -&gt; s.query().startsWith(prefix))
+                .toList();
+
+        // Personal matches are boosted ahead of global ones, but the GLOBAL Trie itself is never touched --
+        // personalization is a small, per-request re-ranking step layered on top, not a redesign of storage.
+        List&lt;Suggestion&gt; merged = new ArrayList&lt;&gt;(personal);
+        global.stream().filter(g -&gt; personal.stream().noneMatch(p -&gt; p.query().equals(g.query()))).forEach(merged::add);
+        return merged.stream().limit(k).toList();
+    }
+}
+</code></pre></div>
+<p>Keeping the shared, cached, offline-built <code>globalTrie</code> completely untouched — and layering personalization as a small, per-request merge on top of its already-fast result — is what keeps personalization from requiring a redesign of §16-§20's entire storage and pipeline architecture; a user's own history is a comparatively tiny amount of data, cheap to look up and merge in per request, in a way that re-deriving a full per-user Trie would not be.</p>
+<hr>
+<h2 id="35-follow-up-question-10-what-about-typos-should-a-search-for-gogle-still-suggest-google">35. Follow-up Question 10 — "What About Typos — Should a Search for 'gogle' Still Suggest 'Google'?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A prefix search for a misspelled query returns nothing, because the Trie has no entry for that exact character sequence. Is that acceptable?"</em></p>
+</blockquote>
+<p>Not for a production-quality experience — but fuzzy matching (edit-distance-tolerant lookup) is a genuinely separate algorithmic problem from everything this guide has built so far, and deserves to be named honestly as such rather than bolted on superficially.</p>
+<hr>
+<h2 id="36-fuzzy-matching-and-spell-correction-named-as-real-separate-work">36. Fuzzy Matching and Spell Correction (Named as Real, Separate Work)</h2>
+<p>A prefix Trie answers "what completions share this <strong>exact</strong> prefix" — a fundamentally different question from "what popular queries are within a small edit distance of what was typed." Real systems solve the fuzzy case with a genuinely different mechanism layered alongside the exact-prefix Trie — commonly a small edit-distance search over a bounded candidate set (near-matches to the typed prefix, gathered via a BK-tree or a Levenshtein-automaton-driven traversal), triggered specifically when the exact-prefix Trie returns few or no results. This guide names it explicitly as real, valuable, separate work (§45) rather than folding a half-built version of it into the core Trie design and calling the result complete.</p>
+<hr>
+<h2 id="37-follow-up-question-11-at-global-scale-what-breaks-first">37. Follow-up Question 11 — "At Global Scale, What Breaks First?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Hundreds of millions of users, globally distributed, typing constantly. What's the actual bottleneck once everything in this guide is already built?"</em></p>
+</blockquote>
+<p>Physical distance to the nearest shard, exactly the same bottleneck this project's own video-streaming and file-storage guides already name for a different kind of content — and the fix is the identical one.</p>
+<hr>
+<h2 id="38-scaling-the-read-path-replicated-cached-shards-behind-a-cdn">38. Scaling the Read Path: Replicated, Cached Shards Behind a CDN</h2>
+<p>Because a served Trie shard is <strong>read-only</strong> between rebuilds (§20's atomic swap), it can be freely <strong>replicated</strong> across every region that needs it, and <strong>cached at the edge</strong>, exactly like a static asset — a user in Tokyo should never wait on a round trip to a shard physically hosted in Virginia for a lookup that's identical for every user asking the same popular prefix. This is only safe <em>because</em> the underlying data is read-mostly and explicitly tolerant of bounded staleness (§19) — a design that needed real-time-fresh writes could never replicate this cheaply, which is precisely why the earlier decision to batch-rebuild rather than update live pays off again here, at a completely different layer of the system.</p>
+<hr>
+<h2 id="39-full-worked-example-a-user-types-end-to-end">39. Full Worked Example: A User Types, End to End</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1.  User types &quot;g&quot;
+2.  DebouncedAutocompleteClient.onKeystroke(&quot;g&quot;, ...) -- schedules a call, does NOT fire immediately            (§29)
+3.  User types &quot;o&quot; within the debounce window -- the PENDING call for &quot;g&quot; is cancelled, a new one scheduled for &quot;go&quot;
+4.  User pauses -- the scheduled call for &quot;go&quot; finally fires
+5.  PrefixCache.get(&quot;go&quot;) -&gt; HIT (an extremely common two-letter prefix)                                         (§27)
+6.  Suggestions returned INSTANTLY -- the shard was never even contacted
+
+7.  (later) User types a rare, specific prefix: &quot;goph&quot;
+8.  PrefixCache.get(&quot;goph&quot;) -&gt; miss                                                                                (§27)
+9.  PrefixRangeShardRouter.shardFor(&quot;goph&quot;) -&gt; shard 1 (owns &quot;g&quot;..&quot;m&quot;)                                              (§24)
+10. Trie.search(&quot;goph&quot;) -&gt; walks 4 nodes -&gt; reads the CACHED topKSuggestions at that node -- no scan, no sort        (§17)
+11. PrefixCache.put(&quot;goph&quot;, result) -- warms the cache for the next request with this same prefix                    (§27)
+</code></pre></div>
+<p>Steps 5 and 10 are the entire payoff of this guide's design: a hot prefix never leaves the local cache at all, and even a genuine cache miss resolves via a constant-time read of an already-ranked list — never the expensive subtree scan §14's naive version would have required.</p>
+<hr>
+<h2 id="40-final-architecture-diagram">40. Final Architecture Diagram</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                         Query logs (continuous)  --&gt;  TrieBuildPipeline (§20, periodic/offline)
+                                                                |
+                                              New Trie shards, atomically swapped in
+                                                                |
+                    Region: US-East                                          Region: AP-South
+              +------------------------+                              +------------------------+
+              | Replicated Trie shards  |                              | Replicated Trie shards  |
+              | (read-only, §38)         |                              | (read-only, §38)         |
+              +-----------+------------+                              +-----------+------------+
+                          |                                                        |
+              PrefixRangeShardRouter (§24)                             PrefixRangeShardRouter (§24)
+                          |                                                        |
+                    PrefixCache (§27)                                        PrefixCache (§27)
+                          ^                                                        ^
+                          |                                                        |
+              DebouncedAutocompleteClient (§29)                        DebouncedAutocompleteClient (§29)
+</code></pre></div>
+<hr>
+<h2 id="41-design-patterns-used-throughout-this-guide">41. Design Patterns Used Throughout This Guide</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Where</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Memoization / Precomputed Cache</strong></td>
+<td><code>TrieNode.topKSuggestions</code> (§16-§17)</td>
+<td>The single optimization this entire guide is built around — moving a per-request cost to a rarely-paid insert-time cost.</td>
+</tr>
+<tr>
+<td><strong>Facade</strong></td>
+<td><code>Trie.search(prefix)</code> (§17)</td>
+<td>The bit-packing, top-K maintenance, and traversal are all invisible to the caller behind one method.</td>
+</tr>
+<tr>
+<td><strong>Strategy (deployment-level)</strong></td>
+<td>Global ranking (§17) vs. personalized re-ranking (§34)</td>
+<td>Two interchangeable ranking strategies layered on the identical underlying Trie, never requiring two different storage designs.</td>
+</tr>
+<tr>
+<td><strong>Range Partitioning</strong></td>
+<td><code>PrefixRangeShardRouter</code> (§23-§24)</td>
+<td>The specific sharding strategy that preserves the locality this workload's queries actually need, unlike a hash.</td>
+</tr>
+<tr>
+<td><strong>LRU Cache</strong></td>
+<td><code>PrefixCache</code> (§27)</td>
+<td>The zero-extra-code <code>LinkedHashMap(accessOrder=true)</code> trick this project's own database-internals and URL-shortening guides already use for the identical purpose.</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="42-solid-principles-applied">42. SOLID Principles Applied</h2>
+<ul>
+<li><strong>Single Responsibility</strong>: <code>TrieBuildPipeline</code> only aggregates logs and builds a Trie; <code>PrefixRangeShardRouter</code> only routes; <code>PrefixCache</code> only caches. None of them know how to rank suggestions or debounce a keystroke.</li>
+<li><strong>Open/Closed</strong>: adding personalization (§34) or fuzzy matching (§36) requires zero changes to <code>Trie</code> or <code>TrieNode</code> — both are layered on top, consuming the existing <code>search</code> method unchanged.</li>
+<li><strong>Liskov Substitution</strong>: any ranking strategy consuming <code>Trie.search(prefix)</code>'s output is fully substitutable — <code>PersonalizedSuggestionRanker</code> (§34) and a plain, unranked pass-through are interchangeable from the client's point of view.</li>
+<li><strong>Interface Segregation</strong>: <code>Trie</code> exposes exactly <code>insert</code>/<code>search</code> — no sharding detail, no caching detail, no personalization detail leaks into its surface.</li>
+<li><strong>Dependency Inversion</strong>: <code>PersonalizedSuggestionRanker</code> (§34) depends on a <code>Function&lt;String, List&lt;Suggestion&gt;&gt;</code> for user history — an abstraction, never a concrete user-history store implementation directly.</li>
+</ul>
+<hr>
+<h2 id="43-common-mistakes-when-building-this-yourself">43. Common Mistakes When Building This Yourself</h2>
+<ul>
+<li><strong>Ranking at query time instead of precomputing top-K at insert time</strong> (§14-§15) — correct, and catastrophically slow the moment a prefix has millions of completions, which common, short prefixes always do.</li>
+<li><strong>Updating the live Trie synchronously on every search</strong> (§18-§19) — reintroduces an enormous write amplification for a structure that's read far more often than the underlying popularity data actually needs to change.</li>
+<li><strong>Sharding a prefix Trie by hash</strong> (§22) — destroys prefix locality entirely, forcing a full cluster fan-out and merge on every single request, the opposite of what sharding is supposed to buy.</li>
+<li><strong>Debouncing without cancelling in-flight requests</strong> (§29) — a fast typist can still see a stale, superseded response arrive <em>after</em> a newer one, overwriting the correct current suggestions.</li>
+<li><strong>Building a separate, full Trie per user for personalization</strong> (§33-§34) — enormously more expensive than necessary; a small per-request re-ranking layer over one shared, global Trie captures nearly all the value at a fraction of the storage and build cost.</li>
+<li><strong>Bolting a half-built fuzzy-match feature onto the exact-prefix Trie</strong> (§35-§36) — conflates two genuinely different algorithmic problems into one data structure neither is well-suited for on its own.</li>
+</ul>
+<hr>
+<h2 id="44-testing-strategy">44. Testing Strategy</h2>
+<ul>
+<li><strong><code>Trie</code></strong> (§14, §17): inserting several queries sharing a prefix and searching that prefix returns exactly the correct top-K, sorted by popularity, and re-inserting an existing query with a higher popularity correctly re-ranks it.</li>
+<li><strong><code>TopKPropagationTest</code></strong>: inserting a query updates the cached <code>topKSuggestions</code> list on <strong>every</strong> ancestor node along its path, not just the final node — the test that directly validates §17's core mechanism.</li>
+<li><strong><code>PrefixRangeShardRouter</code></strong> (§24): every prefix in a representative sample routes to exactly one shard, consistently, across repeated calls; a prefix at the exact boundary between two ranges routes correctly to the range that actually contains it.</li>
+<li><strong><code>PrefixCache</code></strong> (§27): a cache at capacity evicts the least-recently-used prefix, not an arbitrary one, verified by accessing an existing entry and confirming it survives longer than an unused one.</li>
+<li><strong><code>DebouncedAutocompleteClient</code></strong> (§29): rapid, successive keystrokes result in exactly one network call, for the final prefix only; a slow, superseded in-flight response is confirmed cancelled and never delivered to the caller.</li>
+<li><strong><code>TrieBuildPipeline</code></strong> (§20): a rebuild produces a new Trie whose top-K results correctly reflect the updated aggregated counts, and the previously-serving Trie remains fully intact and correct until the swap completes.</li>
+</ul>
+<hr>
+<h2 id="45-suggested-future-enhancements">45. Suggested Future Enhancements</h2>
+<ul>
+<li><strong>A real compressed (radix) Trie implementation</strong> (§32) — the memory-efficiency refinement named but not built out in full here, genuinely valuable at billions of stored queries.</li>
+<li><strong>A real fuzzy-matching layer</strong> (§35-§36) — a BK-tree or Levenshtein-automaton-based near-match search, triggered specifically when the exact-prefix Trie returns few or no results.</li>
+<li><strong>Trending/velocity-aware ranking</strong> — boosting a query that's suddenly spiking in frequency ahead of one with a higher all-time total but flat recent trend, rather than ranking purely by cumulative historical popularity.</li>
+<li><strong>A/B-testable ranking strategies</strong> — since global ranking and personalized re-ranking are already Strategy-shaped (§34), running two ranking approaches against different user cohorts and comparing engagement is a natural next step.</li>
+<li><strong>Multi-language/tokenization-aware prefixes</strong> — this guide's Trie operates on raw characters, which works cleanly for space-delimited Latin-script queries but needs real, separate handling for languages without clear word-boundary characters.</li>
+</ul>
+<hr>
+<h2 id="46-progressive-interview-question-set">46. Progressive Interview Question Set</h2>
+<ol>
+<li>Walk through exactly why a naive Trie search, correct as it is, becomes too slow at real scale — name the specific cost, not just "it's slow."</li>
+<li>Explain precisely how inserting one query updates potentially many different nodes' cached top-K lists, and why that update is still cheap.</li>
+<li>Why is the underlying popularity data batch-rebuilt rather than updated synchronously on every search, and what specific guarantee does bounded staleness buy in exchange?</li>
+<li>Explain exactly why hash-based sharding, the default answer almost everywhere else, actively breaks a prefix Trie — what specific piece of information is missing at request time?</li>
+<li>Why does prefix-range sharding preserve exactly the property a hash destroys?</li>
+<li>Why does debouncing alone not fully solve the "stale response" problem, and what does cancellation add on top of it?</li>
+<li>Why is personalization implemented as a re-ranking layer over one shared Trie, rather than a separate Trie built per user?</li>
+<li>What's the real memory cost a compressed (radix) Trie is solving, and what specific case (long, low-branching queries) does it help most?</li>
+<li>Why is fuzzy matching treated as a genuinely separate mechanism rather than an extension of the exact-prefix Trie?</li>
+<li>If asked to support "trending now" queries that should rank higher than their raw historical popularity alone would suggest, how would you extend this design without redesigning the core Trie?</li>
+</ol>
+<hr>
+<h2 id="47-final-takeaway">47. Final Takeaway</h2>
+<p>Every genuinely hard piece of this design traces back to one realization: ranking cannot be computed at query time and still be fast, so it has to be computed <strong>somewhere else</strong> — at insert time, cached directly on the data structure itself, paid for once by a rare write instead of repeatedly by a frequent read. Sharding by prefix range instead of by hash is the same insight wearing a different hat: preserve the locality the actual access pattern needs, rather than reaching for the sharding strategy that happens to work everywhere else. A search-autocomplete system that gets both of these right ends up remarkably simple at the read path — a tree walk and a list read, nothing more — which is exactly the point: the complexity this design has to manage lives entirely in how the data gets <em>there</em>, never in how it's read once it has.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Design a Search Autocomplete (Typeahead) System — HLD, LLD, and Class Design From Scratch.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

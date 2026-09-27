@@ -1,0 +1,856 @@
+<meta charset="utf-8">
+<title>Design a Snake Game — HLD, LLD, and Class Design From Scratch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow); transition:background .15s,transform .1s;
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; system design guide</div>
+      <h1>Design a Snake Game — HLD, LLD, and Class Design From Scratch</h1>
+      <p class="dek">A complete, step-by-step system design walkthrough for a real-time Snake game — a fixed-timestep simulation loop decoupled from rendering, an O(1) growing-body representation, input buffering that prevents the classic reverse-into-yourself bug, server-authoritative networked multiplayer with client-side prediction, pathfinding and guaranteed-survival AI strategies, a function-approximated learned agent, and prize-bearing high-score contest design — framed as a live interview with follow-up questions at every step, and drawn throughout in contrast with this series' own turn-based Tic-Tac-Toe guide.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-the-interview-framed">Why This Matters (The Interview, Framed)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-step-1-clarifying-requirements-before-designing-anything">Step 1 — Clarifying Requirements Before Designing Anything</a></li><li class="toc-lvl-2"><a href="#7-functional-requirements">Functional Requirements</a></li><li class="toc-lvl-2"><a href="#8-non-functional-requirements">Non-Functional Requirements</a></li><li class="toc-lvl-2"><a href="#9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</a></li><li class="toc-lvl-2"><a href="#10-identifying-the-core-domain-entities">Identifying the Core Domain Entities</a></li><li class="toc-lvl-2"><a href="#11-high-level-architecture-overview">High-Level Architecture Overview</a></li><li class="toc-lvl-2"><a href="#12-follow-up-question-2-why-cant-you-just-move-and-redraw-immediately-on-every-keypress">Follow-up Question 2 — "Why Can't You Just Move and Redraw Immediately on Every Keypress?"</a></li><li class="toc-lvl-2"><a href="#13-the-game-loop-fixed-timestep-simulation">The Game Loop: Fixed-Timestep Simulation</a></li><li class="toc-lvl-2"><a href="#14-follow-up-question-3-how-do-you-represent-the-snakes-body-so-movement-and-growth-are-cheap-not-shifting-an-array-every-tick">Follow-up Question 3 — "How Do You Represent the Snake's Body So Movement and Growth Are Cheap, Not Shifting an Array Every Tick?"</a></li><li class="toc-lvl-2"><a href="#15-efficient-snake-body-representation">Efficient Snake Body Representation</a></li><li class="toc-lvl-2"><a href="#16-implementing-movement-and-growth">Implementing Movement and Growth</a></li><li class="toc-lvl-2"><a href="#17-follow-up-question-4-two-direction-keys-are-pressed-within-one-tick-which-applies-and-how-do-you-prevent-reversing-into-yourself">Follow-up Question 4 — "Two Direction Keys Are Pressed Within One Tick. Which Applies, and How Do You Prevent Reversing Into Yourself?"</a></li><li class="toc-lvl-2"><a href="#18-input-buffering-and-the-reverse-direction-bug">Input Buffering and the Reverse-Direction Bug</a></li><li class="toc-lvl-2"><a href="#19-implementing-the-input-buffer">Implementing the Input Buffer</a></li><li class="toc-lvl-2"><a href="#20-follow-up-question-5-how-do-you-detect-collision-efficiently-every-tick-without-scanning-the-whole-board">Follow-up Question 5 — "How Do You Detect Collision Efficiently Every Tick Without Scanning the Whole Board?"</a></li><li class="toc-lvl-2"><a href="#21-efficient-collision-detection-via-a-hash-set-of-occupied-cells">Efficient Collision Detection via a Hash Set of Occupied Cells</a></li><li class="toc-lvl-2"><a href="#22-implementing-collision-detection">Implementing Collision Detection</a></li><li class="toc-lvl-2"><a href="#23-class-diagram-the-core-game-loop">Class Diagram: The Core Game Loop</a></li><li class="toc-lvl-2"><a href="#24-follow-up-question-6-how-do-you-support-local-multiplayer-two-snakes-one-board-cleanly">Follow-up Question 6 — "How Do You Support Local Multiplayer — Two Snakes, One Board — Cleanly?"</a></li><li class="toc-lvl-2"><a href="#25-modeling-multiple-snakes-on-one-shared-board">Modeling Multiple Snakes on One Shared Board</a></li><li class="toc-lvl-2"><a href="#26-follow-up-question-7-how-do-you-support-real-time-networked-multiplayer-not-turn-based-like-tic-tac-toe">Follow-up Question 7 — "How Do You Support Real-Time Networked Multiplayer, Not Turn-Based Like Tic-Tac-Toe?"</a></li><li class="toc-lvl-2"><a href="#27-networked-multiplayer-server-authoritative-tick-simulation">Networked Multiplayer: Server-Authoritative Tick Simulation</a></li><li class="toc-lvl-2"><a href="#28-follow-up-question-8-network-latency-means-a-client-could-feel-behind-the-server-how-do-you-keep-it-feeling-responsive">Follow-up Question 8 — "Network Latency Means a Client Could Feel Behind the Server. How Do You Keep It Feeling Responsive?"</a></li><li class="toc-lvl-2"><a href="#29-client-side-prediction-and-server-reconciliation">Client-Side Prediction and Server Reconciliation</a></li><li class="toc-lvl-2"><a href="#30-follow-up-question-9-how-do-you-plug-in-an-ai-controlled-snake">Follow-up Question 9 — "How Do You Plug In an AI-Controlled Snake?"</a></li><li class="toc-lvl-2"><a href="#31-designing-the-ai-as-a-pluggable-strategy">Designing the AI as a Pluggable Strategy</a></li><li class="toc-lvl-2"><a href="#32-follow-up-question-10-whats-the-simplest-ai-and-whats-wrong-with-it">Follow-up Question 10 — "What's the Simplest AI, and What's Wrong With It?"</a></li><li class="toc-lvl-2"><a href="#33-strategy-1-greedy-shortest-path-bfs">Strategy 1: Greedy Shortest-Path (BFS)</a></li><li class="toc-lvl-2"><a href="#34-follow-up-question-11-greedy-bfs-can-trap-itself-in-a-dead-end-how-do-you-build-an-ai-that-almost-never-dies">Follow-up Question 11 — "Greedy BFS Can Trap Itself in a Dead End. How Do You Build an AI That (Almost) Never Dies?"</a></li><li class="toc-lvl-2"><a href="#35-strategy-2-hamiltonian-cycle-guaranteed-survival">Strategy 2: Hamiltonian Cycle — Guaranteed Survival</a></li><li class="toc-lvl-2"><a href="#36-implementing-a-hamiltonian-cycle-strategy">Implementing a Hamiltonian Cycle Strategy</a></li><li class="toc-lvl-2"><a href="#37-follow-up-question-12-if-a-hamiltonian-cycle-is-guaranteed-safe-why-not-always-use-it">Follow-up Question 12 — "If a Hamiltonian Cycle Is Guaranteed-Safe, Why Not Always Use It?"</a></li><li class="toc-lvl-2"><a href="#38-the-efficiency-vs-safety-tradeoff">The Efficiency vs. Safety Tradeoff</a></li><li class="toc-lvl-2"><a href="#39-follow-up-question-13-the-prompt-says-train-an-ai-snakes-state-space-is-far-bigger-than-tic-tac-toes-what-changes">Follow-up Question 13 — "The Prompt Says 'Train' an AI. Snake's State Space Is Far Bigger Than Tic-Tac-Toe's. What Changes?"</a></li><li class="toc-lvl-2"><a href="#40-why-snake-needs-function-approximation-not-an-exact-table">Why Snake Needs Function Approximation, Not an Exact Table</a></li><li class="toc-lvl-2"><a href="#41-designing-the-state-representation-and-reward-function">Designing the State Representation and Reward Function</a></li><li class="toc-lvl-2"><a href="#42-follow-up-question-14-walk-through-the-actual-training-loop-for-a-function-approximated-agent">Follow-up Question 14 — "Walk Through the Actual Training Loop for a Function-Approximated Agent"</a></li><li class="toc-lvl-2"><a href="#43-implementing-a-minimal-trainable-agent">Implementing a Minimal Trainable Agent</a></li><li class="toc-lvl-2"><a href="#44-class-diagram-ai-strategies">Class Diagram: AI Strategies</a></li><li class="toc-lvl-2"><a href="#45-follow-up-question-15-how-do-you-track-scores-across-many-games-and-many-players">Follow-up Question 15 — "How Do You Track Scores Across Many Games and Many Players?"</a></li><li class="toc-lvl-2"><a href="#46-score-management-and-leaderboards">Score Management and Leaderboards</a></li><li class="toc-lvl-2"><a href="#47-follow-up-question-16-how-do-you-support-a-contest-with-a-prize-for-a-game-that-isnt-head-to-head-like-tic-tac-toes-match-series">Follow-up Question 16 — "How Do You Support a Contest With a Prize, for a Game That Isn't Head-to-Head Like Tic-Tac-Toe's Match Series?"</a></li><li class="toc-lvl-2"><a href="#48-designing-a-high-score-contest-and-prize-distribution">Designing a High-Score Contest and Prize Distribution</a></li><li class="toc-lvl-2"><a href="#49-follow-up-question-17-how-do-you-prevent-cheating-in-a-real-time-prize-contest-differently-than-in-tic-tac-toe">Follow-up Question 17 — "How Do You Prevent Cheating in a Real-Time Prize Contest, Differently Than in Tic-Tac-Toe?"</a></li><li class="toc-lvl-2"><a href="#50-contest-integrity-server-simulated-ticks-not-client-reported-scores">Contest Integrity: Server-Simulated Ticks, Not Client-Reported Scores</a></li><li class="toc-lvl-2"><a href="#51-capacity-estimation-concurrent-real-time-sessions-and-tick-bandwidth">Capacity Estimation: Concurrent Real-Time Sessions and Tick Bandwidth</a></li><li class="toc-lvl-2"><a href="#52-full-worked-example-one-networked-tick-traced-end-to-end">Full Worked Example: One Networked Tick, Traced End to End</a></li><li class="toc-lvl-2"><a href="#53-final-architecture-diagram">Final Architecture Diagram</a></li><li class="toc-lvl-2"><a href="#54-design-patterns-used-throughout-this-guide">Design Patterns Used Throughout This Guide</a></li><li class="toc-lvl-2"><a href="#55-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#56-common-mistakes-when-building-this-yourself">Common Mistakes When Building This Yourself</a></li><li class="toc-lvl-2"><a href="#57-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#58-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#59-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#60-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Player input (arrow keys) --buffered--&gt; [ Direction Buffer ]
+                                              |
+                          every fixed tick    v
+                                      [ Game Loop / Simulation ]
+                                              |
+                             move snake, check collisions, grow on food
+                                              |
+                          +-------------------+-------------------+
+                          v                                       v
+                  [ Renderer (canvas) ]                  [ Score / Leaderboard ]
+                                                                    |
+                                                          [ Contest / Prize Ledger ]</code></pre></div><p>A Snake game looks like a beginner exercise, but a <em>system</em> built around it — one supporting local and real-time networked multiplayer, a pluggable AI opponent (from a simple pathfinder to a mathematically guaranteed-survival strategy to a trained learning agent), persistent scores, and prize-bearing high-score contests — is a genuinely rich real-time systems design exercise, distinct in almost every way from a turn-based game. This guide builds one from scratch: a fixed-timestep game loop decoupled from rendering, an efficient growing-body representation, input buffering that prevents the classic "reversed into yourself" bug, collision detection that doesn't scan the whole board, server-authoritative real-time multiplayer with client-side prediction, pathfinding and guaranteed-survival AI strategies, a learned agent (and why Snake's state space forces a genuinely different training approach than a small, fully-enumerable game would), and contest design with real-time-appropriate anti-cheat.</p>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide, you will be able to:</p><ul><li>Explain why a real-time game needs a fixed-timestep simulation loop decoupled from rendering, rather than acting immediately on every input event.</li><li>Represent a growing snake body so that movement and growth are both cheap, constant-time operations, not an array shift or a full re-scan.</li><li>Correctly buffer player input to prevent the direction queued mid-tick from ever reversing the snake directly into its own body.</li><li>Detect wall, self, and opponent collisions in constant time using a hash-set of currently-occupied cells, instead of scanning the board.</li><li>Design real-time networked multiplayer with a server-authoritative tick simulation, and explain why client-side prediction and reconciliation are necessary for it to feel responsive.</li><li>Design and compare three AI strategies — greedy pathfinding, a mathematically guaranteed-survival Hamiltonian cycle, and a trained learned agent — and explain precisely why Snake's state space forces function approximation where a small game like Tic-Tac-Toe did not.</li><li>Apply SOLID principles and recognizable design patterns (Strategy, Observer, Facade) to keep the system extensible without modifying already-tested code.</li></ul>
+<hr>
+<h2 id="3-why-this-matters-the-interview-framed">3. Why This Matters (The Interview, Framed)</h2>
+<p>"Design Snake" is a favorite real-time systems question precisely because, unlike a turn-based game, it forces a candidate to reason about <em>time itself</em> as a first-class design concern: a fixed simulation tick rate, the gap between when a server knows the truth and when a client sees it, and the very different collision/pathfinding computations a continuously-moving, growing body requires compared to a static board. It also sets up a natural, honest contrast with a turn-based game like Tic-Tac-Toe on the exact same three axes — networking (continuous ticks vs. discrete turns), AI (spatial pathfinding vs. exhaustive game-tree search), and training (huge state space requiring function approximation vs. a small table that can be learned exactly) — which is precisely the comparison this guide draws throughout. This guide frames the design as a live interview: each major decision is preceded by the clarifying question that should have prompted it, and each design step is immediately followed by the hardest question a good interviewer asks next.</p>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table><thead><tr><th>Concern</th><th>Choice</th><th>Why</th></tr></thead><tbody><tr><td>Language (design)</td><td>Java 21</td><td>Records model immutable per-tick snapshots precisely; <code>ArrayDeque</code> gives O(1) growth/shrink at both ends for the snake body</td></tr><tr><td>Runnable artifact</td><td>HTML5 Canvas + vanilla JavaScript</td><td>Single-file, dependency-free, playable directly in a browser — matches the guide's own worked examples exactly</td></tr><tr><td>Simulation loop</td><td>Fixed-timestep tick, decoupled from render rate</td><td>Deterministic, network-reproducible simulation independent of a client's actual frame rate</td></tr><tr><td>Collision detection</td><td>Hash set of occupied cells</td><td>O(1) collision check per tick, instead of scanning every body segment</td></tr><tr><td>AI pathfinding</td><td>Breadth-first search (shortest path) and a Hamiltonian cycle</td><td>BFS is the simplest correct shortest-path search on an unweighted grid; a Hamiltonian cycle is the standard technique for a provably-never-traps-itself Snake AI</td></tr><tr><td>Trained AI</td><td>Function-approximated Q-learning (small neural network)</td><td>Snake's state space is too large to enumerate exactly, unlike Tic-Tac-Toe's ~5,478 states — this is the guide's deliberate point of contrast</td></tr><tr><td>Networked multiplayer</td><td>WebSocket, server-authoritative fixed-tick simulation</td><td>The server's tick is the single source of truth; clients render a predicted, later-reconciled view</td></tr></tbody></table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>snake-game/
+├── src/main/java/com/example/snake/
+│   ├── domain/
+│   │   └── Position.java, Direction.java, Snake.java, Food.java        // §10, §15-16
+│   ├── loop/
+│   │   └── GameLoop.java (fixed timestep)                              // §13
+│   ├── input/
+│   │   └── DirectionBuffer.java                                        // §19
+│   ├── collision/
+│   │   └── OccupiedCellIndex.java                                      // §22
+│   ├── multiplayer/
+│   │   ├── LocalMultiSnakeSession.java                                 // §25
+│   │   ├── NetworkedTickSession.java (server-authoritative)             // §27
+│   │   └── ClientPredictor.java (prediction + reconciliation)          // §29
+│   ├── ai/
+│   │   ├── SnakeAiStrategy.java (Strategy interface)                   // §31
+│   │   ├── GreedyPathfindingStrategy.java (BFS)                        // §33
+│   │   ├── HamiltonianCycleStrategy.java                                // §36
+│   │   └── LearnedAgent.java, AgentTrainer.java (function approx.)     // §43
+│   ├── score/
+│   │   └── ScoreRepository.java, Leaderboard.java                      // §46
+│   └── contest/
+│       ├── HighScoreContest.java                                       // §48
+│       └── TickAuditLog.java (anti-cheat)                               // §50
+├── src/test/java/com/example/snake/
+│   ├── CollisionDetectionTest.java
+│   ├── HamiltonianCycleNeverDiesTest.java
+│   └── ServerReconciliationTest.java
+└── artifact/
+    └── snake-arena.html   -- the runnable canvas game, §1's worked design made playable</code></pre></div>
+<hr>
+<h2 id="6-step-1-clarifying-requirements-before-designing-anything">6. Step 1 — Clarifying Requirements Before Designing Anything</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Design Snake."</em></p></blockquote><p>Even for a game this familiar, the intentionally open prompt needs narrowing: single-player only, or local/networked multiplayer with several snakes on one board? Does "AI" mean a hardcoded pathfinder, a genuinely trained learning agent, or both? Is there a persistent leaderboard, and a prize-bearing high-score contest? Real-time games also raise a question turn-based ones don't: what tick rate, and how tolerant does the design need to be of network latency for multiplayer to still feel responsive? The answers reshape which parts of the design carry real weight, and asking them signals the difference between reciting "just move the array" and actually designing <em>this</em> system.</p>
+<hr>
+<h2 id="7-functional-requirements">7. Functional Requirements</h2>
+<ul><li><strong>Move the snake continuously</strong> in the currently-set direction at a fixed tick rate, growing by one segment each time it eats food.</li><li><strong>Detect collisions</strong>: with the walls (or wrap-around, if configured), with the snake's own body, and — in multiplayer — with any opponent snake's body.</li><li><strong>Spawn food</strong> at random unoccupied cells after each one is eaten.</li><li><strong>Support local multiplayer</strong>: multiple snakes on one shared board, each independently controlled.</li><li><strong>Support real-time networked multiplayer</strong> between remote players, with the game feeling responsive despite network latency.</li><li><strong>Support an AI-controlled snake</strong> at multiple strength levels, including a genuinely trained learning agent.</li><li><strong>Track scores and a persistent leaderboard</strong>, and support a prize-bearing high-score contest.</li></ul>
+<hr>
+<h2 id="8-non-functional-requirements">8. Non-Functional Requirements</h2>
+<ul><li><strong>Deterministic simulation</strong>: given the same sequence of inputs, the game state must evolve identically every time — essential for both fair networked play and reproducible testing.</li><li><strong>Low input-to-action latency</strong>: a direction change should be reflected within at most one simulation tick, never several.</li><li><strong>Real-time responsiveness under network latency</strong>: a networked player's own snake must feel immediately responsive to their input, despite the round-trip delay to the authoritative server.</li><li><strong>Correctness under concurrency</strong>: in multiplayer, two snakes moving into the same cell in the same tick must be resolved by one well-defined rule, never a race.</li><li><strong>Bounded resource usage for AI/training</strong>: a learned agent's model size must stay bounded regardless of how long training runs, and training itself must not block the game's own simulation loop.</li><li><strong>Fairness and integrity for prize contests</strong>: the server, never a client, must be the sole source of truth for a contest-eligible score.</li></ul>
+<hr>
+<h2 id="9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">9. Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Name the core domain concepts before you draw any architecture."</em></p></blockquote><ul><li><strong>Position</strong> — a single grid cell, <code>(x, y)</code>.</li><li><strong>Direction</strong> — one of <code>UP/DOWN/LEFT/RIGHT</code>, the snake's current heading.</li><li><strong>Snake</strong> — an ordered sequence of positions (head to tail), plus a current direction and a pending-growth counter.</li><li><strong>Food</strong> — a single position the snake grows by reaching.</li><li><strong>Tick</strong> — one discrete simulation step: apply the buffered direction, move, check collisions, check food, advance.</li><li><strong>Game Session</strong> — the full state of one game in progress: the board, all snakes, current food, and elapsed ticks — the unit both local and networked play operate on identically.</li></ul>
+<hr>
+<h2 id="10-identifying-the-core-domain-entities">10. Identifying the Core Domain Entities</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record Position(int x, int y) { }
+public enum Direction {
+    UP(0, -1), DOWN(0, 1), LEFT(-1, 0), RIGHT(1, 0);
+    public final int dx, dy;
+    Direction(int dx, int dy) { this.dx = dx; this.dy = dy; }
+    public boolean isOpposite(Direction other) { return this.dx == -other.dx &amp;&amp; this.dy == -other.dy; }
+}
+
+public class Snake {
+    private final Deque&lt;Position&gt; body = new ArrayDeque&lt;&gt;(); // head at the front, tail at the back
+    private Direction currentDirection;
+    private int pendingGrowth = 0;
+
+    public Position head() { return body.peekFirst(); }
+    public boolean isAlive = true;
+}
+
+public record Food(Position position) { }
+
+public class GameSession {
+    private final int width, height;
+    private final List&lt;Snake&gt; snakes;
+    private Food currentFood;
+    private long tickCount = 0;
+}</code></pre></div><p>Modeling <code>Direction</code> as an enum carrying its own <code>(dx, dy)</code> delta and an <code>isOpposite</code> check, rather than a bare string or int, is what makes <a href="#17-follow-up-question-4-two-direction-keys-are-pressed-within-one-tick-which-applies-and-how-do-you-prevent-reversing-into-yourself">§17-19</a>'s reverse-direction guard a single, obvious method call rather than a fragile set of coordinate comparisons scattered wherever direction changes are handled.</p>
+<hr>
+<h2 id="11-high-level-architecture-overview">11. High-Level Architecture Overview</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    +------------------------+
+Player input ------&gt;|   DirectionBuffer        |
+(arrow keys)        +-----------+--------------+
+                                |  (consumed once per tick)
+                                v
+                    +------------------------+       +------------------------+
+                    |       GameLoop           |------&gt;|   Renderer (canvas)     |
+                    |  fixed-timestep tick     |      +------------------------+
+                    +-----------+--------------+
+                                |
+                    +-----------+-------------+
+                    v                         v
+          +------------------+     +------------------------+
+          |  OccupiedCellIndex |     |     GameSession          |
+          |  (collision, O(1)) |     |  snakes, food, tickCount |
+          +------------------+     +-----------+--------------+
+                                                |
+                                +---------------+---------------+
+                                v                                 v
+                    +------------------------+       +------------------------+
+                    |    ScoreRepository       |       |   HighScoreContest      |
+                    |    Leaderboard           |       |   PrizeLedger            |
+                    +------------------------+       +------------------------+</code></pre></div><p><code>GameLoop</code> is the single place per-tick logic lives — it consumes the current buffered direction, advances every snake, checks collisions via <code>OccupiedCellIndex</code>, checks food, and updates <code>GameSession</code> — with <code>Renderer</code> only ever reading the resulting state to draw it, never influencing the simulation itself.</p>
+<hr>
+<h2 id="12-follow-up-question-2-why-cant-you-just-move-and-redraw-immediately-on-every-keypress">12. Follow-up Question 2 — "Why Can't You Just Move and Redraw Immediately on Every Keypress?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"The simplest possible implementation moves the snake and redraws the instant an arrow key is pressed. What's wrong with that?"</em></p></blockquote><p>Because a keypress and a "how far the snake should have moved by now" are two entirely different clocks — tying movement directly to input events means the snake's speed becomes an accident of how fast a player mashes keys, and networked play becomes impossible to keep consistent across clients pressing keys at different real-world instants. The correct design decouples <strong>when input is accepted</strong> from <strong>when the simulation actually advances</strong>: input is only ever <em>buffered</em>, and a fixed-rate tick is what actually moves anything, checks collisions, and updates state — exactly the separation a real-time game (as opposed to a turn-based one like Tic-Tac-Toe) fundamentally requires.</p>
+<hr>
+<h2 id="13-the-game-loop-fixed-timestep-simulation">13. The Game Loop: Fixed-Timestep Simulation</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Wall-clock time:  0ms    50ms   100ms   150ms   200ms   250ms  ...
+Render calls:     |------|------|-------|----|-------|-----------&gt;  (varies with device/frame rate)
+Simulation ticks: |-------------|--------------|----------------&gt;  (FIXED rate, e.g. every 120ms,
+                                                                      regardless of render frame rate)
+
+Each tick:  1. consume the current buffered direction (§17-19)
+            2. move every snake's head one cell in that direction
+            3. check collisions (§20-22)
+            4. check food; grow and respawn food if eaten
+            5. advance tickCount</code></pre></div><p>Rendering can happen as often as the display allows (and can even interpolate smoothly <em>between</em> two simulation ticks for visual polish) — but the simulation itself only ever advances at the fixed tick rate, which is what makes the game's actual behavior fully independent of frame rate, and, critically, makes it possible for a server and multiple clients to all compute the <em>identical</em> sequence of ticks from the <em>identical</em> sequence of buffered inputs (<a href="#26-follow-up-question-7-how-do-you-support-real-time-networked-multiplayer-not-turn-based-like-tic-tac-toe">§26-29</a>).</p>
+<hr>
+<h2 id="14-follow-up-question-3-how-do-you-represent-the-snakes-body-so-movement-and-growth-are-cheap-not-shifting-an-array-every-tick">14. Follow-up Question 3 — "How Do You Represent the Snake's Body So Movement and Growth Are Cheap, Not Shifting an Array Every Tick?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A naive representation stores the body as an array and shifts every element forward each tick. What's wrong with that at scale, and what's the fix?"</em></p></blockquote><p>Shifting every element of an array on every single tick costs <code>O(body length)</code> per tick, even though moving a snake is conceptually a <strong>constant-time</strong> operation: a new head cell is added at the front, and (unless the snake just ate food) the tail cell is removed from the back — nothing in the middle ever actually needs to move. The fix is a data structure offering O(1) insertion and removal at <em>both</em> ends: a <strong>double-ended queue</strong>.</p>
+<hr>
+<h2 id="15-efficient-snake-body-representation">15. Efficient Snake Body Representation</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Body, head-to-tail:  [ (5,5) (4,5) (3,5) (2,5) ]   (moving RIGHT... wait, direction is LEFT here)
+
+Move one tick (no food eaten):
+  addFirst( newHead )   -&gt; [ (6,5) (5,5) (4,5) (3,5) (2,5) ]
+  removeLast()          -&gt; [ (6,5) (5,5) (4,5) (3,5) ]        -- net: O(1), nothing in the middle touched
+
+Move one tick (food eaten this tick):
+  addFirst( newHead )   -&gt; [ (6,5) (5,5) (4,5) (3,5) (2,5) ]
+  (tail NOT removed -- this is exactly how the snake grows by one segment)</code></pre></div><p>Using an <code>ArrayDeque&lt;Position&gt;</code> (or an equivalent structure with true O(1) operations at both ends — a plain <code>LinkedList</code> also qualifies, though with worse cache locality) means the cost of moving the snake stays constant regardless of how long it has grown, which matters increasingly as a game session runs longer and the snake's body length grows into the hundreds.</p>
+<hr>
+<h2 id="16-implementing-movement-and-growth">16. Implementing Movement and Growth</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class Snake {
+    private final Deque&lt;Position&gt; body = new ArrayDeque&lt;&gt;();
+    private Direction currentDirection;
+    private int pendingGrowth = 0;
+    private boolean alive = true;
+
+    public void tickMove() {
+        Position head = body.peekFirst();
+        Position newHead = new Position(head.x() + currentDirection.dx, head.y() + currentDirection.dy);
+        body.addFirst(newHead);
+
+        if (pendingGrowth &gt; 0) {
+            pendingGrowth--; // grow: skip removing the tail this tick
+        } else {
+            body.removeLast();
+        }
+    }
+
+    public void grow(int segments) {
+        pendingGrowth += segments; // deferred: actually applied on the NEXT tickMove(), not immediately
+    }
+}</code></pre></div><p><code>grow</code> deliberately doesn't append a segment immediately — it just increments a counter that <code>tickMove</code> consults on the <em>next</em> tick, which keeps growth expressed in terms of the exact same "add head, conditionally remove tail" operation every other tick already uses, rather than needing a separate code path for "a tick where the snake got longer."</p>
+<hr>
+<h2 id="17-follow-up-question-4-two-direction-keys-are-pressed-within-one-tick-which-applies-and-how-do-you-prevent-reversing-into-yourself">17. Follow-up Question 4 — "Two Direction Keys Are Pressed Within One Tick. Which Applies, and How Do You Prevent Reversing Into Yourself?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A player moving RIGHT presses UP and then, in the same tick window, LEFT. If LEFT is applied directly, the snake instantly reverses into its own neck. How do you prevent that?"</em></p></blockquote><p>By never applying a direction change <strong>immediately</strong> on keypress — instead, each keypress only updates a small <strong>buffer</strong> holding the <em>next</em> direction to apply, and the buffer's own write is itself guarded: a new direction is only accepted into the buffer if it isn't the exact opposite of the snake's <strong>currently active</strong> direction (not the previous buffered one, a subtlety <a href="#19-implementing-the-input-buffer">§19</a> makes precise). This is the single most common real bug in a from-scratch Snake implementation, and it exists precisely because a snake's own body occupies the cell directly behind its head — reversing into it is an instant, always-avoidable self-collision.</p>
+<hr>
+<h2 id="18-input-buffering-and-the-reverse-direction-bug">18. Input Buffering and the Reverse-Direction Bug</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>WRONG (checks against the BUFFERED direction, not the ACTIVE one):
+  Snake moving RIGHT. Tick N: player presses UP -- buffer = UP (accepted: UP != opposite of RIGHT)
+                       (before tick N+1 processes) player presses LEFT
+                       -- checked against buffer (UP): LEFT != opposite of UP, so ACCEPTED
+                       -- but the snake is STILL, right now, actually moving RIGHT --
+                          LEFT is the exact opposite of RIGHT -- this WILL reverse it into itself
+                          once UP hasn't been applied yet on a fast-enough double key-press
+
+CORRECT (checks against the ACTIVE direction the snake is CURRENTLY executing):
+  Buffer stores at most ONE pending direction. A new keypress is accepted into the buffer only if
+  it is not the opposite of the snake's CURRENT direction (the one actually being executed this tick),
+  not the opposite of whatever is already sitting in the buffer.</code></pre></div><p>The fix requires being precise about <em>which</em> direction a new keypress is validated against — the snake's currently-executing direction, which only changes once per tick, not the buffer's contents, which can otherwise be overwritten multiple times between two ticks by a fast typist.</p>
+<hr>
+<h2 id="19-implementing-the-input-buffer">19. Implementing the Input Buffer</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class DirectionBuffer {
+    private Direction pending;
+
+    public void submit(Direction requested, Direction currentActiveDirection) {
+        if (!requested.isOpposite(currentActiveDirection)) {
+            pending = requested; // accepted -- will be applied at the START of the next tick
+        }
+        // if it WAS the opposite of the currently-active direction, silently ignored --
+        // NOT queued, NOT applied later, exactly as if the keypress never happened
+    }
+
+    public Direction consumeOrKeep(Direction currentActiveDirection) {
+        Direction result = (pending != null) ? pending : currentActiveDirection;
+        pending = null;
+        return result;
+    }
+}</code></pre></div><p><code>consumeOrKeep</code> is called exactly once, at the start of every tick, and its result becomes the snake's new <em>currently-active</em> direction for that entire tick — which is precisely the value every subsequent <code>submit</code> call during that tick will be validated against, closing the loop correctly.</p>
+<hr>
+<h2 id="20-follow-up-question-5-how-do-you-detect-collision-efficiently-every-tick-without-scanning-the-whole-board">20. Follow-up Question 5 — "How Do You Detect Collision Efficiently Every Tick Without Scanning the Whole Board?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A naive collision check loops over every existing body segment to see if the new head matches one. What's wrong with that as the snake grows, and what's the fix?"</em></p></blockquote><p>Looping over every segment costs <code>O(body length)</code> per tick, and this cost is paid <strong>every single tick</strong>, compounding as the snake (and, in multiplayer, every opponent snake sharing the board) grows longer — at a long enough game session, this becomes a genuinely measurable per-tick cost. The fix is to maintain a <strong>hash set of every currently-occupied cell</strong>, updated incrementally exactly alongside the body's own <code>Deque</code> mutations (<a href="#16-implementing-movement-and-growth">§16</a>) — checking whether a new head position collides becomes a single O(1) set lookup, independent of how long any snake has grown.</p>
+<hr>
+<h2 id="21-efficient-collision-detection-via-a-hash-set-of-occupied-cells">21. Efficient Collision Detection via a Hash Set of Occupied Cells</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Naive:  for each snake: for each segment in that snake's body: if segment == newHead: COLLISION
+        -- O(total segments across ALL snakes) per tick, paid EVERY tick
+
+This guide's approach:  maintain Set&lt;Position&gt; occupiedCells, updated INCREMENTALLY:
+        - when a segment is added (addFirst): occupiedCells.add(newHead)
+        - when a segment is removed (removeLast): occupiedCells.remove(oldTail)
+        Checking a new head for collision: occupiedCells.contains(newHead) -- O(1), ALWAYS</code></pre></div><p>The set must be updated in exact lockstep with every <code>Deque</code> mutation from <a href="#16-implementing-movement-and-growth">§16</a> — adding a head without registering it in the set, or removing a tail without unregistering it, would silently desynchronize the two structures, reintroducing exactly the kind of stale-state bug this guide's own house style treats as a first-class thing to design against, not merely test for after the fact.</p>
+<hr>
+<h2 id="22-implementing-collision-detection">22. Implementing Collision Detection</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class OccupiedCellIndex {
+    private final Map&lt;Position, Snake&gt; occupiedBy = new HashMap&lt;&gt;(); // WHICH snake owns each cell -- needed for multiplayer
+
+    public void onSegmentAdded(Position position, Snake owner) { occupiedBy.put(position, owner); }
+    public void onSegmentRemoved(Position position) { occupiedBy.remove(position); }
+
+    public Optional&lt;CollisionResult&gt; checkCollision(Position newHead, int boardWidth, int boardHeight) {
+        if (newHead.x() &lt; 0 || newHead.x() &gt;= boardWidth || newHead.y() &lt; 0 || newHead.y() &gt;= boardHeight) {
+            return Optional.of(CollisionResult.WALL);
+        }
+        Snake occupant = occupiedBy.get(newHead);
+        if (occupant != null) {
+            return Optional.of(CollisionResult.BODY); // self OR opponent -- the caller distinguishes using `occupant`
+        }
+        return Optional.empty(); // no collision -- the move is safe
+    }
+}
+
+public enum CollisionResult { WALL, BODY }</code></pre></div><p>Mapping each occupied <code>Position</code> to the specific <code>Snake</code> that owns it (rather than a plain <code>Set&lt;Position&gt;</code>) is what lets multiplayer distinguish "collided with my own tail" from "collided with an opponent" — both are structurally a <code>BODY</code> collision, but which snake dies (and, in some rule variants, whether the <em>other</em> snake also takes damage) depends on knowing whose segment was actually hit.</p>
+<hr>
+<h2 id="23-class-diagram-the-core-game-loop">23. Class Diagram: The Core Game Loop</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+------------------------+       +------------------------+
+|       GameLoop            |------&gt;|     GameSession          |
+|  tick()                   |       |  snakes, food, tickCount |
++-----------+--------------+       +-----------+--------------+
+            |                                    |
+            v                                    v
++------------------------+       +------------------------+
+|    DirectionBuffer        |       |         Snake             |
+|  submit(), consumeOrKeep()|       |  body: Deque&lt;Position&gt;   |
++------------------------+       |  tickMove(), grow()      |
+                                    +-----------+--------------+
+                                                  |
+                                                  v
+                                    +------------------------+
+                                    |   OccupiedCellIndex       |
+                                    |  checkCollision(newHead)  |
+                                    +------------------------+</code></pre></div><p><code>GameLoop.tick()</code> is the orchestrator that ties every mechanism introduced so far together in the correct order: consume the buffered direction (<a href="#19-implementing-the-input-buffer">§19</a>), move each snake (<a href="#16-implementing-movement-and-growth">§16</a>), check collisions via the index (<a href="#22-implementing-collision-detection">§22</a>), check for food, and advance — with <code>Renderer</code> (<a href="#11-high-level-architecture-overview">§11</a>) only ever reading the resulting <code>GameSession</code> afterward, never participating in this sequence itself.</p>
+<hr>
+<h2 id="24-follow-up-question-6-how-do-you-support-local-multiplayer-two-snakes-one-board-cleanly">24. Follow-up Question 6 — "How Do You Support Local Multiplayer — Two Snakes, One Board — Cleanly?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Two players share one keyboard, one screen. How does the design extend from one snake to several without becoming a tangle of duplicated logic?"</em></p></blockquote><p><code>GameSession</code> already models <code>snakes</code> as a <strong>list</strong>, not a single field (<a href="#10-identifying-the-core-domain-entities">§10</a>) — local multiplayer is simply that list holding more than one entry, each with its own <code>DirectionBuffer</code> fed by a different set of keys (e.g., arrow keys for one player, WASD for the other), and <code>OccupiedCellIndex</code> (<a href="#22-implementing-collision-detection">§22</a>) already correctly attributes every cell to whichever specific snake owns it, which is exactly what makes an opponent collision distinguishable from a self-collision with zero additional mechanism.</p>
+<hr>
+<h2 id="25-modeling-multiple-snakes-on-one-shared-board">25. Modeling Multiple Snakes on One Shared Board</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>GameSession.snakes = [ snakeA (player, arrow keys), snakeB (player, WASD), snakeC (AI, §31) ]
+
+Each tick, GameLoop:
+  for each snake in snakes (in a FIXED, deterministic order -- matters for tie-breaking, §26):
+    if snake.isAlive: consume its OWN DirectionBuffer, move it, check its collision
+  -- one snake dying does NOT stop the loop from processing the others this same tick</code></pre></div><p>Processing snakes in a fixed, deterministic order (rather than, say, an unordered collection whose iteration order could vary) is what makes two-snakes-collide-head-on scenarios resolvable by a single, well-defined rule rather than depending on incidental iteration order — directly setting up <a href="#26-follow-up-question-7-how-do-you-support-real-time-networked-multiplayer-not-turn-based-like-tic-tac-toe">§26</a>'s networked-multiplayer requirement that the exact same tick, given the exact same inputs, always produces the exact same outcome.</p>
+<hr>
+<h2 id="26-follow-up-question-7-how-do-you-support-real-time-networked-multiplayer-not-turn-based-like-tic-tac-toe">26. Follow-up Question 7 — "How Do You Support Real-Time Networked Multiplayer, Not Turn-Based Like Tic-Tac-Toe?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Tic-Tac-Toe's networked design relayed one move at a time, whenever a player happened to act. Snake moves continuously, every tick, for every player, simultaneously. How does that change the networking design?"</em></p></blockquote><p>Fundamentally: instead of relaying discrete moves, the server runs the <strong>entire authoritative simulation itself</strong>, at the fixed tick rate, continuously — each client only ever sends its <em>currently-buffered direction</em> (updated whenever the player presses a key), and the server folds every connected client's latest known direction into its own tick, then broadcasts the resulting <code>GameSession</code> snapshot to everyone. No client ever computes the "official" outcome of a tick; every client only ever <em>renders</em> what the server already decided.</p>
+<hr>
+<h2 id="27-networked-multiplayer-server-authoritative-tick-simulation">27. Networked Multiplayer: Server-Authoritative Tick Simulation</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Client A: key press -&gt; sends {direction: UP} to server (NOT "I moved to (5,5)" -- the server decides that)
+Client B: key press -&gt; sends {direction: LEFT} to server
+
+Server, every fixed tick (independent of when either message arrived, as long as it's before the tick):
+  1. GameLoop.tick() consumes whatever direction each client's DirectionBuffer currently holds
+  2. Moves BOTH snakes, checks collisions, checks food (§13, §16, §22) -- IDENTICAL logic to local play
+  3. Broadcasts the resulting GameSession snapshot to BOTH clients
+
+Neither client's own simulation is ever treated as authoritative -- only the server's ticks are.</code></pre></div><p>This is the exact same architectural principle the Tic-Tac-Toe guide's §22-23 already established (the server, never a client, is the sole source of truth) — applied here to a <em>continuous</em> simulation instead of discrete per-move validation, because Snake's real-time nature means there is no natural "one move, one validation" boundary to hang a simpler check on.</p>
+<hr>
+<h2 id="28-follow-up-question-8-network-latency-means-a-client-could-feel-behind-the-server-how-do-you-keep-it-feeling-responsive">28. Follow-up Question 8 — "Network Latency Means a Client Could Feel Behind the Server. How Do You Keep It Feeling Responsive?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"If a client only ever renders what the server tells it, and that requires a round trip, doesn't the player's own snake feel laggy, moving only after a network delay?"</em></p></blockquote><p>Yes — waiting for a server round-trip before showing <em>your own</em> movement would feel noticeably sluggish, which is precisely why real-time multiplayer games layer <strong>client-side prediction</strong> on top of the server-authoritative design: the client immediately simulates its own snake's movement locally, the instant a key is pressed, rendering that predicted result <em>before</em> the server's confirmation arrives — and later reconciles its prediction against the server's actual authoritative tick once it arrives, correcting silently if they disagree.</p>
+<hr>
+<h2 id="29-client-side-prediction-and-server-reconciliation">29. Client-Side Prediction and Server Reconciliation</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Client, locally, the instant a key is pressed:
+  1. Apply the move to a LOCAL COPY of the snake immediately -- render it right away, no waiting
+  2. Remember this predicted state, tagged with the tick number it predicted
+
+Server's authoritative snapshot for that same tick number arrives (after network delay):
+  3. Compare the server's actual state for that tick against the client's earlier PREDICTION
+  4. If they MATCH: nothing visible happens -- the prediction was correct, already rendered
+  5. If they DIFFER (e.g., a collision the client didn't predict because it didn't know an
+     opponent's move yet): SNAP the client's rendered state to the server's authoritative one --
+     a visible correction, but a rare one, and only when the prediction was genuinely wrong</code></pre></div><p>The key property that makes this whole approach viable is that the <em>vast majority</em> of predictions turn out correct (a player's own movement rarely depends on information only the server had), so corrections are rare, brief, and far less disruptive than <em>always</em> waiting a full round-trip before ever showing movement at all — this is the standard technique behind why fast-paced multiplayer games feel responsive despite genuine network latency.</p>
+<hr>
+<h2 id="30-follow-up-question-9-how-do-you-plug-in-an-ai-controlled-snake">30. Follow-up Question 9 — "How Do You Plug In an AI-Controlled Snake?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"From the game loop's point of view, should there be any difference between a human's buffered direction and an AI's?"</em></p></blockquote><p>None — exactly the same answer the Tic-Tac-Toe guide gave for its own AI integration (§24 there): an AI-controlled snake is simply something that computes a <code>Direction</code> given the current <code>GameSession</code>, submitted into that snake's own <code>DirectionBuffer</code> through the identical <code>submit()</code> call a human's keypress would use. <code>GameLoop.tick()</code> never needs to know or care which snakes are human-controlled and which are AI-controlled.</p>
+<hr>
+<h2 id="31-designing-the-ai-as-a-pluggable-strategy">31. Designing the AI as a Pluggable Strategy</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface SnakeAiStrategy {
+    Direction decideMove(GameSession session, Snake self);
+}</code></pre></div><p>Every AI difficulty level — from a simple pathfinder to a mathematically guaranteed-survival strategy to a trained learned agent — implements this identical interface, exactly mirroring the Tic-Tac-Toe guide's <code>AiStrategy</code> (§25 there): swapping strategies is a configuration change, never a change to <code>GameLoop</code> or either transport layer.</p>
+<hr>
+<h2 id="32-follow-up-question-10-whats-the-simplest-ai-and-whats-wrong-with-it">32. Follow-up Question 10 — "What's the Simplest AI, and What's Wrong With It?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Implement the simplest reasonable AI opponent for Snake. What's its obvious weakness?"</em></p></blockquote><p>The simplest <em>reasonable</em> strategy computes the shortest path to the food and follows it — reasonable, because a truly naive "move randomly" AI for Snake dies almost immediately and isn't an interesting comparison point the way it was for Tic-Tac-Toe. But shortest-path-to-food has a real, well-known weakness: it optimizes purely for "reach the food fastest," with no regard for whether doing so <strong>traps the snake's own body</strong> against a wall with no remaining escape route once it's grown long enough — a greedy strategy can walk itself into a dead end that was entirely avoidable.</p>
+<hr>
+<h2 id="33-strategy-1-greedy-shortest-path-bfs">33. Strategy 1: Greedy Shortest-Path (BFS)</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class GreedyPathfindingStrategy implements SnakeAiStrategy {
+    @Override
+    public Direction decideMove(GameSession session, Snake self) {
+        List&lt;Position&gt; path = breadthFirstSearch(session, self.head(), session.currentFood().position());
+        if (path.isEmpty() || path.size() &lt; 2) {
+            return anySafeFallbackDirection(session, self); // no path found -- avoid immediate death, §37-38
+        }
+        Position nextStep = path.get(1); // path.get(0) is the current head itself
+        return directionBetween(self.head(), nextStep);
+    }
+
+    private List&lt;Position&gt; breadthFirstSearch(GameSession session, Position start, Position goal) {
+        Queue&lt;Position&gt; frontier = new ArrayDeque&lt;&gt;();
+        Map&lt;Position, Position&gt; cameFrom = new HashMap&lt;&gt;();
+        frontier.add(start);
+        cameFrom.put(start, null);
+
+        while (!frontier.isEmpty()) {
+            Position current = frontier.poll();
+            if (current.equals(goal)) return reconstructPath(cameFrom, goal);
+            for (Position neighbor : walkableNeighbors(session, current)) {
+                if (!cameFrom.containsKey(neighbor)) {
+                    cameFrom.put(neighbor, current);
+                    frontier.add(neighbor);
+                }
+            }
+        }
+        return List.of(); // no path exists to the food at all right now
+    }
+}</code></pre></div><p><strong>Breadth-first search</strong> is the correct, simplest algorithm here specifically because every edge on the grid (moving to any adjacent cell) has identical cost — on an unweighted graph, BFS is guaranteed to find the <em>shortest</em> path, with none of Dijkstra's or A<em>'s added complexity being necessary (A</em> would only earn its keep if some cells cost more to enter than others, which a plain Snake board doesn't have).</p>
+<hr>
+<h2 id="34-follow-up-question-11-greedy-bfs-can-trap-itself-in-a-dead-end-how-do-you-build-an-ai-that-almost-never-dies">34. Follow-up Question 11 — "Greedy BFS Can Trap Itself in a Dead End. How Do You Build an AI That (Almost) Never Dies?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"You've shown me greedy pathfinding can walk itself into a corner. Design an AI that's structurally safe from ever doing that."</em></p></blockquote><p>By abandoning "shortest path to food" as the goal entirely, and instead having the snake <strong>always follow one fixed, precomputed cycle that visits every single cell on the board exactly once before returning to its start</strong> — a <strong>Hamiltonian cycle</strong>. As long as the snake always moves along this cycle, it can <em>never</em> collide with its own body (the cycle, by definition, never crosses itself), which makes death from self-collision structurally impossible regardless of how long the snake grows — the strongest safety guarantee any of these strategies can offer.</p>
+<hr>
+<h2 id="35-strategy-2-hamiltonian-cycle-guaranteed-survival">35. Strategy 2: Hamiltonian Cycle — Guaranteed Survival</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>A Hamiltonian cycle on a grid: a single closed loop touching every cell exactly once.
+
+Example, on a 4x4 grid (one valid cycle, arrows show the fixed order the snake always follows):
+  (0,0)-&gt;(1,0)-&gt;(2,0)-&gt;(3,0)
+    ^                     |
+    |                     v
+  (0,1)&lt;-(1,1)&lt;-(2,1)&lt;-(3,1)
+    |
+    v
+  (0,2)-&gt;(1,2)-&gt;(2,2)-&gt;(3,2)
+    ^                     |
+    |                     v
+  (0,3)&lt;-(1,3)&lt;-(2,3)&lt;-(3,3)
+
+The snake ALWAYS moves to the NEXT cell in this fixed sequence, regardless of where the food
+currently is -- it will eventually reach every cell, including wherever food happens to be,
+guaranteed, simply by continuing to follow the cycle.</code></pre></div><p>The guarantee here is unconditional: because the snake's own body only ever occupies a <em>contiguous stretch</em> of this single cycle at any moment, and the cycle never revisits a cell out of order, the snake's head can never run into its own body — this is a structural property of the cycle itself, not something that needs to be checked or verified at runtime.</p>
+<hr>
+<h2 id="36-implementing-a-hamiltonian-cycle-strategy">36. Implementing a Hamiltonian Cycle Strategy</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class HamiltonianCycleStrategy implements SnakeAiStrategy {
+    private final Map&lt;Position, Position&gt; nextInCycle; // precomputed ONCE, at startup, for the board's fixed size
+
+    public HamiltonianCycleStrategy(int width, int height) {
+        this.nextInCycle = precomputeCycle(width, height); // a fixed, deterministic cycle covering every cell
+    }
+
+    @Override
+    public Direction decideMove(GameSession session, Snake self) {
+        Position next = nextInCycle.get(self.head());
+        return directionBetween(self.head(), next);
+    }
+}</code></pre></div><p>The cycle is computed <strong>once</strong>, at startup, for the board's fixed dimensions — not recomputed per tick — since the cycle itself never changes; the only per-tick work is a single map lookup, making this strategy not just safe but also computationally the <em>cheapest</em> of the three, despite being conceptually the most elaborate to set up.</p>
+<hr>
+<h2 id="37-follow-up-question-12-if-a-hamiltonian-cycle-is-guaranteed-safe-why-not-always-use-it">37. Follow-up Question 12 — "If a Hamiltonian Cycle Is Guaranteed-Safe, Why Not Always Use It?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"You've just described a strategy that can never die from self-collision. Why would anyone ever use the greedy pathfinder instead?"</em></p></blockquote><p>Because "never dies" and "plays well" are different goals, and the Hamiltonian cycle strategy is honestly quite bad at the second one: it visits cells in a fixed order <strong>regardless of where the food actually is</strong>, meaning it can take an extremely long, meandering path to reach food sitting just a few cells away in Manhattan distance but far away along the cycle's fixed route — a human or a greedy pathfinder would reach that same food far faster. The Hamiltonian cycle strategy optimizes purely for survival; greedy BFS optimizes purely for speed; neither is strictly better, they're different points on the same tradeoff curve.</p>
+<hr>
+<h2 id="38-the-efficiency-vs-safety-tradeoff">38. The Efficiency vs. Safety Tradeoff</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    Speed to food         Death risk          Computational cost
+Greedy BFS          Fast (optimal path)   Real (can self-trap) Cheap (one BFS per tick)
+Hamiltonian Cycle   Slow (fixed route)    None (structural)     Cheapest (one lookup per tick)
+
+A practical HYBRID: follow the Hamiltonian cycle by default, but take a greedy shortcut
+whenever it's PROVABLY safe to do so (e.g., the shortcut rejoins the cycle at a point the
+snake's body has already passed, so no future segment of the cycle gets permanently skipped) --
+this is a real, more sophisticated strategy used in competitive Snake AI, combining both
+strategies' strengths at the cost of a more involved safety proof per shortcut taken.</code></pre></div><p>Naming this tradeoff explicitly — rather than presenting the Hamiltonian cycle as an unconditionally "better" strategy — is the correct way to answer this follow-up: a good design offers <em>both</em> strategies as genuinely different difficulty/behavior tiers, exactly as the Tic-Tac-Toe guide's own §37-38 did for minimax versus a trained agent, rather than treating one as simply an upgrade of the other.</p>
+<hr>
+<h2 id="39-follow-up-question-13-the-prompt-says-train-an-ai-snakes-state-space-is-far-bigger-than-tic-tac-toes-what-changes">39. Follow-up Question 13 — "The Prompt Says 'Train' an AI. Snake's State Space Is Far Bigger Than Tic-Tac-Toe's. What Changes?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Tic-Tac-Toe had about 5,478 reachable states, small enough for an exact lookup table. What's the equivalent number for Snake, and does the same approach still work?"</em></p></blockquote><p>It does not, and by an enormous margin: a Snake state includes the exact positions of every body segment, the food's position, and the current direction — on even a modest 20x20 board, the number of distinct reachable configurations is astronomically larger than Tic-Tac-Toe's ~5,478, far too many to ever store in an exact table, let alone visit each one enough times during training to learn a reliable value for it. This is precisely the point where reinforcement learning must abandon an exact table and adopt <strong>function approximation</strong> — typically a small neural network — that <em>generalizes</em> from the states it has actually seen to the vastly larger number it hasn't.</p>
+<hr>
+<h2 id="40-why-snake-needs-function-approximation-not-an-exact-table">40. Why Snake Needs Function Approximation, Not an Exact Table</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Tic-Tac-Toe:  ~5,478 reachable states -- EXACT table: one row per state, learned independently,
+              zero generalization needed or possible between unrelated states.
+
+Snake:        astronomically many reachable states (grows combinatorially with board size and
+              snake length) -- an exact table could never be fully populated, let alone learned;
+              a NEURAL NETWORK instead learns a compact set of weights that GENERALIZES: two
+              states that look similar (food slightly to the left vs. slightly further left)
+              naturally produce similar predicted values, without needing to have visited
+              either exact state during training.</code></pre></div><p>This is the central, honest technical distinction this guide draws against its own Tic-Tac-Toe companion: the <em>algorithm</em> (Q-learning, reward-driven self-play) is conceptually the same, but the <em>representation</em> of the learned policy must change entirely once the state space stops being small enough to enumerate — a lesson that generalizes directly to any real-world reinforcement learning problem too large for an exact table, which is the overwhelming majority of them.</p>
+<hr>
+<h2 id="41-designing-the-state-representation-and-reward-function">41. Designing the State Representation and Reward Function</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>State representation (a small, fixed-size vector, NOT the raw board):
+  - Danger straight-ahead, danger to the left, danger to the right (3 booleans -- immediate collision risk)
+  - Current direction (4 booleans, one-hot)
+  - Food direction relative to head: is it up/down/left/right of the head (4 booleans)
+  -- a compact ~11-value vector, not a full board snapshot -- this is what makes the network
+     small and what lets it GENERALIZE across the huge underlying state space (§40)
+
+Reward function:
+  +10   for eating food
+  -10   for dying (wall, self, or opponent collision)
+  -0.01 per tick survived with no other event (a small, constant penalty that encourages
+        reaching food EFFICIENTLY, rather than the agent learning to survive by endlessly
+        stalling without ever approaching the food at all)</code></pre></div><p>The reward function's small per-tick penalty is a deliberately chosen detail, not an afterthought — without it, an agent that has learned "never dying" is a valid strategy could simply oscillate forever in a safe pocket of the board, technically maximizing survival time while never actually playing the game the reward was meant to teach it to play.</p>
+<hr>
+<h2 id="42-follow-up-question-14-walk-through-the-actual-training-loop-for-a-function-approximated-agent">42. Follow-up Question 14 — "Walk Through the Actual Training Loop for a Function-Approximated Agent"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Concretely, how does training actually proceed, tick by tick?"</em></p></blockquote><p>The agent plays repeated episodes (each ending in death), and after every tick, it uses the observed transition — the state before the move, the action taken, the reward received, and the resulting state — to nudge its network's weights so that its <strong>predicted</strong> value for that action moves closer to the reward actually received plus a discounted estimate of the best value available from the resulting state, exactly the same Q-learning update rule the Tic-Tac-Toe guide used (§35-36 there), just applied to network weights via gradient descent instead of directly overwriting a table cell.</p>
+<hr>
+<h2 id="43-implementing-a-minimal-trainable-agent">43. Implementing a Minimal Trainable Agent</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class LearnedAgent implements SnakeAiStrategy {
+    private final SmallNeuralNetwork network; // a few dense layers, input = state vector (§41), output = 4 Q-values
+
+    @Override
+    public Direction decideMove(GameSession session, Snake self) {
+        double[] state = encodeState(session, self);
+        double[] qValues = network.predict(state); // one value per possible direction
+        return Direction.values()[argMax(qValues)];
+    }
+}
+
+public class AgentTrainer {
+    private static final double LEARNING_RATE = 0.001;
+    private static final double DISCOUNT = 0.95;
+    private double epsilon = 0.3; // epsilon-greedy exploration, exactly as in the Tic-Tac-Toe guide's §35-36
+
+    public void trainOneStep(LearnedAgent agent, double[] stateBefore, int actionTaken,
+                              double reward, double[] stateAfter, boolean episodeEnded) {
+        double[] qBefore = agent.network.predict(stateBefore);
+        double target;
+        if (episodeEnded) {
+            target = reward;
+        } else {
+            double[] qAfter = agent.network.predict(stateAfter);
+            target = reward + DISCOUNT * max(qAfter); // standard Q-learning bootstrap
+        }
+        double[] targetVector = qBefore.clone();
+        targetVector[actionTaken] = target;
+        agent.network.trainStep(stateBefore, targetVector, LEARNING_RATE); // one gradient-descent update
+    }
+}</code></pre></div><p><code>trainOneStep</code> is called after every single tick during training (not just at episode end), which is what lets the agent start improving its predictions well before any one episode finishes — a meaningful contrast with the Tic-Tac-Toe agent's own per-move updates (§36 there), since here the network's <em>weights</em> shift a small amount on each update rather than a table <em>cell</em> being overwritten directly, and it's this gradual, generalized weight-shifting that lets the agent transfer what it learned in one state to the many similar, never-directly-visited states nearby.</p>
+<hr>
+<h2 id="44-class-diagram-ai-strategies">44. Class Diagram: AI Strategies</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+------------------------+
+|    SnakeAiStrategy        |
+|    &lt;&lt;interface&gt;&gt;          |
+|  decideMove(session,self) |
++-----------+--------------+
+      ^      ^      ^
++----------------+ +------------------+ +------------------------+
+| Greedy          | | Hamiltonian     | | LearnedAgent            |
+| Pathfinding     | | CycleStrategy   | | (network, trained via   |
+| Strategy (BFS)  | |                 | |  AgentTrainer, §43)     |
++----------------+ +------------------+ +------------------------+</code></pre></div><p>All three strategies slot into the identical <code>SnakeAiStrategy</code> interface introduced in <a href="#31-designing-the-ai-as-a-pluggable-strategy">§31</a> — adding a fourth (e.g., the hybrid strategy sketched in <a href="#38-the-efficiency-vs-safety-tradeoff">§38</a>) means implementing one interface, never modifying <code>GameLoop</code>, either transport layer, or any of the other strategies.</p>
+<hr>
+<h2 id="45-follow-up-question-15-how-do-you-track-scores-across-many-games-and-many-players">45. Follow-up Question 15 — "How Do You Track Scores Across Many Games and Many Players?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A single session's score is easy. How do you turn that into persistent, per-player records and a leaderboard?"</em></p></blockquote><p>Every completed game session — ended by every snake dying, or a configured session time limit — should emit a single, immutable <strong>result event</strong> (player identity, final score, ticks survived) that a <code>ScoreRepository</code> durably records and folds into each player's running best-score and history, exactly the same "compute once, persist immediately" discipline this series applies consistently, and identical in spirit to the Tic-Tac-Toe guide's own §40-42.</p>
+<hr>
+<h2 id="46-score-management-and-leaderboards">46. Score Management and Leaderboards</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class ScoreRepository {
+    private final Map&lt;String, PlayerRecord&gt; recordsByPlayerId = new ConcurrentHashMap&lt;&gt;();
+
+    public void recordResult(String playerId, int finalScore, long ticksSurvived) {
+        PlayerRecord record = recordsByPlayerId.computeIfAbsent(playerId, id -&gt; new PlayerRecord(id));
+        record.gamesPlayed++;
+        record.bestScore = Math.max(record.bestScore, finalScore);
+        record.totalScore += finalScore;
+    }
+
+    public List&lt;PlayerRecord&gt; leaderboard(int topN) {
+        return recordsByPlayerId.values().stream()
+            .sorted(Comparator.comparingInt((PlayerRecord r) -&gt; r.bestScore).reversed())
+            .limit(topN)
+            .toList();
+    }
+}</code></pre></div><p>Ranking the leaderboard by each player's <strong>best</strong> score, not their most recent one, is a deliberate design choice appropriate for a game where score naturally varies run to run — it rewards a player's peak performance rather than punishing an unlucky recent attempt, which is the conventional (and generally preferred) leaderboard semantics for a high-score-style game.</p>
+<hr>
+<h2 id="47-follow-up-question-16-how-do-you-support-a-contest-with-a-prize-for-a-game-that-isnt-head-to-head-like-tic-tac-toes-match-series">47. Follow-up Question 16 — "How Do You Support a Contest With a Prize, for a Game That Isn't Head-to-Head Like Tic-Tac-Toe's Match Series?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Snake isn't naturally 'best of 5' the way Tic-Tac-Toe was. What does a prize-bearing contest look like for a high-score game instead?"</em></p></blockquote><p>A <strong>high-score contest</strong>: every entrant plays within a fixed window (a time limit, or a fixed number of attempts), each attempt's score is recorded exactly as any ordinary game would be, and whoever posts the single highest verified score once the window closes wins the prize — structurally simpler than the Tic-Tac-Toe guide's best-of-series aggregation (§43-44 there), since there's no need to track a running series score, only each entrant's best individual result.</p>
+<hr>
+<h2 id="48-designing-a-high-score-contest-and-prize-distribution">48. Designing a High-Score Contest and Prize Distribution</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class HighScoreContest {
+    private final Instant closesAt;
+    private final BigDecimal prizePool;
+    private final Map&lt;String, Integer&gt; bestScoreByPlayer = new ConcurrentHashMap&lt;&gt;();
+    private boolean prizeDistributed = false;
+
+    public void recordAttempt(String playerId, int score) {
+        if (Instant.now().isAfter(closesAt)) return; // attempts after closing don't count, even if submitted
+        bestScoreByPlayer.merge(playerId, score, Math::max);
+    }
+
+    public void distributePrizeIfClosed(PrizeLedger ledger) {
+        if (prizeDistributed || Instant.now().isBefore(closesAt)) return;
+        String winner = bestScoreByPlayer.entrySet().stream()
+            .max(Map.Entry.comparingByValue())
+            .map(Map.Entry::getKey)
+            .orElseThrow(() -&gt; new IllegalStateException("Contest closed with no attempts recorded"));
+        ledger.credit(winner, prizePool); // idempotent by construction: prizeDistributed guards a single call
+        prizeDistributed = true;
+    }
+}</code></pre></div><p>The <code>Instant.now().isAfter(closesAt)</code> check inside <code>recordAttempt</code> is what makes the contest window a genuinely enforced boundary rather than an advisory one — a score submitted a moment after closing is simply never recorded, which matters because <a href="#49-follow-up-question-17-how-do-you-prevent-cheating-in-a-real-time-prize-contest-differently-than-in-tic-tac-toe">§49-50</a>'s anti-cheat discussion depends on there being one crisp, server-enforced instant that unambiguously separates "counts" from "doesn't."</p>
+<hr>
+<h2 id="49-follow-up-question-17-how-do-you-prevent-cheating-in-a-real-time-prize-contest-differently-than-in-tic-tac-toe">49. Follow-up Question 17 — "How Do You Prevent Cheating in a Real-Time Prize Contest, Differently Than in Tic-Tac-Toe?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Tic-Tac-Toe validated discrete moves. Snake's score accumulates continuously, tick by tick, over a much longer session. What's different about anti-cheat here?"</em></p></blockquote><p>The core principle is identical (<a href="#26-follow-up-question-7-how-do-you-support-real-time-networked-multiplayer-not-turn-based-like-tic-tac-toe">§26-27</a>: the server, never a client, is the sole source of truth) — but the <em>surface area</em> for tampering is larger, because a real-time session has vastly more individual ticks than a Tic-Tac-Toe game has moves, and a client could, in principle, claim an inflated final score without the server having genuinely simulated every tick that supposedly produced it. The fix is that the server's own tick-by-tick simulation (<a href="#27-networked-multiplayer-server-authoritative-tick-simulation">§27</a>) is the <em>only</em> source a contest score is ever read from — a client never gets to report "my final score was X" at all; the server already knows the true score because it computed every tick itself.</p>
+<hr>
+<h2 id="50-contest-integrity-server-simulated-ticks-not-client-reported-scores">50. Contest Integrity: Server-Simulated Ticks, Not Client-Reported Scores</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>UNTRUSTED (never do this for a real-money contest):
+  Client plays a full session locally --&gt; client sends "my final score was 340" to the server
+  --&gt; server credits the contest entry -- a modified client can simply LIE about the number
+
+TRUSTED (this guide's design):
+  Every tick's outcome is computed by the SERVER's own GameLoop (§27), from directions the
+  client only ever SUGGESTS -- the score displayed to a client is always a REFLECTION of a
+  number the server itself derived, never a value the client is trusted to report back</code></pre></div><p>This is the same lesson as the Tic-Tac-Toe guide's own §46-47, generalized: whatever a client reports about itself is data, never fact, the instant real value depends on the outcome — the only change here is that "the outcome" accumulates continuously over many ticks instead of being decided by a single terminal move, which is exactly why the server must run the <em>entire</em> simulation, not merely validate discrete submitted claims.</p>
+<hr>
+<h2 id="51-capacity-estimation-concurrent-real-time-sessions-and-tick-bandwidth">51. Capacity Estimation: Concurrent Real-Time Sessions and Tick Bandwidth</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Assume: 20,000 concurrent networked sessions, each with 2 players, ticking at 8 ticks/sec
+
+Total ticks/sec across the platform = 20,000 * 8                    = 160,000 ticks/sec
+Per-tick broadcast payload (snake positions, food, score; ~150 bytes, both players) ≈ 150 bytes
+Total outbound bandwidth = 160,000 * 150 bytes                       ≈ 24 MB/sec platform-wide
+
+This is a MEANINGFULLY larger continuous bandwidth commitment than Tic-Tac-Toe's equivalent
+estimate (§48 there) -- a direct consequence of Snake being a CONTINUOUS real-time simulation
+broadcasting every tick, rather than a turn-based game only transmitting on the rare occasions
+a player actually acts. This is the concrete cost of real-time responsiveness (§28-29).</code></pre></div><p>At this scale, tick bandwidth (not simulation CPU cost, which remains cheap per <a href="#21-efficient-collision-detection-via-a-hash-set-of-occupied-cells">§21-22</a>'s O(1) collision checks) is the actual bottleneck resource to provision for — a direct, quantifiable consequence of choosing a continuously-ticking real-time design over a discrete, event-driven turn-based one.</p>
+<hr>
+<h2 id="52-full-worked-example-one-networked-tick-traced-end-to-end">52. Full Worked Example: One Networked Tick, Traced End to End</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. Client A (playing "Alice") presses the UP arrow key
+     a. Locally: DirectionBuffer.submit(UP, currentActiveDirection) -- accepted, not opposite (§19)
+     b. Client-side prediction immediately renders Alice's snake moving UP, before any server reply (§29)
+     c. The client sends {direction: UP} to the server over the existing WebSocket connection
+2. Server's next scheduled tick fires (independent of exactly when step 1c's message arrived, as
+   long as it arrived before this tick, §27):
+     a. GameLoop.tick() consumes Alice's DirectionBuffer (now holding UP) and Bob's (unchanged)
+     b. Both snakes move; OccupiedCellIndex.checkCollision() checked for each (§21-22) -- no collision
+     c. Food not reached this tick -- no growth, no respawn
+     d. tickCount advances; the resulting GameSession snapshot is broadcast to both clients
+3. Client A receives the server's snapshot for this tick number:
+     a. Compares it against its own earlier PREDICTION for the same tick -- they MATCH (§29)
+     b. No visible correction needed -- the already-rendered predicted frame was correct
+4. Several ticks later, Alice eats food:
+     a. Snake.grow(1) called (§16); ScoreRepository eventually records the finished session's
+        score once the game ends (§46), reading only from the server's own tally, never a
+        client-reported number (§49-50)</code></pre></div><p>Every mechanism this guide introduced via a follow-up question appears somewhere in this one tick's (and its immediate aftermath's) trace — the fixed tick loop, input buffering, prediction/reconciliation, and server-authoritative scoring are not independent, optional features, they are the actual steps a single real networked tick passes through in this design.</p>
+<hr>
+<h2 id="53-final-architecture-diagram">53. Final Architecture Diagram</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Client A &lt;--WebSocket--&gt; [ NetworkedTickSession ] &lt;--WebSocket--&gt; Client B
+ (predicts locally,               |
+  reconciles on snapshot,  +------v------+
+  §29)                     |  GameLoop    |
+                            |  tick()      |
+                            +------+------+
+                                    |
+                    +---------------+---------------+
+                    v                                 v
+        +------------------+              +------------------------+
+        | OccupiedCellIndex  |              |     GameSession          |
+        +------------------+              |  snakes, food, tickCount |
+                                            +-----------+--------------+
+                                                        |
+                                    +-------------------+-------------------+
+                                    v                                       v
+                        +------------------------+              +------------------------+
+                        |    ScoreRepository       |              |   HighScoreContest      |
+                        |    Leaderboard           |              |   PrizeLedger            |
+                        +------------------------+              +------------------------+
+
+(Local/offline mode, structurally identical GameLoop, no network layer:)
+Keyboard input --&gt; [ DirectionBuffer per snake ] --&gt; [ GameLoop ] --&gt; Renderer + ScoreRepository
+                                                            ^
+                                                            |
+                            [ SnakeAiStrategy: Greedy BFS | Hamiltonian Cycle | LearnedAgent ]</code></pre></div>
+<hr>
+<h2 id="54-design-patterns-used-throughout-this-guide">54. Design Patterns Used Throughout This Guide</h2>
+<ul><li><strong>Strategy</strong> — <code>SnakeAiStrategy</code> (<a href="#31-designing-the-ai-as-a-pluggable-strategy">§31-44</a>: greedy BFS, Hamiltonian cycle, learned agent) is a single swappable interface behind which every AI difficulty tier lives, interchangeable via configuration alone.</li><li><strong>Facade</strong> — <code>GameLoop</code> hides body movement, collision detection, and food handling behind a single <code>tick()</code> entry point every transport layer and every AI adapter depends on.</li><li><strong>Observer</strong> (implicit) — the renderer and the score repository each react to a finished tick's resulting <code>GameSession</code> without the loop itself needing to know how many downstream consumers exist or what they do with it.</li><li><strong>Adapter</strong> — an AI's <code>decideMove</code> result is submitted through the exact same <code>DirectionBuffer.submit()</code> a human keypress uses, letting <code>GameLoop</code> treat both uniformly (<a href="#30-follow-up-question-9-how-do-you-plug-in-an-ai-controlled-snake">§30-31</a>).</li><li><strong>Repository</strong> — <code>ScoreRepository</code> and <code>PrizeLedger</code> each encapsulate their own persistence and aggregation concerns behind a narrow, purpose-specific interface.</li></ul>
+<hr>
+<h2 id="55-solid-principles-applied">55. SOLID Principles Applied</h2>
+<ul><li><strong>Single Responsibility</strong> — <code>Snake</code> only tracks body/movement/growth; <code>OccupiedCellIndex</code> only tracks collision state; <code>DirectionBuffer</code> only mediates input timing — none of the three knows how to do the others' job, even though <code>GameLoop</code> composes all three on every tick.</li><li><strong>Open/Closed</strong> — adding a new AI strategy (or a new contest format) means implementing one interface, never modifying <code>GameLoop</code>, either transport layer, or <code>HighScoreContest</code>.</li><li><strong>Liskov Substitution</strong> — every <code>SnakeAiStrategy</code> implementation must honestly return a legal <code>Direction</code> from <code>decideMove</code>, so the game loop can call any of them interchangeably without special-casing a particular strategy.</li><li><strong>Interface Segregation</strong> — <code>SnakeAiStrategy</code> exposes exactly one method, so a trivial pathfinder isn't forced to depend on concepts (network weights, training hyperparameters) only the learned agent actually needs.</li><li><strong>Dependency Inversion</strong> — both local and networked sessions depend only on <code>GameLoop</code>'s public contract, never reimplementing simulation rules themselves, so the exact same rules engine serves both transports without duplication.</li></ul>
+<hr>
+<h2 id="56-common-mistakes-when-building-this-yourself">56. Common Mistakes When Building This Yourself</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>MISTAKE                                                 CORRECT APPROACH (this guide's section)
+Moving the snake directly on keypress, not a fixed tick   Fixed-timestep loop decoupled from input (§12-13)
+Shifting an array to move/grow the snake body              O(1) Deque operations at both ends (§14-16)
+Validating a new direction against the BUFFERED direction  Validate against the CURRENTLY ACTIVE one (§17-19)
+Scanning every segment to check collision every tick        Incrementally-updated occupied-cell set (§20-22)
+Trusting a client's own simulation in networked play         Server-authoritative ticks (§26-27)
+Waiting for a server round-trip before rendering own moves  Client-side prediction + reconciliation (§28-29)
+Using an exact Q-table for Snake, copying Tic-Tac-Toe's fix Function approximation is required at this scale (§39-40)
+Crediting a contest prize based on a client-reported score  Server-derived score only, ever (§49-50)</code></pre></div>
+<hr>
+<h2 id="57-testing-strategy">57. Testing Strategy</h2>
+<ul><li><strong>Collision detection tests</strong> — verify a wall collision, a self-collision, and (in multiplayer) an opponent collision are each correctly detected, and that a legal move into empty space is correctly not flagged.</li><li><strong>Input-buffer tests</strong> — assert that a direction opposite to the <em>currently active</em> one is always rejected, and that rapid, repeated direction submissions within one tick only ever leave the <em>last valid</em> one pending.</li><li><strong>Hamiltonian-cycle-never-dies tests</strong> — run the strategy for many thousands of ticks on a fixed board size and assert the snake never records a self-collision, confirming the structural guarantee actually holds in the implementation, not just on paper.</li><li><strong>Server-reconciliation tests</strong> — simulate a client prediction that deliberately diverges from a scripted server outcome, and assert the client correctly snaps to the server's authoritative state rather than silently diverging further.</li><li><strong>Contest integrity tests</strong> — submit an attempt after a contest's <code>closesAt</code> instant and assert it is never recorded, and attempt to distribute a prize twice for the same contest, asserting the second call is a no-op.</li></ul>
+<hr>
+<h2 id="58-suggested-future-enhancements">58. Suggested Future Enhancements</h2>
+<ul><li><strong>Wrap-around board variant</strong> — treating the board edges as connected (exiting the right edge re-enters on the left) rather than a wall collision, changing <a href="#21-efficient-collision-detection-via-a-hash-set-of-occupied-cells">§21-22</a>'s collision rule for the boundary case specifically.</li><li><strong>Power-ups</strong> (temporary speed boost, temporary invincibility) — new transient entities layered on top of the existing tick loop, following the same "computed once per tick, read by the renderer" pattern already used for food.</li><li><strong>Spectator mode</strong> for networked matches, broadcasting the authoritative <code>GameSession</code> snapshot to read-only observers in addition to the active players, mirroring the Tic-Tac-Toe guide's own identical suggestion (§55 there).</li><li><strong>Larger, deeper neural networks with replay buffers</strong> — a genuine step up from <a href="#41-designing-the-state-representation-and-reward-function">§41-43</a>'s minimal trainable agent, storing past transitions and sampling from them during training (experience replay) for more stable, sample-efficient learning.</li><li><strong>Regional matchmaking and multiple contest tiers</strong> — grouping players by latency region before matching them for networked play, and running simultaneous contests at different entry-fee/prize tiers.</li></ul>
+<hr>
+<h2 id="59-progressive-interview-question-set">59. Progressive Interview Question Set</h2>
+<p>For an interviewer using this guide to run a structured round, in increasing difficulty:</p><ol><li>Why does a real-time game need a fixed-timestep simulation loop decoupled from rendering, unlike a turn-based game? (<a href="#12-follow-up-question-2-why-cant-you-just-move-and-redraw-immediately-on-every-keypress">§12-13</a>)</li><li>Represent the snake's growing body so movement and growth are both O(1), and explain precisely why a plain array isn't. (<a href="#14-follow-up-question-3-how-do-you-represent-the-snakes-body-so-movement-and-growth-are-cheap-not-shifting-an-array-every-tick">§14-16</a>)</li><li>Design input handling so a fast double-keypress can never reverse the snake directly into its own body. (<a href="#17-follow-up-question-4-two-direction-keys-are-pressed-within-one-tick-which-applies-and-how-do-you-prevent-reversing-into-yourself">§17-19</a>)</li><li>Design real-time networked multiplayer, including why the server — not either client — must run the actual simulation. (<a href="#26-follow-up-question-7-how-do-you-support-real-time-networked-multiplayer-not-turn-based-like-tic-tac-toe">§26-27</a>)</li><li>A networked client would feel laggy if it only ever rendered server-confirmed state. Design the fix, and explain what happens when it's wrong. (<a href="#28-follow-up-question-8-network-latency-means-a-client-could-feel-behind-the-server-how-do-you-keep-it-feeling-responsive">§28-29</a>)</li><li>Design an AI that is structurally guaranteed to never die from self-collision, and explain its real weakness compared to a greedy pathfinder. (<a href="#34-follow-up-question-11-greedy-bfs-can-trap-itself-in-a-dead-end-how-do-you-build-an-ai-that-almost-never-dies">§34-38</a>)</li><li>Tic-Tac-Toe's state space was small enough for an exact Q-table. Why doesn't that approach work for Snake, and what replaces it? (<a href="#39-follow-up-question-13-the-prompt-says-train-an-ai-snakes-state-space-is-far-bigger-than-tic-tac-toes-what-changes">§39-41</a>)</li><li>Design a prize-bearing contest for a high-score game, and explain specifically how you prevent a client from reporting a fabricated score. (<a href="#47-follow-up-question-16-how-do-you-support-a-contest-with-a-prize-for-a-game-that-isnt-head-to-head-like-tic-tac-toes-match-series">§47-50</a>)</li></ol>
+<hr>
+<h2 id="60-final-takeaway">60. Final Takeaway</h2>
+<p>Every hard decision in this guide traces back to one recurring idea, made sharper by contrast with this series' own turn-based Tic-Tac-Toe guide: <strong>a continuous, real-time system needs an explicit, decoupled notion of time wherever a turn-based one could get away with reacting directly to events</strong> — a fixed tick governs simulation independent of render rate or input timing (<a href="#12-follow-up-question-2-why-cant-you-just-move-and-redraw-immediately-on-every-keypress">§12-13</a>); a server's own continuous tick stream, not discrete relayed moves, is what makes real-time multiplayer trustworthy (<a href="#26-follow-up-question-7-how-do-you-support-real-time-networked-multiplayer-not-turn-based-like-tic-tac-toe">§26-27</a>); prediction and reconciliation exist specifically to hide network latency from a <em>continuous</em> experience in a way a turn-based game's players simply never notice (<a href="#28-follow-up-question-8-network-latency-means-a-client-could-feel-behind-the-server-how-do-you-keep-it-feeling-responsive">§28-29</a>). Recognizing when a design problem is fundamentally about discrete events versus continuous time is what determines which half of this guide's toolkit actually applies.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Design a Snake Game — HLD, LLD, and Class Design From Scratch.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

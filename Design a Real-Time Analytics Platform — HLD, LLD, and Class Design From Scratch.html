@@ -1,0 +1,1126 @@
+<meta charset="utf-8">
+<title>Design a Real-Time Analytics Platform — HLD, LLD, and Class Design From Scratch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; system design guide</div>
+      <h1>Design a Real-Time Analytics Platform — HLD, LLD, and Class Design From Scratch</h1>
+      <p class="dek">A complete, step-by-step system design walkthrough for a real-time analytics platform &mdash; windowed stream aggregation, watermarks for late data, approximate algorithms (HyperLogLog, t-digest) for unique counts and percentiles at scale, exactly-once aggregation semantics, hot-key mitigation, and a hot/cold query-serving layer, framed as a live interview with follow-up questions at every step.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-the-interview-framed">Why This Matters (The Interview, Framed)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-step-1-clarifying-requirements-before-designing-anything">Step 1 — Clarifying Requirements Before Designing Anything</a></li><li class="toc-lvl-2"><a href="#7-functional-requirements">Functional Requirements</a></li><li class="toc-lvl-2"><a href="#8-non-functional-requirements">Non-Functional Requirements</a></li><li class="toc-lvl-2"><a href="#9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</a></li><li class="toc-lvl-2"><a href="#10-identifying-the-core-domain-entities">Identifying the Core Domain Entities</a></li><li class="toc-lvl-2"><a href="#11-high-level-architecture-overview">High-Level Architecture Overview</a></li><li class="toc-lvl-2"><a href="#12-follow-up-question-2-why-not-just-write-every-event-straight-to-a-database-and-query-with-group-by">Follow-up Question 2 — "Why Not Just Write Every Event Straight to a Database and Query with GROUP BY?"</a></li><li class="toc-lvl-2"><a href="#13-why-a-naive-write-then-query-architecture-doesnt-scale">Why a Naive "Write-Then-Query" Architecture Doesn't Scale</a></li><li class="toc-lvl-2"><a href="#14-follow-up-question-3-how-do-you-decouple-ingestion-spikes-from-steady-processing">Follow-up Question 3 — "How Do You Decouple Ingestion Spikes from Steady Processing?"</a></li><li class="toc-lvl-2"><a href="#15-the-durable-ingestion-log-as-a-shock-absorber">The Durable Ingestion Log as a Shock Absorber</a></li><li class="toc-lvl-2"><a href="#16-follow-up-question-4-how-do-you-aggregate-a-continuous-unbounded-stream-theres-no-end-to-run-count-on">Follow-up Question 4 — "How Do You Aggregate a Continuous, Unbounded Stream? There's No 'End' to Run COUNT(*) On."</a></li><li class="toc-lvl-2"><a href="#17-windowing-tumbling-sliding-and-session-windows">Windowing: Tumbling, Sliding, and Session Windows</a></li><li class="toc-lvl-2"><a href="#18-designing-the-window-assignment-strategy">Designing the Window Assignment Strategy</a></li><li class="toc-lvl-2"><a href="#19-follow-up-question-5-events-arrive-out-of-order-and-late-when-is-it-actually-safe-to-finalize-a-window">Follow-up Question 5 — "Events Arrive Out of Order and Late. When Is It Actually Safe to Finalize a Window?"</a></li><li class="toc-lvl-2"><a href="#20-watermarks-and-allowed-lateness">Watermarks and Allowed Lateness</a></li><li class="toc-lvl-2"><a href="#21-implementing-the-watermark-generator">Implementing the Watermark Generator</a></li><li class="toc-lvl-2"><a href="#22-follow-up-question-6-how-do-you-compute-unique-visitor-counts-without-storing-every-visitor-id-in-memory">Follow-up Question 6 — "How Do You Compute Unique Visitor Counts Without Storing Every Visitor ID in Memory?"</a></li><li class="toc-lvl-2"><a href="#23-approximate-cardinality-estimation-with-hyperloglog">Approximate Cardinality Estimation with HyperLogLog</a></li><li class="toc-lvl-2"><a href="#24-follow-up-question-7-how-do-you-compute-p95p99-latency-at-scale-without-sorting-every-value">Follow-up Question 7 — "How Do You Compute p95/p99 Latency at Scale Without Sorting Every Value?"</a></li><li class="toc-lvl-2"><a href="#25-approximate-percentiles-with-t-digest">Approximate Percentiles with t-digest</a></li><li class="toc-lvl-2"><a href="#26-implementing-the-aggregator-strategy-interface">Implementing the Aggregator Strategy Interface</a></li><li class="toc-lvl-2"><a href="#27-follow-up-question-8-a-processing-node-crashes-mid-window-is-the-partially-computed-aggregate-lost">Follow-up Question 8 — "A Processing Node Crashes Mid-Window. Is the Partially-Computed Aggregate Lost?"</a></li><li class="toc-lvl-2"><a href="#28-fault-tolerance-via-checkpointing-and-replay">Fault Tolerance via Checkpointing and Replay</a></li><li class="toc-lvl-2"><a href="#29-implementing-checkpointed-state-store">Implementing Checkpointed State Store</a></li><li class="toc-lvl-2"><a href="#30-follow-up-question-9-the-log-guarantees-at-least-once-delivery-how-do-you-avoid-double-counting-on-replay">Follow-up Question 9 — "The Log Guarantees At-Least-Once Delivery. How Do You Avoid Double-Counting on Replay?"</a></li><li class="toc-lvl-2"><a href="#31-exactly-once-semantics-via-idempotent-aggregation">Exactly-Once Semantics via Idempotent Aggregation</a></li><li class="toc-lvl-2"><a href="#32-implementing-idempotent-event-deduplication">Implementing Idempotent Event Deduplication</a></li><li class="toc-lvl-2"><a href="#33-class-diagram-the-stream-processing-core">Class Diagram: The Stream Processing Core</a></li><li class="toc-lvl-2"><a href="#34-follow-up-question-10-one-tenants-metric-gets-100x-more-traffic-than-others-what-breaks">Follow-up Question 10 — "One Tenant's Metric Gets 100x More Traffic Than Others. What Breaks?"</a></li><li class="toc-lvl-2"><a href="#35-handling-hot-keys-and-partition-skew">Handling Hot Keys and Partition Skew</a></li><li class="toc-lvl-2"><a href="#36-follow-up-question-11-dashboards-need-sub-second-query-latency-where-does-the-aggregate-actually-live-for-querying">Follow-up Question 11 — "Dashboards Need Sub-Second Query Latency. Where Does the Aggregate Actually Live for Querying?"</a></li><li class="toc-lvl-2"><a href="#37-the-hot-store-serving-pre-aggregated-results-at-low-latency">The Hot Store: Serving Pre-Aggregated Results at Low Latency</a></li><li class="toc-lvl-2"><a href="#38-follow-up-question-12-what-about-an-ad-hoc-query-the-pre-aggregation-didnt-anticipate">Follow-up Question 12 — "What About an Ad-Hoc Query the Pre-Aggregation Didn't Anticipate?"</a></li><li class="toc-lvl-2"><a href="#39-the-cold-store-raw-event-storage-for-ad-hoc-queries">The Cold Store: Raw Event Storage for Ad-Hoc Queries</a></li><li class="toc-lvl-2"><a href="#40-merging-hot-and-cold-results-the-query-serving-layer">Merging Hot and Cold Results: The Query Serving Layer</a></li><li class="toc-lvl-2"><a href="#41-class-diagram-the-query-serving-layer">Class Diagram: The Query Serving Layer</a></li><li class="toc-lvl-2"><a href="#42-follow-up-question-13-how-do-you-support-alerting-on-top-of-this-eg-notify-when-error-rate-exceeds-5">Follow-up Question 13 — "How Do You Support Alerting on Top of This, e.g. 'Notify When Error Rate Exceeds 5%'?"</a></li><li class="toc-lvl-2"><a href="#43-implementing-the-alerting-engine-as-an-observer">Implementing the Alerting Engine as an Observer</a></li><li class="toc-lvl-2"><a href="#44-follow-up-question-14-how-is-this-multi-tenant-without-one-tenants-load-affecting-anothers">Follow-up Question 14 — "How Is This Multi-Tenant Without One Tenant's Load Affecting Another's?"</a></li><li class="toc-lvl-2"><a href="#45-multi-tenancy-isolation-via-partitioning-and-quotas">Multi-Tenancy: Isolation via Partitioning and Quotas</a></li><li class="toc-lvl-2"><a href="#46-capacity-estimation-ingestion-throughput-and-storage">Capacity Estimation: Ingestion Throughput and Storage</a></li><li class="toc-lvl-2"><a href="#47-capacity-estimation-aggregation-state-size-and-memory">Capacity Estimation: Aggregation State Size and Memory</a></li><li class="toc-lvl-2"><a href="#48-full-worked-example-one-events-journey-traced-end-to-end">Full Worked Example: One Event's Journey, Traced End to End</a></li><li class="toc-lvl-2"><a href="#49-final-architecture-diagram">Final Architecture Diagram</a></li><li class="toc-lvl-2"><a href="#50-design-patterns-used-throughout-this-guide">Design Patterns Used Throughout This Guide</a></li><li class="toc-lvl-2"><a href="#51-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#52-common-mistakes-when-building-this-yourself">Common Mistakes When Building This Yourself</a></li><li class="toc-lvl-2"><a href="#53-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#54-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#55-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#56-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>The interview question this guide answers:</strong></p>
+<p><em>"Design a real-time analytics platform that ingests a continuous, high-volume stream of events, computes windowed aggregates (counts, sums, unique visitor counts, latency percentiles) in near-real-time, and serves those aggregates to live dashboards and alerting systems within seconds &mdash; not via a nightly batch job. Cover ingestion, windowing with correct handling of out-of-order and late-arriving events, approximate algorithms for cardinality and percentiles at scale, fault tolerance with exactly-once aggregation semantics on top of at-least-once delivery, hot-key mitigation, multi-tenancy, and a query-serving layer that merges real-time and historical data. Cover both high-level and low-level design, follow SOLID, and be ready to do the capacity-planning math."</em></p>
+<p>This guide is structured exactly as that interview unfolds: each major design decision is preceded by the clarifying question that should have prompted it, and immediately followed by the hardest follow-up question a good interviewer asks next &mdash; building, with real Java code and class diagrams, a complete windowed stream-aggregation engine from first principles.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Client SDKs / Apps
+   |  (events: clicks, page views, purchases, custom metrics)
+   v
+[ Ingestion API ]  -&gt;  [ Durable Log (Kafka-style) ]  -&gt;  [ Stream Processing Layer ]
+                                                                |            |
+                                                     (windowed aggregates)  (raw events)
+                                                                v            v
+                                                          [ Hot Store ]  [ Cold Store ]
+                                                                \            /
+                                                                 v          v
+                                                            [ Query Serving Layer ]
+                                                                     |
+                                                          [ Dashboards / Alerting ]</code></pre></div>
+<p>A real-time analytics platform ingests a continuous, high-volume stream of events (page views, clicks, purchases, custom application metrics) from potentially millions of sources, computes aggregate metrics (counts, sums, unique visitor counts, latency percentiles) over sliding or fixed time windows, and serves those aggregates to dashboards and alerting systems within seconds of the underlying events occurring — not hours later via a nightly batch job. This guide builds one from scratch: the ingestion path, the windowed-aggregation engine, approximate algorithms for cardinality and percentiles at scale, fault tolerance, multi-tenancy, and the query-serving layer that stitches real-time and historical data together.</p>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide, you will be able to:</p>
+<ul>
+<li>Explain why a naive "write every event to a database, then <code>GROUP BY</code> on read" architecture cannot serve real-time dashboards at scale.</li>
+<li>Design a windowed stream-aggregation pipeline (tumbling, sliding, session windows) with correct handling of out-of-order and late-arriving events via watermarks.</li>
+<li>Implement approximate algorithms (HyperLogLog for cardinality, t-digest for percentiles) and explain precisely why exact computation doesn't scale for these two specific metric types.</li>
+<li>Design for fault tolerance (checkpointing, replay) and exactly-once aggregation semantics on top of an at-least-once delivery log.</li>
+<li>Diagnose and fix hot-key skew, where one tenant or metric key receives disproportionate traffic.</li>
+<li>Design a query-serving layer that transparently merges fresh, pre-aggregated "hot" results with historical "cold" results.</li>
+<li>Apply SOLID principles and recognizable design patterns (Strategy, Observer, Template Method, Builder) to keep the aggregation engine extensible without modifying already-tested code.</li>
+</ul>
+<hr>
+<h2 id="3-why-this-matters-the-interview-framed">3. Why This Matters (The Interview, Framed)</h2>
+<p>"Design a real-time analytics platform" is a favorite senior/staff-level system design question precisely because it cannot be answered correctly with a single database and a cron job — it forces a candidate to reason about unbounded streams, time (event-time vs. processing-time, out-of-order arrival), approximation algorithms (when and why exact answers are the wrong engineering tradeoff), and failure recovery in a system that is, by definition, always running. This guide frames the design as a live interview: each major decision is preceded by the clarifying question that should have prompted it, and each design step is immediately followed by the hardest question a good interviewer asks next.</p>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language</td>
+<td>Java 21</td>
+<td>Records for immutable events/aggregates, virtual threads for high-concurrency ingestion</td>
+</tr>
+<tr>
+<td>Durable ingestion log</td>
+<td>Kafka-style partitioned log</td>
+<td>Decouples ingestion spikes from processing; replayable for fault recovery</td>
+</tr>
+<tr>
+<td>Stream processing</td>
+<td>Custom windowed engine (built in this guide)</td>
+<td>Teaches the actual mechanics; production systems use Flink/Kafka Streams implementing these same ideas</td>
+</tr>
+<tr>
+<td>Cardinality estimation</td>
+<td>HyperLogLog (HLL)</td>
+<td>O(1) memory approximate distinct-count, independent of true cardinality</td>
+</tr>
+<tr>
+<td>Percentile estimation</td>
+<td>t-digest</td>
+<td>Mergeable, bounded-memory approximate percentiles, accurate at the tails</td>
+</tr>
+<tr>
+<td>Hot store</td>
+<td>In-memory time-series store (custom, this guide)</td>
+<td>Sub-second read latency for the last N hours of pre-aggregated data</td>
+</tr>
+<tr>
+<td>Cold store</td>
+<td>Columnar data warehouse (e.g., ClickHouse/BigQuery-style)</td>
+<td>Cheap, scalable storage for ad-hoc historical queries over raw events</td>
+</tr>
+<tr>
+<td>Checkpointing</td>
+<td>Periodic state snapshot to durable storage</td>
+<td>Enables replay-from-checkpoint instead of replay-from-the-beginning-of-time</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>realtime-analytics/
+├── src/main/java/com/example/analytics/
+│   ├── ingestion/
+│   │   └── IngestionController.java, EventValidator.java          // §11-13
+│   ├── log/
+│   │   └── EventLogPartitioner.java                                // §15
+│   ├── windowing/
+│   │   ├── Window.java, WindowAssigner.java                         // §17-18
+│   │   └── Watermark.java, WatermarkGenerator.java                  // §20-21
+│   ├── aggregation/
+│   │   ├── Aggregator.java (Strategy interface)                     // §26
+│   │   ├── CountAggregator.java, SumAggregator.java
+│   │   ├── HyperLogLogAggregator.java                                // §23
+│   │   └── TDigestAggregator.java                                    // §25
+│   ├── faulttolerance/
+│   │   └── CheckpointedStateStore.java, EventDeduplicator.java       // §29, §32
+│   ├── query/
+│   │   ├── HotStore.java, ColdStore.java                             // §37, §39
+│   │   └── QueryService.java                                         // §40
+│   ├── alerting/
+│   │   └── AlertRule.java, AlertingEngine.java (Observer)            // §43
+│   └── tenancy/
+│       └── TenantPartitioner.java, TenantQuota.java                  // §45
+└── src/test/java/com/example/analytics/
+    ├── WindowingCorrectnessTest.java
+    ├── ExactlyOnceReplayTest.java
+    └── HotKeySkewTest.java</code></pre></div>
+<hr>
+<h2 id="6-step-1-clarifying-requirements-before-designing-anything">6. Step 1 — Clarifying Requirements Before Designing Anything</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Design a real-time analytics platform."</em></p>
+</blockquote>
+<p>Before drawing a single box, the correct first move is to narrow an intentionally vague prompt: What kind of events (page views? IoT sensor readings? financial trades?) At what volume? How "real-time" does "real-time" actually need to be — sub-second, or "within a minute or two" is fine? Do we need exact counts, or are approximate answers acceptable for some metrics? Is this single-tenant (one company's own data) or multi-tenant (a SaaS analytics product serving many customers)? The answers shape every subsequent decision, and asking them signals the difference between a candidate who designs <em>a</em> system and one who designs <em>this</em> system.</p>
+<hr>
+<h2 id="7-functional-requirements">7. Functional Requirements</h2>
+<ul>
+<li><strong>Ingest events</strong> from client SDKs/applications at high volume (page views, clicks, custom application-defined metrics), each event carrying a timestamp, a tenant/source identifier, a metric name, and a payload.</li>
+<li><strong>Compute windowed aggregates</strong> in near-real-time: counts, sums, averages, approximate unique counts (e.g., unique visitors), and approximate percentiles (e.g., p95 request latency) over tumbling and sliding time windows.</li>
+<li><strong>Serve low-latency queries</strong> against these aggregates, powering live dashboards that refresh every few seconds.</li>
+<li><strong>Support ad-hoc queries</strong> against raw historical event data for questions the pre-aggregation pipeline didn't anticipate in advance.</li>
+<li><strong>Support alerting</strong>: notify when a computed metric crosses a configured threshold (e.g., error rate exceeds 5% over a 5-minute window).</li>
+<li><strong>Support multi-tenancy</strong>: many independent customers' data and queries, isolated from one another, sharing the same underlying infrastructure.</li>
+</ul>
+<hr>
+<h2 id="8-non-functional-requirements">8. Non-Functional Requirements</h2>
+<ul>
+<li><strong>High ingestion throughput</strong>: sustain millions of events per second across the platform without data loss.</li>
+<li><strong>Low end-to-end latency</strong>: an event should be reflected in dashboard-facing aggregates within single-digit seconds of occurring, not minutes.</li>
+<li><strong>Durability</strong>: no event is silently dropped between ingestion and aggregation, even across process crashes.</li>
+<li><strong>Horizontal scalability</strong>: adding more ingestion/processing capacity should scale throughput roughly linearly, with no single coordination bottleneck.</li>
+<li><strong>Fault tolerance</strong>: a crashed processing node must not lose in-flight aggregation state, and recovery must not require reprocessing the entire event history from the beginning.</li>
+<li><strong>Correctness under at-least-once delivery</strong>: the underlying log guarantees at-least-once delivery (duplicates on redelivery are possible); the aggregation layer must still produce exactly-once-equivalent aggregate results.</li>
+<li><strong>Bounded resource usage</strong>: memory used for aggregation state must not grow unboundedly with the number of distinct values seen (this is precisely why approximate algorithms are required for unique counts and percentiles, not merely a nice-to-have).</li>
+</ul>
+<hr>
+<h2 id="9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">9. Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Before you draw architecture boxes, what are the core domain concepts this system revolves around?"</em></p>
+</blockquote>
+<p>Naming the nouns precisely, before any architecture, prevents an entire class of later confusion (this same discipline paid off throughout every other guide in this series):</p>
+<ul>
+<li><strong>Event</strong> — a single, immutable fact that occurred at a specific point in time (<code>tenantId</code>, <code>metricName</code>, <code>eventTime</code>, <code>payload</code>).</li>
+<li><strong>Window</strong> — a bounded span of time (<code>[start, end)</code>) over which events are grouped for aggregation.</li>
+<li><strong>Aggregate</strong> — the computed result of applying an aggregation function (count, sum, HLL, t-digest) to all events assigned to one window.</li>
+<li><strong>Watermark</strong> — the stream processor's own estimate of "we have now seen all events up to event-time T," used to decide when a window can be safely finalized.</li>
+<li><strong>Metric Definition</strong> — tenant-configured metadata describing what aggregation function applies to a given metric name.</li>
+<li><strong>Tenant</strong> — an isolated customer/namespace whose events, metrics, and queries are logically (and partially physically) separated from every other tenant's.</li>
+</ul>
+<hr>
+<h2 id="10-identifying-the-core-domain-entities">10. Identifying the Core Domain Entities</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record Event(
+    String tenantId,
+    String metricName,
+    long eventTimeMillis,   // when it actually happened (event time)
+    long ingestTimeMillis,  // when the platform received it (processing time)
+    String eventId,         // unique, client-generated -- used for deduplication, §32
+    double value            // the numeric payload this event contributes (e.g., 1 for a count, latency_ms for a timer)
+) { }
+
+public record Window(long startMillis, long endMillis) {
+    public boolean contains(long eventTimeMillis) {
+        return eventTimeMillis &gt;= startMillis &amp;&amp; eventTimeMillis &lt; endMillis;
+    }
+}
+
+public record Aggregate(String tenantId, String metricName, Window window, Object result) { }
+
+public record MetricDefinition(String metricName, AggregationType type, Duration windowSize) { }
+
+public enum AggregationType { COUNT, SUM, UNIQUE_COUNT, PERCENTILE }</code></pre></div>
+<p>Note the deliberate separation of <code>eventTimeMillis</code> from <code>ingestTimeMillis</code> on <code>Event</code> — this distinction is the single most important modeling decision in the entire system, and <a href="#16-follow-up-question-4-how-do-you-aggregate-a-continuous-unbounded-stream-theres-no-end-to-run-count-on">§16-21</a> build an entire mechanism (watermarks) around exactly this gap between "when it happened" and "when we found out."</p>
+<hr>
+<h2 id="11-high-level-architecture-overview">11. High-Level Architecture Overview</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                 +----------------+     +------------------+     +-----------------------+
+Client SDKs ---&gt; | Ingestion API  | --&gt; | Durable Log      | --&gt; | Stream Processing      |
+(millions/sec)   | (validate,     |     | (partitioned by  |     | (windowed aggregation, |
+                 |  enrich)       |     |  tenantId+metric)|     |  Strategy-based)       |
+                 +----------------+     +------------------+     +-----------------------+
+                                                                      |            |
+                                                          pre-aggregated        raw events
+                                                          results                also archived
+                                                                v                    v
+                                                        +---------------+   +----------------+
+                                                        |   Hot Store   |   |   Cold Store   |
+                                                        | (in-memory,   |   | (columnar,     |
+                                                        |  last few hrs)|   |  full history) |
+                                                        +---------------+   +----------------+
+                                                                \                  /
+                                                                 v                v
+                                                            +------------------------+
+                                                            |   Query Serving Layer  |
+                                                            +------------------------+
+                                                                 |             |
+                                                          Dashboards      Alerting Engine</code></pre></div>
+<p>Five layers, each independently scalable: <strong>ingestion</strong> (stateless, horizontally scaled), the <strong>durable log</strong> (the shock absorber between bursty ingestion and steady-state processing), <strong>stream processing</strong> (the stateful, windowed-aggregation core — the hardest part of this system, and the focus of <a href="#16-follow-up-question-4-how-do-you-aggregate-a-continuous-unbounded-stream-theres-no-end-to-run-count-on">§16-36</a>), <strong>storage</strong> (hot for recent/low-latency, cold for historical/ad-hoc), and <strong>query serving</strong> (merges both stores into one coherent answer).</p>
+<hr>
+<h2 id="12-follow-up-question-2-why-not-just-write-every-event-straight-to-a-database-and-query-with-group-by">12. Follow-up Question 2 — "Why Not Just Write Every Event Straight to a Database and Query with GROUP BY?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"This sounds like overkill. Why can't we just insert every event into Postgres and run <code>SELECT COUNT(*) ... GROUP BY</code> when a dashboard needs a number?"</em></p>
+</blockquote>
+<p>Because that architecture's cost scales with the <strong>product</strong> of ingestion volume and query frequency, not with either alone — every dashboard refresh re-scans (or re-aggregates from an index over) however many raw rows fall in the requested window, and at millions of events per second, a window spanning even a few minutes contains far more rows than any interactive query can afford to touch at read time. Real-time analytics platforms exist specifically to move the aggregation cost from <strong>query time</strong> (expensive, repeated on every dashboard refresh) to <strong>ingestion time</strong> (paid once, incrementally, per event, as it arrives) — the aggregate is already computed and sitting in the hot store by the time a dashboard asks for it.</p>
+<hr>
+<h2 id="13-why-a-naive-write-then-query-architecture-doesnt-scale">13. Why a Naive "Write-Then-Query" Architecture Doesn't Scale</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Naive:  event -&gt; INSERT INTO raw_events -&gt; (on every dashboard refresh) SELECT COUNT(*) FROM raw_events
+                                              WHERE tenant=X AND metric=Y AND ts BETWEEN a AND b
+                                              -- cost per query: O(rows in window) -- RE-PAID every refresh
+
+This design:  event -&gt; incrementally update an in-memory aggregate for its window -&gt; dashboard reads
+                                              the ALREADY-COMPUTED aggregate directly
+                                              -- cost per query: O(1) -- the expensive work happened ONCE, at ingest</code></pre></div>
+<p>The incremental approach also has a second, less obvious advantage: an aggregate like <code>COUNT</code> or <code>SUM</code> can be updated with a single arithmetic operation per incoming event (<code>count += 1</code>), entirely independent of how many events have already been folded into that aggregate — the per-event ingestion cost stays constant no matter how large the window's total event count grows, which is precisely the property a <code>GROUP BY</code>-on-read architecture cannot offer.</p>
+<hr>
+<h2 id="14-follow-up-question-3-how-do-you-decouple-ingestion-spikes-from-steady-processing">14. Follow-up Question 3 — "How Do You Decouple Ingestion Spikes from Steady Processing?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Traffic to a real system is bursty — a marketing campaign can 10x your event volume in minutes. How does the pipeline avoid falling over?"</em></p>
+</blockquote>
+<p>By inserting a <strong>durable, partitioned log</strong> (Kafka-style) between ingestion and processing: the ingestion layer's only job becomes validating an event and appending it to the log, an operation whose cost is nearly constant regardless of downstream processing speed — a burst of incoming events queues up in the log rather than overwhelming the stream processors directly, and the log's own durability guarantees mean a temporarily-slow (or briefly-crashed) processing layer never loses data, it simply catches up once capacity returns.</p>
+<hr>
+<h2 id="15-the-durable-ingestion-log-as-a-shock-absorber">15. The Durable Ingestion Log as a Shock Absorber</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class EventLogPartitioner {
+
+    private final int partitionCount;
+
+    public EventLogPartitioner(int partitionCount) {
+        this.partitionCount = partitionCount;
+    }
+
+    public int partitionFor(Event event) {
+        // partition by (tenantId, metricName) so that ALL events for one metric land on
+        // the SAME partition -- required so a single stream-processing worker can own,
+        // and correctly aggregate, the complete window for that metric without cross-partition coordination
+        String partitionKey = event.tenantId() + ":" + event.metricName();
+        return Math.floorMod(partitionKey.hashCode(), partitionCount);
+    }
+}</code></pre></div>
+<p>The partitioning key choice here is load-bearing: partitioning by <code>(tenantId, metricName)</code> rather than, say, a round-robin or per-event-ID scheme is what guarantees every event contributing to a given window ends up processed by the same worker, in the same partition, without needing any cross-worker coordination to compute that window's aggregate — this is revisited under load in <a href="#34-follow-up-question-10-one-tenants-metric-gets-100x-more-traffic-than-others-what-breaks">§34-35</a> when a single hot key overwhelms its one partition.</p>
+<hr>
+<h2 id="16-follow-up-question-4-how-do-you-aggregate-a-continuous-unbounded-stream-theres-no-end-to-run-count-on">16. Follow-up Question 4 — "How Do You Aggregate a Continuous, Unbounded Stream? There's No 'End' to Run COUNT(*) On."</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A stream never ends. <code>SUM()</code> needs a bounded set of rows. How do you reconcile that?"</em></p>
+</blockquote>
+<p>By imposing <strong>windows</strong> — artificial, explicit boundaries in time that carve the unbounded stream into a sequence of bounded, aggregatable chunks. A window is "closed" (its aggregate finalized and emitted) once the processor is confident no more events belonging to it will arrive; until then, the window's aggregate lives as mutable, in-progress state, updated incrementally as each new event for that window arrives.</p>
+<hr>
+<h2 id="17-windowing-tumbling-sliding-and-session-windows">17. Windowing: Tumbling, Sliding, and Session Windows</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Tumbling windows (fixed, non-overlapping):
+  |--- window 1 ---|--- window 2 ---|--- window 3 ---|
+  0               60s              120s             180s
+  Each event belongs to EXACTLY ONE window.
+
+Sliding windows (fixed size, overlapping, advance by a smaller step):
+  |------- window A (60s) -------|
+        |------- window B (60s) -------|
+              |------- window C (60s) -------|
+  0     10s   20s                            An event can belong to MULTIPLE overlapping windows.
+
+Session windows (dynamic size, bounded by a gap of inactivity):
+  |--session 1--|      gap &gt; 30min      |--session 2--|
+  Boundaries are determined by the DATA (a period of inactivity), not a fixed clock.</code></pre></div>
+<p><strong>Tumbling</strong> windows are the simplest and most common for dashboard metrics ("events per minute"); <strong>sliding</strong> windows suit metrics that need a smoothly-updating rolling view (a "last 5 minutes" rate that updates every second, not jumping in 5-minute steps); <strong>session</strong> windows suit per-user-activity metrics (a user's browsing "session," ended by a gap of inactivity, not a fixed clock boundary) — the choice is a metric-definition concern, not a platform-wide constant, which is exactly why it belongs behind a pluggable <code>WindowAssigner</code> interface rather than a single hardcoded windowing scheme.</p>
+<hr>
+<h2 id="18-designing-the-window-assignment-strategy">18. Designing the Window Assignment Strategy</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface WindowAssigner {
+    List&lt;Window&gt; assignWindows(long eventTimeMillis);
+}
+
+public class TumblingWindowAssigner implements WindowAssigner {
+    private final long windowSizeMillis;
+
+    public TumblingWindowAssigner(Duration windowSize) {
+        this.windowSizeMillis = windowSize.toMillis();
+    }
+
+    @Override
+    public List&lt;Window&gt; assignWindows(long eventTimeMillis) {
+        long windowStart = (eventTimeMillis / windowSizeMillis) * windowSizeMillis;
+        return List.of(new Window(windowStart, windowStart + windowSizeMillis));
+    }
+}
+
+public class SlidingWindowAssigner implements WindowAssigner {
+    private final long windowSizeMillis;
+    private final long slideMillis;
+
+    public SlidingWindowAssigner(Duration windowSize, Duration slide) {
+        this.windowSizeMillis = windowSize.toMillis();
+        this.slideMillis = slide.toMillis();
+    }
+
+    @Override
+    public List&lt;Window&gt; assignWindows(long eventTimeMillis) {
+        // an event can belong to MULTIPLE sliding windows -- enumerate every window whose
+        // [start, end) range contains this event's timestamp
+        List&lt;Window&gt; windows = new ArrayList&lt;&gt;();
+        long lastStart = (eventTimeMillis / slideMillis) * slideMillis;
+        for (long start = lastStart; start &gt; eventTimeMillis - windowSizeMillis; start -= slideMillis) {
+            windows.add(new Window(start, start + windowSizeMillis));
+        }
+        return windows;
+    }
+}</code></pre></div>
+<p><code>WindowAssigner</code> is a textbook <strong>Strategy</strong> pattern application: the stream processor's core loop never needs to know whether tumbling or sliding semantics are in effect — it simply calls <code>assignWindows(event.eventTimeMillis())</code> and updates every returned window's aggregate, making it trivial to add a <code>SessionWindowAssigner</code> later (<a href="#54-suggested-future-enhancements">§54</a>) without touching the processing loop itself.</p>
+<hr>
+<h2 id="19-follow-up-question-5-events-arrive-out-of-order-and-late-when-is-it-actually-safe-to-finalize-a-window">19. Follow-up Question 5 — "Events Arrive Out of Order and Late. When Is It Actually Safe to Finalize a Window?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A mobile client buffers events offline and uploads them 10 minutes later. If you close a window the instant its time range passes, you'll silently drop that data. But you also can't wait forever. How do you resolve this?"</em></p>
+</blockquote>
+<p>By tracking, not the wall-clock time, but an explicit, conservative <strong>estimate of event-time progress</strong> called a <strong>watermark</strong>: "we believe we have now seen all events with event-time up to T." A window is only finalized once the watermark passes its end boundary — this deliberately trades a small, bounded amount of latency (the window waits a configured grace period before closing) for materially better completeness, which is almost always the correct tradeoff for dashboard-facing metrics.</p>
+<hr>
+<h2 id="20-watermarks-and-allowed-lateness">20. Watermarks and Allowed Lateness</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Event-time axis:  ----------------------------------------------------------------&gt;
+Events arrive:     e1(t=10)  e2(t=25)  e3(t=15, LATE!)  e4(t=40)  watermark=30
+                                                                        ^
+                                            window [0,30) can now be finalized --
+                                            e3, though it arrived AFTER e2, has
+                                            event-time 15 which is &lt; 30, so it's
+                                            still correctly folded into that window
+                                            BEFORE the watermark passes 30.
+
+If e3 had arrived AFTER the watermark already passed 30, it would be "too late" --
+handled per the configured allowed-lateness policy (§21).</code></pre></div>
+<p>The watermark is deliberately an <strong>estimate</strong>, not a guarantee — a sufficiently delayed event can still arrive after its window has already been finalized; the system's job is to make that estimate good enough, via a tunable <strong>allowed lateness</strong> grace period, that this happens rarely enough to be an acceptable tradeoff, not to make it impossible.</p>
+<hr>
+<h2 id="21-implementing-the-watermark-generator">21. Implementing the Watermark Generator</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class WatermarkGenerator {
+    private final Duration maxOutOfOrderness; // how late we tolerate events being, before calling them "too late"
+    private volatile long currentWatermarkMillis = Long.MIN_VALUE;
+
+    public WatermarkGenerator(Duration maxOutOfOrderness) {
+        this.maxOutOfOrderness = maxOutOfOrderness;
+    }
+
+    public void onEvent(Event event) {
+        long candidateWatermark = event.eventTimeMillis() - maxOutOfOrderness.toMillis();
+        currentWatermarkMillis = Math.max(currentWatermarkMillis, candidateWatermark); // watermark NEVER moves backward
+    }
+
+    public long currentWatermark() {
+        return currentWatermarkMillis;
+    }
+
+    public boolean isTooLate(Event event, Duration allowedLateness) {
+        // an event is "too late" only if its window has ALREADY been finalized, i.e. the
+        // watermark passed its window's end PLUS the extra grace period this policy allows
+        return event.eventTimeMillis() + allowedLateness.toMillis() &lt; currentWatermarkMillis;
+    }
+}</code></pre></div>
+<p>The watermark is derived from the single highest event-time seen so far, minus a configured slack (<code>maxOutOfOrderness</code>) — and it is monotonically non-decreasing by construction (<code>Math.max</code>), which is exactly the property that lets every downstream window-finalization check be a simple, cheap comparison rather than a re-scan of buffered events.</p>
+<hr>
+<h2 id="22-follow-up-question-6-how-do-you-compute-unique-visitor-counts-without-storing-every-visitor-id-in-memory">22. Follow-up Question 6 — "How Do You Compute Unique Visitor Counts Without Storing Every Visitor ID in Memory?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"'Unique visitors per minute' needs a distinct count. Storing a <code>HashSet&lt;UserId&gt;</code> per window works for small volumes — what breaks at scale, and what do you do instead?"</em></p>
+</blockquote>
+<p>An exact distinct count requires memory proportional to the <strong>cardinality itself</strong> — a window with ten million distinct visitors needs a set holding ten million entries, and this cost is paid <strong>per window, per tenant, per metric</strong>, multiplying quickly across a real deployment. The practical fix is to trade a small, bounded, <em>known</em> error rate for <strong>constant memory regardless of cardinality</strong>, using a probabilistic data structure — <strong>HyperLogLog</strong> — that estimates distinct counts within roughly 1-2% error using only a few kilobytes, whether the true count is a thousand or a billion.</p>
+<hr>
+<h2 id="23-approximate-cardinality-estimation-with-hyperloglog">23. Approximate Cardinality Estimation with HyperLogLog</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>HyperLogLog's core insight: hash each element, look at the position of the first 1-bit in
+the hash's binary representation. The LONGEST run of leading zeros observed across all
+hashed elements is a probabilistic signal of how many DISTINCT elements were hashed --
+a longer max run strongly suggests a larger set was hashed, because seeing a rare pattern
+(long run of zeros) becomes more likely the more independent hashes you've tried.
+
+HLL splits the hash space into many "buckets" (registers) and tracks the max run-length
+PER bucket, then harmonically averages across all buckets -- this dramatically reduces the
+variance a single run-length estimate alone would have, at the cost of a small, fixed,
+well-understood memory footprint (a few KB per HLL, independent of the true cardinality).</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class HyperLogLog {
+    private final int[] registers;      // fixed-size, e.g. 16384 registers -- NEVER grows with cardinality
+    private final int registerCountLog2; // number of bits used to select a register
+
+    public HyperLogLog(int registerCountLog2) {
+        this.registerCountLog2 = registerCountLog2;
+        this.registers = new int[1 &lt;&lt; registerCountLog2];
+    }
+
+    public void add(String element) {
+        long hash = hash64(element);
+        int registerIndex = (int) (hash &gt;&gt;&gt; (64 - registerCountLog2));
+        int leadingZeros = Long.numberOfLeadingZeros(hash &lt;&lt; registerCountLog2) + 1;
+        registers[registerIndex] = Math.max(registers[registerIndex], leadingZeros);
+    }
+
+    public long estimateCardinality() {
+        double harmonicMeanSum = 0;
+        for (int register : registers) {
+            harmonicMeanSum += Math.pow(2, -register);
+        }
+        double alpha = 0.7213 / (1 + 1.079 / registers.length); // bias-correction constant
+        return (long) (alpha * registers.length * registers.length / harmonicMeanSum);
+    }
+
+    private long hash64(String element) { /* a well-distributed 64-bit hash, e.g. MurmurHash3 */ return 0L; }
+}</code></pre></div>
+<p>The property that makes HLL uniquely suited to a <em>streaming, windowed</em> system — beyond its fixed memory — is that <strong>two HLLs can be merged</strong> (a simple element-wise max of their registers) to produce the exact same estimate as if every element from both had been fed into one HLL from the start, which is precisely what's needed when merging per-partition partial aggregates into a single window-level aggregate (<a href="#34-follow-up-question-10-one-tenants-metric-gets-100x-more-traffic-than-others-what-breaks">§34</a>).</p>
+<hr>
+<h2 id="24-follow-up-question-7-how-do-you-compute-p95p99-latency-at-scale-without-sorting-every-value">24. Follow-up Question 7 — "How Do You Compute p95/p99 Latency at Scale Without Sorting Every Value?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Percentiles need sorted data. Sorting millions of latency values per window, per minute, clearly doesn't scale. What's the alternative?"</em></p>
+</blockquote>
+<p>The same tradeoff as HyperLogLog, applied to a different problem: give up exactness for a <strong>mergeable, bounded-memory approximate structure</strong>, in this case <strong>t-digest</strong> — a data structure that clusters nearby values into a small number of centroids, with the property that it allocates <em>more, smaller</em> centroids near the distribution's tails (where percentile accuracy matters most for latency SLOs, e.g. p99) and <em>fewer, larger</em> centroids in the dense middle (where slight inaccuracy matters far less).</p>
+<hr>
+<h2 id="25-approximate-percentiles-with-t-digest">25. Approximate Percentiles with t-digest</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Raw latency values:  [12, 15, 14, 13, 890, 16, 14, 15, 13, 920, 14, 15, ...]
+                                          ^                    ^
+                                    rare, high-latency outliers -- t-digest gives these
+                                    THEIR OWN small, precise centroids, because the tail
+                                    is exactly where p95/p99 accuracy is actually needed
+
+t-digest centroids:  [(mean=14.1, count=9), (mean=890, count=1), (mean=920, count=1), ...]
+                        ^ one centroid absorbs many near-identical typical values</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class TDigestAggregator implements Aggregator&lt;Double&gt; {
+    private final TDigest digest = TDigest.createDigest(100); // "compression" parameter -- accuracy/memory tradeoff
+
+    @Override
+    public void add(double value) {
+        digest.add(value);
+    }
+
+    @Override
+    public TDigest merge(TDigest other) {
+        digest.add(other); // t-digest centroids are mergeable, same property HLL registers have
+        return digest;
+    }
+
+    public double quantile(double q) { // e.g. quantile(0.95) for p95
+        return digest.quantile(q);
+    }
+}</code></pre></div>
+<p>Both HyperLogLog and t-digest share the exact same architectural justification: a metric type whose exact computation would require memory proportional to the data volume gets replaced with a structure whose memory is bounded and configurable, at the cost of a small, well-quantified error — this is not a shortcut, it is the correct engineering answer once "compute this over millions of events per second, per window, per tenant" is the actual constraint.</p>
+<hr>
+<h2 id="26-implementing-the-aggregator-strategy-interface">26. Implementing the Aggregator Strategy Interface</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface Aggregator&lt;T&gt; {
+    void add(double value);
+    T result();
+    Aggregator&lt;T&gt; merge(Aggregator&lt;T&gt; other); // required for combining per-partition partial aggregates, §34
+}
+
+public class CountAggregator implements Aggregator&lt;Long&gt; {
+    private long count = 0;
+    @Override public void add(double value) { count++; }
+    @Override public Long result() { return count; }
+    @Override public Aggregator&lt;Long&gt; merge(Aggregator&lt;Long&gt; other) {
+        CountAggregator merged = new CountAggregator();
+        merged.count = this.count + other.result();
+        return merged;
+    }
+}
+
+public class SumAggregator implements Aggregator&lt;Double&gt; {
+    private double sum = 0;
+    @Override public void add(double value) { sum += value; }
+    @Override public Double result() { return sum; }
+    @Override public Aggregator&lt;Double&gt; merge(Aggregator&lt;Double&gt; other) {
+        SumAggregator merged = new SumAggregator();
+        merged.sum = this.sum + other.result();
+        return merged;
+    }
+}
+
+public class AggregatorFactory {
+    public static Aggregator&lt;?&gt; create(AggregationType type) {
+        return switch (type) {
+            case COUNT -&gt; new CountAggregator();
+            case SUM -&gt; new SumAggregator();
+            case UNIQUE_COUNT -&gt; new HyperLogLogAggregator();
+            case PERCENTILE -&gt; new TDigestAggregator();
+        };
+    }
+}</code></pre></div>
+<p>Every aggregation function — exact ones like <code>COUNT</code>/<code>SUM</code> and approximate ones like HLL/t-digest — implements the exact same <code>Aggregator&lt;T&gt;</code> interface, which is what lets the stream processing core loop (<a href="#27-follow-up-question-8-a-processing-node-crashes-mid-window-is-the-partially-computed-aggregate-lost">§27-32</a>) update <em>any</em> window's aggregate with a single, uniform call, entirely ignorant of which specific aggregation function is actually plugged in for a given metric.</p>
+<hr>
+<h2 id="27-follow-up-question-8-a-processing-node-crashes-mid-window-is-the-partially-computed-aggregate-lost">27. Follow-up Question 8 — "A Processing Node Crashes Mid-Window. Is the Partially-Computed Aggregate Lost?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"You've been incrementally updating an in-memory aggregate for the last 40 seconds of a 60-second window. The process crashes. What happens to those 40 seconds of work?"</em></p>
+</blockquote>
+<p>Without a recovery mechanism, that in-memory state is simply gone, and worse — the log has already advanced past those events (or a naive re-consumption would double-count them). The fix has two parts: <strong>checkpointing</strong> (periodically persisting the in-progress aggregation state, along with the log offset it corresponds to, to durable storage) so a restarted worker can resume from a recent snapshot rather than from the dawn of time, and <strong>exactly-once-equivalent replay</strong> (<a href="#30-follow-up-question-9-the-log-guarantees-at-least-once-delivery-how-do-you-avoid-double-counting-on-replay">§30-32</a>) so that re-processing the small window of events between the last checkpoint and the crash doesn't double-count anything.</p>
+<hr>
+<h2 id="28-fault-tolerance-via-checkpointing-and-replay">28. Fault Tolerance via Checkpointing and Replay</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Timeline:  [checkpoint @ offset 1000] --- process events 1000-1400 --- [CRASH @ offset 1400]
+                                                                              |
+                                                                     restart, load checkpoint @ 1000
+                                                                              |
+                                                                    re-consume log from offset 1000
+                                                                    (events 1000-1400 are RE-PROCESSED)
+                                                                              |
+                                                          without dedup, events 1000-1400 would be
+                                                          COUNTED TWICE -- this is exactly what §31-32 fixes</code></pre></div>
+<p>Checkpointing bounds the "how much work do we redo on recovery" cost to "however often we checkpoint," entirely independent of how long the system has been running in total — a checkpoint interval of, say, 30 seconds means recovery only ever needs to replay at most 30 seconds' worth of events, regardless of whether the pipeline has been running for an hour or a year.</p>
+<hr>
+<h2 id="29-implementing-checkpointed-state-store">29. Implementing Checkpointed State Store</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class CheckpointedStateStore {
+    private final Map&lt;Window, Aggregator&lt;?&gt;&gt; windowState = new ConcurrentHashMap&lt;&gt;();
+    private final DurableStorage durableStorage; // e.g. blob storage, replicated filesystem
+    private volatile long lastCheckpointedOffset = -1;
+
+    public void update(Window window, double value, AggregationType type) {
+        windowState.computeIfAbsent(window, w -&gt; AggregatorFactory.create(type)).add(value);
+    }
+
+    public void checkpoint(long currentLogOffset) {
+        // atomically persist BOTH the aggregation state AND the log offset it corresponds to --
+        // these must be written together, or a crash between the two writes reintroduces
+        // exactly the inconsistency checkpointing exists to prevent
+        durableStorage.writeAtomic("checkpoint", new CheckpointSnapshot(windowState, currentLogOffset));
+        lastCheckpointedOffset = currentLogOffset;
+    }
+
+    public long restoreFromCheckpoint() {
+        CheckpointSnapshot snapshot = durableStorage.readLatest("checkpoint");
+        if (snapshot == null) return 0; // no checkpoint yet -- start from the beginning
+        windowState.putAll(snapshot.windowState());
+        return snapshot.logOffset(); // the caller resumes log consumption from EXACTLY this offset
+    }
+}</code></pre></div>
+<p>The atomicity of writing the aggregation state and the log offset <strong>together</strong> is the load-bearing detail — if the offset were persisted first and the process crashed before the state finished writing, recovery would resume the log past events whose contribution to the aggregate was never actually saved, silently losing data in exactly the way checkpointing exists to prevent.</p>
+<hr>
+<h2 id="30-follow-up-question-9-the-log-guarantees-at-least-once-delivery-how-do-you-avoid-double-counting-on-replay">30. Follow-up Question 9 — "The Log Guarantees At-Least-Once Delivery. How Do You Avoid Double-Counting on Replay?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Replay after a crash necessarily re-delivers some events the aggregator already processed before the crash. A <code>COUNT</code> aggregator has no way to know 'I already saw this one.' How do you fix that?"</em></p>
+</blockquote>
+<p>By making the aggregation step <strong>idempotent with respect to a given event's unique ID</strong> — tracking which specific <code>eventId</code>s have already been folded into which window's aggregate, and skipping (not re-applying) any event whose ID has already been recorded, even if the log redelivers it. This converts an at-least-once delivery guarantee from the log into an effectively exactly-once <em>aggregation</em> result, without requiring the log itself to guarantee exactly-once delivery (a much harder, more expensive property to provide at the transport layer).</p>
+<hr>
+<h2 id="31-exactly-once-semantics-via-idempotent-aggregation">31. Exactly-Once Semantics via Idempotent Aggregation</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>At-least-once delivery:  event e42 delivered once, normally -- COUNTED
+                          [CRASH before checkpoint]
+                          event e42 REDELIVERED on replay -- must be SKIPPED, not counted again
+
+Idempotent aggregation:  before applying e42 to any window's aggregate, check: "have I already
+                          recorded e42's ID as applied to THIS window?" -- if yes, skip;
+                          if no, apply AND record the ID atomically alongside the aggregate update</code></pre></div>
+<p>The deduplication check must be scoped <strong>per window</strong>, not globally — the same <code>eventId</code> legitimately contributes to exactly one window's aggregate (or several, for overlapping sliding windows, <a href="#17-windowing-tumbling-sliding-and-session-windows">§17</a>), and a global "have I ever seen this ID" check would incorrectly suppress an event's valid re-application to a <em>different</em> window it also belongs to.</p>
+<hr>
+<h2 id="32-implementing-idempotent-event-deduplication">32. Implementing Idempotent Event Deduplication</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class EventDeduplicator {
+    // per-window set of already-applied event IDs -- bounded by the number of DISTINCT windows
+    // currently open (a small, bounded number), not by total event volume
+    private final Map&lt;Window, Set&lt;String&gt;&gt; appliedEventIds = new ConcurrentHashMap&lt;&gt;();
+
+    public boolean tryApply(Window window, Event event, Runnable applyToAggregate) {
+        Set&lt;String&gt; seenIds = appliedEventIds.computeIfAbsent(window, w -&gt; ConcurrentHashMap.newKeySet());
+        boolean isNew = seenIds.add(event.eventId()); // atomic check-and-add
+        if (isNew) {
+            applyToAggregate.run(); // only apply the event's contribution if it's genuinely new to this window
+        }
+        return isNew;
+    }
+
+    public void onWindowFinalized(Window window) {
+        appliedEventIds.remove(window); // once a window closes for good, its dedup set can be freed
+    }
+}</code></pre></div>
+<p><code>onWindowFinalized</code> is what keeps this dictionary's memory bounded — a window's deduplication set is only needed while that window is still open (i.e., still within its allowed-lateness grace period, <a href="#20-watermarks-and-allowed-lateness">§20-21</a>); once finalized, there is no legitimate future event that could still arrive for it, so its dedup set is safely discarded rather than retained forever.</p>
+<hr>
+<h2 id="33-class-diagram-the-stream-processing-core">33. Class Diagram: The Stream Processing Core</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+------------------------+       +---------------------+       +------------------------+
+|     WindowAssigner     |&lt;------|  StreamProcessor     |------&gt;|   WatermarkGenerator   |
+|  &lt;&lt;interface&gt;&gt;         |       |  (orchestrates the    |       +------------------------+
+|  + assignWindows(t)    |       |   per-event pipeline) |
++------------------------+       +----------+-----------+
+       ^         ^                          |
+       |         |                          v
++-------------+ +----------------+  +------------------------+
+| Tumbling    | | Sliding        |  |  EventDeduplicator     |
+| WindowAssig.| | WindowAssigner |  +------------------------+
++-------------+ +----------------+              |
+                                                  v
+                                   +------------------------+       +------------------------+
+                                   | CheckpointedStateStore |&lt;-----&gt;|   Aggregator&lt;T&gt;        |
+                                   |  Map&lt;Window,           |       |  &lt;&lt;interface&gt;&gt;          |
+                                   |      Aggregator&lt;?&gt;&gt;    |       |  + add(v), result()    |
+                                   +------------------------+       +-----------+------------+
+                                                                                 ^
+                                                     +---------------------------+---------------------------+
+                                                     |               |                |                      |
+                                              CountAggregator  SumAggregator  HyperLogLogAggregator   TDigestAggregator</code></pre></div>
+<p><code>StreamProcessor</code> is the orchestrator: for each incoming event, it asks the plugged-in <code>WindowAssigner</code> which window(s) the event belongs to, checks <code>EventDeduplicator</code> to guard against replay double-counting, and — only if genuinely new — updates the corresponding <code>Aggregator</code> inside <code>CheckpointedStateStore</code>, while feeding the event's timestamp into <code>WatermarkGenerator</code> to eventually decide when each window can be finalized and emitted downstream.</p>
+<hr>
+<h2 id="34-follow-up-question-10-one-tenants-metric-gets-100x-more-traffic-than-others-what-breaks">34. Follow-up Question 10 — "One Tenant's Metric Gets 100x More Traffic Than Others. What Breaks?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"You partitioned by <code>(tenantId, metricName)</code> back in <a href="#15-the-durable-ingestion-log-as-a-shock-absorber">§15</a> so one worker owns a whole window. A single huge customer's <code>page_view</code> metric now generates more traffic than every other tenant combined. What happens to that one partition, and how do you fix it?"</em></p>
+</blockquote>
+<p>Since <a href="#15-the-durable-ingestion-log-as-a-shock-absorber">§15</a>'s partitioning scheme routes <em>all</em> events for one <code>(tenantId, metricName)</code> pair to a single partition (a deliberate choice, made so one worker could own a complete window without cross-worker coordination), a single disproportionately hot key now overwhelms the one worker assigned to that partition, while every other worker sits comfortably underloaded — a classic <strong>hot-key skew</strong> problem, and the direct, unavoidable cost of the very design choice that made simple, coordination-free aggregation possible in the first place.</p>
+<hr>
+<h2 id="35-handling-hot-keys-and-partition-skew">35. Handling Hot Keys and Partition Skew</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Fix: TWO-STAGE aggregation for hot keys specifically.
+
+Stage 1 (many workers, in parallel):  split the hot key's traffic further, by an ADDITIONAL
+  synthetic sub-key (e.g. a random salt 0-15), so 16 workers each aggregate a SLICE of the
+  hot key's events into a PARTIAL aggregate for the same window.
+
+Stage 2 (one worker, cheap):  merge the 16 partial aggregates into the final aggregate for
+  that window, using each Aggregator's own merge() method (§26) -- CountAggregator sums
+  16 partial counts, HyperLogLogAggregator merges 16 partial HLL register sets, etc.</code></pre></div>
+<p>This is precisely why every <code>Aggregator&lt;T&gt;</code> implementation from <a href="#26-implementing-the-aggregator-strategy-interface">§26</a> was required to expose a <code>merge()</code> method from the start — two-stage aggregation for hot keys is not a special case bolted on afterward, it is a direct, mechanical consequence of every aggregation function already being mergeable by design; the same <code>merge()</code> used here to combine sub-key partials is reused unchanged in <a href="#29-implementing-checkpointed-state-store">§29</a>'s checkpoint-recovery path and in <a href="#40-merging-hot-and-cold-results-the-query-serving-layer">§40</a>'s hot/cold result merging.</p>
+<hr>
+<h2 id="36-follow-up-question-11-dashboards-need-sub-second-query-latency-where-does-the-aggregate-actually-live-for-querying">36. Follow-up Question 11 — "Dashboards Need Sub-Second Query Latency. Where Does the Aggregate Actually Live for Querying?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A finalized window's aggregate needs to be readable by a dashboard within a second of being computed. Where does it actually get stored to make that possible?"</em></p>
+</blockquote>
+<p>In a <strong>hot store</strong> — a storage layer explicitly optimized for exactly this access pattern: point lookups and small range scans over recently-finalized aggregates, kept entirely (or mostly) in memory, covering only a modest recent time range (hours, not months) since dashboards overwhelmingly query recent data. Older aggregates age out of the hot store and either get discarded (if only recent data matters for that metric) or get rolled into the cold store's historical record.</p>
+<hr>
+<h2 id="37-the-hot-store-serving-pre-aggregated-results-at-low-latency">37. The Hot Store: Serving Pre-Aggregated Results at Low Latency</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class HotStore {
+    // key: (tenantId, metricName, window) -- exactly the granularity aggregates are finalized at
+    private final Map&lt;HotStoreKey, Aggregate&gt; aggregatesByKey = new ConcurrentHashMap&lt;&gt;();
+    private final Duration retentionWindow; // e.g. 6 hours -- older entries are evicted, not queried here
+
+    public void store(Aggregate aggregate) {
+        aggregatesByKey.put(HotStoreKey.from(aggregate), aggregate);
+    }
+
+    public List&lt;Aggregate&gt; query(String tenantId, String metricName, long fromMillis, long toMillis) {
+        return aggregatesByKey.values().stream()
+            .filter(a -&gt; a.tenantId().equals(tenantId) &amp;&amp; a.metricName().equals(metricName))
+            .filter(a -&gt; a.window().startMillis() &gt;= fromMillis &amp;&amp; a.window().endMillis() &lt;= toMillis)
+            .toList(); // in production, an actual time-indexed structure replaces this linear scan
+    }
+
+    public void evictOlderThan(long cutoffMillis) {
+        aggregatesByKey.values().removeIf(a -&gt; a.window().endMillis() &lt; cutoffMillis);
+    }
+}</code></pre></div>
+<p>The hot store deliberately holds only pre-aggregated <code>Aggregate</code> objects, never raw events — this is what keeps its memory footprint small and its query latency low, at the explicit cost of being unable to answer any question the pre-aggregation pipeline didn't anticipate in advance, which is exactly the gap <a href="#38-follow-up-question-12-what-about-an-ad-hoc-query-the-pre-aggregation-didnt-anticipate">§38-39</a> addresses.</p>
+<hr>
+<h2 id="38-follow-up-question-12-what-about-an-ad-hoc-query-the-pre-aggregation-didnt-anticipate">38. Follow-up Question 12 — "What About an Ad-Hoc Query the Pre-Aggregation Didn't Anticipate?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"An analyst wants to know 'unique visitors from mobile Safari in Germany last Tuesday' — a slice nobody pre-configured a metric for. The hot store only has what was pre-aggregated. Now what?"</em></p>
+</blockquote>
+<p>The hot store's entire value proposition — sub-second latency — comes from pre-computing exactly the aggregates a metric definition anticipated; it structurally cannot answer a question outside that predefined shape. The fix is to <strong>also</strong> retain raw (or lightly-processed) events in a separate, cheaper, higher-latency <strong>cold store</strong> built for exactly this: flexible, ad-hoc analytical queries over historical raw data, accepting query latencies of seconds-to-minutes in exchange for not needing to have anticipated the query shape in advance.</p>
+<hr>
+<h2 id="39-the-cold-store-raw-event-storage-for-ad-hoc-queries">39. The Cold Store: Raw Event Storage for Ad-Hoc Queries</h2>
+<p>A columnar, analytical data warehouse (conceptually like ClickHouse or BigQuery) receives a copy of every raw event (<a href="#11-high-level-architecture-overview">§11</a>'s "raw events" branch out of stream processing), stored compressed and partitioned by time and tenant. Its columnar layout means a query touching only a few columns (e.g., <code>browser</code>, <code>country</code>, <code>userId</code> for the example above) reads only those columns' compressed data, not entire rows — this is what makes ad-hoc analytical queries over billions of historical rows tractable at all, in exchange for genuinely higher latency than the hot store's in-memory point lookups.</p>
+<hr>
+<h2 id="40-merging-hot-and-cold-results-the-query-serving-layer">40. Merging Hot and Cold Results: The Query Serving Layer</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class QueryService {
+    private final HotStore hotStore;
+    private final ColdStore coldStore;
+    private final Duration hotStoreRetention;
+
+    public QueryResult query(QueryRequest request) {
+        long hotCutoff = System.currentTimeMillis() - hotStoreRetention.toMillis();
+
+        List&lt;Aggregate&gt; hotResults = request.toMillis() &gt;= hotCutoff
+            ? hotStore.query(request.tenantId(), request.metricName(), Math.max(request.fromMillis(), hotCutoff), request.toMillis())
+            : List.of();
+
+        List&lt;Aggregate&gt; coldResults = request.fromMillis() &lt; hotCutoff
+            ? coldStore.query(request.tenantId(), request.metricName(), request.fromMillis(), Math.min(request.toMillis(), hotCutoff))
+            : List.of();
+
+        return QueryResult.merge(hotResults, coldResults); // stitched by window boundary, no overlap by construction
+    }
+}</code></pre></div>
+<p>The split point (<code>hotCutoff</code>) is chosen so hot and cold results never overlap for the same window — a query spanning both recent and historical time simply routes each portion of the requested range to whichever store actually owns it, then concatenates the results, entirely hiding from the caller which store served which part of the answer.</p>
+<hr>
+<h2 id="41-class-diagram-the-query-serving-layer">41. Class Diagram: The Query Serving Layer</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+------------------------+
+|      QueryService       |
+|  (Facade)                |
+|  + query(QueryRequest)   |
++-----------+-------------+
+            |
+     +------+------+
+     |             |
+     v             v
++-----------+  +-----------+
+| HotStore  |  | ColdStore |
+| (in-mem,  |  | (columnar,|
+|  recent)  |  |  full hist)|
++-----------+  +-----------+
+     |             |
+     +------+------+
+            v
+   +------------------------+
+   |     QueryResult         |
+   |  (merged, time-ordered) |
+   +------------------------+</code></pre></div>
+<p><code>QueryService</code> is a <strong>Facade</strong>: dashboards and the alerting engine (<a href="#43-implementing-the-alerting-engine-as-an-observer">§43</a>) depend only on this single, simple interface, never on <code>HotStore</code> or <code>ColdStore</code> directly — which means the hot-store retention window, the cold-store's underlying storage engine, or even the split-point logic can all change independently, as long as <code>QueryService</code>'s own contract stays stable.</p>
+<hr>
+<h2 id="42-follow-up-question-13-how-do-you-support-alerting-on-top-of-this-eg-notify-when-error-rate-exceeds-5">42. Follow-up Question 13 — "How Do You Support Alerting on Top of This, e.g. 'Notify When Error Rate Exceeds 5%'?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Dashboards are pull-based — someone looks at them. An alert needs to push a notification the moment a threshold is crossed. How does that fit into a pipeline built around windows being finalized?"</em></p>
+</blockquote>
+<p>Every window finalization is already a discrete, well-defined event in this pipeline (<a href="#20-watermarks-and-allowed-lateness">§20-21</a> decide precisely when it happens) — alerting simply <strong>observes</strong> that same event stream of finalized aggregates and evaluates each tenant's configured threshold rules against it, firing a notification the instant a rule's condition is met, without needing any separate polling loop or its own copy of the aggregation logic.</p>
+<hr>
+<h2 id="43-implementing-the-alerting-engine-as-an-observer">43. Implementing the Alerting Engine as an Observer</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface AggregateListener {
+    void onWindowFinalized(Aggregate aggregate);
+}
+
+public class AlertingEngine implements AggregateListener {
+    private final Map&lt;String, List&lt;AlertRule&gt;&gt; rulesByMetric; // tenantId+metricName -&gt; configured rules
+    private final NotificationSender notificationSender;
+
+    @Override
+    public void onWindowFinalized(Aggregate aggregate) {
+        String key = aggregate.tenantId() + ":" + aggregate.metricName();
+        for (AlertRule rule : rulesByMetric.getOrDefault(key, List.of())) {
+            if (rule.isTriggered(aggregate.result())) {
+                notificationSender.send(rule.buildNotification(aggregate));
+            }
+        }
+    }
+}
+
+public record AlertRule(String metricName, Threshold threshold, ComparisonOperator operator) {
+    public boolean isTriggered(Object aggregateResult) {
+        double value = ((Number) aggregateResult).doubleValue();
+        return operator.compare(value, threshold.value());
+    }
+    public Notification buildNotification(Aggregate aggregate) {
+        return new Notification(aggregate.tenantId(), metricName, aggregate.result(), threshold.value());
+    }
+}</code></pre></div>
+<p><code>StreamProcessor</code> (<a href="#33-class-diagram-the-stream-processing-core">§33</a>) publishes every finalized <code>Aggregate</code> to a small set of registered <code>AggregateListener</code>s — this is the <strong>Observer</strong> pattern applied directly: <code>AlertingEngine</code> is just one subscriber among potentially several (a metrics-export listener, an audit-log listener), and none of them require any change to the core windowing/aggregation logic to be added or removed.</p>
+<hr>
+<h2 id="44-follow-up-question-14-how-is-this-multi-tenant-without-one-tenants-load-affecting-anothers">44. Follow-up Question 14 — "How Is This Multi-Tenant Without One Tenant's Load Affecting Another's?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"This is a SaaS analytics product — many customers share the platform. What stops one noisy tenant from starving another's query latency or ingestion throughput?"</em></p>
+</blockquote>
+<p>Two complementary mechanisms, applied at different layers: <strong>partition-level isolation</strong> (<a href="#15-the-durable-ingestion-log-as-a-shock-absorber">§15</a>'s partitioning already scopes each tenant+metric to specific log partitions and processing workers, so one tenant's aggregation load is physically confined rather than sharing a single global worker pool) and <strong>quota enforcement</strong> at the ingestion boundary (rejecting or throttling a tenant's events once they exceed their provisioned rate, rather than letting unbounded traffic from one tenant degrade the durable log or processing layer for everyone else).</p>
+<hr>
+<h2 id="45-multi-tenancy-isolation-via-partitioning-and-quotas">45. Multi-Tenancy: Isolation via Partitioning and Quotas</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class TenantQuota {
+    private final Map&lt;String, RateLimiter&gt; perTenantLimiters; // one bucket per tenant, §-referenced Rate Limiter guide
+
+    public boolean allowIngest(String tenantId) {
+        return perTenantLimiters
+            .computeIfAbsent(tenantId, id -&gt; RateLimiter.create(quotaForTenant(id)))
+            .tryAcquire();
+    }
+
+    private double quotaForTenant(String tenantId) {
+        return tenantConfigService.getProvisionedEventsPerSecond(tenantId);
+    }
+}</code></pre></div>
+<p>Enforcing the quota at the <strong>ingestion API</strong>, before an event is even appended to the durable log, is deliberate — rejecting an over-quota event as early as possible means the cost of one tenant's excess traffic is confined to that tenant's own rejected requests, never propagating into log write pressure, processing load, or storage cost that every other tenant would otherwise indirectly share.</p>
+<hr>
+<h2 id="46-capacity-estimation-ingestion-throughput-and-storage">46. Capacity Estimation: Ingestion Throughput and Storage</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Assume: 50 million active users, each generating ~20 events/day on average
+Total events/day  = 50,000,000 * 20                     = 1,000,000,000 events/day
+Average events/sec = 1,000,000,000 / 86,400              ≈ 11,600 events/sec (sustained average)
+Peak events/sec     (assume 5x average at peak traffic)  ≈ 58,000 events/sec
+
+Raw event size (tenantId, metricName, timestamps, eventId, value, small payload) ≈ 200 bytes
+Raw storage/day = 1,000,000,000 events * 200 bytes       = 200 GB/day (before compression)
+With ~5x columnar compression in the cold store          ≈ 40 GB/day effective storage growth</code></pre></div>
+<p>At this scale, a single-digit number of ingestion API instances behind a load balancer, and a durable log with a few dozen partitions, comfortably absorbs both the sustained average and the 5x peak burst — the numbers only become genuinely challenging (requiring the hot-key mitigation of <a href="#35-handling-hot-keys-and-partition-skew">§35</a>, and careful partition-count planning) once a single platform serves traffic several orders of magnitude larger, which is exactly the regime real large-scale analytics platforms operate in.</p>
+<hr>
+<h2 id="47-capacity-estimation-aggregation-state-size-and-memory">47. Capacity Estimation: Aggregation State Size and Memory</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Assume: 10,000 distinct (tenantId, metricName) pairs, each with a 1-minute tumbling window,
+        keeping the last 60 minutes of finalized windows "warm" in the hot store for query.
+
+Per-window aggregate size (COUNT/SUM: ~16 bytes; HyperLogLog: ~12 KB fixed; t-digest: ~2-4 KB) 
+Worst case (all metrics use HLL): 10,000 keys * 60 windows * 12 KB  ≈ 7.2 GB total hot-store memory
+
+This is why choosing the CHEAPEST aggregation type that satisfies the actual requirement matters:
+a COUNT-only metric costs ~1000x less memory than the same metric mistakenly configured as
+UNIQUE_COUNT -- the choice of AggregationType per metric (§10's MetricDefinition) is a real
+capacity-planning decision, not just a semantic one.</code></pre></div>
+<p>This is the concrete payoff of <a href="#22-follow-up-question-6-how-do-you-compute-unique-visitor-counts-without-storing-every-visitor-id-in-memory">§22-25</a>'s decision to use approximate, bounded-memory structures at all — even in this worst-case estimate, total hot-store memory for ten thousand actively-tracked metrics stays in the single-digit gigabytes, comfortably fitting on a handful of commodity servers, specifically because HLL and t-digest's memory is a small constant per aggregate rather than proportional to the (potentially enormous) underlying cardinality.</p>
+<hr>
+<h2 id="48-full-worked-example-one-events-journey-traced-end-to-end">48. Full Worked Example: One Event's Journey, Traced End to End</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. A mobile client sends: {tenantId: "acme", metricName: "page_view", eventTime: T, eventId: "e-991", value: 1}
+2. Ingestion API validates the event's shape, checks TenantQuota.allowIngest("acme") -&gt; allowed (§45)
+3. EventLogPartitioner routes it to partition hash("acme:page_view") % N (§15)
+4. StreamProcessor (owning that partition) receives it:
+     a. TumblingWindowAssigner.assignWindows(T) -&gt; Window[start=T0, end=T0+60000] (§18)
+     b. WatermarkGenerator.onEvent(event) updates the watermark estimate (§21)
+     c. EventDeduplicator.tryApply(window, event, ...) -&gt; true (first time seeing "e-991" for this window) (§32)
+     d. CheckpointedStateStore updates the CountAggregator for that window: count += 1 (§29)
+5. ~30 seconds later, a periodic checkpoint persists (windowState, logOffset) atomically (§29)
+6. Once the watermark passes T0+60000 + allowedLateness, the window is finalized:
+     a. Final Aggregate{tenantId="acme", metricName="page_view", window, result=&lt;final count&gt;} is emitted
+     b. HotStore.store(aggregate) makes it queryable within milliseconds (§37)
+     c. AlertingEngine.onWindowFinalized(aggregate) evaluates any configured threshold rules (§43)
+     d. The raw event is also durably archived into the ColdStore for future ad-hoc queries (§39)
+7. A dashboard querying "page_view count, last hour" calls QueryService.query(...), which merges
+   this window's now-finalized hot-store aggregate with any older windows already past hot-store
+   retention, served instead from the cold store (§40)</code></pre></div>
+<p>Every single mechanism introduced by a follow-up question in this guide appears somewhere in this one event's journey — which is exactly the point: none of <a href="#15-the-durable-ingestion-log-as-a-shock-absorber">§15-45</a> are independent, optional add-ons, they are the actual, load-bearing steps a real event passes through in this design.</p>
+<hr>
+<h2 id="49-final-architecture-diagram">49. Final Architecture Diagram</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                        +-------------------+
+Client SDKs  --events--&gt;|  Ingestion API    |--(quota check, §45)--&gt;  REJECTED if over quota
+                        +---------+---------+
+                                  |
+                                  v
+                     +------------------------+
+                     | Durable Partitioned Log|  (partition by tenantId+metricName, §15)
+                     +------------+-----------+
+                                  |
+                 +----------------+-----------------+
+                 v                                   v
+      +--------------------------+          +--------------------+
+      |     StreamProcessor       |          |   (raw event copy)  |
+      |  WindowAssigner            |          +----------+----------+
+      |  WatermarkGenerator        |                     |
+      |  EventDeduplicator         |                     v
+      |  CheckpointedStateStore    |             +----------------+
+      |     -&gt; Aggregator&lt;T&gt;       |             |   Cold Store   |
+      +-------------+--------------+             +--------+-------+
+                     | (finalized Aggregate)               |
+        +------------+-------------+                       |
+        v                          v                        |
+ +--------------+          +-----------------+                |
+ |  Hot Store   |          | AlertingEngine  |                |
+ +------+-------+          | (Observer)      |                |
+        |                  +-----------------+                |
+        +------------------------+---------------------------+
+                                  v
+                       +------------------------+
+                       |     QueryService        |
+                       |     (Facade)            |
+                       +-----------+-------------+
+                                   |
+                          Dashboards / Ad-hoc Queries</code></pre></div>
+<hr>
+<h2 id="50-design-patterns-used-throughout-this-guide">50. Design Patterns Used Throughout This Guide</h2>
+<ul>
+<li><strong>Strategy</strong> — <code>WindowAssigner</code> (<a href="#18-designing-the-window-assignment-strategy">§18</a>: tumbling vs. sliding vs. future session windows) and <code>Aggregator&lt;T&gt;</code> (<a href="#26-implementing-the-aggregator-strategy-interface">§26</a>: count/sum/HLL/t-digest) are both swappable behind stable interfaces, chosen per metric definition.</li>
+<li><strong>Observer</strong> — <code>AggregateListener</code> (<a href="#43-implementing-the-alerting-engine-as-an-observer">§43</a>): <code>AlertingEngine</code> and any future subscriber (metrics export, audit logging) react to finalized windows without the core pipeline knowing or caring who's listening.</li>
+<li><strong>Facade</strong> — <code>QueryService</code> (<a href="#41-class-diagram-the-query-serving-layer">§41</a>): hides the hot-store/cold-store split and the merge logic behind one simple query interface.</li>
+<li><strong>Template Method</strong> — the per-event processing sequence in <code>StreamProcessor</code> (assign windows → check watermark → dedup → update aggregate) is a fixed skeleton; only the plugged-in <code>WindowAssigner</code>/<code>Aggregator</code> strategies vary the specifics.</li>
+<li><strong>Factory</strong> — <code>AggregatorFactory</code> (<a href="#26-implementing-the-aggregator-strategy-interface">§26</a>): centralizes the mapping from a metric's configured <code>AggregationType</code> to a concrete <code>Aggregator</code> implementation, so adding a new aggregation type touches one place.</li>
+</ul>
+<hr>
+<h2 id="51-solid-principles-applied">51. SOLID Principles Applied</h2>
+<ul>
+<li><strong>Single Responsibility</strong> — <code>WatermarkGenerator</code> only tracks event-time progress; <code>EventDeduplicator</code> only guards against replay double-counting; <code>CheckpointedStateStore</code> only persists/restores aggregation state — none of the three knows how to do the others' job, even though all three cooperate on every single event.</li>
+<li><strong>Open/Closed</strong> — adding a new <code>AggregationType</code> (e.g., a future <code>MIN</code>/<code>MAX</code>) means adding a new <code>Aggregator&lt;T&gt;</code> implementation and one <code>AggregatorFactory</code> case, never modifying <code>StreamProcessor</code>'s core loop.</li>
+<li><strong>Liskov Substitution</strong> — every <code>Aggregator&lt;T&gt;</code> implementation must honestly support <code>add()</code>/<code>result()</code>/<code>merge()</code> with the same contract, so <code>CheckpointedStateStore</code> can treat all of them uniformly regardless of which is actually plugged in for a given metric.</li>
+<li><strong>Interface Segregation</strong> — <code>AggregateListener</code> exposes exactly one method (<code>onWindowFinalized</code>), so a simple metrics-export subscriber isn't forced to implement irrelevant alerting-specific behavior.</li>
+<li><strong>Dependency Inversion</strong> — <code>StreamProcessor</code> depends on the <code>WindowAssigner</code> and <code>Aggregator&lt;T&gt;</code> abstractions, never on a concrete tumbling-window or count-aggregator implementation, so either can be swapped per metric without touching the processor itself.</li>
+</ul>
+<hr>
+<h2 id="52-common-mistakes-when-building-this-yourself">52. Common Mistakes When Building This Yourself</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>MISTAKE                                                CORRECT APPROACH (this guide's section)
+Using processing-time instead of event-time for windows Watermarks track EVENT time explicitly (§19-21)
+Storing every distinct value in a HashSet for uniques    HyperLogLog: bounded, mergeable memory (§22-23)
+Sorting all values to compute percentiles per window     t-digest: bounded, mergeable, tail-accurate (§24-25)
+Checkpointing state without the corresponding log offset  Atomic (state, offset) checkpoint write (§28-29)
+Assuming the log's at-least-once delivery is enough       Idempotent, per-window event deduplication (§30-32)
+One partition per tenant regardless of that tenant's load Two-stage aggregation for hot keys (§34-35)
+Querying only the hot store and calling it "complete"     Hot+cold merge in the query serving layer (§38-40)
+No per-tenant rate limiting on a shared platform          Quota enforcement at the ingestion boundary (§44-45)</code></pre></div>
+<hr>
+<h2 id="53-testing-strategy">53. Testing Strategy</h2>
+<ul>
+<li><strong>Unit tests</strong> — each <code>Aggregator&lt;T&gt;</code> implementation in isolation (does <code>merge()</code> of two partial <code>CountAggregator</code>s produce the correct sum? does <code>HyperLogLogAggregator</code>'s estimate stay within its documented error bound against a known true cardinality?).</li>
+<li><strong>Windowing correctness tests</strong> — feed a carefully-ordered (and deliberately out-of-order) sequence of timestamped events through <code>TumblingWindowAssigner</code>/<code>SlidingWindowAssigner</code> and assert each event lands in exactly the expected window(s).</li>
+<li><strong>Exactly-once replay tests</strong> — simulate a crash mid-window (stop after a partial checkpoint), restart from that checkpoint, replay the log from the checkpointed offset, and assert the final aggregate matches what a non-crashing run would have produced (this is precisely what <code>EventDeduplicator</code> exists to guarantee).</li>
+<li><strong>Hot-key skew tests</strong> — synthetically generate one wildly disproportionate key's traffic and confirm two-stage aggregation (<a href="#35-handling-hot-keys-and-partition-skew">§35</a>) keeps its owning worker's throughput within acceptable bounds compared to a non-skewed baseline.</li>
+<li><strong>Query-serving integration tests</strong> — issue a query spanning both hot and cold store time ranges and assert the merged result is correctly ordered with no duplicate or missing windows at the split boundary.</li>
+</ul>
+<hr>
+<h2 id="54-suggested-future-enhancements">54. Suggested Future Enhancements</h2>
+<ul>
+<li><strong>Session windows</strong> (<a href="#17-windowing-tumbling-sliding-and-session-windows">§17</a>'s third windowing type, not yet implemented in this guide) for per-user-activity metrics bounded by inactivity gaps rather than fixed clock boundaries.</li>
+<li><strong>Adaptive checkpoint intervals</strong> — shortening the checkpoint interval automatically for metrics/partitions experiencing unusually high write rates, bounding worst-case replay cost more tightly than a single global interval can.</li>
+<li><strong>Tiered cold storage</strong> — moving very old, rarely-queried historical data to cheaper, higher-latency archival storage (e.g., object storage with retrieval delay) beneath the existing cold store, further reducing cost for data queried only rarely.</li>
+<li><strong>Cross-metric derived aggregates</strong> — supporting metrics defined as a function of other metrics' aggregates (e.g., "error rate" derived from <code>error_count / total_count</code> over the same window), rather than only aggregating raw event values directly.</li>
+<li><strong>Dynamic, self-tuning HLL/t-digest precision</strong> — automatically increasing a specific metric's register count or t-digest compression when its estimate's error is observed (via periodic exact-count sampling) to exceed the tenant's configured tolerance.</li>
+</ul>
+<hr>
+<h2 id="55-progressive-interview-question-set">55. Progressive Interview Question Set</h2>
+<p>For an interviewer using this guide to run a structured round, in increasing difficulty:</p>
+<ol>
+<li>Why can't a plain database with <code>GROUP BY</code> on read serve this system's latency requirements? (<a href="#12-follow-up-question-2-why-not-just-write-every-event-straight-to-a-database-and-query-with-group-by">§12-13</a>)</li>
+<li>Design the windowing scheme: tumbling vs. sliding vs. session, and when each is the right choice. (<a href="#17-windowing-tumbling-sliding-and-session-windows">§17</a>)</li>
+<li>Events arrive late and out of order. Design a mechanism to decide when a window is safe to finalize. (<a href="#19-follow-up-question-5-events-arrive-out-of-order-and-late-when-is-it-actually-safe-to-finalize-a-window">§19-21</a>)</li>
+<li>Why can't you use an exact <code>HashSet</code> for unique visitor counts at scale — and what's the alternative, precisely? (<a href="#22-follow-up-question-6-how-do-you-compute-unique-visitor-counts-without-storing-every-visitor-id-in-memory">§22-23</a>)</li>
+<li>A processing node crashes mid-window. Walk through recovery, including how you avoid double-counting on replay. (<a href="#27-follow-up-question-8-a-processing-node-crashes-mid-window-is-the-partially-computed-aggregate-lost">§27-32</a>)</li>
+<li>One tenant's traffic is 100x every other tenant's. Diagnose the failure mode and fix it. (<a href="#34-follow-up-question-10-one-tenants-metric-gets-100x-more-traffic-than-others-what-breaks">§34-35</a>)</li>
+<li>Design the query-serving layer so a single query can transparently span both very recent and very old data. (<a href="#36-follow-up-question-11-dashboards-need-sub-second-query-latency-where-does-the-aggregate-actually-live-for-querying">§36-40</a>)</li>
+<li>How would you add alerting on top of this pipeline without duplicating the aggregation logic? (<a href="#42-follow-up-question-13-how-do-you-support-alerting-on-top-of-this-eg-notify-when-error-rate-exceeds-5">§42-43</a>)</li>
+</ol>
+<hr>
+<h2 id="56-final-takeaway">56. Final Takeaway</h2>
+<p>Every hard decision in this guide traces back to one recurring tension: <strong>an unbounded, continuous stream must still produce bounded, timely, correct answers</strong> — windows bound the <em>stream</em> (<a href="#16-follow-up-question-4-how-do-you-aggregate-a-continuous-unbounded-stream-theres-no-end-to-run-count-on">§16-18</a>), watermarks bound the <em>wait</em> for late data (<a href="#19-follow-up-question-5-events-arrive-out-of-order-and-late-when-is-it-actually-safe-to-finalize-a-window">§19-21</a>), HyperLogLog and t-digest bound the <em>memory</em> per aggregate (<a href="#22-follow-up-question-6-how-do-you-compute-unique-visitor-counts-without-storing-every-visitor-id-in-memory">§22-25</a>), checkpointing bounds the <em>recovery</em> cost (<a href="#27-follow-up-question-8-a-processing-node-crashes-mid-window-is-the-partially-computed-aggregate-lost">§27-29</a>), and two-stage aggregation bounds the <em>load</em> any single worker must absorb (<a href="#34-follow-up-question-10-one-tenants-metric-gets-100x-more-traffic-than-others-what-breaks">§34-35</a>). None of these are independent tricks — they are the same engineering instinct, applied consistently wherever "unbounded" would otherwise creep into a system that has to keep running, correctly, forever.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Design a Real-Time Analytics Platform — HLD, LLD, and Class Design From Scratch.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

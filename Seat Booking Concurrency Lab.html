@@ -1,0 +1,523 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Seat Booking Concurrency Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chivo+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f3f0ec;
+    --surface: #ffffff;
+    --surface-2: #e9e4dc;
+    --border: #dcd4c6;
+    --text: #211a1c;
+    --text-muted: #6c6360;
+    --accent: #9d174d;
+    --accent-soft: rgba(157,23,77,.12);
+    --held: #b45309;
+    --held-soft: rgba(180,83,9,.14);
+    --booked: #44403c;
+    --booked-soft: rgba(68,64,60,.12);
+    --good: #15803d;
+    --good-soft: rgba(21,128,61,.12);
+    --bad: #b91c1c;
+    --bad-soft: rgba(185,28,28,.14);
+    --shadow: 0 1px 2px rgba(20,20,15,.04), 0 10px 30px -14px rgba(20,20,15,.25);
+    --radius: 16px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17100f;
+      --surface: #211816;
+      --surface-2: #2a1f1c;
+      --border: #3a2c27;
+      --text: #f3e9e5;
+      --text-muted: #a99790;
+      --accent: #f472b6;
+      --accent-soft: rgba(244,114,182,.16);
+      --held: #fbbf24;
+      --held-soft: rgba(251,191,36,.14);
+      --booked: #a8a29e;
+      --booked-soft: rgba(168,162,158,.14);
+      --good: #4ade80;
+      --good-soft: rgba(74,222,128,.14);
+      --bad: #f87171;
+      --bad-soft: rgba(248,113,113,.16);
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17100f;
+    --surface: #211816;
+    --surface-2: #2a1f1c;
+    --border: #3a2c27;
+    --text: #f3e9e5;
+    --text-muted: #a99790;
+    --accent: #f472b6;
+    --accent-soft: rgba(244,114,182,.16);
+    --held: #fbbf24;
+    --held-soft: rgba(251,191,36,.14);
+    --booked: #a8a29e;
+    --booked-soft: rgba(168,162,158,.14);
+    --good: #4ade80;
+    --good-soft: rgba(74,222,128,.14);
+    --bad: #f87171;
+    --bad-soft: rgba(248,113,113,.16);
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text); font-family: 'Manrope', system-ui, sans-serif;
+    padding: clamp(16px, 4vw, 40px); padding-block: clamp(20px, 4vw, 48px);
+    display: flex; justify-content: center;
+  }
+  .app { width: 100%; max-width: 1120px; }
+
+  .topbar { margin-bottom: 24px; }
+  .eyebrow { font-family: 'Chivo Mono', monospace; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+  h1 { font-family: 'Chivo Mono', monospace; font-size: clamp(28px, 4.5vw, 40px); font-weight: 700; margin: 0 0 8px; text-wrap: balance; letter-spacing: -.01em; }
+  .dek { color: var(--text-muted); max-width: 68ch; line-height: 1.55; margin: 0; font-size: 15px; }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 24px; align-items: start; }
+  @media (max-width: 780px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+
+  .board-panel { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .screen-label {
+    text-align: center; font-family: 'Chivo Mono', monospace; font-size: 11px; letter-spacing: .2em;
+    color: var(--text-muted); padding: 6px; border-bottom: 2px solid var(--border);
+  }
+  .board-wrap { display: flex; justify-content: center; }
+  canvas#seatmap { width: 100%; max-width: 400px; touch-action: manipulation; }
+
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--text-muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend .dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+
+  button {
+    font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 13.5px;
+    padding: 10px 16px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--text); color: var(--bg); cursor: pointer;
+    transition: transform .12s ease, opacity .12s ease;
+  }
+  button:hover { transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  button.ghost { background: transparent; color: var(--text); }
+  button.accent { background: var(--accent); color: #fff0f6; border-color: transparent; }
+  button.small { padding: 7px 10px; font-size: 12px; }
+
+  .board-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .note { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+  .status-banner { font-family: 'Chivo Mono', monospace; font-size: 13px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); }
+  .status-banner.hold { background: var(--held-soft); color: var(--held); border-color: transparent; }
+  .status-banner.ok { background: var(--good-soft); color: var(--good); border-color: transparent; }
+  .status-banner.bug { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+
+  .control-panel { padding: 16px; display: flex; flex-direction: column; gap: 16px; min-height: 480px; }
+  .tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; }
+  .tab { flex: 1; background: transparent; color: var(--text-muted); border: none; padding: 9px 6px; font-size: 12.5px; font-weight: 700; border-radius: 8px; box-shadow: none; }
+  .tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .tab:hover { transform: none; }
+
+  .tab-panel { display: flex; flex-direction: column; gap: 16px; }
+  .tab-panel[hidden] { display: none; }
+
+  .field-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); font-weight: 700; }
+  label.inline { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--text-muted); }
+  select { font-family: 'Manrope', sans-serif; font-size: 13.5px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); width: 100%; }
+  .card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--surface-2); }
+
+  .stat-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .stat-tile { flex: 1; min-width: 96px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .stat-tile .num { font-family: 'Chivo Mono', monospace; font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-tile .label { font-size: 10.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; }
+  td.num, th.num { text-align: right; font-family: 'Chivo Mono', monospace; font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow-x: auto; }
+
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .bar-label { width: 100px; font-size: 12px; color: var(--text-muted); flex: 0 0 auto; }
+  .bar-track { flex: 1; height: 18px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--good); }
+  .bar-fill.bug { background: var(--bad); }
+  .bar-value { width: 90px; text-align: right; font-family: 'Chivo Mono', monospace; font-size: 12px; flex: 0 0 auto; }
+
+  footer { margin-top: 28px; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+</style>
+
+<div class="app">
+  <header class="topbar">
+    <div class="eyebrow">Interactive Systems Lab &middot; Companion to the Design Guide</div>
+    <h1>Seat Booking Concurrency Lab</h1>
+    <p class="dek">Book a seat normally, or fire many genuinely concurrent booking requests at the exact same seat and watch what happens under each concurrency strategy &mdash; including the naive one, which really does double-book the seat live, using JavaScript's own cooperative concurrency to reproduce the race honestly rather than faking it.</p>
+  </header>
+
+  <main class="layout">
+    <section class="panel board-panel">
+      <div class="screen-label">S C R E E N &nbsp; T H I S &nbsp; W A Y</div>
+      <div class="board-wrap">
+        <canvas id="seatmap" width="400" height="260" aria-label="Cinema seat map"></canvas>
+      </div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--surface-2); border:1px solid var(--border)"></i>Available</span>
+        <span><i class="dot" style="background:var(--held)"></i>Held</span>
+        <span><i class="dot" style="background:var(--booked)"></i>Booked</span>
+        <span><i class="dot" style="background:var(--bad)"></i>Double-booked (bug)</span>
+      </div>
+      <div class="status-banner" id="statusBanner">Click any available seat to hold it, then confirm payment.</div>
+      <div class="board-actions">
+        <button class="accent" id="resetBtn">Reset seat map</button>
+      </div>
+    </section>
+
+    <section class="panel control-panel">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="stress" role="tab">Stress Test</button>
+        <button class="tab" data-tab="compare" role="tab">Compare</button>
+        <button class="tab" data-tab="learn" role="tab">How It Works</button>
+        <button class="tab" data-tab="log" role="tab">Log</button>
+      </div>
+
+      <div class="tab-panel" data-panel="stress">
+        <div class="card">
+          <div class="field-label">Fire concurrent requests at one seat</div>
+          <label class="inline">Strategy
+            <select id="strategySelect">
+              <option value="naive">No concurrency control (buggy)</option>
+              <option value="pessimistic" selected>Pessimistic locking</option>
+              <option value="optimistic">Optimistic locking + retry</option>
+              <option value="hold">Atomic hold (Redis-style SET NX)</option>
+            </select>
+          </label>
+          <label class="inline">Concurrent requests
+            <select id="concurrencySelect">
+              <option value="10">10</option>
+              <option value="30" selected>30</option>
+              <option value="80">80</option>
+            </select>
+          </label>
+          <button class="accent" id="fireStressBtn">Fire concurrent requests at a fresh seat</button>
+        </div>
+        <div class="stat-row">
+          <div class="stat-tile"><div class="num" id="statSucceeded">&mdash;</div><div class="label">Succeeded</div></div>
+          <div class="stat-tile"><div class="num" id="statFailed">&mdash;</div><div class="label">Rejected</div></div>
+        </div>
+        <div class="status-banner" id="stressBanner" hidden></div>
+      </div>
+
+      <div class="tab-panel" data-panel="compare" hidden>
+        <div class="field-label">All four strategies, identical concurrent load</div>
+        <p class="note">Fires the same number of simultaneous requests at a fresh seat under each strategy in turn. A correct strategy always ends with exactly 1 success &mdash; watch for the naive strategy occasionally not.</p>
+        <button class="accent" id="runCompareBtn">Run comparison</button>
+        <div id="compareResults"></div>
+      </div>
+
+      <div class="tab-panel" data-panel="learn" hidden>
+        <p class="note" id="learnNote"></p>
+      </div>
+
+      <div class="tab-panel" data-panel="log" hidden>
+        <div class="field-label">Recent stress-test runs</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Strategy</th><th class="num">Fired</th><th class="num">Succeeded</th></tr></thead>
+            <tbody id="logBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Runnable companion to <em>Design BookMyShow &mdash; HLD, LLD, and Concurrency Handling From Scratch</em>. All bookings are simulated locally; nothing is sent anywhere or actually charged.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const ROWS = 6, COLS = 10;
+  const STRATEGY_NOTES = {
+    naive: "Reads a seat's state, waits (simulating a network/DB round trip), THEN writes -- with nothing preventing a second request from reading the same 'available' state before the first request's write lands. This is a genuine, reproducible race, not a fake one (§12-15).",
+    pessimistic: "Every request for the SAME seat is serialized through a lock before it's even allowed to read -- exactly one request is ever inside the critical section at a time (§16-18).",
+    optimistic: "Every request reads freely and writes freely, but the write is conditional on a version number that hasn't changed since the read. Losers detect the conflict and retry against fresh state (§19-23).",
+    hold: "A single atomic check-and-set operation, with no read-then-write gap for anything to interleave into at all -- structurally the safest option, at the cost of only being appropriate for a genuinely atomic primitive (§26-27)."
+  };
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  function jitter(base) { return base + Math.random() * base; }
+
+  // ---------- seat map ----------
+  let seats = [];
+  function resetSeats() {
+    seats = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        seats.push({ id: r + "-" + c, row: r, col: c, state: "AVAILABLE", version: 0, heldBy: null, bug: false });
+      }
+    }
+    render();
+  }
+
+  // ---------- concurrency strategies, mirror the design guide's §12-27 exactly ----------
+  async function bookNaive(seat) {
+    await sleep(jitter(12));                     // simulated read latency -- the WINDOW the race lives in
+    const readState = seat.state;
+    await sleep(jitter(12));                     // simulated latency between check and write
+    if (readState !== "AVAILABLE") return { success: false };
+    seat.state = "BOOKED";                        // NOTHING re-checks state here -- this is the exact bug
+    return { success: true };
+  }
+
+  const seatLockChains = new Map();
+  function withSeatLock(seatId, fn) {
+    const prior = seatLockChains.get(seatId) || Promise.resolve();
+    const result = prior.then(fn, fn);
+    seatLockChains.set(seatId, result.catch(() => {}));
+    return result;
+  }
+  async function bookPessimistic(seat) {
+    return withSeatLock(seat.id, async () => {
+      await sleep(jitter(12));                    // the "SELECT ... FOR UPDATE" read, now safely serialized
+      if (seat.state !== "AVAILABLE") return { success: false };
+      await sleep(jitter(12));
+      seat.state = "BOOKED";
+      return { success: true };
+    });
+  }
+
+  async function bookOptimistic(seat, attempt) {
+    attempt = attempt || 1;
+    const readVersion = seat.version;
+    const readState = seat.state;
+    await sleep(jitter(12));
+    if (readState !== "AVAILABLE") return { success: false };
+    await sleep(jitter(12));
+    if (seat.version !== readVersion) {
+      if (attempt >= 6) return { success: false };
+      return bookOptimistic(seat, attempt + 1);   // CONFLICT -- retry against FRESH state, not the stale read
+    }
+    seat.state = "BOOKED";
+    seat.version++;
+    return { success: true };
+  }
+
+  function bookHold(seat) {
+    // no `await` between check and set at all -- nothing CAN interleave here
+    if (seat.state !== "AVAILABLE") return Promise.resolve({ success: false });
+    seat.state = "BOOKED";
+    return Promise.resolve({ success: true });
+  }
+
+  const STRATEGIES = { naive: bookNaive, pessimistic: bookPessimistic, optimistic: bookOptimistic, hold: bookHold };
+
+  async function runStressTest(strategyName, concurrency, seat) {
+    const attempts = [];
+    for (let i = 0; i < concurrency; i++) attempts.push(STRATEGIES[strategyName](seat));
+    const results = await Promise.all(attempts);
+    return results.filter(r => r.success).length;
+  }
+
+  // ---------- rendering ----------
+  const canvas = document.getElementById("seatmap");
+  const ctx = canvas.getContext("2d");
+  function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  let seatRects = [];
+  function render() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width || 400, h = rect.height || 260;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const cellW = w / COLS, cellH = h / ROWS;
+    const pad = 3;
+    seatRects = [];
+    for (const seat of seats) {
+      const x = seat.col * cellW + pad, y = seat.row * cellH + pad;
+      const bw = cellW - pad * 2, bh = cellH - pad * 2;
+      let fill = cssVar("--surface-2");
+      let stroked = true;
+      if (seat.bug) { fill = cssVar("--bad"); stroked = false; }
+      else if (seat.state === "HELD") { fill = cssVar("--held"); stroked = false; }
+      else if (seat.state === "BOOKED") { fill = cssVar("--booked"); stroked = false; }
+
+      ctx.fillStyle = fill;
+      roundRect(x, y, bw, bh, 4);
+      ctx.fill();
+      if (stroked) { ctx.strokeStyle = cssVar("--border"); ctx.lineWidth = 1; ctx.stroke(); }
+
+      seatRects.push({ seat, x, y, w: bw, h: bh });
+    }
+  }
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  canvas.addEventListener("click", (evt) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = evt.clientX - rect.left, y = evt.clientY - rect.top;
+    for (const sr of seatRects) {
+      if (x >= sr.x && x <= sr.x + sr.w && y >= sr.y && y <= sr.y + sr.h) {
+        onSeatClicked(sr.seat);
+        return;
+      }
+    }
+  });
+
+  function onSeatClicked(seat) {
+    const banner = document.getElementById("statusBanner");
+    if (seat.state === "AVAILABLE") {
+      seat.state = "HELD";
+      banner.className = "status-banner hold";
+      banner.textContent = "Seat " + labelFor(seat) + " held for you -- confirming payment in a moment…";
+      render();
+      setTimeout(() => {
+        if (seat.state === "HELD") {
+          seat.state = "BOOKED";
+          banner.className = "status-banner ok";
+          banner.textContent = "Seat " + labelFor(seat) + " booked and paid.";
+          render();
+        }
+      }, 900);
+    } else if (seat.state === "HELD" || seat.state === "BOOKED") {
+      seat.state = "AVAILABLE";
+      seat.bug = false;
+      banner.className = "status-banner";
+      banner.textContent = "Seat " + labelFor(seat) + " released.";
+      render();
+    }
+  }
+  function labelFor(seat) { return String.fromCharCode(65 + seat.row) + (seat.col + 1); }
+
+  // ---------- stress test wiring ----------
+  async function fireStressTest() {
+    const strategy = document.getElementById("strategySelect").value;
+    const concurrency = parseInt(document.getElementById("concurrencySelect").value, 10);
+    const btn = document.getElementById("fireStressBtn");
+    btn.disabled = true;
+    btn.textContent = "Firing " + concurrency + " requests…";
+
+    resetSeats();
+    const targetSeat = seats[Math.floor(seats.length / 2)];
+    const succeeded = await runStressTest(strategy, concurrency, targetSeat);
+
+    document.getElementById("statSucceeded").textContent = succeeded;
+    document.getElementById("statFailed").textContent = concurrency - succeeded;
+
+    const bugged = succeeded !== 1;
+    targetSeat.state = "BOOKED";
+    targetSeat.bug = bugged;
+    render();
+
+    const banner = document.getElementById("stressBanner");
+    banner.hidden = false;
+    if (bugged) {
+      banner.className = "status-banner bug";
+      banner.textContent = succeeded > 1
+        ? "DOUBLE-BOOKED: " + succeeded + " requests all believed they won seat " + labelFor(targetSeat) + "."
+        : "Zero requests succeeded -- every attempt saw contention and gave up.";
+    } else {
+      banner.className = "status-banner ok";
+      banner.textContent = "Correct: exactly 1 of " + concurrency + " concurrent requests won seat " + labelFor(targetSeat) + ".";
+    }
+
+    recentLog.unshift({ strategy, fired: concurrency, succeeded });
+    if (recentLog.length > 12) recentLog.pop();
+    renderLog();
+
+    btn.disabled = false;
+    btn.textContent = "Fire concurrent requests at a fresh seat";
+  }
+
+  let recentLog = [];
+  function renderLog() {
+    const labels = { naive: "Naive", pessimistic: "Pessimistic", optimistic: "Optimistic", hold: "Atomic hold" };
+    document.getElementById("logBody").innerHTML = recentLog.map(e =>
+      "<tr><td>" + labels[e.strategy] + "</td><td class='num'>" + e.fired + "</td><td class='num'>" + e.succeeded + (e.succeeded !== 1 ? " ⚠" : "") + "</td></tr>"
+    ).join("") || "<tr><td colspan='3' style='color:var(--text-muted)'>No stress tests run yet.</td></tr>";
+  }
+
+  async function runComparison() {
+    const concurrency = parseInt(document.getElementById("concurrencySelect").value, 10) || 30;
+    const results = {};
+    for (const strategy of ["naive", "pessimistic", "optimistic", "hold"]) {
+      resetSeats();
+      const targetSeat = seats[Math.floor(seats.length / 2)];
+      results[strategy] = await runStressTest(strategy, concurrency, targetSeat);
+    }
+    return results;
+  }
+  function renderCompare(results) {
+    const labels = { naive: "Naive", pessimistic: "Pessimistic", optimistic: "Optimistic", hold: "Atomic hold" };
+    document.getElementById("compareResults").innerHTML = Object.keys(results).map(s => {
+      const v = results[s];
+      const isBug = v !== 1;
+      const pct = Math.min(100, (v / 5) * 100);
+      return "<div class='bar-row'><div class='bar-label'>" + labels[s] + "</div><div class='bar-track'><div class='bar-fill" + (isBug ? " bug" : "") + "' style='width:" + Math.max(pct, 6) + "%'></div></div><div class='bar-value'>" + v + " succeeded" + (isBug ? " ⚠" : "") + "</div></div>";
+    }).join("");
+  }
+
+  // ---------- wiring ----------
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      const target = tab.dataset.tab;
+      document.querySelectorAll(".tab-panel").forEach(p => p.hidden = p.dataset.panel !== target);
+    });
+  });
+
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    resetSeats();
+    const banner = document.getElementById("statusBanner");
+    banner.className = "status-banner";
+    banner.textContent = "Click any available seat to hold it, then confirm payment.";
+  });
+  document.getElementById("fireStressBtn").addEventListener("click", fireStressTest);
+  document.getElementById("strategySelect").addEventListener("change", () => {
+    document.getElementById("learnNote").textContent = STRATEGY_NOTES[document.getElementById("strategySelect").value];
+  });
+  document.getElementById("runCompareBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("runCompareBtn");
+    btn.disabled = true;
+    btn.textContent = "Running…";
+    const results = await runComparison();
+    renderCompare(results);
+    btn.disabled = false;
+    btn.textContent = "Run comparison";
+  });
+
+  window.addEventListener("resize", render);
+
+  function boot() {
+    document.getElementById("learnNote").textContent = STRATEGY_NOTES.pessimistic;
+    resetSeats();
+  }
+  if (window.claude && window.claude.hot) {
+    window.claude.hot.ready ? window.claude.hot.ready(boot) : boot();
+  } else {
+    boot();
+  }
+})();
+</script>
+
+</body></html>

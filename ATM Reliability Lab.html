@@ -1,0 +1,478 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>ATM Reliability Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chivo+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef0f3;
+    --surface: #ffffff;
+    --surface-2: #e3e7ed;
+    --border: #d3d9e2;
+    --text: #171b24;
+    --text-muted: #5d6675;
+    --accent: #1e3a8a;
+    --accent-soft: rgba(30,58,138,.12);
+    --pending: #b45309;
+    --pending-soft: rgba(180,83,9,.14);
+    --good: #15803d;
+    --good-soft: rgba(21,128,61,.12);
+    --bad: #b91c1c;
+    --bad-soft: rgba(185,28,28,.14);
+    --shadow: 0 1px 2px rgba(15,20,30,.05), 0 10px 30px -14px rgba(15,20,30,.28);
+    --radius: 16px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1116;
+      --surface: #171b23;
+      --surface-2: #1e232c;
+      --border: #2d3440;
+      --text: #eaeef5;
+      --text-muted: #96a0b3;
+      --accent: #93c5fd;
+      --accent-soft: rgba(147,197,253,.14);
+      --pending: #fbbf24;
+      --pending-soft: rgba(251,191,36,.14);
+      --good: #4ade80;
+      --good-soft: rgba(74,222,128,.14);
+      --bad: #f87171;
+      --bad-soft: rgba(248,113,113,.16);
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1116;
+    --surface: #171b23;
+    --surface-2: #1e232c;
+    --border: #2d3440;
+    --text: #eaeef5;
+    --text-muted: #96a0b3;
+    --accent: #93c5fd;
+    --accent-soft: rgba(147,197,253,.14);
+    --pending: #fbbf24;
+    --pending-soft: rgba(251,191,36,.14);
+    --good: #4ade80;
+    --good-soft: rgba(74,222,128,.14);
+    --bad: #f87171;
+    --bad-soft: rgba(248,113,113,.16);
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text); font-family: 'Manrope', system-ui, sans-serif;
+    padding: clamp(16px, 4vw, 40px); padding-block: clamp(20px, 4vw, 48px);
+    display: flex; justify-content: center;
+  }
+  .app { width: 100%; max-width: 1120px; }
+
+  .topbar { margin-bottom: 24px; }
+  .eyebrow { font-family: 'Chivo Mono', monospace; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+  h1 { font-family: 'Chivo Mono', monospace; font-size: clamp(28px, 4.5vw, 40px); font-weight: 700; margin: 0 0 8px; text-wrap: balance; letter-spacing: -.01em; }
+  .dek { color: var(--text-muted); max-width: 68ch; line-height: 1.55; margin: 0; font-size: 15px; }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 24px; align-items: start; }
+  @media (max-width: 780px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+
+  .board-panel { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .balance-row { display: flex; align-items: baseline; justify-content: space-between; padding: 12px 14px; background: var(--accent-soft); border-radius: 10px; }
+  .balance-row .num { font-family: 'Chivo Mono', monospace; font-size: 24px; font-weight: 700; color: var(--accent); }
+
+  .cassette-row { display: flex; gap: 8px; }
+  .cassette { flex: 1; border: 1px solid var(--border); border-radius: 10px; padding: 8px; text-align: center; background: var(--surface-2); }
+  .cassette .denom { font-family: 'Chivo Mono', monospace; font-size: 13px; font-weight: 700; }
+  .cassette .count { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  label.inline { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--text-muted); }
+  select, input[type="number"] { font-family: 'Manrope', sans-serif; font-size: 13.5px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); width: 100%; }
+
+  button {
+    font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 13.5px;
+    padding: 10px 16px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--text); color: var(--bg); cursor: pointer;
+    transition: transform .12s ease, opacity .12s ease;
+  }
+  button:hover { transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  button.ghost { background: transparent; color: var(--text); }
+  button.accent { background: var(--accent); color: #eef2ff; border-color: transparent; }
+  button.small { padding: 7px 10px; font-size: 12px; }
+
+  .status-banner { font-family: 'Chivo Mono', monospace; font-size: 13px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); line-height: 1.5; }
+  .status-banner.ok { background: var(--good-soft); color: var(--good); border-color: transparent; }
+  .status-banner.bad { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+  .status-banner.pending { background: var(--pending-soft); color: var(--pending); border-color: transparent; }
+
+  .notes-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .note-chip { font-family: 'Chivo Mono', monospace; font-size: 12px; padding: 4px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
+
+  .control-panel { padding: 16px; display: flex; flex-direction: column; gap: 16px; min-height: 480px; }
+  .tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; }
+  .tab { flex: 1; background: transparent; color: var(--text-muted); border: none; padding: 9px 6px; font-size: 12.5px; font-weight: 700; border-radius: 8px; box-shadow: none; }
+  .tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .tab:hover { transform: none; }
+
+  .tab-panel { display: flex; flex-direction: column; gap: 16px; }
+  .tab-panel[hidden] { display: none; }
+
+  .field-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); font-weight: 700; }
+  .card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--surface-2); }
+
+  .stat-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .stat-tile { flex: 1; min-width: 96px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .stat-tile .num { font-family: 'Chivo Mono', monospace; font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-tile .label { font-size: 10.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; }
+  td.num, th.num { text-align: right; font-family: 'Chivo Mono', monospace; font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow-x: auto; }
+
+  .note { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+  .divider { height: 1px; background: var(--border); border: none; margin: 2px 0; }
+
+  footer { margin-top: 28px; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+</style>
+
+<div class="app">
+  <header class="topbar">
+    <div class="eyebrow">Interactive Systems Lab &middot; Companion to the Design Guide</div>
+    <h1>ATM Reliability Lab</h1>
+    <p class="dek">Withdraw normally, or head to Network Chaos and inject a failure at the exact moment cash leaves the tray. Naive orderings really do produce free money or a lost debit &mdash; reserve-then-confirm never does, and a pending case resolves correctly the moment reconciliation runs.</p>
+  </header>
+
+  <main class="layout">
+    <section class="panel board-panel">
+      <div class="balance-row">
+        <span>Account balance</span>
+        <span class="num" id="balanceDisplay">$500.00</span>
+      </div>
+      <div class="field-label">Cassette inventory</div>
+      <div class="cassette-row" id="cassetteRow"></div>
+      <label class="inline">Withdrawal amount
+        <input type="number" id="amountInput" value="140" min="20" step="20">
+      </label>
+      <button class="accent" id="withdrawBtn">Attempt withdrawal</button>
+      <div class="status-banner" id="statusBanner">Ready. Balance and cassettes reset each time you reset the lab.</div>
+      <div class="notes-row" id="notesRow"></div>
+      <button class="ghost" id="resetBtn">Reset lab</button>
+    </section>
+
+    <section class="panel control-panel">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="chaos" role="tab">Network Chaos</button>
+        <button class="tab" data-tab="concurrency" role="tab">Concurrency</button>
+        <button class="tab" data-tab="log" role="tab">Log</button>
+      </div>
+
+      <div class="tab-panel" data-panel="chaos">
+        <div class="card">
+          <div class="field-label">Withdrawal ordering</div>
+          <label class="inline">Strategy
+            <select id="orderingSelect">
+              <option value="debit-first">Naive: debit, then dispense</option>
+              <option value="dispense-first">Naive: dispense, then debit</option>
+              <option value="reserve-confirm" selected>Correct: reserve, dispense, confirm</option>
+            </select>
+          </label>
+        </div>
+        <div class="card">
+          <div class="field-label">Inject a network failure</div>
+          <label class="inline">Failure point
+            <select id="failureSelect">
+              <option value="none" selected>None &mdash; everything succeeds</option>
+              <option value="before-dispense">Before cash physically dispenses</option>
+              <option value="after-dispense">After cash dispenses, before confirmation lands</option>
+            </select>
+          </label>
+        </div>
+        <button class="ghost small" id="runReconciliationBtn" disabled>Run reconciliation</button>
+        <p class="note" id="chaosNote"></p>
+      </div>
+
+      <div class="tab-panel" data-panel="concurrency" hidden>
+        <div class="field-label">Double-withdrawal race</div>
+        <p class="note">Two channels attempt to withdraw the full balance from the same account at nearly the same instant. Naive check-then-reserve can let both succeed; atomic reservation never can.</p>
+        <label class="inline">Locking
+          <select id="lockingSelect">
+            <option value="naive">Naive check-then-reserve</option>
+            <option value="atomic" selected>Atomic reserve (row-locked)</option>
+          </select>
+        </label>
+        <button class="accent small" id="fireRaceBtn">Fire both channels at once</button>
+        <div class="stat-row">
+          <div class="stat-tile"><div class="num" id="statTotalReserved">&mdash;</div><div class="label">Total reserved</div></div>
+          <div class="stat-tile"><div class="num" id="statStartBalance">&mdash;</div><div class="label">Starting balance</div></div>
+        </div>
+        <div class="status-banner" id="raceBanner" hidden></div>
+      </div>
+
+      <div class="tab-panel" data-panel="log" hidden>
+        <div class="field-label">Recent activity</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Event</th><th class="num">Outcome</th></tr></thead>
+            <tbody id="logBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Runnable companion to <em>Design an ATM System &mdash; HLD, LLD, and Class Design From Scratch</em>. All transactions are simulated locally; nothing is sent anywhere or actually charged.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const STARTING_BALANCE = 50000; // cents
+  let balanceCents = STARTING_BALANCE;
+  let reservedCents = 0;
+  let cassettes = [];
+  let pendingReservation = null; // set only when a "reserve-confirm + after-dispense failure" case is left ambiguous
+  let recentLog = [];
+
+  function fmt(cents) { return "$" + (cents / 100).toFixed(2); }
+
+  function resetLab() {
+    balanceCents = STARTING_BALANCE;
+    reservedCents = 0;
+    pendingReservation = null;
+    cassettes = [
+      { denom: 10000, count: 3 },
+      { denom: 5000, count: 5 },
+      { denom: 2000, count: 10 }
+    ];
+    document.getElementById("runReconciliationBtn").disabled = true;
+    setStatus("Ready. Balance and cassettes reset.", "");
+    document.getElementById("notesRow").innerHTML = "";
+    renderBalance();
+    renderCassettes();
+  }
+
+  function renderBalance() {
+    document.getElementById("balanceDisplay").textContent = fmt(balanceCents);
+  }
+  function renderCassettes() {
+    document.getElementById("cassetteRow").innerHTML = cassettes.map(c =>
+      "<div class='cassette'><div class='denom'>" + fmt(c.denom) + "</div><div class='count'>x" + c.count + "</div></div>"
+    ).join("");
+  }
+  function setStatus(text, cls) {
+    const el = document.getElementById("statusBanner");
+    el.textContent = text;
+    el.className = "status-banner" + (cls ? " " + cls : "");
+  }
+
+  // ---------- bounded-supply dispensing, mirrors the design guide's §19-21 ----------
+  function tryDispense(amountCents) {
+    const sorted = cassettes.slice().sort((a, b) => b.denom - a.denom);
+    const used = [];
+    let remaining = amountCents;
+    for (const c of sorted) {
+      let take = Math.min(c.count, Math.floor(remaining / c.denom));
+      while (take > 0) { used.push(c.denom); remaining -= c.denom; take--; }
+    }
+    if (remaining !== 0) return null; // undispensable with current cassette levels, §22-23
+    for (const denom of used) {
+      const cassette = cassettes.find(c => c.denom === denom);
+      cassette.count--;
+    }
+    return used;
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // ---------- the three withdrawal orderings, mirrors §24-27 exactly ----------
+  async function attemptWithdrawal() {
+    const amount = Math.max(20, parseInt(document.getElementById("amountInput").value, 10) || 20) * 100;
+    const ordering = document.getElementById("orderingSelect").value;
+    const failurePoint = document.getElementById("failureSelect").value;
+    document.getElementById("notesRow").innerHTML = "";
+
+    if (ordering === "debit-first") {
+      balanceCents -= amount;
+      renderBalance();
+      if (failurePoint === "before-dispense") {
+        setStatus("BUG: account debited " + fmt(amount) + ", but a failure occurred before cash dispensed. Customer charged for nothing.", "bad");
+        logEvent("Naive debit-first + fail before dispense", "LOST DEBIT bug");
+        return;
+      }
+      const notes = tryDispense(amount);
+      if (!notes) {
+        setStatus("Cannot dispense " + fmt(amount) + " with current cassettes -- AND the account was ALREADY debited. A real bug.", "bad");
+        logEvent("Naive debit-first, undispensable", "LOST DEBIT bug");
+        return;
+      }
+      showNotes(notes);
+      setStatus("Dispensed " + fmt(amount) + ". Debited first, as designed -- correct only because nothing failed.", "");
+      logEvent("Naive debit-first, no failure", "worked, but fragile");
+      return;
+    }
+
+    if (ordering === "dispense-first") {
+      const notes = tryDispense(amount);
+      if (!notes) { setStatus("Cannot dispense " + fmt(amount) + " with current cassettes.", "bad"); logEvent("Dispense-first, undispensable", "declined, correctly"); return; }
+      showNotes(notes);
+      if (failurePoint === "after-dispense") {
+        setStatus("BUG: " + fmt(amount) + " physically dispensed, but the debit call failed before it landed. Free money -- the balance never changed.", "bad");
+        logEvent("Naive dispense-first + fail after dispense", "FREE MONEY bug");
+        return;
+      }
+      balanceCents -= amount;
+      renderBalance();
+      setStatus("Dispensed " + fmt(amount) + ", then debited -- correct only because nothing failed.", "");
+      logEvent("Naive dispense-first, no failure", "worked, but fragile");
+      return;
+    }
+
+    // reserve-then-confirm, §26-27
+    if ((balanceCents - reservedCents) < amount) {
+      setStatus("Insufficient available balance.", "bad");
+      logEvent("Reserve attempt", "declined: insufficient funds");
+      return;
+    }
+    reservedCents += amount; // durable hold, placed BEFORE any cash moves
+    if (failurePoint === "before-dispense") {
+      reservedCents -= amount; // rolled back cleanly -- no cash left, so no debit should ever occur
+      setStatus("Failure before dispensing. Reservation rolled back cleanly. Balance untouched, no cash lost.", "ok");
+      logEvent("Reserve-then-confirm + fail before dispense", "correctly rolled back");
+      return;
+    }
+
+    const notes = tryDispense(amount);
+    if (!notes) {
+      reservedCents -= amount;
+      setStatus("Cannot dispense " + fmt(amount) + " -- reservation released before any cash moved. Balance untouched.", "ok");
+      logEvent("Reserve-then-confirm, undispensable", "correctly declined");
+      return;
+    }
+    showNotes(notes);
+
+    if (failurePoint === "after-dispense") {
+      pendingReservation = { amount };
+      document.getElementById("runReconciliationBtn").disabled = false;
+      setStatus("Cash dispensed. Confirmation call failed to land -- handed off to reconciliation, NOT lost and NOT charged twice.", "pending");
+      logEvent("Reserve-then-confirm + fail after dispense", "pending reconciliation");
+      return;
+    }
+
+    balanceCents -= amount;
+    reservedCents -= amount;
+    renderBalance();
+    setStatus("Dispensed " + fmt(amount) + " and confirmed. Correct in every case, not just the lucky one.", "ok");
+    logEvent("Reserve-then-confirm, no failure", "correct");
+  }
+
+  function runReconciliation() {
+    if (!pendingReservation) return;
+    balanceCents -= pendingReservation.amount;
+    reservedCents -= pendingReservation.amount;
+    renderBalance();
+    setStatus("Reconciliation ran: cash was sensor-confirmed as dispensed, so the debit is now finalized. Resolved correctly, exactly once.", "ok");
+    logEvent("Reconciliation", "finalized debit");
+    pendingReservation = null;
+    document.getElementById("runReconciliationBtn").disabled = true;
+  }
+
+  function showNotes(notes) {
+    document.getElementById("notesRow").innerHTML = notes.map(n => "<span class='note-chip'>" + fmt(n) + "</span>").join("");
+  }
+
+  // ---------- concurrency race, mirrors §30-32 ----------
+  async function fireRace() {
+    const locking = document.getElementById("lockingSelect").value;
+    const raceBalance = STARTING_BALANCE;
+    let raceReserved = 0;
+    const amount = raceBalance; // both channels request the FULL balance
+
+    async function naiveAttempt() {
+      await sleep(15 + Math.random() * 10);
+      const available = raceBalance - raceReserved;
+      await sleep(15 + Math.random() * 10);
+      if (available < amount) return 0;
+      raceReserved += amount; // no re-check against the CURRENT value -- the exact race from §30-31
+      return amount;
+    }
+    function atomicAttempt() {
+      const available = raceBalance - raceReserved;
+      if (available < amount) return 0;
+      raceReserved += amount; // no await between check and reserve -- nothing can interleave
+      return amount;
+    }
+
+    const fn = locking === "naive" ? naiveAttempt : atomicAttempt;
+    const [a, b] = await Promise.all([fn(), fn()]);
+    const total = a + b;
+
+    document.getElementById("statTotalReserved").textContent = fmt(total);
+    document.getElementById("statStartBalance").textContent = fmt(raceBalance);
+    const banner = document.getElementById("raceBanner");
+    banner.hidden = false;
+    if (total > raceBalance) {
+      banner.className = "status-banner bad";
+      banner.textContent = "OVERDRAFT BUG: " + fmt(total) + " reserved against a " + fmt(raceBalance) + " balance.";
+    } else {
+      banner.className = "status-banner ok";
+      banner.textContent = "Correct: only " + fmt(total) + " reserved against a " + fmt(raceBalance) + " balance.";
+    }
+    logEvent((locking === "naive" ? "Naive" : "Atomic") + " concurrent withdrawal race", fmt(total) + " of " + fmt(raceBalance));
+  }
+
+  function logEvent(event, outcome) {
+    recentLog.unshift({ event, outcome });
+    if (recentLog.length > 14) recentLog.length = 14;
+    document.getElementById("logBody").innerHTML = recentLog.map(e =>
+      "<tr><td>" + e.event + "</td><td class='num'>" + e.outcome + "</td></tr>"
+    ).join("") || "<tr><td colspan='2' style='color:var(--text-muted)'>Nothing yet.</td></tr>";
+  }
+
+  // ---------- wiring ----------
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      const target = tab.dataset.tab;
+      document.querySelectorAll(".tab-panel").forEach(p => p.hidden = p.dataset.panel !== target);
+    });
+  });
+
+  document.getElementById("withdrawBtn").addEventListener("click", attemptWithdrawal);
+  document.getElementById("resetBtn").addEventListener("click", resetLab);
+  document.getElementById("runReconciliationBtn").addEventListener("click", runReconciliation);
+  document.getElementById("fireRaceBtn").addEventListener("click", fireRace);
+
+  const CHAOS_NOTES = {
+    "debit-first": "Debits the account FIRST, then dispenses. A failure before dispensing leaves the customer charged for nothing -- a lost debit (§25).",
+    "dispense-first": "Dispenses cash FIRST, then debits. A failure after dispensing leaves the balance untouched -- free money (§25).",
+    "reserve-confirm": "Places a durable reservation BEFORE any cash moves, dispenses, then confirms. A failure before dispensing rolls back cleanly; a failure after dispensing hands off to reconciliation -- never lost, never double-charged (§26-29)."
+  };
+  document.getElementById("orderingSelect").addEventListener("change", () => {
+    document.getElementById("chaosNote").textContent = CHAOS_NOTES[document.getElementById("orderingSelect").value];
+  });
+
+  function boot() {
+    document.getElementById("chaosNote").textContent = CHAOS_NOTES["reserve-confirm"];
+    resetLab();
+    logEvent("Lab started", "ready");
+  }
+  if (window.claude && window.claude.hot) {
+    window.claude.hot.ready ? window.claude.hot.ready(boot) : boot();
+  } else {
+    boot();
+  }
+})();
+</script>
+
+</body></html>

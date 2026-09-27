@@ -1,0 +1,808 @@
+<meta charset="utf-8">
+<title>Design a Vending Machine — HLD, LLD, and Class Design From Scratch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow); transition:background .15s,transform .1s;
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; system design guide</div>
+      <h1>Design a Vending Machine — HLD, LLD, and Class Design From Scratch</h1>
+      <p class="dek">A complete, step-by-step system design walkthrough for a vending machine &mdash; the machine's operation modeled as an explicit state machine (the textbook example for the State pattern), pluggable payment methods, the greedy change-making algorithm and the precise, provable case where it stops being optimal, the dynamic-programming fix, atomic inventory dispensing that survives a stuck sensor or a double-press, refund handling, and scaling from one machine to a monitored fleet &mdash; framed as a live interview with follow-up questions at every step.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-the-interview-framed">Why This Matters (The Interview, Framed)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-step-1-clarifying-requirements-before-designing-anything">Step 1 — Clarifying Requirements Before Designing Anything</a></li><li class="toc-lvl-2"><a href="#7-functional-requirements">Functional Requirements</a></li><li class="toc-lvl-2"><a href="#8-non-functional-requirements">Non-Functional Requirements</a></li><li class="toc-lvl-2"><a href="#9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</a></li><li class="toc-lvl-2"><a href="#10-identifying-the-core-domain-entities">Identifying the Core Domain Entities</a></li><li class="toc-lvl-2"><a href="#11-high-level-architecture-overview">High-Level Architecture Overview</a></li><li class="toc-lvl-2"><a href="#12-follow-up-question-2-why-not-just-use-a-few-boolean-flags-for-the-machines-status">Follow-up Question 2 — "Why Not Just Use a Few Boolean Flags for the Machine's Status?"</a></li><li class="toc-lvl-2"><a href="#13-modeling-the-machine-as-an-explicit-state-machine">Modeling the Machine as an Explicit State Machine</a></li><li class="toc-lvl-2"><a href="#14-implementing-the-state-pattern-for-machine-operation">Implementing the State Pattern for Machine Operation</a></li><li class="toc-lvl-2"><a href="#15-class-diagram-the-vending-machine-state-machine">Class Diagram: The Vending Machine State Machine</a></li><li class="toc-lvl-2"><a href="#16-follow-up-question-3-how-do-you-support-multiple-payment-methods-coins-bills-card-cleanly">Follow-up Question 3 — "How Do You Support Multiple Payment Methods — Coins, Bills, Card — Cleanly?"</a></li><li class="toc-lvl-2"><a href="#17-payment-as-a-pluggable-strategy">Payment as a Pluggable Strategy</a></li><li class="toc-lvl-2"><a href="#18-implementing-coinbill-and-card-payment-strategies">Implementing Coin/Bill and Card Payment Strategies</a></li><li class="toc-lvl-2"><a href="#19-follow-up-question-4-how-do-you-compute-change-walk-through-the-algorithm">Follow-up Question 4 — "How Do You Compute Change — Walk Through the Algorithm"</a></li><li class="toc-lvl-2"><a href="#20-the-greedy-change-making-algorithm">The Greedy Change-Making Algorithm</a></li><li class="toc-lvl-2"><a href="#21-implementing-greedy-change-making">Implementing Greedy Change-Making</a></li><li class="toc-lvl-2"><a href="#22-follow-up-question-5-does-greedy-always-give-the-minimum-number-of-coins-prove-it-or-break-it">Follow-up Question 5 — "Does Greedy Always Give the Minimum Number of Coins? Prove It or Break It."</a></li><li class="toc-lvl-2"><a href="#23-why-greedy-fails-for-non-canonical-denominations">Why Greedy Fails for Non-Canonical Denominations</a></li><li class="toc-lvl-2"><a href="#24-the-correct-fix-dynamic-programming-for-minimum-coin-change">The Correct Fix: Dynamic Programming for Minimum-Coin Change</a></li><li class="toc-lvl-2"><a href="#25-implementing-dp-based-change-making">Implementing DP-Based Change-Making</a></li><li class="toc-lvl-2"><a href="#26-follow-up-question-6-what-happens-if-the-machine-runs-low-on-specific-coin-denominations-for-making-change">Follow-up Question 6 — "What Happens If the Machine Runs Low on Specific Coin Denominations for Making Change?"</a></li><li class="toc-lvl-2"><a href="#27-exact-change-only-mode-and-change-reserve-management">Exact-Change-Only Mode and Change Reserve Management</a></li><li class="toc-lvl-2"><a href="#28-follow-up-question-7-a-stuck-sensor-or-a-rapid-double-button-press-how-do-you-avoid-dispensing-the-same-item-twice-for-one-payment">Follow-up Question 7 — "A Stuck Sensor or a Rapid Double Button-Press — How Do You Avoid Dispensing the Same Item Twice for One Payment?"</a></li><li class="toc-lvl-2"><a href="#29-concurrency-atomic-check-and-decrement-for-inventory">Concurrency: Atomic Check-and-Decrement for Inventory</a></li><li class="toc-lvl-2"><a href="#30-implementing-atomic-dispense">Implementing Atomic Dispense</a></li><li class="toc-lvl-2"><a href="#31-follow-up-question-8-a-user-inserts-money-then-cancels-or-the-machine-detects-a-jam-how-do-you-handle-refunds-correctly">Follow-up Question 8 — "A User Inserts Money, Then Cancels or the Machine Detects a Jam. How Do You Handle Refunds Correctly?"</a></li><li class="toc-lvl-2"><a href="#32-refund-handling-and-partial-payment-edge-cases">Refund Handling and Partial-Payment Edge Cases</a></li><li class="toc-lvl-2"><a href="#33-follow-up-question-9-how-do-you-track-and-alert-on-low-or-out-of-stock-inventory-across-many-slots">Follow-up Question 9 — "How Do You Track and Alert on Low or Out-of-Stock Inventory Across Many Slots?"</a></li><li class="toc-lvl-2"><a href="#34-inventory-management-and-low-stock-detection">Inventory Management and Low-Stock Detection</a></li><li class="toc-lvl-2"><a href="#35-follow-up-question-10-how-do-you-scale-this-to-a-fleet-of-machines-remote-monitoring-restocking-routes">Follow-up Question 10 — "How Do You Scale This to a Fleet of Machines — Remote Monitoring, Restocking Routes?"</a></li><li class="toc-lvl-2"><a href="#36-fleet-telemetry-and-remote-monitoring">Fleet Telemetry and Remote Monitoring</a></li><li class="toc-lvl-2"><a href="#37-class-diagram-full-vending-machine-system">Class Diagram: Full Vending Machine System</a></li><li class="toc-lvl-2"><a href="#38-follow-up-question-11-how-do-you-support-promotional-pricing-or-dynamic-pricing-per-product">Follow-up Question 11 — "How Do You Support Promotional Pricing or Dynamic Pricing Per Product?"</a></li><li class="toc-lvl-2"><a href="#39-pluggable-pricing-and-promotions">Pluggable Pricing and Promotions</a></li><li class="toc-lvl-2"><a href="#40-capacity-estimation-transaction-throughput-and-inventory-sync">Capacity Estimation: Transaction Throughput and Inventory Sync</a></li><li class="toc-lvl-2"><a href="#41-full-worked-example-one-purchase-traced-end-to-end">Full Worked Example: One Purchase, Traced End to End</a></li><li class="toc-lvl-2"><a href="#42-final-architecture-diagram">Final Architecture Diagram</a></li><li class="toc-lvl-2"><a href="#43-design-patterns-used-throughout-this-guide">Design Patterns Used Throughout This Guide</a></li><li class="toc-lvl-2"><a href="#44-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#45-common-mistakes-when-building-this-yourself">Common Mistakes When Building This Yourself</a></li><li class="toc-lvl-2"><a href="#46-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#47-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#48-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#49-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Customer selects a slot --&gt; [ Machine State Machine ] --awaits payment--&gt; [ Payment Strategy ]
+                                     |                                          |
+                              IDLE / HAS_FUNDS / DISPENSING              coins | bills | card
+                                     |
+                          [ Inventory: atomic check-and-decrement ] --dispense--&gt; [ Change Maker ]
+                                                                                        |
+                                                                          greedy, OR dynamic
+                                                                          programming, and why
+                                                                          that distinction is real</code></pre></div>
+<p>A vending machine looks like the simplest possible interview question — until the follow-ups start. This guide builds one from scratch: the machine's operation modeled as an explicit state machine (the textbook example for the State design pattern), pluggable payment methods, the greedy change-making algorithm and the precise, provable case where it stops being optimal, the dynamic-programming fix, atomic inventory dispensing that survives a stuck button or a double-press, refund handling, and scaling from one machine to a monitored fleet.</p>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide, you will be able to:</p>
+<ul><li>Model a vending machine's operation as an explicit state machine, and explain why a handful of independent boolean flags is the wrong way to represent it.</li><li>Design a pluggable payment strategy supporting coins, bills, and card, without any payment-method-specific logic leaking into the machine's core state transitions.</li><li>Implement the greedy change-making algorithm, and — critically — prove precisely when it stops producing the minimum number of coins, with a concrete counterexample.</li><li>Implement the correct, general dynamic-programming fix for minimum-coin change, and explain why it's needed for a non-canonical denomination set even though greedy works fine for most real currencies.</li><li>Design atomic inventory dispensing that can't be tricked into releasing two items for one payment by a double-press or a stuck sensor.</li><li>Design refund handling, low-stock detection, and the scaling story from a single machine to a remotely-monitored fleet.</li><li>Apply SOLID principles and recognizable design patterns (State, Strategy) to keep the system extensible without modifying already-tested code.</li></ul>
+<hr>
+<h2 id="3-why-this-matters-the-interview-framed">3. Why This Matters (The Interview, Framed)</h2>
+<p>"Design a vending machine" endures as an interview question specifically because it's the canonical teaching example for the State pattern — a machine that must never dispense on an unpaid balance, or accept a second payment while already dispensing, is a small enough domain to fully implement in an interview, while still exposing whether a candidate reaches for explicit states or a tangle of boolean flags. It also hides a genuinely surprising algorithmic trap in an operation everyone assumes is trivial: making change — most candidates confidently write greedy change-making and never realize it can be <em>provably wrong</em> for the exact denomination set the interviewer chose on purpose. This guide frames the design as a live interview: each major decision is preceded by the clarifying question that should have prompted it, and each design step is immediately followed by the hardest question a good interviewer asks next.</p>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table><thead><tr><th>Concern</th><th>Choice</th><th>Why</th></tr></thead><tbody><tr><td>Language (design)</td><td>Java 21</td><td>Sealed interfaces model machine state and payment methods precisely; records keep inventory/change snapshots immutable</td></tr><tr><td>Runnable artifact</td><td>HTML5 Canvas + vanilla JavaScript</td><td>Single-file, dependency-free, lets the change-making comparison be watched and verified live in a browser</td></tr><tr><td>Change-making (canonical currency)</td><td>Greedy algorithm</td><td>Provably optimal for canonical denomination systems (like real-world currency), and far cheaper to compute</td></tr><tr><td>Change-making (general case)</td><td>Dynamic programming</td><td>The only approach that's provably optimal for <em>any</em> denomination set, including deliberately non-canonical ones</td></tr><tr><td>Inventory dispensing</td><td>Atomic check-and-decrement</td><td>The same "collapse check-and-act into one operation" principle this series has applied to every other shared-resource guide</td></tr><tr><td>Fleet monitoring</td><td>Periodic telemetry push per machine</td><td>Low-stock and fault alerts reach an operator without requiring anyone to physically visit every machine</td></tr></tbody></table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>vending-machine/
+├── src/main/java/com/example/vending/
+│   ├── domain/
+│   │   └── Slot.java, Product.java, Money.java, Coin.java              // §10
+│   ├── machine/
+│   │   ├── MachineState.java (State pattern)                          // §13-14
+│   │   └── VendingMachine.java                                        // §14
+│   ├── payment/
+│   │   ├── PaymentStrategy.java (Strategy interface)                  // §17
+│   │   └── CoinPaymentStrategy.java, CardPaymentStrategy.java          // §18
+│   ├── change/
+│   │   ├── GreedyChangeMaker.java                                     // §21
+│   │   └── DynamicProgrammingChangeMaker.java                         // §25
+│   ├── inventory/
+│   │   └── InventoryManager.java (atomic dispense)                    // §30
+│   └── fleet/
+│       └── TelemetryReporter.java                                     // §36
+├── src/test/java/com/example/vending/
+│   ├── GreedyChangeCounterexampleTest.java
+│   ├── DoubleDispenseTest.java
+│   └── MachineStateTransitionTest.java
+└── artifact/
+    └── vending-arena.html   -- the runnable simulator, §1's worked design made playable</code></pre></div>
+<hr>
+<h2 id="6-step-1-clarifying-requirements-before-designing-anything">6. Step 1 — Clarifying Requirements Before Designing Anything</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Design a vending machine."</em></p></blockquote>
+<p>Even for a machine everyone has personally used, the intentionally open prompt needs narrowing: how many product slots, and does each hold a single product type or a mix? What payment methods — coins and bills only, or card too? Does the machine need to compute change at all, or is it exact-change-only? Is this a single standalone machine, or does the design need to account for a whole fleet, remotely monitored for restocking? The answers reshape which parts of the design carry real weight, and asking them signals the difference between reciting "it has states" and actually designing <em>this</em> machine.</p>
+<hr>
+<h2 id="7-functional-requirements">7. Functional Requirements</h2>
+<ul><li><strong>Display available products</strong> with their price and current stock, per slot.</li><li><strong>Accept payment</strong> via multiple methods (coins, bills, card) up to or exceeding a selected product's price.</li><li><strong>Dispense the selected product</strong> only once sufficient funds have been received, and only if it's actually in stock.</li><li><strong>Return change</strong> for any overpayment, using the minimum number of coins/bills possible.</li><li><strong>Support cancellation</strong>, refunding whatever has been inserted so far if the customer changes their mind before dispensing.</li><li><strong>Track inventory per slot</strong>, detecting and reporting low-stock or out-of-stock conditions.</li><li><strong>Support a fleet of machines</strong>, each reporting its own inventory and fault status remotely.</li></ul>
+<hr>
+<h2 id="8-non-functional-requirements">8. Non-Functional Requirements</h2>
+<ul><li><strong>Correctness above all</strong>: the machine must never dispense a product without having received sufficient payment, and never dispense two products for one payment.</li><li><strong>Minimum-coin change</strong>: whatever change algorithm is used must be provably correct for the machine's actual denomination set, not merely "usually right."</li><li><strong>Atomicity under mechanical failure</strong>: a stuck sensor or a rapid double button-press must never cause double-dispensing or an inventory count drifting out of sync with reality.</li><li><strong>Graceful degradation on low change reserves</strong>: the machine should switch to exact-change-only rather than dispense a product it then can't correctly give change for.</li><li><strong>Bounded fleet monitoring latency</strong>: an operator should learn of a low-stock or faulted machine within a reasonably short window, not only when someone happens to visit it.</li></ul>
+<hr>
+<h2 id="9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">9. Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Name the core domain concepts before you draw any architecture."</em></p></blockquote>
+<ul><li><strong>Slot</strong> — a single dispensing position, holding one product type, a price, and a current stock count.</li><li><strong>Product</strong> — the item a slot dispenses, with a name and a price.</li><li><strong>Money</strong> — an amount tendered or owed, always reasoned about as an integer count of the smallest currency unit (cents), never a floating-point dollar amount.</li><li><strong>Payment Method</strong> — coins, bills, or card — a pluggable way of contributing toward a selected product's price.</li><li><strong>Machine State</strong> — the machine's current operational phase (idle, awaiting more funds, dispensing, out of service) — an explicit, closed set of values, not a handful of independent flags.</li><li><strong>Change Maker</strong> — the algorithm that decides which coins/bills to return for a given overpayment amount.</li></ul>
+<hr>
+<h2 id="10-identifying-the-core-domain-entities">10. Identifying the Core Domain Entities</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public record Product(String name, int priceCents) { }
+
+public class Slot {
+    private final String slotId;
+    private final Product product;
+    private int stockCount;
+
+    public boolean isInStock() { return stockCount &gt; 0; }
+}
+
+public record Coin(int valueCents) { } // e.g. 1, 5, 10, 25 -- or a deliberately NON-canonical set, §22-23
+
+public class Balance {
+    private int insertedCents = 0;
+    public void add(int cents) { insertedCents += cents; }
+    public int cents() { return insertedCents; }
+}</code></pre></div>
+<p>Reasoning about every amount as an integer count of cents — never a floating-point dollar value — is a small but load-bearing detail: floating-point rounding error in a system that literally exists to handle exact money would be a real, embarrassing correctness bug, not a cosmetic one.</p>
+<hr>
+<h2 id="11-high-level-architecture-overview">11. High-Level Architecture Overview</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    +------------------------+
+Customer selects  --&gt;|      VendingMachine       |
+slot, inserts money  |  (State pattern, §13-14) |
+                    +-----------+--------------+
+                                |
+                    +-----------v--------------+       +------------------------+
+                    |    PaymentStrategy         |------&gt;|      Balance             |
+                    |  coins | bills | card      |       +------------------------+
+                    +------------------------+
+                                |
+                    +-----------v--------------+       +------------------------+
+                    |    InventoryManager        |------&gt;|    ChangeMaker           |
+                    |  atomic check-and-decrement|       |  greedy OR DP, §19-25    |
+                    +------------------------+       +------------------------+
+
+                    +------------------------+
+Fleet of machines ---&gt;|   TelemetryReporter      |----(low-stock/fault alerts, §36)
+                    +------------------------+</code></pre></div>
+<p>Every mechanism this guide builds sits along one linear path — select, pay, dispense, change — with <code>VendingMachine</code>'s own state machine as the single orchestrator deciding which of these steps is even legal to attempt at any given moment.</p>
+<hr>
+<h2 id="12-follow-up-question-2-why-not-just-use-a-few-boolean-flags-for-the-machines-status">12. Follow-up Question 2 — "Why Not Just Use a Few Boolean Flags for the Machine's Status?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"<code>hasSelectedProduct</code>, <code>hasSufficientFunds</code>, <code>isDispensing</code> — three booleans. What's wrong with tracking status that way?"</em></p></blockquote>
+<p>Independent booleans can be set into combinations that are physically nonsensical — <code>isDispensing = true</code> while <code>hasSelectedProduct = false</code>, for instance, describes a machine dispensing nothing in particular, a state that should be structurally impossible, not merely "shouldn't happen if the code is written carefully." The fix, exactly as this series has applied repeatedly (a parking spot's lifecycle, an elevator car's lifecycle, a seat's booking lifecycle), is to make the machine's phase a single, explicit, closed set of values with clearly defined legal transitions between them.</p>
+<hr>
+<h2 id="13-modeling-the-machine-as-an-explicit-state-machine">13. Modeling the Machine as an Explicit State Machine</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>IDLE ----selectProduct()----&gt; AWAITING_PAYMENT
+AWAITING_PAYMENT ----insertPayment(), balance still short----&gt; AWAITING_PAYMENT (unchanged)
+AWAITING_PAYMENT ----insertPayment(), balance now sufficient----&gt; DISPENSING
+DISPENSING ----dispenseComplete()----&gt; IDLE (change returned as part of this same transition)
+AWAITING_PAYMENT ----cancel()----&gt; IDLE (full refund)
+ANY STATE ----faultDetected()----&gt; OUT_OF_SERVICE
+
+Illegal transitions (structurally PREVENTED, not just discouraged by convention):
+  IDLE.insertPayment()        -- no product selected yet, nothing to pay toward
+  DISPENSING.selectProduct()  -- already mid-dispense, a new selection mid-flight is nonsensical
+  OUT_OF_SERVICE.selectProduct() -- a faulted machine accepts no new transactions at all</code></pre></div>
+<p>This is the exact same State-pattern discipline this series has used for a parking spot, an elevator car, and a booked seat — a small, explicit set of phases, each exposing only the operations that are legal from it, with the state object itself (not scattered <code>if</code> checks) deciding what happens next.</p>
+<hr>
+<h2 id="14-implementing-the-state-pattern-for-machine-operation">14. Implementing the State Pattern for Machine Operation</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface MachineState {
+    MachineState selectProduct(VendingMachine machine, Slot slot);
+    MachineState insertPayment(VendingMachine machine, int cents);
+    MachineState cancel(VendingMachine machine);
+}
+
+public class IdleState implements MachineState {
+    @Override
+    public MachineState selectProduct(VendingMachine machine, Slot slot) {
+        if (!slot.isInStock()) throw new IllegalStateException("Slot is out of stock");
+        machine.setSelectedSlot(slot);
+        return new AwaitingPaymentState();
+    }
+    @Override
+    public MachineState insertPayment(VendingMachine machine, int cents) {
+        throw new IllegalStateException("Select a product before inserting payment");
+    }
+    @Override
+    public MachineState cancel(VendingMachine machine) { return this; } // nothing to cancel
+}
+
+public class AwaitingPaymentState implements MachineState {
+    @Override
+    public MachineState selectProduct(VendingMachine machine, Slot slot) {
+        throw new IllegalStateException("A product is already selected -- cancel first");
+    }
+    @Override
+    public MachineState insertPayment(VendingMachine machine, int cents) {
+        machine.balance().add(cents);
+        if (machine.balance().cents() &gt;= machine.selectedSlot().product().priceCents()) {
+            return new DispensingState();
+        }
+        return this; // still short -- stay in this same state, awaiting more
+    }
+    @Override
+    public MachineState cancel(VendingMachine machine) {
+        machine.refund(machine.balance().cents());
+        return new IdleState();
+    }
+}
+
+public class VendingMachine {
+    private MachineState state = new IdleState();
+    public void selectProduct(Slot slot) { this.state = state.selectProduct(this, slot); }
+    public void insertPayment(int cents) { this.state = state.insertPayment(this, cents); }
+}</code></pre></div>
+<p><code>VendingMachine</code> itself contains no <code>if (currentState == ...)</code> check anywhere — it simply delegates every operation to whichever state object it currently holds, exactly the same delegation structure this series has used consistently, which is what makes each state's legal operations fully self-contained and independently testable.</p>
+<hr>
+<h2 id="15-class-diagram-the-vending-machine-state-machine">15. Class Diagram: The Vending Machine State Machine</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+------------------------+        +------------------------+
+|     VendingMachine        |-------&gt;|      MachineState         |
+|  selectProduct(),         |       |    &lt;&lt;interface&gt;&gt;          |
+|  insertPayment(),         |       |  selectProduct(),         |
+|  cancel()                 |       |  insertPayment(), cancel()|
++-----------+--------------+        +-----------+--------------+
+            |                              ^      ^      ^      ^
+            v                        +----------+ +----------+ +--------+ +----------------+
++------------------------+          | Idle     | | Awaiting | | Dispen | | OutOfService   |
+|        Balance            |          | State    | | Payment  | | -sing  | | State          |
++------------------------+          +----------+ | State    | | State  | +----------------+
+                                                     +----------+ +--------+</code></pre></div>
+<p>Every state transition method returns the <em>next</em> state object rather than mutating a bare enum field in place — this is what makes each transition's legality a compile-time-visible property of which interface method a given state class chooses to implement meaningfully versus throw from, rather than a runtime check scattered across <code>VendingMachine</code> itself.</p>
+<hr>
+<h2 id="16-follow-up-question-3-how-do-you-support-multiple-payment-methods-coins-bills-card-cleanly">16. Follow-up Question 3 — "How Do You Support Multiple Payment Methods — Coins, Bills, Card — Cleanly?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Coins and bills contribute a fixed amount instantly. A card payment requires an external authorization round-trip. How do you support both without the machine's state logic needing to know the difference?"</em></p></blockquote>
+<p>By keeping <code>MachineState.insertPayment</code> agnostic to <em>how</em> a given amount was obtained — a <code>PaymentStrategy</code> is responsible for producing a validated cents amount (instantly, for coins/bills, or after an async authorization, for card), and only <em>once that amount is known</em> does it get handed to the exact same <code>insertPayment</code> call every other payment method uses. The state machine never needs a <code>PaymentMethod</code> parameter or a conditional branch at all.</p>
+<hr>
+<h2 id="17-payment-as-a-pluggable-strategy">17. Payment as a Pluggable Strategy</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface PaymentStrategy {
+    void submitPayment(VendingMachine machine, PaymentRequest request);
+}</code></pre></div>
+<p>Every payment method — instant or asynchronous — implements this identical interface, exactly mirroring the Strategy pattern this series has used for AI difficulty, dispatch algorithms, and pricing schemes throughout: swapping in a new payment method is a configuration change, never a change to <code>VendingMachine</code>'s own state transitions.</p>
+<hr>
+<h2 id="18-implementing-coinbill-and-card-payment-strategies">18. Implementing Coin/Bill and Card Payment Strategies</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class CoinBillPaymentStrategy implements PaymentStrategy {
+    @Override
+    public void submitPayment(VendingMachine machine, PaymentRequest request) {
+        machine.insertPayment(request.cents()); // instant -- the physical coin/bill acceptor already validated it
+    }
+}
+
+public class CardPaymentStrategy implements PaymentStrategy {
+    private final CardAuthorizer authorizer;
+
+    @Override
+    public void submitPayment(VendingMachine machine, PaymentRequest request) {
+        authorizer.authorizeAsync(request.cardToken(), request.cents(), result -&gt; {
+            if (result.approved()) {
+                machine.insertPayment(request.cents()); // arrives LATER, but through the SAME call
+            } else {
+                machine.reportPaymentFailure(result.reason());
+            }
+        });
+    }
+}</code></pre></div>
+<p>Both strategies eventually call the exact same <code>machine.insertPayment(cents)</code> — the <em>timing</em> differs completely (instant versus an asynchronous callback), but the <em>state machine's</em> own view of "payment arrived" is identical either way, which is precisely why <code>MachineState</code> never needed to change at all to add card support.</p>
+<hr>
+<h2 id="19-follow-up-question-4-how-do-you-compute-change-walk-through-the-algorithm">19. Follow-up Question 4 — "How Do You Compute Change — Walk Through the Algorithm"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A customer pays $2.00 for a $1.65 item. Walk through exactly how the machine decides which coins to return for the 35 cents owed."</em></p></blockquote>
+<p>The standard approach is <strong>greedy</strong>: repeatedly take the largest available denomination that doesn't exceed the remaining amount owed, subtract it, and repeat until the remaining amount reaches zero — for common currency denominations, this reliably produces the minimum possible number of coins, and it's simple enough to compute instantly with no search involved at all.</p>
+<hr>
+<h2 id="20-the-greedy-change-making-algorithm">20. The Greedy Change-Making Algorithm</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Owed: 35 cents. Available denominations: 25, 10, 5, 1 (a real, canonical currency system)
+
+Take 25 (largest &lt;= 35)   -&gt; remaining 10, coins used: [25]
+Take 10 (largest &lt;= 10)   -&gt; remaining 0,  coins used: [25, 10]
+DONE -- 2 coins, which IS the true minimum possible for 35 cents in this denomination system</code></pre></div>
+<p>Greedy's appeal is real: it's a single pass, no backtracking, and for the denomination systems most real currencies actually use, it happens to coincide with the true optimum — which is exactly why so many vending-machine implementations ship with greedy and never discover the problem <a href="#22-follow-up-question-5-does-greedy-always-give-the-minimum-number-of-coins-prove-it-or-break-it">§22-23</a> describes, because their currency's denominations happen to be forgiving.</p>
+<hr>
+<h2 id="21-implementing-greedy-change-making">21. Implementing Greedy Change-Making</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class GreedyChangeMaker implements ChangeMaker {
+    private final int[] denominationsDescending; // e.g. {25, 10, 5, 1}, sorted LARGEST FIRST
+
+    @Override
+    public List&lt;Integer&gt; makeChange(int owedCents) {
+        List&lt;Integer&gt; coinsUsed = new ArrayList&lt;&gt;();
+        int remaining = owedCents;
+        for (int denomination : denominationsDescending) {
+            while (remaining &gt;= denomination) {
+                coinsUsed.add(denomination);
+                remaining -= denomination;
+            }
+        }
+        if (remaining != 0) throw new IllegalStateException("Cannot make exact change with available denominations");
+        return coinsUsed;
+    }
+}</code></pre></div>
+<p>Nothing about this implementation is wrong on its own terms — it correctly computes <em>a</em> valid way to make change, using as many of the largest denomination as possible before moving to the next. Whether that's the <em>minimum possible</em> number of coins is a separate question entirely, and <a href="#22-follow-up-question-5-does-greedy-always-give-the-minimum-number-of-coins-prove-it-or-break-it">§22-23</a> is where the answer stops being "obviously yes."</p>
+<hr>
+<h2 id="22-follow-up-question-5-does-greedy-always-give-the-minimum-number-of-coins-prove-it-or-break-it">22. Follow-up Question 5 — "Does Greedy Always Give the Minimum Number of Coins? Prove It or Break It."</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"You've implemented greedy change-making. Is it always optimal? If not, give me a concrete denomination set and target amount where it fails."</em></p></blockquote>
+<p>It is not always optimal, and this is provable with a small, concrete counterexample rather than a hand-wave: for the denomination set <code>{1, 3, 4}</code> and a target of <strong>6 cents</strong>, greedy takes 4 first (the largest denomination not exceeding 6), leaving 2, which then forces two more 1-cent coins — three coins total (<code>4 + 1 + 1</code>). But <code>3 + 3</code> also sums to 6, using only <strong>two</strong> coins — greedy's own largest-first rule actively prevented it from ever considering this better answer, because taking a 4 first made reaching an even split by 3s impossible.</p>
+<hr>
+<h2 id="23-why-greedy-fails-for-non-canonical-denominations">23. Why Greedy Fails for Non-Canonical Denominations</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Denominations: {1, 3, 4}.  Target: 6 cents.
+
+Greedy:  take 4 (largest &lt;= 6)  -&gt; remaining 2
+         take 1 (largest &lt;= 2)  -&gt; remaining 1
+         take 1 (largest &lt;= 1)  -&gt; remaining 0
+         RESULT: [4, 1, 1] -- 3 coins
+
+Optimal: [3, 3] -- 2 coins -- greedy NEVER EVEN CONSIDERS this combination, because its
+         first, irreversible choice (take the 4) already used up value that a 3-3 split needed.
+
+This is NOT a contrived edge case in the abstract sense -- it's a precise, provable
+mathematical fact about denomination sets that lack the "canonical" property most real-world
+currencies happen to have (each denomination divides evenly enough into the next that greedy's
+locally-best choice never forecloses a globally-better one). {1,3,4} genuinely lacks this
+property, and greedy is provably suboptimal for it, not just occasionally unlucky.</code></pre></div>
+<p>Most real currencies (US cents: 1, 5, 10, 25; most world currencies similarly) happen to be canonical, which is precisely why greedy change-making has such a good reputation in practice — the algorithm isn't "usually right by luck," it's "exactly right for a well-behaved class of denomination sets," and the failure only surfaces once a denomination set falls outside that class, which does happen in some real currencies and in any custom token/points system a designer might invent without realizing the property matters.</p>
+<hr>
+<h2 id="24-the-correct-fix-dynamic-programming-for-minimum-coin-change">24. The Correct Fix: Dynamic Programming for Minimum-Coin Change</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Idea: build up the answer for EVERY amount from 0 to the target, using previously-solved
+smaller amounts -- never make an irreversible greedy commitment before checking every option.
+
+minCoins[0] = 0 coins (trivially, zero owed needs zero coins)
+For amount = 1 to target:
+    minCoins[amount] = min over every denomination d &lt;= amount of ( 1 + minCoins[amount - d] )
+    -- i.e., "what's the best result if THIS coin is the last one used, for every possible last coin"
+
+For {1,3,4}, target=6:
+    minCoins[1]=1, minCoins[2]=2, minCoins[3]=1 (a single 3), minCoins[4]=1 (a single 4)
+    minCoins[5]=min(1+minCoins[4], 1+minCoins[2], 1+minCoins[1]) = min(2,3,2) = 2  (a 4 plus a 1)
+    minCoins[6]=min(1+minCoins[5], 1+minCoins[3], 1+minCoins[2]) = min(3, 2, 3) = 2  -- CORRECTLY finds 3+3</code></pre></div>
+<p>Dynamic programming is correct precisely because it never commits to a first choice before knowing its downstream consequences — every amount's optimal answer is computed from <em>already-optimal</em> answers to every smaller amount, which is what lets it discover the <code>3+3</code> combination greedy's own irrevocable first move ruled out.</p>
+<hr>
+<h2 id="25-implementing-dp-based-change-making">25. Implementing DP-Based Change-Making</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class DynamicProgrammingChangeMaker implements ChangeMaker {
+    private final int[] denominations;
+
+    @Override
+    public List&lt;Integer&gt; makeChange(int owedCents) {
+        int[] minCoins = new int[owedCents + 1];
+        int[] lastCoinUsed = new int[owedCents + 1];
+        Arrays.fill(minCoins, Integer.MAX_VALUE);
+        minCoins[0] = 0;
+
+        for (int amount = 1; amount &lt;= owedCents; amount++) {
+            for (int denomination : denominations) {
+                if (denomination &lt;= amount &amp;&amp; minCoins[amount - denomination] != Integer.MAX_VALUE
+                        &amp;&amp; minCoins[amount - denomination] + 1 &lt; minCoins[amount]) {
+                    minCoins[amount] = minCoins[amount - denomination] + 1;
+                    lastCoinUsed[amount] = denomination;
+                }
+            }
+        }
+        if (minCoins[owedCents] == Integer.MAX_VALUE) {
+            throw new IllegalStateException("Cannot make exact change with available denominations");
+        }
+
+        List&lt;Integer&gt; coinsUsed = new ArrayList&lt;&gt;();
+        int remaining = owedCents;
+        while (remaining &gt; 0) {
+            coinsUsed.add(lastCoinUsed[remaining]);
+            remaining -= lastCoinUsed[remaining];
+        }
+        return coinsUsed;
+    }
+}</code></pre></div>
+<p><code>lastCoinUsed</code> is what lets this implementation <em>reconstruct</em> the actual optimal combination of coins, not merely report the minimum count — without tracking it, the algorithm would know "2 coins is possible" but have no way to say which two, which isn't useful for a machine that actually has to physically dispense specific coins.</p>
+<hr>
+<h2 id="26-follow-up-question-6-what-happens-if-the-machine-runs-low-on-specific-coin-denominations-for-making-change">26. Follow-up Question 6 — "What Happens If the Machine Runs Low on Specific Coin Denominations for Making Change?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Your change-making algorithm assumes unlimited supply of every denomination. A real machine's coin reserves run low. What changes?"</em></p></blockquote>
+<p>Both <code>ChangeMaker</code> implementations need to account for <strong>finite, currently-available quantities</strong> per denomination, not just an unlimited abstract set — this changes the algorithm from "find the minimum coins from an infinite supply" to "find the minimum coins from <em>this specific, finite, currently-remaining inventory</em>," and when no valid combination exists at all (the machine has run out of small denominations entirely), the machine must refuse to complete transactions that would require change it cannot actually provide.</p>
+<hr>
+<h2 id="27-exact-change-only-mode-and-change-reserve-management">27. Exact-Change-Only Mode and Change Reserve Management</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class InventoryAwareChangeMaker implements ChangeMaker {
+    private final Map&lt;Integer, Integer&gt; availableCountByDenomination; // denomination -&gt; remaining count
+    private final ChangeMaker delegate; // wraps either greedy or DP, §21 or §25
+
+    @Override
+    public List&lt;Integer&gt; makeChange(int owedCents) {
+        List&lt;Integer&gt; proposed = delegate.makeChange(owedCents);
+        Map&lt;Integer, Long&gt; requiredCounts = proposed.stream()
+            .collect(Collectors.groupingBy(c -&gt; c, Collectors.counting()));
+
+        for (Map.Entry&lt;Integer, Long&gt; entry : requiredCounts.entrySet()) {
+            if (availableCountByDenomination.getOrDefault(entry.getKey(), 0) &lt; entry.getValue()) {
+                throw new InsufficientChangeException("Cannot make change -- switch to exact-change-only mode");
+            }
+        }
+        proposed.forEach(coin -&gt; availableCountByDenomination.merge(coin, -1, Integer::sum));
+        return proposed;
+    }
+}</code></pre></div>
+<p>Catching <code>InsufficientChangeException</code> at the machine's own display layer, and switching to a visible "EXACT CHANGE ONLY" mode, is the correct user-facing response — it's a far better outcome than either silently dispensing wrong change or accepting a payment the machine then cannot correctly settle.</p>
+<hr>
+<h2 id="28-follow-up-question-7-a-stuck-sensor-or-a-rapid-double-button-press-how-do-you-avoid-dispensing-the-same-item-twice-for-one-payment">28. Follow-up Question 7 — "A Stuck Sensor or a Rapid Double Button-Press — How Do You Avoid Dispensing the Same Item Twice for One Payment?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A customer's button-press bounces (a common mechanical reality) and registers twice in quick succession. What stops the machine from dispensing two items but only charging for one?"</em></p></blockquote>
+<p>This is precisely the same check-then-act race this series has diagnosed repeatedly for a parking spot and a booked seat — a naive "check stock is positive, then decrement" sequence has a window between the two steps where a second, nearly-simultaneous dispense request can also pass the check before the first request's decrement takes effect. The fix is identical in shape too: collapse the check and the decrement into a single <strong>atomic</strong> operation.</p>
+<hr>
+<h2 id="29-concurrency-atomic-check-and-decrement-for-inventory">29. Concurrency: Atomic Check-and-Decrement for Inventory</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>WITHOUT atomicity:
+  Request A: read stockCount (=1)  -- sees "in stock"
+  Request B: read stockCount (=1)  -- ALSO sees "in stock", before A's decrement lands
+  Request A: stockCount = 0  -- decrements
+  Request B: stockCount = -1 -- decrements AGAIN, past zero -- TWO items dispensed for ONE actual unit in stock
+
+WITH atomicity (single compare-and-decrement operation):
+  Request A: atomically checks stockCount &gt; 0 AND decrements, IN ONE STEP -- succeeds, stockCount now 0
+  Request B: atomically checks stockCount &gt; 0 -- FALSE, since it's already 0 -- correctly REJECTED</code></pre></div>
+<p>The fix requires exactly the same discipline this series has applied to every other shared, contended resource: the read that decides "is this still available" and the write that commits to using it must happen as one indivisible operation, never as two separate steps with a window in between for another request to interleave.</p>
+<hr>
+<h2 id="30-implementing-atomic-dispense">30. Implementing Atomic Dispense</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class InventoryManager {
+    private final Map&lt;String, AtomicInteger&gt; stockBySlot = new ConcurrentHashMap&lt;&gt;();
+
+    public boolean tryDispense(String slotId) {
+        AtomicInteger stock = stockBySlot.get(slotId);
+        // updateAndGet is ATOMIC: the read-check-decrement happens as one operation, no window to race in
+        int[] resultHolder = new int[1];
+        stock.updateAndGet(current -&gt; {
+            if (current &gt; 0) { resultHolder[0] = 1; return current - 1; }
+            resultHolder[0] = 0;
+            return current; // unchanged -- nothing to dispense
+        });
+        return resultHolder[0] == 1;
+    }
+}</code></pre></div>
+<p><code>AtomicInteger.updateAndGet</code> is doing the same job here that <code>SELECT ... FOR UPDATE</code> and a version-column compare-and-swap did for BookMyShow's seat booking (this series' own companion guide) — a single, indivisible read-modify-write operation, closing the exact same class of race this time for a physical item count instead of a seat's state.</p>
+<hr>
+<h2 id="31-follow-up-question-8-a-user-inserts-money-then-cancels-or-the-machine-detects-a-jam-how-do-you-handle-refunds-correctly">31. Follow-up Question 8 — "A User Inserts Money, Then Cancels or the Machine Detects a Jam. How Do You Handle Refunds Correctly?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A customer inserts $2, then presses cancel before the item dispenses. Or the machine detects a mechanical jam mid-dispense. What happens to their money in each case?"</em></p></blockquote>
+<p>Both cases route through the exact same refund mechanism — <code>AwaitingPaymentState.cancel</code> (<a href="#14-implementing-the-state-pattern-for-machine-operation">§14</a>) already returns the full inserted balance — but a mid-dispense jam is a genuinely different, higher-stakes case: the machine must determine whether the item <strong>actually</strong> left the slot (via a sensor) before deciding whether to refund, dispense again, or flag itself <code>OUT_OF_SERVICE</code> for a technician, since refunding <em>and</em> having already dispensed the item would be a real loss for the machine's operator.</p>
+<hr>
+<h2 id="32-refund-handling-and-partial-payment-edge-cases">32. Refund Handling and Partial-Payment Edge Cases</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class DispensingState implements MachineState {
+    @Override
+    public MachineState onDispenseSensorResult(VendingMachine machine, boolean itemDetectedInTray) {
+        int changeOwed = machine.balance().cents() - machine.selectedSlot().product().priceCents();
+        if (itemDetectedInTray) {
+            machine.releaseChange(machine.changeMaker().makeChange(changeOwed));
+            machine.inventoryManager().confirmDispensed(machine.selectedSlot().slotId());
+            return new IdleState();
+        }
+        // sensor did NOT detect the item -- a genuine jam. Do NOT assume either outcome silently.
+        machine.flagForTechnician("Dispense sensor did not confirm item release");
+        machine.refund(machine.balance().cents()); // refund the FULL amount, not just the change
+        return new OutOfServiceState();
+    }
+}</code></pre></div>
+<p>Refunding the <em>entire</em> inserted amount (not merely the change owed) when the dispense sensor fails to confirm release is the conservative, correct default — the alternative (assuming the item dispensed successfully despite no sensor confirmation) risks charging a customer for an item they never actually received, which is a worse failure mode than a machine going briefly out of service for a technician to check.</p>
+<hr>
+<h2 id="33-follow-up-question-9-how-do-you-track-and-alert-on-low-or-out-of-stock-inventory-across-many-slots">33. Follow-up Question 9 — "How Do You Track and Alert on Low or Out-of-Stock Inventory Across Many Slots?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A machine has thirty slots. How does an operator know which ones need restocking without physically checking each one?"</em></p></blockquote>
+<p>Each slot's <code>InventoryManager</code> already knows its own current count after every dispense (<a href="#30-implementing-atomic-dispense">§30</a>) — the natural extension is to compare that count against a configured low-stock threshold on every change, and emit an event the moment a slot crosses it, rather than requiring anyone to poll every slot's count on a schedule.</p>
+<hr>
+<h2 id="34-inventory-management-and-low-stock-detection">34. Inventory Management and Low-Stock Detection</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class InventoryManager {
+    private final Map&lt;String, AtomicInteger&gt; stockBySlot = new ConcurrentHashMap&lt;&gt;();
+    private final Map&lt;String, Integer&gt; lowStockThresholdBySlot;
+    private final List&lt;LowStockListener&gt; listeners;
+
+    public boolean tryDispense(String slotId) {
+        boolean dispensed = /* atomic check-and-decrement, §30 */ true;
+        if (dispensed) {
+            int remaining = stockBySlot.get(slotId).get();
+            int threshold = lowStockThresholdBySlot.getOrDefault(slotId, 5);
+            if (remaining &lt;= threshold) {
+                listeners.forEach(l -&gt; l.onLowStock(slotId, remaining));
+            }
+        }
+        return dispensed;
+    }
+}</code></pre></div>
+<p>Firing the low-stock event as a direct consequence of the <em>same</em> dispense operation that changed the count (rather than a separate periodic scan) means the alert is as fresh as the data itself — an operator learns about a slot crossing its threshold the moment it actually happens, with zero polling delay.</p>
+<hr>
+<h2 id="35-follow-up-question-10-how-do-you-scale-this-to-a-fleet-of-machines-remote-monitoring-restocking-routes">35. Follow-up Question 10 — "How Do You Scale This to a Fleet of Machines — Remote Monitoring, Restocking Routes?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A vending operator manages a thousand machines across a city. How does the design extend from one machine to a whole monitored fleet?"</em></p></blockquote>
+<p>Each machine already emits low-stock and fault events locally (<a href="#33-follow-up-question-9-how-do-you-track-and-alert-on-low-or-out-of-stock-inventory-across-many-slots">§33-34</a>) — the fleet-scale extension is simply to have each machine <strong>push</strong> those same events to a central telemetry service over the network, rather than requiring a technician to physically visit every machine to discover its status. The core machine logic itself needs zero changes; telemetry is a listener attached to events the machine was already producing.</p>
+<hr>
+<h2 id="36-fleet-telemetry-and-remote-monitoring">36. Fleet Telemetry and Remote Monitoring</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class TelemetryReporter implements LowStockListener, FaultListener {
+    private final String machineId;
+    private final TelemetryClient telemetryClient; // sends to a central fleet-monitoring service
+
+    @Override
+    public void onLowStock(String slotId, int remaining) {
+        telemetryClient.send(new LowStockEvent(machineId, slotId, remaining, Instant.now()));
+    }
+
+    @Override
+    public void onFault(String reason) {
+        telemetryClient.send(new FaultEvent(machineId, reason, Instant.now()));
+    }
+}</code></pre></div>
+<p><code>TelemetryReporter</code> is simply one more subscriber to events the machine already emits — exactly the same Observer-pattern payoff this series has used consistently (a Snake game's dropped-tick counter, an elevator's alerting engine): adding fleet-wide monitoring requires zero changes to any machine's own core dispensing or state-machine logic, only a new listener attached to events already being fired.</p>
+<hr>
+<h2 id="37-class-diagram-full-vending-machine-system">37. Class Diagram: Full Vending Machine System</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+------------------------+        +------------------------+
+|     VendingMachine        |-------&gt;|      MachineState         |
++-----------+--------------+        +------------------------+
+            |
+   +--------+--------+--------+
+   v                 v         v
++----------+ +----------------+ +------------------------+
+| Payment  | | InventoryManager| |     ChangeMaker          |
+| Strategy |  | (atomic, §30)   | |  Greedy | DP, §21 / §25 |
++----------+ +--------+--------+ +------------------------+
+                       |
+                       v
+             +------------------------+
+             |   TelemetryReporter       |
+             |   (Observer, §36)         |
+             +------------------------+</code></pre></div>
+<p>Tracing this diagram is the entire system: the machine's own state governs what's legal, payment and inventory each operate independently behind their own pluggable interfaces, and telemetry sits entirely off to the side, observing without ever participating in the actual dispensing decision.</p>
+<hr>
+<h2 id="38-follow-up-question-11-how-do-you-support-promotional-pricing-or-dynamic-pricing-per-product">38. Follow-up Question 11 — "How Do You Support Promotional Pricing or Dynamic Pricing Per Product?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A product is on a temporary discount, or prices rise slightly for a premium slot. How does that fit in without complicating the state machine or dispensing logic?"</em></p></blockquote>
+<p>Exactly the same answer this series has given for every other pricing question (the Parking Lot guide's vehicle-type differentiation, BookMyShow's tiered pricing): pricing stays <strong>orthogonal</strong> to the state machine entirely — a <code>PricingStrategy</code> is consulted only when displaying a price or finalizing what's owed, never touching machine state, inventory, or dispensing logic at all.</p>
+<hr>
+<h2 id="39-pluggable-pricing-and-promotions">39. Pluggable Pricing and Promotions</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface PricingStrategy {
+    int currentPriceCents(Product product);
+}
+
+public class PromotionalPricingStrategy implements PricingStrategy {
+    private final PricingStrategy base; // wraps another strategy, same Decorator this series uses repeatedly
+    private final int discountCents;
+
+    @Override
+    public int currentPriceCents(Product product) {
+        return Math.max(0, base.currentPriceCents(product) - discountCents);
+    }
+}</code></pre></div>
+<p><code>PromotionalPricingStrategy</code> wraps another <code>PricingStrategy</code> rather than reimplementing base pricing — the exact same compositional technique this series has used for pricing in every prior guide, letting a promotion be layered on top of any base pricing scheme without duplicating it.</p>
+<hr>
+<h2 id="40-capacity-estimation-transaction-throughput-and-inventory-sync">40. Capacity Estimation: Transaction Throughput and Inventory Sync</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Assume: a single machine serves at most 1 transaction/minute in practice (mechanical dispense
+        time dominates), across a fleet of 1,000 machines nationwide
+
+Peak fleet-wide transaction rate ≈ 1,000 transactions/minute ≈ 17/second -- trivially small
+  for any modern telemetry backend to ingest; a single machine's own dispensing logic is
+  NEVER the bottleneck (unlike this series' higher-throughput guides), since a physical
+  mechanical dispense cycle is orders of magnitude slower than any software decision involved
+
+Telemetry payload: a low-stock/fault event is a few hundred bytes; even continuous fleet-wide
+  telemetry at this rate is a negligible bandwidth cost, meaning fleet-scale monitoring is
+  entirely a DATA MODELING and ALERTING-LOGIC problem here, not a raw-throughput one.</code></pre></div>
+<p>This is a deliberately different capacity story than this series' internet-scale guides (the Analytics Platform's millions of events/sec, BookMyShow's flash-sale spikes) — a vending machine's own mechanical dispensing rate caps throughput so low that software capacity is essentially never the actual constraint, which is worth naming explicitly rather than pretending every system in this series faces the same scaling pressure.</p>
+<hr>
+<h2 id="41-full-worked-example-one-purchase-traced-end-to-end">41. Full Worked Example: One Purchase, Traced End to End</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. Customer selects slot B4 ($1.65 item): IdleState.selectProduct() -&gt; AwaitingPaymentState (§13-14)
+2. Customer inserts a $1 coin, then a $1 coin: insertPayment(100) called twice
+     a. After the first: balance=100 cents, still short of 165 -- state stays AwaitingPaymentState
+     b. After the second: balance=200 cents, now &gt;= 165 -- transitions to DispensingState
+3. DispensingState calls InventoryManager.tryDispense("B4") -- atomic check-and-decrement (§29-30)
+     a. Succeeds: stock was 3, now 2 -- above the low-stock threshold, no alert fires
+4. Dispense sensor confirms the item left the tray (§32): onDispenseSensorResult(true)
+     a. changeOwed = 200 - 165 = 35 cents
+     b. ChangeMaker.makeChange(35) -- e.g. DP-based, correctly returns the minimum coins
+        possible from CURRENTLY AVAILABLE reserves (§27)
+     c. Change released, state transitions back to IdleState
+5. Suppose this was the slot's LAST unit before restock: stock now crosses the low-stock
+   threshold -- LowStockListener fires, TelemetryReporter pushes an event to the central
+   fleet-monitoring service (§34-36), entirely independent of anything the customer sees</code></pre></div>
+<p>Every mechanism this guide introduced via a follow-up question appears somewhere in this one purchase's trace — the state machine, atomic dispensing, correct change-making, and fleet telemetry are not independent, optional features, they are the actual steps one real transaction passes through in this design.</p>
+<hr>
+<h2 id="42-final-architecture-diagram">42. Final Architecture Diagram</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    +------------------------+
+Customer --------&gt;  |     VendingMachine        |
+                    |  (State pattern, §13-14) |
+                    +-----------+--------------+
+                                |
+                +---------------+----------------+
+                v                                  v
+    +------------------------+          +------------------------+
+    |    PaymentStrategy         |          |    InventoryManager      |
+    |  coins | bills | card      |          |    (atomic, §29-30)      |
+    +------------------------+          +-----------+--------------+
+                                                       |
+                                          +-------------v-------------+
+                                          |       ChangeMaker            |
+                                          |  Greedy | DP, per §21 / §25 |
+                                          +------------------------+
+                                                       |
+                                          +-------------v-------------+
+                                          |     TelemetryReporter        |
+                                          |    (Observer) --&gt; Fleet      |
+                                          |    Monitoring Service        |
+                                          +------------------------+</code></pre></div>
+<hr>
+<h2 id="43-design-patterns-used-throughout-this-guide">43. Design Patterns Used Throughout This Guide</h2>
+<ul><li><strong>State</strong> — <code>MachineState</code> (<a href="#13-modeling-the-machine-as-an-explicit-state-machine">§13-14</a>) encodes exactly which operations are legal from the machine's current phase, structurally preventing illegal operations (dispensing without sufficient funds, accepting a new selection mid-dispense) rather than relying on scattered runtime checks.</li><li><strong>Strategy</strong> — <code>PaymentStrategy</code> (<a href="#17-payment-as-a-pluggable-strategy">§17-18</a>), <code>ChangeMaker</code> (<a href="#21-implementing-greedy-change-making">§21</a>, <a href="#25-implementing-dp-based-change-making">§25</a>), and <code>PricingStrategy</code> (<a href="#39-pluggable-pricing-and-promotions">§39</a>) each let a policy vary independently of the code that invokes it.</li><li><strong>Decorator</strong> — <code>InventoryAwareChangeMaker</code> (<a href="#27-exact-change-only-mode-and-change-reserve-management">§27</a>) and <code>PromotionalPricingStrategy</code> (<a href="#39-pluggable-pricing-and-promotions">§39</a>) both wrap another implementation of the same interface to layer on additional behavior without modifying what they wrap.</li><li><strong>Observer</strong> — <code>TelemetryReporter</code> (<a href="#36-fleet-telemetry-and-remote-monitoring">§36</a>) reacts to low-stock and fault events without the machine's own core logic needing to know how many downstream listeners exist or what they do with the notification.</li><li><strong>Facade</strong> — <code>VendingMachine</code> hides state transitions, payment, inventory, and change-making behind the few simple methods a physical control panel actually calls.</li></ul>
+<hr>
+<h2 id="44-solid-principles-applied">44. SOLID Principles Applied</h2>
+<ul><li><strong>Single Responsibility</strong> — <code>InventoryManager</code> only tracks stock and dispenses atomically; <code>ChangeMaker</code> only computes change; <code>PaymentStrategy</code> only validates and reports a tendered amount — none of the three knows how to do the others' job.</li><li><strong>Open/Closed</strong> — adding a new payment method, change-making algorithm, or pricing scheme each means implementing one interface, never modifying <code>VendingMachine</code>'s own state transitions.</li><li><strong>Liskov Substitution</strong> — every <code>ChangeMaker</code> implementation must honestly return a valid combination summing to the requested amount (or throw if genuinely impossible), so the machine can swap greedy for DP without any change to how the result is used.</li><li><strong>Interface Segregation</strong> — <code>PaymentStrategy</code> exposes exactly one method, so a trivial coin/bill implementation isn't forced to depend on card-authorization concepts only the card strategy actually needs.</li><li><strong>Dependency Inversion</strong> — <code>VendingMachine</code> depends on <code>PaymentStrategy</code>, <code>ChangeMaker</code>, and <code>InventoryManager</code> as abstractions, never on concrete implementations directly, so any of them can be swapped per deployment without touching the state machine itself.</li></ul>
+<hr>
+<h2 id="45-common-mistakes-when-building-this-yourself">45. Common Mistakes When Building This Yourself</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>MISTAKE                                                CORRECT APPROACH (this guide's section)
+A handful of independent boolean flags for machine status  Explicit State pattern with legal transitions (§12-14)
+Reasoning about money as a floating-point dollar amount      Integer cents, always (§10)
+Assuming greedy change-making is always optimal              Prove it, and know when DP is required (§22-25)
+Checking stock, then decrementing, as two separate steps     Atomic check-and-decrement (§28-30)
+Refunding only the change owed after a dispense-sensor fault  Refund the FULL inserted amount (§31-32)
+Polling every slot's stock count on a schedule                Fire low-stock events as a direct consequence
+                                                                of the dispense that caused them (§33-34)
+Coupling promotional pricing into dispensing/state logic       Pricing kept fully orthogonal (§38-39)</code></pre></div>
+<hr>
+<h2 id="46-testing-strategy">46. Testing Strategy</h2>
+<ul><li><strong>State transition tests</strong> — assert every illegal transition (inserting payment with no product selected, selecting a new product mid-dispense) throws, and every legal transition produces the correct resulting state.</li><li><strong>Greedy-counterexample tests</strong> — assert <code>GreedyChangeMaker</code> produces a <em>suboptimal</em> result for the <code>{1,3,4}</code>/6-cent case specifically, confirming the guide's own claim is reproducible in code, not just on paper.</li><li><strong>DP-optimality tests</strong> — assert <code>DynamicProgrammingChangeMaker</code> produces the true minimum coin count across a range of denomination sets, including both canonical and deliberately non-canonical ones.</li><li><strong>Atomic dispense tests</strong> — fire many concurrent <code>tryDispense</code> calls against a slot with a small fixed stock count and assert the number of successful dispenses never exceeds the actual stock available.</li><li><strong>Refund tests</strong> — simulate a dispense-sensor failure and assert the full inserted amount (not merely the change owed) is refunded, and the machine correctly transitions to <code>OutOfServiceState</code>.</li></ul>
+<hr>
+<h2 id="47-suggested-future-enhancements">47. Suggested Future Enhancements</h2>
+<ul><li><strong>Multi-item purchases</strong> — allowing a customer to select several products before paying once, extending the state machine with a genuine "building an order" phase rather than one item per transaction.</li><li><strong>Loyalty/points-based payment</strong> — a new <code>PaymentStrategy</code> implementation redeeming accumulated points instead of currency, requiring zero changes to the state machine itself.</li><li><strong>Predictive restocking routes</strong> — using historical dispense-rate telemetry per machine to schedule restocking visits proactively, before a slot actually crosses its low-stock threshold, rather than reactively.</li><li><strong>Cashless-only configurations</strong> — a deployment variant skipping <code>ChangeMaker</code> entirely for machines that only ever accept card payment, demonstrating how cleanly an entire subsystem can be omitted when a specific deployment doesn't need it.</li><li><strong>Tamper and fraud detection</strong> — flagging unusual patterns (rapid repeated dispense attempts on one slot, coin-mechanism anomalies suggestive of counterfeit coins) as a specialized <code>FaultListener</code>, reusing the exact same telemetry pipeline built for ordinary low-stock and jam alerts.</li></ul>
+<hr>
+<h2 id="48-progressive-interview-question-set">48. Progressive Interview Question Set</h2>
+<p>For an interviewer using this guide to run a structured round, in increasing difficulty:</p>
+<ol><li>Model the machine's operation as an explicit state machine, and explain why a few independent boolean flags is the wrong approach. (<a href="#12-follow-up-question-2-why-not-just-use-a-few-boolean-flags-for-the-machines-status">§12-14</a>)</li><li>Design pluggable payment support for coins, bills, and card, without the state machine needing to know which method is in use. (<a href="#16-follow-up-question-3-how-do-you-support-multiple-payment-methods-coins-bills-card-cleanly">§16-18</a>)</li><li>Implement greedy change-making, then prove — with a concrete counterexample — that it isn't always optimal. (<a href="#19-follow-up-question-4-how-do-you-compute-change-walk-through-the-algorithm">§19-23</a>)</li><li>Design and implement the correct general-case fix for minimum-coin change. (<a href="#24-the-correct-fix-dynamic-programming-for-minimum-coin-change">§24-25</a>)</li><li>A stuck sensor or a rapid double button-press could dispense two items for one payment. Diagnose the race and design the fix. (<a href="#28-follow-up-question-7-a-stuck-sensor-or-a-rapid-double-button-press-how-do-you-avoid-dispensing-the-same-item-twice-for-one-payment">§28-30</a>)</li><li>A dispense-sensor fault occurs mid-transaction. Design exactly what happens to the customer's money. (<a href="#31-follow-up-question-8-a-user-inserts-money-then-cancels-or-the-machine-detects-a-jam-how-do-you-handle-refunds-correctly">§31-32</a>)</li><li>Extend the design from one machine to a remotely-monitored fleet of a thousand, without changing any machine's own core logic. (<a href="#35-follow-up-question-10-how-do-you-scale-this-to-a-fleet-of-machines-remote-monitoring-restocking-routes">§35-36</a>)</li><li>Estimate this system's actual throughput bottleneck, and explain why it differs from most other systems in this series. (<a href="#40-capacity-estimation-transaction-throughput-and-inventory-sync">§40</a>)</li></ol>
+<hr>
+<h2 id="49-final-takeaway">49. Final Takeaway</h2>
+<p>Every hard decision in this guide traces back to one recurring idea: <strong>an operation that looks obviously correct is only as correct as the proof behind it, not the confidence behind it</strong> — a state machine is correct because illegal transitions are structurally unrepresentable, not because the code "looks careful" (<a href="#12-follow-up-question-2-why-not-just-use-a-few-boolean-flags-for-the-machines-status">§12-14</a>); greedy change-making is correct only for a specific, checkable property of the denomination set, not simply because it "seems reasonable" (<a href="#22-follow-up-question-5-does-greedy-always-give-the-minimum-number-of-coins-prove-it-or-break-it">§22-25</a>); atomic dispensing is correct because the check and the decrement are one indivisible operation, not because a double-press "probably won't happen" (<a href="#28-follow-up-question-7-a-stuck-sensor-or-a-rapid-double-button-press-how-do-you-avoid-dispensing-the-same-item-twice-for-one-payment">§28-30</a>). Recognizing which of your own design's correctness claims actually have a proof behind them — and which are merely untested assumptions wearing the appearance of one — is the transferable skill this guide is really teaching.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Design a Vending Machine — HLD, LLD, and Class Design From Scratch.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

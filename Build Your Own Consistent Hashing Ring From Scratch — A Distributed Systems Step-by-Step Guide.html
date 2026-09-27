@@ -1,0 +1,755 @@
+<meta charset="utf-8">
+<title>Build Your Own Consistent Hashing Ring From Scratch — A Distributed Systems Step-by-Step Guide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow);
+    display:inline-flex; align-items:center; gap:8px; transition:background .15s,transform .1s;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; distributed systems guide</div>
+      <h1>Build Your Own Consistent Hashing Ring From Scratch</h1>
+      <p class="dek">A real, working consistent hashing ring built from scratch in Java &mdash; the exact data structure behind sharded caches, distributed databases, load balancers, and CDNs. Covers why naive modulo hashing remaps almost every key on a single node change, a real hash ring backed by a sorted map with clockwise lookup, virtual nodes for even load distribution, a precise traced proof of how little data actually moves when a node joins or leaves, replica selection for fault tolerance, and weighted nodes for heterogeneous node capacity &mdash; framed as an escalating interview, with real Java code for every mechanism.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-interview-motivation">Why This Matters (Interview Motivation)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-the-problem-consistent-hashing-solves">The Problem Consistent Hashing Solves</a></li><li class="toc-lvl-2"><a href="#7-naive-approach-modulo-hashing-and-why-it-breaks">Naive Approach: Modulo Hashing, and Why It Breaks</a></li><li class="toc-lvl-2"><a href="#8-follow-up-what-happens-when-a-node-is-added-or-removed-with-your-design">Follow-up — "What Happens When a Node Is Added or Removed, With Your Design?"</a></li><li class="toc-lvl-2"><a href="#9-the-hash-ring-core-idea">The Hash Ring: Core Idea</a></li><li class="toc-lvl-2"><a href="#10-implementing-a-basic-hash-ring">Implementing a Basic Hash Ring</a></li><li class="toc-lvl-2"><a href="#11-mapping-keys-to-nodes">Mapping Keys to Nodes</a></li><li class="toc-lvl-2"><a href="#12-follow-up-with-only-4-5-physical-nodes-wont-load-be-very-unevenly-distributed">Follow-up — "With Only 4-5 Physical Nodes, Won't Load Be Very Unevenly Distributed?"</a></li><li class="toc-lvl-2"><a href="#13-virtual-nodes-smoothing-out-load-distribution">Virtual Nodes: Smoothing Out Load Distribution</a></li><li class="toc-lvl-2"><a href="#14-implementing-virtual-nodes">Implementing Virtual Nodes</a></li><li class="toc-lvl-2"><a href="#15-follow-up-prove-it-how-much-data-actually-moves-when-a-node-joins-or-leaves">Follow-up — "Prove It. How Much Data Actually Moves When a Node Joins or Leaves?"</a></li><li class="toc-lvl-2"><a href="#16-the-minimal-disruption-property-proven-with-a-trace">The Minimal-Disruption Property, Proven With a Trace</a></li><li class="toc-lvl-2"><a href="#17-implementing-node-addition">Implementing Node Addition</a></li><li class="toc-lvl-2"><a href="#18-implementing-node-removal">Implementing Node Removal</a></li><li class="toc-lvl-2"><a href="#19-follow-up-what-hash-function-should-you-actually-use">Follow-up — "What Hash Function Should You Actually Use?"</a></li><li class="toc-lvl-2"><a href="#20-hash-function-selection-uniformity-vs-speed">Hash Function Selection: Uniformity vs. Speed</a></li><li class="toc-lvl-2"><a href="#21-follow-up-how-do-you-handle-replication-for-fault-tolerance">Follow-up — "How Do You Handle Replication for Fault Tolerance?"</a></li><li class="toc-lvl-2"><a href="#22-replication-on-the-ring-walking-clockwise-for-n-replicas">Replication on the Ring: Walking Clockwise for N Replicas</a></li><li class="toc-lvl-2"><a href="#23-implementing-replica-selection">Implementing Replica Selection</a></li><li class="toc-lvl-2"><a href="#24-follow-up-what-about-weighted-nodes-some-servers-have-more-capacity-than-others">Follow-up — "What About Weighted Nodes — Some Servers Have More Capacity Than Others?"</a></li><li class="toc-lvl-2"><a href="#25-weighted-consistent-hashing-via-proportional-virtual-node-counts">Weighted Consistent Hashing via Proportional Virtual Node Counts</a></li><li class="toc-lvl-2"><a href="#26-follow-up-how-is-this-actually-used-in-real-systems">Follow-up — "How Is This Actually Used in Real Systems?"</a></li><li class="toc-lvl-2"><a href="#27-real-world-applications-distributed-caches-sharded-databases-load-balancers-and-cdns">Real-World Applications: Distributed Caches, Sharded Databases, Load Balancers, and CDNs</a></li><li class="toc-lvl-2"><a href="#28-class-diagram">Class Diagram</a></li><li class="toc-lvl-2"><a href="#29-full-worked-example-adding-and-removing-nodes-traced">Full Worked Example: Adding and Removing Nodes, Traced</a></li><li class="toc-lvl-2"><a href="#30-design-patterns-used">Design Patterns Used</a></li><li class="toc-lvl-2"><a href="#31-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#32-common-mistakes-when-building-this-yourself">Common Mistakes When Building This Yourself</a></li><li class="toc-lvl-2"><a href="#33-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#34-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#35-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#36-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<blockquote>
+<p><strong>Goal:</strong> Build a real, working consistent hashing ring from scratch — the exact data structure behind sharded caches, distributed databases, load balancers, and CDNs — with virtual nodes for even load distribution, replica selection for fault tolerance, and weighted nodes for heterogeneous capacity, as a standalone project with real, working code for every piece.</p>
+<p>This guide is structured the way the interview actually unfolds: state the problem naive hashing has, fix it with a ring, then follow the same escalating sequence of <strong>follow-up questions</strong> a real interview always asks next — uneven load with few nodes, how much data actually moves when a node joins or leaves, replication, and heterogeneous node capacity — each answered with real reasoning and real code, not a diagram presented as if no one ever pushed back on it.</p>
+</blockquote>
+<hr>
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Naive hashing:  key -&gt; hash(key) % N        &lt;-- N changes -&gt; almost EVERY key remaps. Catastrophic on scale-out.
+
+Consistent hashing:  key -&gt; hash(key), placed on a RING       &lt;-- N changes -&gt; only a SMALL, bounded
+                      node  -&gt; hash(node), placed on the SAME ring    fraction of keys remap. This
+                      key belongs to the FIRST node clockwise         one property is the entire
+                      from its position on the ring                  reason this data structure exists.
+</code></pre></div>
+<p>By the end of this guide you will have:</p>
+<ul>
+<li>A real hash ring, backed by a sorted map, with correct clockwise lookup for any key.</li>
+<li><strong>Virtual nodes</strong> — the fix for the uneven-load problem a small number of physical nodes produces on a plain ring.</li>
+<li>A precise, traced proof of <strong>how little data actually moves</strong> when a node joins or leaves — the property that makes this data structure worth building in the first place.</li>
+<li><strong>Replica selection</strong> — walking the ring to find N distinct physical nodes for fault-tolerant replication.</li>
+<li><strong>Weighted nodes</strong> — proportionally more virtual nodes for a physical node with more capacity.</li>
+<li>A tour of where this exact data structure already lives inside real systems: distributed caches, sharded databases, load balancers, and CDNs — several of which this project's own other guides have already built on top of it.</li>
+</ul>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide you should be able to:</p>
+<ul>
+<li>Explain precisely why <code>hash(key) % N</code> breaks catastrophically the moment <code>N</code> changes, with a concrete before/after trace, not just "it remaps everything."</li>
+<li>Implement a real hash ring using a sorted map and clockwise (<code>ceilingKey</code>-style) lookup.</li>
+<li>Explain why a plain ring with few physical nodes produces uneven load, and implement virtual nodes as the fix.</li>
+<li>Prove, with a real before/after trace, that adding or removing one node only ever remaps keys that belonged to the immediate ring neighbors of that node — never the whole keyspace.</li>
+<li>Implement replica selection (N distinct physical nodes per key) and weighted virtual node counts for heterogeneous node capacity.</li>
+<li>Name the real systems built on exactly this data structure, and connect each one to the specific property (minimal remapping, even distribution, fault tolerance, weighting) that makes it the right fit there.</li>
+</ul>
+<hr>
+<h2 id="3-why-this-matters-interview-motivation">3. Why This Matters (Interview Motivation)</h2>
+<blockquote>
+<p><strong>"Design a way to distribute keys across a set of servers such that adding or removing a server doesn't require remapping almost every key. Implement it."</strong></p>
+</blockquote>
+<p>Consistent hashing is one of the highest-signal distributed-systems interview questions because it has a genuinely short, precise correct answer, and a shallow, hand-wavy one, and the difference is easy to detect:</p>
+<ul>
+<li><strong>The core insight is falsifiable, not just describable.</strong> "Put keys and nodes on the same ring, walk clockwise" is easy to say; a candidate who can also prove <em>how little</em> remaps when a node changes, with actual numbers, has understood it — one who can only gesture at "consistent hashing fixes it" hasn't.</li>
+<li><strong>The real algorithm needs a genuine data structure decision</strong> (a sorted map, and why), not just a diagram of a circle.</li>
+<li><strong>Virtual nodes are the part that separates "knows the term" from "has actually implemented this"</strong> — a huge fraction of candidates can describe the ring but have never reasoned through why a plain ring with 4-5 physical nodes distributes load unevenly, or what specifically fixes it.</li>
+<li><strong>It's the load-bearing piece underneath several other, larger systems</strong> — a distributed cache, a sharded database, a CDN's edge-node routing — which is exactly why this project's own other guides (the object-storage section of the file storage guide, the API gateway's rate-limit sharding, the workflow engine's execution partitioning) all reach for this same structure rather than reinventing their own each time.</li>
+</ul>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language</td>
+<td>Java 21</td>
+<td>Matches this guide's class design and pattern implementations.</td>
+</tr>
+<tr>
+<td>Ring storage</td>
+<td><code>java.util.TreeMap&lt;Long, Node&gt;</code></td>
+<td>A sorted map with <code>ceilingKey</code>/<code>firstKey</code> gives clockwise lookup for free, in <code>O(log n)</code> — the exact operation a ring needs (§10).</td>
+</tr>
+<tr>
+<td>Hashing</td>
+<td>A well-distributed 64-bit hash (this guide uses a truncated SHA-256)</td>
+<td>Positions on the ring must spread uniformly — a poor hash function silently reintroduces the uneven-distribution problem virtual nodes are supposed to fix (§19-§20).</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>JUnit 5, with a real before/after key-remapping trace as a first-class test</td>
+<td>Consistent hashing's entire value proposition is a <em>quantitative</em> claim (a bounded fraction of keys remap) — a test suite that doesn't measure that claim directly hasn't actually verified the thing that matters (§33).</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>consistent-hashing/
+├── src/main/java/com/example/hashring/
+│   ├── HashRing.java                    // §10-§11 -- the core ring
+│   ├── VirtualNodeRing.java             // §14 -- adds virtual nodes on top of HashRing
+│   ├── HashFunction.java, Sha256HashFunction.java  // §20
+│   ├── ReplicaSelector.java             // §23
+│   └── WeightedRingBuilder.java         // §25
+└── src/test/java/com/example/hashring/
+    ├── KeyRemappingOnNodeChangeTest.java
+    ├── LoadDistributionEvennessTest.java
+    └── ReplicaSelectionDistinctnessTest.java
+</code></pre></div>
+<hr>
+<h2 id="6-the-problem-consistent-hashing-solves">6. The Problem Consistent Hashing Solves</h2>
+<p>Any system that shards data or requests across a set of nodes needs a function mapping "which key" to "which node" — and that function has to satisfy two things at once: it must distribute load <strong>evenly</strong> across nodes, and when the node count <strong>changes</strong> (a node is added for more capacity, or removed because it failed), it must remap as <strong>few keys as possible</strong>, since every remapped key means real, expensive work — a cache entry that's now a guaranteed miss, or a database row that has to physically move.</p>
+<hr>
+<h2 id="7-naive-approach-modulo-hashing-and-why-it-breaks">7. Naive Approach: Modulo Hashing, and Why It Breaks</h2>
+<p>The obvious first idea: <code>node = hash(key) % N</code>, where <code>N</code> is the current node count. This distributes load evenly (a good hash function spreads keys uniformly across <code>0..N-1</code>) — but the moment <code>N</code> changes, it fails the second requirement catastrophically:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>N = 4:  hash(key) % 4
+   key A: hash=17 -&gt; 17 % 4 = 1  -&gt; node 1
+   key B: hash=22 -&gt; 22 % 4 = 2  -&gt; node 2
+   key C: hash=31 -&gt; 31 % 4 = 3  -&gt; node 3
+
+N = 5 (one node added):  hash(key) % 5
+   key A: hash=17 -&gt; 17 % 5 = 2  -&gt; node 2   (WAS node 1 -- MOVED)
+   key B: hash=22 -&gt; 22 % 5 = 2  -&gt; node 2   (WAS node 2 -- stayed, by coincidence)
+   key C: hash=31 -&gt; 31 % 5 = 1  -&gt; node 1   (WAS node 3 -- MOVED)
+</code></pre></div>
+<p>Changing <code>N</code> from 4 to 5 moved roughly <code>(N-1)/N</code> of all keys — for any reasonably-sized <code>N</code>, that's the overwhelming majority of the entire keyspace, remapped by adding <strong>one</strong> node. §8 asks the question this failure mode forces; §9 answers it.</p>
+<hr>
+<h2 id="8-follow-up-what-happens-when-a-node-is-added-or-removed-with-your-design">8. Follow-up — "What Happens When a Node Is Added or Removed, With Your Design?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"You've just shown me modulo hashing remaps almost everything on a single node change. What structural property would a mapping function need to have, to avoid that?"</em></p>
+</blockquote>
+<p>The mapping from key to node has to depend on the key and the <em>specific</em> node it lands on directly — never on <code>N</code>, the total node count, at all. §9 states the idea that achieves exactly this.</p>
+<hr>
+<h2 id="9-the-hash-ring-core-idea">9. The Hash Ring: Core Idea</h2>
+<p>Instead of computing <code>hash(key) % N</code>, hash <strong>both keys and nodes into the same space</strong> — conventionally visualized as points on a circle (a "ring") of size <code>2^64</code> — and define: <strong>a key belongs to the first node encountered walking clockwise from the key's position.</strong></p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    node C (hash=90)
+                  /                  \
+       key Z (hash=75)          node A (hash=10)
+              |                         |
+       key Y (hash=60)            key W (hash=20)
+                  \                  /
+                    node B (hash=45)
+
+key W (20) -&gt; walks clockwise -&gt; hits node B (45) first  -&gt; belongs to B
+key Y (60) -&gt; walks clockwise -&gt; hits node C (90) first  -&gt; belongs to C
+key Z (75) -&gt; walks clockwise -&gt; hits node C (90) first  -&gt; belongs to C
+</code></pre></div>
+<p>Removing node B, say, only affects the keys that were walking clockwise <strong>into</strong> B — those keys now continue past B's old position to whichever node is next clockwise (node C, in this sketch). Every other key, anywhere else on the ring, is completely unaffected, because its own clockwise walk never passed through B's position at all. This single structural fact — a node's removal or addition only perturbs its <strong>immediate clockwise neighborhood</strong> on the ring, nothing farther away — is the entire mechanism behind consistent hashing's headline property, made precise with real numbers in §16.</p>
+<hr>
+<h2 id="10-implementing-a-basic-hash-ring">10. Implementing a Basic Hash Ring</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class HashRing {
+
+    private final HashFunction hashFunction; // §20
+    private final NavigableMap&lt;Long, String&gt; ring = new TreeMap&lt;&gt;(); // position -&gt; nodeId
+
+    public HashRing(HashFunction hashFunction) { this.hashFunction = hashFunction; }
+
+    public void addNode(String nodeId) {
+        ring.put(hashFunction.hash(nodeId), nodeId);
+    }
+
+    public void removeNode(String nodeId) {
+        ring.values().removeIf(existing -&gt; existing.equals(nodeId));
+    }
+
+    public String nodeFor(String key) {
+        if (ring.isEmpty()) throw new IllegalStateException(&quot;Ring has no nodes&quot;);
+        long keyPosition = hashFunction.hash(key);
+
+        Map.Entry&lt;Long, String&gt; entry = ring.ceilingEntry(keyPosition); // the first node AT OR AFTER keyPosition
+        if (entry == null) {
+            entry = ring.firstEntry(); // walked past the &quot;end&quot; of the ring -- wrap around to the beginning
+        }
+        return entry.getValue();
+    }
+}
+</code></pre></div>
+<p><code>NavigableMap.ceilingEntry(keyPosition)</code> <strong>is</strong> "walk clockwise and find the first node" — it returns the smallest key in the map that is greater than or equal to <code>keyPosition</code>, which is exactly a clockwise search from that point. The <code>entry == null</code> fallback to <code>ring.firstEntry()</code> is what makes the ring actually circular rather than a straight line with an edge: a key positioned <em>after</em> every node's position on the ring wraps around to the node with the smallest position, exactly as if the ring's end connected back to its beginning.</p>
+<hr>
+<h2 id="11-mapping-keys-to-nodes">11. Mapping Keys to Nodes</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class RingDemo {
+    public static void main(String[] args) {
+        HashRing ring = new HashRing(new Sha256HashFunction()); // §20
+        ring.addNode(&quot;cache-server-1&quot;);
+        ring.addNode(&quot;cache-server-2&quot;);
+        ring.addNode(&quot;cache-server-3&quot;);
+
+        System.out.println(ring.nodeFor(&quot;user:12345&quot;));   // deterministic -- always the same node for this key
+        System.out.println(ring.nodeFor(&quot;user:67890&quot;));
+    }
+}
+</code></pre></div>
+<p><code>nodeFor</code> is a pure function of <code>(key, current ring state)</code> — the same key always resolves to the same node as long as the ring itself hasn't changed, which is the property every caller of this class (a cache client deciding which server to ask, a router deciding which shard owns a row) actually depends on.</p>
+<hr>
+<h2 id="12-follow-up-with-only-4-5-physical-nodes-wont-load-be-very-unevenly-distributed">12. Follow-up — "With Only 4-5 Physical Nodes, Won't Load Be Very Unevenly Distributed?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"§10's ring places exactly one point per node. With 4 nodes and a huge, uniformly-distributed keyspace, is the arc length each node owns actually going to be roughly equal?"</em></p>
+</blockquote>
+<p>No — and this is precisely the gap between "knows the term consistent hashing" and "has actually reasoned through it." With only 4-5 random points on a ring of size <code>2^64</code>, the gaps between consecutive points vary hugely by chance alone — one node might end up owning a tiny arc, another an arc many times larger, purely from where their single hash happened to land, with no relationship to actual capacity at all.</p>
+<hr>
+<h2 id="13-virtual-nodes-smoothing-out-load-distribution">13. Virtual Nodes: Smoothing Out Load Distribution</h2>
+<p>The fix: give each <strong>physical</strong> node many points on the ring — its <strong>virtual nodes</strong> — instead of just one. A physical node with, say, 150 virtual nodes scattered across the ring ends up owning 150 small, independent arcs rather than one large, luck-dependent one; by the law of large numbers, summing 150 independent, randomly-sized arcs converges much more tightly around the "fair share" (<code>total ring / physical node count</code>) than a single arc ever could. More virtual nodes per physical node means tighter, more even distribution, at the cost of more entries in the ring's sorted map — a real, tunable tradeoff, not a free lunch.</p>
+<hr>
+<h2 id="14-implementing-virtual-nodes">14. Implementing Virtual Nodes</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class VirtualNodeRing {
+
+    private final HashFunction hashFunction;
+    private final int virtualNodesPerPhysicalNode;
+    private final NavigableMap&lt;Long, String&gt; ring = new TreeMap&lt;&gt;(); // position -&gt; PHYSICAL nodeId
+
+    public VirtualNodeRing(HashFunction hashFunction, int virtualNodesPerPhysicalNode) {
+        this.hashFunction = hashFunction;
+        this.virtualNodesPerPhysicalNode = virtualNodesPerPhysicalNode;
+    }
+
+    public void addNode(String physicalNodeId) {
+        for (int i = 0; i &lt; virtualNodesPerPhysicalNode; i++) {
+            addSingleVirtualNode(physicalNodeId, physicalNodeId + &quot;#&quot; + i); // a distinct, deterministic label per point
+        }
+    }
+
+    /** Package-private (or public, for §25's weighted-node builder to reuse directly) -- places exactly ONE
+     *  virtual point on the ring for a physical node, at the position its given label hashes to. */
+    void addSingleVirtualNode(String physicalNodeId, String virtualNodeLabel) {
+        ring.put(hashFunction.hash(virtualNodeLabel), physicalNodeId); // the VALUE is always the real, physical node
+    }
+
+    public void removeNode(String physicalNodeId) {
+        ring.values().removeIf(existing -&gt; existing.equals(physicalNodeId)); // removes ALL of this node's virtual points
+    }
+
+    public String nodeFor(String key) {
+        if (ring.isEmpty()) throw new IllegalStateException(&quot;Ring has no nodes&quot;);
+        long keyPosition = hashFunction.hash(key);
+        Map.Entry&lt;Long, String&gt; entry = ring.ceilingEntry(keyPosition);
+        return (entry != null ? entry : ring.firstEntry()).getValue(); // identical wraparound logic to §10
+    }
+}
+</code></pre></div>
+<p>Every ring <strong>key</strong> is a virtual node's position, but every ring <strong>value</strong> is the real, physical node it belongs to — <code>nodeFor</code> never needs to know or care that there are 150 entries per physical node instead of one; it does the identical <code>ceilingEntry</code> walk, and simply lands on whichever physical node happens to own the virtual point it finds. Labeling each virtual node deterministically (<code>physicalNodeId + "#" + i</code>) rather than randomly is what makes <code>removeNode</code> able to find and remove every one of a physical node's virtual points later — a purely random per-virtual-node label would have no way to be regenerated for removal without keeping a separate list around.</p>
+<hr>
+<h2 id="15-follow-up-prove-it-how-much-data-actually-moves-when-a-node-joins-or-leaves">15. Follow-up — "Prove It. How Much Data Actually Moves When a Node Joins or Leaves?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"You've asserted 'minimal remapping.' Give me the actual math, or a concrete trace — not just the word 'minimal.'"</em></p>
+</blockquote>
+<p>§16 gives both: a precise statement of the bound, and a real, traced example showing exactly which keys move and which don't.</p>
+<hr>
+<h2 id="16-the-minimal-disruption-property-proven-with-a-trace">16. The Minimal-Disruption Property, Proven With a Trace</h2>
+<p>With <code>N</code> physical nodes (each with many virtual nodes, evenly distributed), adding or removing <strong>one</strong> physical node moves, in expectation, roughly <code>1/N</code> of the total keyspace — not <code>(N-1)/N</code> the way modulo hashing does. Concretely:</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Ring (simplified to ONE virtual node per physical node, for clarity):
+   node A at position 10
+   node B at position 45
+   node C at position 90
+
+Before: key at position 20 -&gt; clockwise -&gt; node B (45)
+        key at position 60 -&gt; clockwise -&gt; node C (90)
+        key at position 95 -&gt; clockwise -&gt; wraps -&gt; node A (10)
+
+Add node D at position 30:
+   key at position 20 -&gt; clockwise -&gt; NOW hits node D (30) first -- MOVED (was B, now D)
+   key at position 60 -&gt; clockwise -&gt; STILL hits node C (90) -- unaffected, D's position never comes into play
+   key at position 95 -&gt; clockwise -&gt; STILL wraps to node A (10) -- unaffected
+</code></pre></div>
+<p>Only the key at position 20 moved — and only because inserting node D landed <strong>between</strong> its old position and where it used to walk clockwise to. Every key whose clockwise walk never passes through D's new position is completely unaffected, regardless of how many total keys or nodes exist. This is the entire proof, made concrete: a node change only ever perturbs the arc between it and its <strong>immediate</strong> ring neighbors — never the rest of the ring — which is exactly why the expected fraction of keys remapped scales with <code>1/N</code>, not with the total keyspace size or the total node count's complement.</p>
+<hr>
+<h2 id="17-implementing-node-addition">17. Implementing Node Addition</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public Map&lt;String, String&gt; addNodeAndReportMovedKeys(VirtualNodeRing ring, String newPhysicalNodeId, Set&lt;String&gt; allKeys) {
+    Map&lt;String, String&gt; beforeAssignments = allKeys.stream().collect(Collectors.toMap(k -&gt; k, ring::nodeFor));
+
+    ring.addNode(newPhysicalNodeId); // §14 -- adds ALL of this node's virtual points at once
+
+    Map&lt;String, String&gt; movedKeys = new HashMap&lt;&gt;();
+    for (String key : allKeys) {
+        String newAssignment = ring.nodeFor(key);
+        if (!newAssignment.equals(beforeAssignments.get(key))) {
+            movedKeys.put(key, newAssignment); // only keys whose owner ACTUALLY changed appear here
+        }
+    }
+    return movedKeys; // exactly the keys a real system would need to physically migrate/re-fetch
+}
+</code></pre></div>
+<p>This isn't a diagnostic helper bolted on for this guide's sake — <code>movedKeys</code> is precisely the set a real system uses to drive <strong>actual data migration</strong>: a distributed cache invalidates exactly these keys (letting them repopulate as cache misses); a sharded database physically copies exactly these rows to their new owner. Computing this set directly, rather than assuming "some keys move" abstractly, is what turns the minimal-disruption property from a theoretical claim into an operationally actionable one.</p>
+<hr>
+<h2 id="18-implementing-node-removal">18. Implementing Node Removal</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public Map&lt;String, String&gt; removeNodeAndReportMovedKeys(VirtualNodeRing ring, String physicalNodeIdToRemove, Set&lt;String&gt; allKeys) {
+    Map&lt;String, String&gt; beforeAssignments = allKeys.stream().collect(Collectors.toMap(k -&gt; k, ring::nodeFor));
+
+    ring.removeNode(physicalNodeIdToRemove); // §14 -- removes ALL of this node's virtual points at once
+
+    Map&lt;String, String&gt; movedKeys = new HashMap&lt;&gt;();
+    for (String key : allKeys) {
+        String newAssignment = ring.nodeFor(key);
+        if (!newAssignment.equals(beforeAssignments.get(key))) {
+            movedKeys.put(key, newAssignment);
+        }
+    }
+    return movedKeys;
+}
+</code></pre></div>
+<p>Removal is the mirror image of addition, and the set of moved keys is exactly the same shape: only keys that were previously owned by the removed node's virtual points move at all, and every one of them moves to whichever node is now the next clockwise neighbor at that specific virtual point's former position — never to an arbitrary, unrelated node elsewhere on the ring.</p>
+<hr>
+<h2 id="19-follow-up-what-hash-function-should-you-actually-use">19. Follow-up — "What Hash Function Should You Actually Use?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"You need to hash both keys and virtual-node labels into a <code>long</code> ring position. Any hash function technically compiles. What actually matters in choosing one?"</em></p>
+</blockquote>
+<p>Exactly one property matters more than any other for this specific use: <strong>uniform distribution of output bits</strong>. §13's entire virtual-node fix assumes that many independent hash outputs scatter roughly evenly across the ring — a hash function with any structural bias (clustering outputs in certain ranges, or producing similar outputs for similar inputs) silently defeats that assumption, no matter how many virtual nodes are configured.</p>
+<hr>
+<h2 id="20-hash-function-selection-uniformity-vs-speed">20. Hash Function Selection: Uniformity vs. Speed</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface HashFunction {
+    long hash(String input);
+}
+</code></pre></div>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class Sha256HashFunction implements HashFunction {
+
+    @Override
+    public long hash(String input) {
+        try {
+            byte[] digest = MessageDigest.getInstance(&quot;SHA-256&quot;).digest(input.getBytes(StandardCharsets.UTF_8));
+            // A cryptographic hash's output is, by design, uniformly distributed and free of any structural
+            // correlation with the input -- exactly the property §19 named as non-negotiable. Truncating to
+            // the first 8 bytes (a long) is safe specifically BECAUSE those bits are already uniformly random;
+            // truncating a POORLY-distributed hash the same way would just keep whatever bias existed.
+            return ByteBuffer.wrap(digest, 0, Long.BYTES).getLong();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(&quot;SHA-256 must always be available&quot;, e);
+        }
+    }
+}
+</code></pre></div>
+<p>A cryptographic hash like SHA-256 is not chosen here for any security property — nothing about this ring needs to resist a deliberate adversary crafting a collision — it's chosen because <strong>cryptographic hashes happen to have excellent, well-studied uniform-distribution properties</strong>, which is the only property that actually matters for this use case. A real, latency-sensitive production system often prefers a faster <strong>non-cryptographic</strong> hash with the same uniformity guarantee (MurmurHash3 is the standard choice in real consistent-hashing implementations) purely for speed, since hashing happens on every single key lookup — this guide uses SHA-256 for its ubiquity and clarity, and names the faster alternative explicitly rather than silently implying SHA-256 is the only correct choice (§34).</p>
+<hr>
+<h2 id="21-follow-up-how-do-you-handle-replication-for-fault-tolerance">21. Follow-up — "How Do You Handle Replication for Fault Tolerance?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"A single node owning a key means a single point of failure for that key. How does consistent hashing support replicating each key across multiple nodes?"</em></p>
+</blockquote>
+<p>The ring already has everything this needs — §22 states the idea; §23 implements it.</p>
+<hr>
+<h2 id="22-replication-on-the-ring-walking-clockwise-for-n-replicas">22. Replication on the Ring: Walking Clockwise for N Replicas</h2>
+<p>Instead of stopping at the <strong>first</strong> node found walking clockwise from a key's position, keep walking and collect the first <strong>N distinct physical nodes</strong> encountered. The key's primary replica is the first node found (exactly as before); its second replica is the next <em>distinct</em> physical node found continuing clockwise; and so on, up to the desired replication factor.</p>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>key at position 20, replication factor = 3, virtual nodes per physical node = several each:
+   clockwise walk: ... virtual point of B ... virtual point of C ... virtual point of B (again) ... virtual point of D ...
+   distinct physical nodes encountered, in order: B, C, D   &lt;-- these three are the key's three replicas
+</code></pre></div>
+<p>Skipping a physical node's <em>repeated</em> virtual-node appearances (B showing up twice in the walk above, since it owns many virtual points scattered around the ring) is essential — without that check, a replication factor of 3 could trivially resolve to the same single physical node three times, which provides zero actual fault tolerance.</p>
+<hr>
+<h2 id="23-implementing-replica-selection">23. Implementing Replica Selection</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class ReplicaSelector {
+
+    private final NavigableMap&lt;Long, String&gt; ring; // shares the SAME ring VirtualNodeRing (§14) builds internally
+    private final HashFunction hashFunction;
+
+    public ReplicaSelector(NavigableMap&lt;Long, String&gt; ring, HashFunction hashFunction) {
+        this.ring = ring;
+        this.hashFunction = hashFunction;
+    }
+
+    public List&lt;String&gt; replicasFor(String key, int replicationFactor) {
+        long keyPosition = hashFunction.hash(key);
+        List&lt;String&gt; replicas = new ArrayList&lt;&gt;();
+        Set&lt;String&gt; seenPhysicalNodes = new HashSet&lt;&gt;(); // the DISTINCTNESS check §22 requires
+
+        Collection&lt;String&gt; clockwiseFromKey = ring.tailMap(keyPosition, true).values();
+        Collection&lt;String&gt; wrappedAroundToStart = ring.headMap(keyPosition, false).values();
+
+        for (String physicalNode : Stream.concat(clockwiseFromKey.stream(), wrappedAroundToStart.stream()).toList()) {
+            if (seenPhysicalNodes.add(physicalNode)) { // true only the FIRST time this physical node is seen
+                replicas.add(physicalNode);
+                if (replicas.size() == replicationFactor) break;
+            }
+        }
+        return replicas;
+    }
+}
+</code></pre></div>
+<p><code>tailMap(keyPosition, true)</code> followed by <code>headMap(keyPosition, false)</code> is the clockwise walk <em>with wraparound</em> expressed directly in terms of <code>TreeMap</code>'s own range-view methods: everything at or after the key's position, then everything before it (the wrapped-around remainder), concatenated in that exact order. <code>seenPhysicalNodes.add(...)</code> returning <code>false</code> for a node already collected is the mechanism that skips repeated virtual-node appearances — the loop simply keeps walking past them without incrementing <code>replicas</code>, exactly the distinctness guarantee §22 required.</p>
+<hr>
+<h2 id="24-follow-up-what-about-weighted-nodes-some-servers-have-more-capacity-than-others">24. Follow-up — "What About Weighted Nodes — Some Servers Have More Capacity Than Others?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"§13's virtual nodes assumed every physical node gets the SAME count. What if one server has twice the RAM/CPU of the others — how does it end up owning proportionally more of the ring?"</em></p>
+</blockquote>
+<p>The fix reuses the exact mechanism virtual nodes already provide, with one change: <strong>the virtual-node count itself becomes proportional to capacity</strong>, rather than a single fixed constant for every node.</p>
+<hr>
+<h2 id="25-weighted-consistent-hashing-via-proportional-virtual-node-counts">25. Weighted Consistent Hashing via Proportional Virtual Node Counts</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public final class WeightedRingBuilder {
+
+    private static final int BASE_VIRTUAL_NODES_PER_UNIT_WEIGHT = 50;
+
+    /** weight=1 is a baseline-capacity node; weight=2 gets TWICE the virtual nodes, and therefore, in
+     *  expectation, roughly twice the arc length -- and therefore roughly twice the request/storage load. */
+    public void addWeightedNode(VirtualNodeRing ring, String physicalNodeId, int weight) {
+        int virtualNodeCount = weight * BASE_VIRTUAL_NODES_PER_UNIT_WEIGHT;
+        for (int i = 0; i &lt; virtualNodeCount; i++) {
+            ring.addSingleVirtualNode(physicalNodeId, physicalNodeId + &quot;#&quot; + i); // §14's own primitive, reused directly
+        }
+    }
+}
+</code></pre></div>
+<p>No new load-balancing mechanism was needed at all — §13's own insight (more independent virtual points converge more tightly toward a proportional share of the ring) already implies this: a node with twice as many virtual points, scattered independently, ends up owning roughly twice the arc length <strong>for the identical statistical reason</strong> a node with 150 virtual points already converges toward an even share among equal peers. Weighting is not a separate feature bolted onto virtual nodes — it <em>is</em> virtual nodes, with the one previously-fixed parameter (count per node) made a function of capacity instead of a constant.</p>
+<hr>
+<h2 id="26-follow-up-how-is-this-actually-used-in-real-systems">26. Follow-up — "How Is This Actually Used in Real Systems?"</h2>
+<blockquote>
+<p><strong>Interviewer:</strong> <em>"Enough theory — where does this exact data structure show up in production, and which specific property is each use case actually relying on?"</em></p>
+</blockquote>
+<p>§27 answers concretely, naming the specific property each real system leans on.</p>
+<hr>
+<h2 id="27-real-world-applications-distributed-caches-sharded-databases-load-balancers-and-cdns">27. Real-World Applications: Distributed Caches, Sharded Databases, Load Balancers, and CDNs</h2>
+<ul>
+<li><strong>Distributed caches</strong> (Memcached-style client-side sharding): relies on <strong>minimal remapping</strong> (§16) — losing one cache node should only invalidate that node's share of entries, not the entire cache's contents, which is the difference between a brief, bounded miss-rate spike and a full cold-cache stampede.</li>
+<li><strong>Sharded databases</strong>: relies on <strong>minimal remapping</strong> <em>and</em> <strong>replication</strong> (§22-§23) — adding a shard to grow capacity should migrate a small, bounded slice of data, and each shard's data should already be replicated across multiple physical nodes for durability.</li>
+<li><strong>Load balancers routing by session/client key</strong>: relies on <strong>even distribution</strong> (§13) — the entire point of routing this way (versus round robin) is "the same client always reaches the same backend," which only works well operationally if load still ends up roughly even across backends.</li>
+<li><strong>CDN edge-node request routing</strong>: relies on <strong>weighted nodes</strong> (§24-§25) <em>and</em> <strong>minimal remapping</strong> — edge PoPs vary enormously in real capacity, and adding or removing a PoP (a real, frequent operational event at CDN scale) must not reshuffle which edge node serves which content region wholesale.</li>
+</ul>
+<p>Every one of these is, underneath, calling <code>nodeFor</code>-shaped logic against a ring built exactly the way §10-§25 build one — the differences between them are entirely in <em>what</em> gets sharded (cache keys, database rows, client sessions, content regions) and <em>which</em> of this guide's properties they lean on most heavily, never in the ring itself.</p>
+<hr>
+<h2 id="28-class-diagram">28. Class Diagram</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>HashFunction &lt;&lt;interface&gt;&gt;
++ hash(input: String): long
+      ^
+      | implements
+Sha256HashFunction
+
+VirtualNodeRing                              ReplicaSelector
++ addNode(physicalNodeId)                     + replicasFor(key, replicationFactor): List&lt;String&gt;
++ addSingleVirtualNode(id, label)                    |
++ removeNode(physicalNodeId)                          | walks the SAME ring VirtualNodeRing builds
++ nodeFor(key): String                                v
+      |                                        NavigableMap&lt;Long, String&gt;
+      | delegates positioning to               (position -&gt; physical nodeId)
+      v
+   HashFunction
+
+WeightedRingBuilder
++ addWeightedNode(ring, physicalNodeId, weight)
+      | reuses
+      v
+VirtualNodeRing.addSingleVirtualNode(...)
+</code></pre></div>
+<p>Every class here depends on <code>HashFunction</code> only through its interface, never a concrete hash implementation directly — swapping <code>Sha256HashFunction</code> for a faster MurmurHash3-based one (§20) requires touching exactly one line at construction time, nowhere else.</p>
+<hr>
+<h2 id="29-full-worked-example-adding-and-removing-nodes-traced">29. Full Worked Example: Adding and Removing Nodes, Traced</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1.  VirtualNodeRing ring = new VirtualNodeRing(new Sha256HashFunction(), 150);         (§14, §20)
+2.  ring.addNode(&quot;cache-1&quot;); ring.addNode(&quot;cache-2&quot;); ring.addNode(&quot;cache-3&quot;);          -- 450 virtual points total
+3.  Set&lt;String&gt; allKeys = &lt;10,000 sample keys&gt;;
+4.  Map&lt;String,String&gt; before = allKeys per-key -&gt; ring.nodeFor(key)                     (§11)
+5.  addNodeAndReportMovedKeys(ring, &quot;cache-4&quot;, allKeys)                                  (§17)
+       -&gt; roughly 2,500 of 10,000 keys appear in the returned map (~1/4, matching §16's ~1/N bound for N=4)
+       -&gt; the other ~7,500 keys' entries in `before` are UNCHANGED
+6.  ReplicaSelector selector = new ReplicaSelector(ring's internal map, hashFunction);   (§23)
+7.  selector.replicasFor(&quot;user:12345&quot;, 3) -&gt; [&quot;cache-2&quot;, &quot;cache-4&quot;, &quot;cache-1&quot;]           -- 3 DISTINCT physical nodes
+8.  WeightedRingBuilder builder = new WeightedRingBuilder();                             (§25)
+    builder.addWeightedNode(ring, &quot;cache-5-big&quot;, weight=3)  -- gets 3x the virtual points of cache-1..4
+       -&gt; cache-5-big now owns roughly 3x the arc length, and therefore roughly 3x the request volume, of a peer
+</code></pre></div>
+<p>Step 5's ~1/4 figure is not asserted — it's exactly what §17's <code>addNodeAndReportMovedKeys</code> measures directly, on real data, which is the entire point of building that method as a first-class part of this guide rather than a claim left untested.</p>
+<hr>
+<h2 id="30-design-patterns-used">30. Design Patterns Used</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Where</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Strategy</strong></td>
+<td><code>HashFunction</code> (§20)</td>
+<td>The hashing algorithm is swappable behind one interface — SHA-256 for clarity, MurmurHash3 for speed, with zero changes anywhere else.</td>
+</tr>
+<tr>
+<td><strong>Facade</strong></td>
+<td><code>VirtualNodeRing</code> (§14)</td>
+<td>Hides the underlying <code>TreeMap</code>, the virtual-node fan-out, and the wraparound logic behind three simple methods: add, remove, look up.</td>
+</tr>
+<tr>
+<td><strong>Decorator (conceptually)</strong></td>
+<td>Weighted nodes (§25) over plain virtual nodes (§14)</td>
+<td>Weighting doesn't replace the virtual-node mechanism — it layers proportional counts on top of the identical underlying primitive (<code>addSingleVirtualNode</code>).</td>
+</tr>
+</tbody>
+</table></div>
+<hr>
+<h2 id="31-solid-principles-applied">31. SOLID Principles Applied</h2>
+<ul>
+<li><strong>Single Responsibility</strong>: <code>HashFunction</code> only hashes; <code>ReplicaSelector</code> only walks the ring for distinct replicas; <code>WeightedRingBuilder</code> only computes proportional virtual-node counts. None of them know how to remove a node or handle wraparound.</li>
+<li><strong>Open/Closed</strong>: adding a new <code>HashFunction</code> implementation (a MurmurHash3 variant, §34) requires zero changes to <code>VirtualNodeRing</code>, <code>ReplicaSelector</code>, or <code>WeightedRingBuilder</code> — all three depend on the interface, never a concrete hash algorithm.</li>
+<li><strong>Liskov Substitution</strong>: any <code>HashFunction</code> is fully substitutable wherever the interface type is used — <code>Sha256HashFunction</code> and a future faster implementation are interchangeable from every caller's point of view.</li>
+<li><strong>Interface Segregation</strong>: <code>HashFunction</code> exposes exactly one method — nothing about ring structure, virtual nodes, or replication leaks into what a hash function implementation has to provide.</li>
+<li><strong>Dependency Inversion</strong>: <code>VirtualNodeRing</code> depends on the <code>HashFunction</code> interface, injected through its constructor, never on <code>Sha256HashFunction</code> directly.</li>
+</ul>
+<hr>
+<h2 id="32-common-mistakes-when-building-this-yourself">32. Common Mistakes When Building This Yourself</h2>
+<ul>
+<li><strong>Using <code>hash(key) % N</code> and calling it "consistent hashing"</strong> (§7) — it isn't; the defining property this entire data structure exists for (minimal remapping on node-count change) is exactly the property modulo hashing lacks.</li>
+<li><strong>A plain ring with one point per physical node</strong> (§12) — produces wildly uneven load with a small node count, silently, in a way that only shows up as a real operational problem once traffic is unevenly hot on one node.</li>
+<li><strong>Randomly-labeled virtual nodes instead of deterministic ones</strong> (§14) — makes <code>removeNode</code> unable to find and remove a physical node's virtual points later without maintaining a separate lookup table, an entirely avoidable complication.</li>
+<li><strong>A poorly-distributed hash function</strong> (§19-§20) — silently reintroduces the uneven-load problem virtual nodes were supposed to fix, since the whole mechanism assumes uniformly-scattered hash outputs.</li>
+<li><strong>Replica selection that doesn't de-duplicate physical nodes</strong> (§22-§23) — a replication factor of 3 that can resolve to the same physical node three times over provides zero actual fault tolerance, while looking correct in any test that doesn't specifically check for distinctness.</li>
+<li><strong>Never actually measuring the remapping fraction</strong> (§16-§17) — asserting "minimal disruption" without a real before/after trace is exactly the gap between describing consistent hashing and having verified an implementation of it.</li>
+</ul>
+<hr>
+<h2 id="33-testing-strategy">33. Testing Strategy</h2>
+<ul>
+<li><strong><code>HashRing</code>/<code>VirtualNodeRing</code></strong> (§10, §14): <code>nodeFor</code> is deterministic — the same key against an unchanged ring always returns the same node; a key positioned after every ring entry correctly wraps around to the first entry.</li>
+<li><strong><code>LoadDistributionEvennessTest</code></strong>: with a fixed virtual-node count, a large sample of random keys distributes across physical nodes within a bounded percentage of a perfectly even split — the test that would catch a poor hash function (§19-§20) or a too-low virtual-node count (§13) directly.</li>
+<li><strong><code>KeyRemappingOnNodeChangeTest</code></strong>: adding or removing one physical node moves a fraction of keys within a bounded range of the expected <code>1/N</code> (§16-§17) — never close to <code>(N-1)/N</code>, which is exactly the naive-hashing failure this guide's whole design exists to avoid regressing back into.</li>
+<li><strong><code>ReplicaSelectionDistinctnessTest</code></strong> (§23): <code>replicasFor(key, N)</code> always returns exactly <code>N</code> <strong>distinct</strong> physical nodes (for <code>N</code> less than or equal to the total physical node count), never a repeated node.</li>
+<li><strong>Weighted distribution test</strong> (§25): a node with <code>weight=3</code> ends up owning, over a large sample, roughly three times the key share of a <code>weight=1</code> peer, within a reasonable statistical margin.</li>
+</ul>
+<hr>
+<h2 id="34-suggested-future-enhancements">34. Suggested Future Enhancements</h2>
+<ul>
+<li><strong>A faster non-cryptographic hash function</strong> (§20) — MurmurHash3 or a similar algorithm with the same uniform-distribution guarantee, trading SHA-256's ubiquity for meaningfully lower per-lookup latency at high request rates.</li>
+<li><strong>Bounded-load consistent hashing</strong> — a refinement (used in some real load-balancer implementations) that caps how much any single node can be assigned beyond its fair share, actively rebalancing rather than only relying on virtual-node statistics to converge toward evenness.</li>
+<li><strong>A pluggable ring persistence/broadcast layer</strong> — real distributed systems need every node to agree on the <em>same</em> ring state; this guide deliberately scopes to the ring data structure itself, naming cluster-membership propagation (via a gossip protocol or a coordination service) as real, separate infrastructure.</li>
+<li><strong>Jump consistent hashing</strong> — an alternative algorithm achieving similar minimal-remapping properties with zero memory overhead (no ring, no virtual nodes stored at all) at the cost of not supporting arbitrary node removal by ID, a real, different tradeoff worth knowing exists.</li>
+<li><strong>Virtual-node count auto-tuning</strong> — dynamically adjusting a node's virtual-node count based on observed load rather than a fixed weight assigned once at provisioning time.</li>
+</ul>
+<hr>
+<h2 id="35-progressive-interview-question-set">35. Progressive Interview Question Set</h2>
+<ol>
+<li>Walk through exactly why <code>hash(key) % N</code> remaps almost every key when <code>N</code> changes, with concrete numbers.</li>
+<li>What specific <code>TreeMap</code> operation implements "walk clockwise from a position," and why does it need a wraparound fallback?</li>
+<li>Why does a ring with only 4-5 physical nodes (one point each) distribute load unevenly, and what specifically fixes it?</li>
+<li>Prove that adding one node to a ring only remaps a bounded fraction of keys — don't just assert it, trace through what actually changes.</li>
+<li>Why must virtual-node labels be deterministic rather than randomly generated?</li>
+<li>What property of a hash function actually matters for this use case, and why is a cryptographic hash a reasonable (if not the fastest) choice?</li>
+<li>Walk through replica selection for a replication factor of 3 — why is distinctness of physical nodes not automatic, and how do you enforce it?</li>
+<li>How do you make one physical node own proportionally more of the ring than another, without introducing any new mechanism beyond what virtual nodes already provide?</li>
+<li>Name three real systems built on this exact data structure, and for each one, name the specific property (even distribution, minimal remapping, replication, weighting) it depends on most.</li>
+<li>If asked to support a node being temporarily "drained" (stop receiving new keys, but keep serving already-assigned ones during a graceful shutdown) rather than immediately removed, how would you extend this design?</li>
+</ol>
+<hr>
+<h2 id="36-final-takeaway">36. Final Takeaway</h2>
+<p>Consistent hashing is a small data structure with an outsized reputation, and the reputation is earned: one sorted map, one clockwise lookup, and one extra layer of indirection (virtual nodes) is genuinely all it takes to turn "adding a server remaps almost everything" into "adding a server remaps roughly <code>1/N</code> of everything" — a difference that determines whether scaling a cache or a database out is a routine, low-risk operation or an event that saturates every node with cache misses or data migration all at once. Every refinement past the basic ring — virtual nodes, replication, weighting — is answering one of exactly four follow-up questions a real interview always asks, in the same order this guide asked them, because those four questions are the actual, complete list of gaps a plain ring leaves open, not an arbitrary curriculum.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Build Your Own Consistent Hashing Ring From Scratch — A Distributed Systems Step-by-Step Guide.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>

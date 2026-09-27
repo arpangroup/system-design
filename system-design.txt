@@ -1,0 +1,102 @@
+1. Design a version control system like Git
+2. Design a video streaming app like Netflix or HotSTar
+3. Design Consistent Hashing
+4. Design URL Shortning
+5. Design Unique ID generator
+	- Multiple globakl ecommerce service will call this uniqueId generator to generate the uniqueId
+	- It should ensure uniqueness of the Id, I think UUID is not the correct approach
+	- It should be scallable and extremely fast
+	- It should guarantee of not duplicate id
+	- I think timestamp is also a not proper id because multiple instance can create same timestampId
+	- It should have multiple instance of the service so that it can handle million of users
+	- Follow DOLID design principal and all design best practice
+	- Future improvement
+	- Calculate TPS / RPS etc
+	- Can we achieve TPS like 1M, how much max TPS we can achieve? what infra changes we need?
+		-- Alipay achieved the highest recorded peak of 544,000 TPS during a global shopp
+	- It will have both high level and low level design all functional and non-functional requirements class level diagram and future enhancement
+	- Frame this question as a system design like question and with folowups in step by step manner
+6. Design Search Autocomplete System / Typeahead System
+7. Design a Real-Time Analytics Platform
+########################################################
+
+
+
+Can you write a step by step markdown guide as wel as html file to 
+	###### XXXXXXXXXXXXXXXXXXX #######   
+	
+	It will have both high level and low level design all functional and non-functional requirements,
+	class level diagram and future enhancement
+	
+	It will follow the SOLID design principal
+	
+	Frame this question as a system design like question and with folowups in step by step manner
+
+
+
+
+
+
+
+8. Design a Logging and Monitoring System like SL4J
+9. Design Rate Limiter
+10. Design a parking lot system
+11. Design Tic-Tac-Toe Game
+	- It will have both high level and low level design all functional and non-functional requirements,
+	class level diagram and future enhancement	
+	- It will follow the SOLID design principal	
+	- Frame this question as a system design like question and with folowups in step by step manner
+	- It will support multiplayer 
+	- How to incorporate AI player
+	- How to train AI payer
+	- Score management
+	- various strategy
+	- Support match or contest which will have winning prize etc...
+	- can you create the game in a canvas in JavaScript which will have all above feature
+12. Design Snake Game
+13. Design Elevator System
+14. Design Car Rental System
+15. Design BookMyShow & Concurrency handling
+16. Design Vending Machine
+17. Design ATM
+18. Design Chess Game
+19. Design Splitwise
+	- Splitwise Simplify Algorithm / Optimal Accounting Balancing
+20. Design True Caller
+21. Design Meeting Scheduler
+22. Design Online Voting System
+23. I want to design a rest APi with following proper standard and all response error structure.
+I have an eligibility API, where I am planning for the response like below
+{
+   userId: 1,
+   isEligible: true
+   eligibleProducts: ["P001", "P002", "P003"]
+}
+or
+{
+   userId: 1,
+   isEligible: false
+   eligibleProducts: []
+}
+
+
+for error like any validation I am planning to use GlobalExceptionHandler and the response format like below:
+{
+ "errorCode": "ERR001",
+ "errorMessage": "User has no sufficient balance"
+}
+
+But my frontend team as wel as my manager is asking the validation response like below
+{
+   userId: 1,
+   isEligible: false
+   "errorCode": "ERR001",
+   "errorMessage": "User has no sufficient balance"
+}
+
+
+What is the better approach in this situation for better design. Can you explain all the details step by step with proper explanation.
+
+Can you write a step by step markdown aswel as HTMl guide for complete REST APi interview questions
+It should cover all possible difficult REST concept with followup questions.
+

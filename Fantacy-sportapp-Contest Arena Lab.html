@@ -1,0 +1,395 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contest Arena Lab</title>
+<style>
+  :root {
+    --bg: #f4f6f5;
+    --panel: #ffffff;
+    --ink: #10241f;
+    --sub: #55716a;
+    --accent: #0f7a4f;
+    --accent-dark: #0a5c3b;
+    --line: #dbe6e1;
+    --danger: #b3261e;
+    --danger-bg: #fbeae9;
+    --ok: #0f7a4f;
+    --ok-bg: #e7f5ee;
+    --pending: #9a6700;
+    --pending-bg: #fff3d6;
+    --chip: #eef2f0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1512;
+      --panel: #142520;
+      --ink: #e7f2ed;
+      --sub: #9db8b0;
+      --accent: #34c98a;
+      --accent-dark: #56e0a4;
+      --line: #24382f;
+      --danger: #ff8a80;
+      --danger-bg: #3a1c1a;
+      --ok: #34c98a;
+      --ok-bg: #163527;
+      --pending: #f2c866;
+      --pending-bg: #3a2f10;
+      --chip: #1c2f28;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1512;
+    --panel: #142520;
+    --ink: #e7f2ed;
+    --sub: #9db8b0;
+    --accent: #34c98a;
+    --accent-dark: #56e0a4;
+    --line: #24382f;
+    --danger: #ff8a80;
+    --danger-bg: #3a1c1a;
+    --ok: #34c98a;
+    --ok-bg: #163527;
+    --pending: #f2c866;
+    --pending-bg: #3a2f10;
+    --chip: #1c2f28;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 20px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  .eyebrow {
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--sub);
+    margin-bottom: 6px;
+  }
+  h1 { font-size: 30px; margin: 0 0 10px; letter-spacing: -0.01em; }
+  .dek { color: var(--sub); font-size: 15px; line-height: 1.5; max-width: 760px; margin-bottom: 22px; }
+  .grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 18px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 20px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 12px; letter-spacing: -0.01em; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .stat-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .tile { background: var(--chip); border-radius: 10px; padding: 10px 12px; }
+  .tile .label { font-size: 11px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.05em; }
+  .tile .value { font-size: 20px; font-weight: 650; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .slots-bar { height: 10px; border-radius: 6px; background: var(--chip); overflow: hidden; margin: 6px 0 14px; }
+  .slots-fill { height: 100%; background: var(--accent); transition: width 0.25s ease; }
+  label { font-size: 12px; color: var(--sub); display: block; margin-bottom: 4px; }
+  select, input[type=number] {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { background: var(--accent-dark); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.secondary { background: var(--chip); color: var(--ink); }
+  button.secondary:hover { background: var(--line); }
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .tab-btn {
+    background: none; color: var(--sub); font-weight: 600; font-size: 13px;
+    padding: 8px 12px; border-radius: 0; border-bottom: 2px solid transparent;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover { background: none; color: var(--ink); }
+  .tab-panel[hidden] { display: none; }
+  .banner {
+    padding: 10px 12px; border-radius: 9px; font-size: 13px; line-height: 1.45;
+    margin-top: 10px; display: none;
+  }
+  .banner.show { display: block; }
+  .banner.ok { background: var(--ok-bg); color: var(--ok); }
+  .banner.bad { background: var(--danger-bg); color: var(--danger); }
+  .banner.pending { background: var(--pending-bg); color: var(--pending); }
+  table.mini { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.mini th, table.mini td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  table.mini th { color: var(--sub); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+  table.mini tr.you { background: var(--ok-bg); }
+  .rank-num { font-variant-numeric: tabular-nums; color: var(--sub); width: 30px; display: inline-block; }
+  .fine { font-size: 12px; color: var(--sub); margin-top: 8px; line-height: 1.5; }
+  .event-log { max-height: 170px; overflow-y: auto; font-size: 12.5px; }
+  .event-log div { padding: 5px 0; border-bottom: 1px solid var(--line); color: var(--sub); }
+  .event-log div:last-child { border-bottom: none; }
+  .event-log b { color: var(--ink); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .badge.overdraft { background: var(--danger-bg); color: var(--danger); }
+  .badge.safe { background: var(--ok-bg); color: var(--ok); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Interactive Systems Lab · Companion to the Design Guide</div>
+  <h1>Contest Arena Lab</h1>
+  <div class="dek">
+    Race 20,000 simulated users for the last few contest slots and watch the atomic reservation hold exactly at capacity.
+    Then fire a match event and watch it fan out through a player index straight into a live, re-ranking leaderboard —
+    no full recompute, no re-sort.
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Contest: Mega Contest — 10 Slots</h2>
+      <div class="stat-tiles">
+        <div class="tile"><div class="label">Slots filled</div><div class="value" id="slotsValue">0 / 10</div></div>
+        <div class="tile"><div class="label">Your wallet</div><div class="value" id="walletValue">$500.00</div></div>
+      </div>
+      <div class="slots-bar"><div class="slots-fill" id="slotsFill" style="width:0%"></div></div>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="race">Join Race</button>
+        <button class="tab-btn" data-tab="scoring">Live Scoring</button>
+        <button class="tab-btn" data-tab="log">Log</button>
+      </div>
+
+      <div class="tab-panel" data-panel="race">
+        <label for="lockingSelect">Slot-reservation mode</label>
+        <select id="lockingSelect">
+          <option value="naive">Naive (check, then insert)</option>
+          <option value="atomic" selected>Atomic (conditional UPDATE)</option>
+        </select>
+        <label for="burstSize">Simultaneous join attempts to fire</label>
+        <input type="number" id="burstSize" value="200" min="1" max="2000">
+        <button id="fireBurstBtn">Fire burst at remaining slots</button>
+        <button class="secondary" id="resetContestBtn">Reset contest</button>
+        <div class="banner" id="raceBanner"></div>
+        <p class="fine">Naive mode: each simulated request reads the current filled-slot count, "thinks" for a random moment, then writes <code>count+1</code> — a textbook check-then-act race. Atomic mode: each request executes a single conditional <code>UPDATE ... WHERE filled_slots &lt; total_slots</code> with no gap between the check and the write.</p>
+      </div>
+
+      <div class="tab-panel" data-panel="scoring" hidden>
+        <label for="eventPlayer">Match event</label>
+        <select id="eventPlayer">
+          <option value="rashid">Rashid — takes a wicket (+25 pts)</option>
+          <option value="babar">Babar — hits a six (+6 pts)</option>
+          <option value="you">Your captain pick hits a fifty (+16 pts, captain 2x = +32)</option>
+        </select>
+        <button id="fireEventBtn">Publish match event</button>
+        <div class="banner" id="scoringBanner"></div>
+        <p class="fine">Publishing one event computes a single point delta, looks up every drafted team via a precomputed player→team index, and increments each one's score in a sorted-set leaderboard — never a full recompute.</p>
+      </div>
+
+      <div class="tab-panel" data-panel="log" hidden>
+        <div class="event-log" id="eventLog"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Live Leaderboard <span id="leaderboardCount" class="fine" style="margin-left:6px;"></span></h2>
+      <table class="mini">
+        <thead><tr><th>Rank</th><th>Team</th><th>Points</th></tr></thead>
+        <tbody id="leaderboardBody"></tbody>
+      </table>
+      <p class="fine" id="leaderboardFine"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const TOTAL_SLOTS = 10;
+  const STARTING_WALLET = 50000; // cents
+  const ENTRY_FEE = 5000; // cents
+
+  let filledSlots = 0;
+  let walletCents = STARTING_WALLET;
+  let joined = false;
+
+  // team roster for leaderboard demo: teamId -> {name, points, isYou, players: []}
+  let teams = {};
+  let playerIndex = {}; // playerKey -> [teamId,...]
+
+  function fmt(cents) {
+    return "$" + (cents / 100).toFixed(2);
+  }
+
+  function seedTeams() {
+    teams = {};
+    playerIndex = { rashid: [], babar: [], you: [] };
+    const names = ["Falcons XI", "Thunder Kings", "Night Riders", "Super Strikers", "Royal Smashers",
+                   "Titan Warriors", "Blaze United", "Storm Chasers", "Iron Legends", "Comet Crew"];
+    for (let i = 0; i < names.length; i++) {
+      const teamId = "t" + i;
+      const hasRashid = Math.random() < 0.55;
+      const hasBabar = Math.random() < 0.4;
+      teams[teamId] = { name: names[i], points: 0, isYou: false };
+      if (hasRashid) playerIndex.rashid.push(teamId);
+      if (hasBabar) playerIndex.babar.push(teamId);
+    }
+  }
+
+  function addYourTeamToLeaderboard() {
+    teams["you"] = { name: "Your Team", points: 0, isYou: true };
+    playerIndex.you.push("you");
+    // your team also independently may have drafted rashid/babar for realism
+    if (Math.random() < 0.6) playerIndex.rashid.push("you");
+  }
+
+  function renderStats() {
+    document.getElementById("slotsValue").textContent = filledSlots + " / " + TOTAL_SLOTS;
+    document.getElementById("walletValue").textContent = fmt(walletCents);
+    document.getElementById("slotsFill").style.width = Math.min(100, (filledSlots / TOTAL_SLOTS) * 100) + "%";
+  }
+
+  function renderLeaderboard() {
+    const sorted = Object.entries(teams).sort((a, b) => b[1].points - a[1].points);
+    const body = document.getElementById("leaderboardBody");
+    body.innerHTML = "";
+    sorted.forEach(([teamId, t], idx) => {
+      const tr = document.createElement("tr");
+      if (t.isYou) tr.className = "you";
+      tr.innerHTML = "<td><span class='rank-num'>" + (idx + 1) + "</span></td><td>" + t.name + (t.isYou ? " (you)" : "") + "</td><td>" + t.points + "</td>";
+      body.appendChild(tr);
+    });
+    document.getElementById("leaderboardCount").textContent = "(" + sorted.length + " teams)";
+  }
+
+  function log(msg) {
+    const el = document.getElementById("eventLog");
+    const div = document.createElement("div");
+    div.innerHTML = msg;
+    el.insertBefore(div, el.firstChild);
+  }
+
+  function setBanner(id, text, kind) {
+    const el = document.getElementById(id);
+    el.className = "banner show " + kind;
+    el.textContent = text;
+  }
+
+  // ---- Join race (§19-21) ----
+  async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function naiveJoinAttempt() {
+    const seen = filledSlots;              // stale read, taken before the gap
+    await sleep(5 + Math.random() * 15);    // the gap: another request can run its own check here
+    if (seen >= TOTAL_SLOTS) return false;  // check against the STALE snapshot, not the live count
+    await sleep(2 + Math.random() * 10);
+    filledSlots = filledSlots + 1;          // writes against the LIVE count -- but the gate above already let too many through
+    return true;
+  }
+
+  function atomicJoinAttempt() {
+    if (filledSlots >= TOTAL_SLOTS) return false;
+    filledSlots += 1; // single synchronous read-then-write, no await between check and write
+    return true;
+  }
+
+  async function fireBurst() {
+    const mode = document.getElementById("lockingSelect").value;
+    const n = Math.max(1, Math.min(2000, parseInt(document.getElementById("burstSize").value, 10) || 200));
+    document.getElementById("fireBurstBtn").disabled = true;
+
+    const startFilled = filledSlots;
+    let successes = 0;
+    if (mode === "naive") {
+      const attempts = [];
+      for (let i = 0; i < n; i++) attempts.push(naiveJoinAttempt());
+      const results = await Promise.all(attempts);
+      successes = results.filter(Boolean).length;
+    } else {
+      for (let i = 0; i < n; i++) {
+        if (atomicJoinAttempt()) successes++;
+      }
+    }
+
+    renderStats();
+    const overbooked = filledSlots > TOTAL_SLOTS;
+    if (overbooked) {
+      setBanner("raceBanner",
+        "OVERBOOKED: " + filledSlots + " / " + TOTAL_SLOTS + " slots filled (" + successes + " of " + n + " attempts told they'd succeeded). Naive check-then-act let more entries through than the contest actually has room for.",
+        "bad");
+    } else {
+      setBanner("raceBanner",
+        filledSlots + " / " + TOTAL_SLOTS + " slots filled, " + successes + " of " + n + " attempts succeeded" + (filledSlots === TOTAL_SLOTS ? " — contest now exactly full, no overbooking." : "."),
+        "ok");
+    }
+    log("Fired " + n + " simultaneous joins in <b>" + mode + "</b> mode: " + startFilled + " → " + filledSlots + " slots filled (" + successes + " told 'success').");
+    document.getElementById("fireBurstBtn").disabled = false;
+  }
+
+  function resetContest() {
+    filledSlots = 0;
+    walletCents = STARTING_WALLET;
+    joined = false;
+    document.getElementById("raceBanner").className = "banner";
+    renderStats();
+    log("Contest reset — 0 / " + TOTAL_SLOTS + " slots, wallet restored to " + fmt(STARTING_WALLET) + ".");
+  }
+
+  // ---- Live scoring fan-out (§25-30) ----
+  const EVENT_POINTS = { rashid: 25, babar: 6, you: 32 };
+  const EVENT_LABELS = {
+    rashid: "Rashid takes a wicket (+25)",
+    babar: "Babar hits a six (+6)",
+    you: "Your captain pick hits a fifty (+32, captain bonus applied)"
+  };
+
+  function publishEvent() {
+    const key = document.getElementById("eventPlayer").value;
+    const delta = EVENT_POINTS[key];
+    const affected = playerIndex[key] || [];
+    affected.forEach(teamId => {
+      if (teams[teamId]) teams[teamId].points += delta;
+    });
+    renderLeaderboard();
+    setBanner("scoringBanner",
+      EVENT_LABELS[key] + " → " + affected.length + " team(s) updated via the player index, in one O(1) lookup + " + affected.length + " O(log N) leaderboard increments. No team outside this list was touched.",
+      "ok");
+    log("Event: <b>" + EVENT_LABELS[key] + "</b> — fanned out to " + affected.length + " team(s).");
+  }
+
+  // ---- tabs ----
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach(p => p.hidden = true);
+      btn.classList.add("active");
+      document.querySelector('.tab-panel[data-panel="' + btn.dataset.tab + '"]').hidden = false;
+    });
+  });
+
+  document.getElementById("fireBurstBtn").addEventListener("click", fireBurst);
+  document.getElementById("resetContestBtn").addEventListener("click", resetContest);
+  document.getElementById("fireEventBtn").addEventListener("click", publishEvent);
+
+  seedTeams();
+  addYourTeamToLeaderboard();
+  renderStats();
+  renderLeaderboard();
+  log("Lab ready. Fire a join burst, then switch to Live Scoring to see the fan-out.");
+})();
+</script>
+</body>
+</html>
+
+</body></html>

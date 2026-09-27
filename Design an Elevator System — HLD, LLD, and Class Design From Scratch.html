@@ -1,0 +1,761 @@
+<meta charset="utf-8">
+<title>Design an Elevator System — HLD, LLD, and Class Design From Scratch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#f2f3f7; --surface:#ffffff; --surface-alt:#e9ebf1; --border:#d6d9e2;
+    --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+    --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+    --code-bg:#eef1f4;
+    --shadow: 0 1px 2px rgba(23,26,36,0.05), 0 10px 26px -14px rgba(23,26,36,0.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+      --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+      --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+      --code-bg:#1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1017; --surface:#171a24; --surface-alt:#1e222f; --border:#2c303f;
+    --ink:#e9ebf3; --ink-soft:#aeb2c4; --ink-faint:#787d92;
+    --accent:#3fd0c9; --accent-strong:#5fe0d9; --accent-soft:#123632; --accent-soft-border:#245a54;
+    --code-bg:#1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 26px -14px rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; line-height:1.65; }
+  a{ color:var(--accent-strong); }
+  :root[data-theme="dark"] a, :root:not([data-theme="light"]) a{ color:var(--accent); }
+
+  .shell{ max-width:1240px; margin:0 auto; padding:0 24px 90px; }
+
+  header.doc-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    padding:36px 0 26px; margin-bottom:32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+    margin-left:-24px; margin-right:-24px; padding-left:24px; padding-right:24px;
+  }
+  .doc-header .title-block{ flex:1 1 380px; min-width:0; }
+  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); font-weight:600; }
+  :root[data-theme="dark"] .eyebrow, :root:not([data-theme="light"]) .eyebrow{ color:var(--accent); }
+  h1{ font-size:clamp(26px,4vw,38px); margin:8px 0 10px; letter-spacing:-0.015em; line-height:1.15; }
+  .dek{ margin:0; color:var(--ink-soft); font-size:15.5px; max-width:62ch; }
+
+  .print-btn{
+    flex:0 0 auto; margin-top:4px;
+    font-family:'IBM Plex Sans',sans-serif; font-size:13.5px; font-weight:600;
+    color:#fff; background:var(--accent-strong); border:none; border-radius:9px;
+    padding:11px 20px; cursor:pointer; box-shadow:var(--shadow); transition:background .15s,transform .1s;
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .print-btn:hover{ background:var(--accent); transform:translateY(-1px); }
+  .print-btn:active{ transform:translateY(0); }
+  .print-btn svg{ width:15px; height:15px; flex-shrink:0; }
+
+  .layout{ display:flex; gap:44px; align-items:flex-start; }
+  main.article{ flex:1 1 auto; min-width:0; max-width:760px; }
+
+  .sidebar-toc{
+    flex:0 0 280px; position:sticky; top:24px; align-self:flex-start;
+    max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:6px 20px 20px;
+  }
+  .sidebar-toc summary{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); font-weight:700;
+    cursor:pointer; list-style:none; padding:14px 0; display:flex; align-items:center; justify-content:space-between;
+    user-select:none;
+  }
+  .sidebar-toc summary::-webkit-details-marker{ display:none; }
+  .sidebar-toc summary::after{ content:'\2212'; color:var(--ink-faint); font-size:14px; }
+  .sidebar-toc details:not([open]) summary::after{ content:'+'; }
+  .sidebar-toc .toc-body{ padding-top:2px; }
+  .sidebar-toc ol, .sidebar-toc ul{ list-style:none; margin:0; padding-left:0; }
+  .sidebar-toc ol{ counter-reset:toc-phase; }
+  .sidebar-toc ul ul, .sidebar-toc ol ul{ padding-left:18px; margin-top:2px; margin-bottom:10px; }
+  .sidebar-toc li{ margin:0 0 2px; }
+  .sidebar-toc .toc-lvl-2{ counter-increment:toc-phase; font-weight:600; margin-top:14px; }
+  .sidebar-toc .toc-lvl-2:first-child{ margin-top:2px; }
+  .sidebar-toc .toc-lvl-3{ font-size:13px; }
+  .sidebar-toc .toc-lvl-4{ font-size:12px; color:var(--ink-faint); }
+  .sidebar-toc a{
+    text-decoration:none; display:block; padding:5px 10px; border-radius:7px; color:var(--ink-soft);
+    transition:background .12s,color .12s;
+  }
+  .sidebar-toc .toc-lvl-2 > a{ padding-left:8px; }
+  .sidebar-toc .toc-lvl-2 > a::before{
+    content:counter(toc-phase) '.'; display:inline-block; min-width:20px; margin-right:4px;
+    color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums;
+  }
+  .sidebar-toc a:hover{ background:var(--surface-alt); color:var(--accent-strong); }
+  .sidebar-toc a.active{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+
+  @media (max-width:1000px){
+    .layout{ flex-direction:column; }
+    .sidebar-toc{
+      position:static; max-height:none; overflow:visible; width:100%; flex-basis:auto; align-self:stretch;
+      margin-bottom:8px;
+    }
+    main.article{ max-width:none; }
+  }
+  @media (max-width:640px){
+    .shell{ padding:0 16px 60px; }
+    header.doc-header{ margin-left:-16px; margin-right:-16px; padding-left:16px; padding-right:16px; padding-top:26px; }
+    .print-btn{ padding:9px 16px; font-size:13px; }
+    main.article h2{ font-size:21px; margin-top:36px; }
+    main.article h3{ font-size:17.5px; }
+  }
+
+  main.article h2{ font-size:25px; margin:48px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--accent-soft-border); color:var(--accent-strong); scroll-margin-top:16px; letter-spacing:-0.01em; }
+  main.article h3{ font-size:19px; margin:34px 0 10px; scroll-margin-top:16px; }
+  main.article h4{ font-size:16px; margin:24px 0 8px; color:var(--ink-soft); scroll-margin-top:16px; }
+  main.article p{ margin:0 0 15px; }
+  main.article ul, main.article ol{ margin:0 0 15px; padding-left:26px; }
+  main.article li{ margin:0 0 6px; }
+  main.article li > ul, main.article li > ol{ margin-top:6px; }
+
+  code{ font-family:'IBM Plex Mono',monospace; background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.88em; color:var(--ink); }
+
+  .code-wrap{ position:relative; margin:0 0 18px; }
+  .code-lang{
+    position:absolute; top:9px; right:12px; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface);
+    border:1px solid var(--border); border-radius:5px; padding:2px 7px; pointer-events:none;
+  }
+  pre.code-block{
+    background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent-soft-border);
+    border-radius:8px; padding:14px 16px; margin:0; overflow-x:auto;
+  }
+  pre.code-block code{ background:none; border:none; padding:0; font-size:13px; line-height:1.55; color:var(--ink); white-space:pre; }
+
+  blockquote{
+    margin:0 0 18px; padding:6px 16px; border-left:3px solid var(--accent-soft-border);
+    color:var(--ink-soft); font-style:italic; background:var(--surface-alt); border-radius:0 6px 6px 0;
+  }
+  blockquote p{ margin:0; }
+
+  .table-wrap{ overflow-x:auto; margin:0 0 18px; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td{ border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); color:var(--accent-strong); font-weight:600; }
+  tr:nth-child(even) td{ background:var(--surface-alt); }
+
+  hr{ border:none; border-top:1px solid var(--border); margin:36px 0; }
+
+  footer{ margin-top:40px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  @media print{
+    @page{ size:A4; margin:16mm 14mm; }
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --bg:#ffffff; --surface:#ffffff; --surface-alt:#f2f3f5; --border:#d6d9e2;
+      --ink:#171a24; --ink-soft:#4c5165; --ink-faint:#7d8296;
+      --accent:#0e7f8c; --accent-strong:#0a5f69; --accent-soft:#dcf1f1; --accent-soft-border:#a9d9d9;
+      --code-bg:#f2f3f5; --shadow:none;
+    }
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    html, body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .shell{ max-width:none; padding:0; }
+    header.doc-header{ background:none; margin:0 0 16px; padding:0 0 12px; }
+    .layout{ display:block; }
+    .sidebar-toc{ position:static; max-height:none; overflow:visible; box-shadow:none; break-after:page; width:100%; }
+    .sidebar-toc summary::after{ display:none; }
+    .sidebar-toc details:not([open]) .toc-body{ display:block !important; }
+    .sidebar-toc a{ padding:2px 0; background:none !important; }
+    .sidebar-toc a.active{ color:var(--ink); font-weight:400; background:none; }
+    main.article{ max-width:none; }
+    main.article h1{ break-after:avoid; break-before:auto; }
+    main.article h2, main.article h3{ break-after:avoid; }
+    pre.code-block, table, blockquote{ break-inside:avoid; }
+    pre.code-block code{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    a{ color:var(--ink); text-decoration:none; }
+  }
+</style>
+
+<div class="shell">
+  <header class="doc-header">
+    <div class="title-block">
+      <div class="eyebrow">pureeats-platform &nbsp;/&nbsp; system design guide</div>
+      <h1>Design an Elevator System — HLD, LLD, and Class Design From Scratch</h1>
+      <p class="dek">A complete, step-by-step system design walkthrough for a multi-elevator dispatch system &mdash; the classic SCAN (elevator) algorithm and why naive first-come-first-served produces poor wait times, a state machine that structurally prevents illegal transitions, hall-call versus car-call modeling, pluggable multi-elevator dispatch strategies, starvation prevention via aging, capacity and emergency-override handling, and the metrics that actually distinguish a good dispatch algorithm from a bad one &mdash; framed as a live interview with follow-up questions at every step.</p>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()" type="button">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6v-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+      </svg>
+      Print
+    </button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar-toc" aria-label="Table of contents">
+      <details open>
+        <summary>Table of Contents</summary>
+        <div class="toc-body"><ol><li class="toc-lvl-2"><a href="#1-what-we-are-building">What We Are Building</a></li><li class="toc-lvl-2"><a href="#2-learning-objectives">Learning Objectives</a></li><li class="toc-lvl-2"><a href="#3-why-this-matters-the-interview-framed">Why This Matters (The Interview, Framed)</a></li><li class="toc-lvl-2"><a href="#4-recommended-technology-stack">Recommended Technology Stack</a></li><li class="toc-lvl-2"><a href="#5-project-structure">Project Structure</a></li><li class="toc-lvl-2"><a href="#6-step-1-clarifying-requirements-before-designing-anything">Step 1 — Clarifying Requirements Before Designing Anything</a></li><li class="toc-lvl-2"><a href="#7-functional-requirements">Functional Requirements</a></li><li class="toc-lvl-2"><a href="#8-non-functional-requirements">Non-Functional Requirements</a></li><li class="toc-lvl-2"><a href="#9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</a></li><li class="toc-lvl-2"><a href="#10-identifying-the-core-domain-entities">Identifying the Core Domain Entities</a></li><li class="toc-lvl-2"><a href="#11-high-level-architecture-overview">High-Level Architecture Overview</a></li><li class="toc-lvl-2"><a href="#12-follow-up-question-2-why-not-just-send-each-elevator-to-requests-in-the-order-they-arrive">Follow-up Question 2 — "Why Not Just Send Each Elevator to Requests in the Order They Arrive?"</a></li><li class="toc-lvl-2"><a href="#13-why-a-naive-fcfs-architecture-produces-poor-wait-times">Why a Naive FCFS Architecture Produces Poor Wait Times</a></li><li class="toc-lvl-2"><a href="#14-follow-up-question-3-how-do-you-model-elevator-state-so-it-cant-accept-an-illegal-transition">Follow-up Question 3 — "How Do You Model Elevator State So It Can't Accept an Illegal Transition?"</a></li><li class="toc-lvl-2"><a href="#15-elevator-lifecycle-as-a-state-machine">Elevator Lifecycle as a State Machine</a></li><li class="toc-lvl-2"><a href="#16-implementing-elevator-state-transitions">Implementing Elevator State Transitions</a></li><li class="toc-lvl-2"><a href="#17-follow-up-question-4-why-distinguish-hall-calls-from-car-calls-and-why-does-direction-matter">Follow-up Question 4 — "Why Distinguish Hall Calls from Car Calls, and Why Does Direction Matter?"</a></li><li class="toc-lvl-2"><a href="#18-hall-calls-vs-car-calls-and-why-direction-matters">Hall Calls vs. Car Calls, and Why Direction Matters</a></li><li class="toc-lvl-2"><a href="#19-implementing-the-request-model">Implementing the Request Model</a></li><li class="toc-lvl-2"><a href="#20-follow-up-question-5-design-the-classic-scan-algorithm-what-problem-does-it-actually-fix-precisely">Follow-up Question 5 — "Design the Classic SCAN Algorithm — What Problem Does It Actually Fix, Precisely?"</a></li><li class="toc-lvl-2"><a href="#21-the-scan-elevator-algorithm">The SCAN (Elevator) Algorithm</a></li><li class="toc-lvl-2"><a href="#22-implementing-scan-dispatch">Implementing SCAN Dispatch</a></li><li class="toc-lvl-2"><a href="#23-class-diagram-the-core-elevator-domain-model">Class Diagram: The Core Elevator Domain Model</a></li><li class="toc-lvl-2"><a href="#24-follow-up-question-6-with-multiple-elevators-how-do-you-decide-which-one-answers-a-given-hall-call">Follow-up Question 6 — "With Multiple Elevators, How Do You Decide Which One Answers a Given Hall Call?"</a></li><li class="toc-lvl-2"><a href="#25-dispatching-among-multiple-elevators-the-nearest-car-heuristic">Dispatching Among Multiple Elevators: The Nearest-Car Heuristic</a></li><li class="toc-lvl-2"><a href="#26-implementing-multi-elevator-dispatch-as-a-pluggable-strategy">Implementing Multi-Elevator Dispatch as a Pluggable Strategy</a></li><li class="toc-lvl-2"><a href="#27-follow-up-question-7-nearest-car-dispatch-can-starve-a-request-how-do-you-prevent-that">Follow-up Question 7 — "Nearest-Car Dispatch Can Starve a Request. How Do You Prevent That?"</a></li><li class="toc-lvl-2"><a href="#28-preventing-starvation-aging-and-fairness-in-dispatch">Preventing Starvation: Aging and Fairness in Dispatch</a></li><li class="toc-lvl-2"><a href="#29-follow-up-question-8-how-do-you-handle-capacity-limits-so-a-car-doesnt-accept-a-hall-call-it-physically-cant-fulfill">Follow-up Question 8 — "How Do You Handle Capacity Limits So a Car Doesn't Accept a Hall Call It Physically Can't Fulfill?"</a></li><li class="toc-lvl-2"><a href="#30-capacity-constraints-and-door-sensor-handling">Capacity Constraints and Door Sensor Handling</a></li><li class="toc-lvl-2"><a href="#31-follow-up-question-9-how-do-you-stay-correct-under-concurrency-when-several-hall-calls-arrive-at-nearly-the-same-instant">Follow-up Question 9 — "How Do You Stay Correct Under Concurrency When Several Hall Calls Arrive at Nearly the Same Instant?"</a></li><li class="toc-lvl-2"><a href="#32-concurrency-thread-safe-request-queue-per-elevator">Concurrency: Thread-Safe Request Queue Per Elevator</a></li><li class="toc-lvl-2"><a href="#33-class-diagram-multi-elevator-dispatch">Class Diagram: Multi-Elevator Dispatch</a></li><li class="toc-lvl-2"><a href="#34-follow-up-question-10-how-do-you-handle-a-fire-alarm-or-emergency-mode-that-must-override-normal-dispatch">Follow-up Question 10 — "How Do You Handle a Fire Alarm or Emergency Mode That Must Override Normal Dispatch?"</a></li><li class="toc-lvl-2"><a href="#35-emergency-override-and-priority-modes">Emergency Override and Priority Modes</a></li><li class="toc-lvl-2"><a href="#36-follow-up-question-11-how-do-you-evaluate-and-compare-dispatch-algorithms-what-metrics-actually-matter">Follow-up Question 11 — "How Do You Evaluate and Compare Dispatch Algorithms — What Metrics Actually Matter?"</a></li><li class="toc-lvl-2"><a href="#37-evaluating-dispatch-algorithms-wait-time-travel-time-and-starvation">Evaluating Dispatch Algorithms: Wait Time, Travel Time, and Starvation</a></li><li class="toc-lvl-2"><a href="#38-follow-up-question-12-how-would-this-scale-to-a-very-tall-very-high-traffic-building">Follow-up Question 12 — "How Would This Scale to a Very Tall, Very High-Traffic Building?"</a></li><li class="toc-lvl-2"><a href="#39-scaling-to-high-rise-high-traffic-buildings-zoning-and-double-deck-elevators">Scaling to High-Rise, High-Traffic Buildings: Zoning and Double-Deck Elevators</a></li><li class="toc-lvl-2"><a href="#40-capacity-estimation-requests-per-minute-and-dispatch-latency">Capacity Estimation: Requests per Minute and Dispatch Latency</a></li><li class="toc-lvl-2"><a href="#41-full-worked-example-one-hall-call-traced-end-to-end">Full Worked Example: One Hall Call, Traced End to End</a></li><li class="toc-lvl-2"><a href="#42-final-architecture-diagram">Final Architecture Diagram</a></li><li class="toc-lvl-2"><a href="#43-design-patterns-used-throughout-this-guide">Design Patterns Used Throughout This Guide</a></li><li class="toc-lvl-2"><a href="#44-solid-principles-applied">SOLID Principles Applied</a></li><li class="toc-lvl-2"><a href="#45-common-mistakes-when-building-this-yourself">Common Mistakes When Building This Yourself</a></li><li class="toc-lvl-2"><a href="#46-testing-strategy">Testing Strategy</a></li><li class="toc-lvl-2"><a href="#47-suggested-future-enhancements">Suggested Future Enhancements</a></li><li class="toc-lvl-2"><a href="#48-progressive-interview-question-set">Progressive Interview Question Set</a></li><li class="toc-lvl-2"><a href="#49-final-takeaway">Final Takeaway</a></li></ol></div>
+      </details>
+    </aside>
+
+    <main class="article">
+<h2 id="1-what-we-are-building">1. What We Are Building</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Hall call (floor button) --&gt; [ Elevator Controller ] --dispatches--&gt; [ Elevator Car ]
+Car call (inside button)  --&gt;        |                                    |
+                                [ Dispatch Strategy ]              [ State Machine ]
+                                (FCFS, SCAN, Nearest-Car)      (Idle/MovingUp/MovingDown/DoorsOpen)
+                                      |
+                              [ Metrics: wait time, travel time ]</code></pre></div>
+<p>An elevator system looks like a solved, everyday problem, but a <em>system</em> built around it — one dispatching several cars across many floors, minimizing wait time under real request volume, remaining fair under sustained load, respecting capacity limits, and handling emergencies — is a genuinely rich object-oriented and scheduling-algorithm design exercise. This guide builds one from scratch: a clean domain model distinguishing hall calls from car calls, an explicit state machine for each car's lifecycle, the classic SCAN/LOOK dispatch algorithm and why naive first-come-first-served produces poor wait times, multi-elevator dispatch via a pluggable strategy, starvation prevention, capacity and emergency handling, and the metrics that actually distinguish a good dispatch algorithm from a bad one.</p>
+<hr>
+<h2 id="2-learning-objectives">2. Learning Objectives</h2>
+<p>By the end of this guide, you will be able to:</p>
+<ul><li>Explain precisely why naive first-come-first-served dispatch produces poor average wait times, and design the classic SCAN (elevator) algorithm that fixes it.</li><li>Model an elevator's lifecycle as an explicit state machine, and distinguish hall calls from car calls in a way that correctly encodes <em>direction</em> as part of a request.</li><li>Design multi-elevator dispatch as a pluggable strategy, and compare first-come-first-served, SCAN, and nearest-car heuristics on real tradeoffs, not just intuition.</li><li>Diagnose and fix a starvation failure mode where a request can be repeatedly passed over in favor of newer ones.</li><li>Design for capacity limits, door sensors, and an emergency-override mode that must take priority over normal dispatch.</li><li>Choose and justify the metrics (average wait time, average travel time, worst-case wait) that actually distinguish dispatch algorithm quality.</li><li>Apply SOLID principles and recognizable design patterns (State, Strategy, Observer) to keep the system extensible without modifying already-tested code.</li></ul>
+<hr>
+<h2 id="3-why-this-matters-the-interview-framed">3. Why This Matters (The Interview, Framed)</h2>
+<p>"Design an elevator system" is a classic object-oriented design question precisely because its rules are familiar to everyone, which removes any excuse for hiding weak design behind domain complexity — every choice (state modeling, dispatch strategy, fairness) is fully visible and judged purely on its own merits. It also has a genuine algorithmic core (the SCAN/LOOK family of disk-scheduling-adjacent algorithms) and a genuine distributed-systems-flavored dimension once multiple cars must coordinate who answers which call — both of which reward a candidate who reaches for the right technique rather than a plausible-sounding guess. This guide frames the design as a live interview: each major decision is preceded by the clarifying question that should have prompted it, and each design step is immediately followed by the hardest question a good interviewer asks next.</p>
+<hr>
+<h2 id="4-recommended-technology-stack">4. Recommended Technology Stack</h2>
+<div class="table-wrap"><table><thead><tr><th>Concern</th><th>Choice</th><th>Why</th></tr></thead><tbody><tr><td>Language (design)</td><td>Java 21</td><td>Sealed interfaces and records model request/state precisely; a <code>PriorityQueue</code> gives an efficient basis for a car's own sorted stop list</td></tr><tr><td>Runnable artifact</td><td>HTML5 Canvas + vanilla JavaScript</td><td>Single-file, dependency-free, lets dispatch algorithms be watched and compared live in a browser</td></tr><tr><td>Dispatch algorithm</td><td>SCAN (elevator algorithm), plus FCFS and nearest-car for comparison</td><td>SCAN is the standard, well-understood algorithm real elevator controllers are built around; comparing it against naive alternatives is the whole point of this guide</td></tr><tr><td>Concurrency</td><td>Per-elevator request queue, one lock scope per car</td><td>Confines contention to the specific car a request is being added to, never a single building-wide lock</td></tr><tr><td>Metrics</td><td>Average wait time, average travel time, worst-case (starvation) wait</td><td>The three numbers that actually distinguish a good dispatch algorithm from a bad one, not just "does it look reasonable"</td></tr></tbody></table></div>
+<hr>
+<h2 id="5-project-structure">5. Project Structure</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>elevator-system/
+├── src/main/java/com/example/elevator/
+│   ├── domain/
+│   │   └── Floor.java, Request.java, Direction.java, ElevatorState.java  // §10, §18
+│   ├── car/
+│   │   ├── ElevatorCar.java (State pattern)                              // §16
+│   │   └── CarStateMachine.java                                          // §15-16
+│   ├── dispatch/
+│   │   ├── DispatchStrategy.java (Strategy interface)                    // §22
+│   │   ├── FirstComeFirstServedStrategy.java                             // §26
+│   │   ├── ScanDispatchStrategy.java                                     // §22
+│   │   └── NearestCarStrategy.java                                       // §26
+│   ├── controller/
+│   │   ├── ElevatorController.java                                      // §24-26
+│   │   └── FairnessAgingPolicy.java (starvation prevention)               // §28
+│   ├── safety/
+│   │   └── CapacityGuard.java, EmergencyOverride.java                    // §30, §35
+│   └── metrics/
+│       └── DispatchMetrics.java                                          // §37
+├── src/test/java/com/example/elevator/
+│   ├── ScanOrderingTest.java
+│   ├── StarvationPreventionTest.java
+│   └── ConcurrentHallCallTest.java
+└── artifact/
+    └── elevator-arena.html   -- the runnable simulator, §1's worked design made playable</code></pre></div>
+<hr>
+<h2 id="6-step-1-clarifying-requirements-before-designing-anything">6. Step 1 — Clarifying Requirements Before Designing Anything</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Design an elevator system."</em></p></blockquote>
+<p>Even for a system this familiar, the intentionally open prompt needs narrowing: how many elevators, and how many floors? Is the goal to minimize average wait time, worst-case wait time, or energy usage — these can genuinely conflict? Does the building have unusual traffic patterns (a lobby-heavy "up-peak" every morning) worth designing around specifically? Is there a weight/capacity limit to respect, and an emergency mode that must override normal dispatch? The answers reshape which parts of the design carry real weight, and asking them signals the difference between reciting "just use SCAN" and actually designing <em>this</em> building's system.</p>
+<hr>
+<h2 id="7-functional-requirements">7. Functional Requirements</h2>
+<ul><li><strong>Accept hall calls</strong> (a floor button pressed, requesting up or down) and <strong>car calls</strong> (a destination button pressed inside a car).</li><li><strong>Dispatch an appropriate elevator</strong> to answer each hall call, and move each car through its own queued stops in a sensible order.</li><li><strong>Track and transition each elevator's state</strong> correctly: idle, moving up, moving down, doors open, out of service.</li><li><strong>Support multiple elevators</strong> serving the same building, coordinating who answers which hall call.</li><li><strong>Respect capacity limits</strong>, refusing to add further passengers once a car is full.</li><li><strong>Support an emergency/priority mode</strong> (e.g., a fire alarm) that overrides normal dispatch entirely.</li><li><strong>Track dispatch performance</strong> (average wait time, average travel time) so different dispatch strategies can be compared.</li></ul>
+<hr>
+<h2 id="8-non-functional-requirements">8. Non-Functional Requirements</h2>
+<ul><li><strong>Low dispatch latency</strong>: deciding which elevator answers a new hall call must be fast enough to feel instantaneous to a waiting passenger, even in a large building with many cars.</li><li><strong>Fairness</strong>: no request should be able to wait indefinitely while newer requests are repeatedly served first (starvation).</li><li><strong>Correctness under concurrency</strong>: hall calls arriving from multiple floors at nearly the same instant must never corrupt a car's queue or be silently dropped.</li><li><strong>Safety</strong>: a capacity-exceeding load, or an open-door condition, must never be silently ignored — these are hard constraints, not optimization targets.</li><li><strong>Extensibility</strong>: adding a new dispatch algorithm should require adding new code, not modifying the existing controller or car state machine.</li><li><strong>Graceful degradation</strong>: a single car going out of service must not stop the rest of the building's elevators from continuing to operate.</li></ul>
+<hr>
+<h2 id="9-follow-up-question-1-what-are-the-core-nouns-here-before-we-draw-any-boxes">9. Follow-up Question 1 — "What Are the Core Nouns Here, Before We Draw Any Boxes?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Name the core domain concepts before you draw any architecture."</em></p></blockquote>
+<ul><li><strong>Floor</strong> — a single level in the building, the unit both hall calls and car destinations are expressed in.</li><li><strong>Request</strong> — either a <strong>hall call</strong> (floor, direction) made from outside a car, or a <strong>car call</strong> (destination floor) made from inside one — a distinction the next few sections show is not cosmetic.</li><li><strong>Elevator Car</strong> — a single physical car, with a current floor, a current state, and its own queue of stops to serve.</li><li><strong>Elevator Controller</strong> — the building-wide coordinator that decides which car answers each new hall call.</li><li><strong>Dispatch Strategy</strong> — the pluggable policy the controller uses to make that decision.</li><li><strong>Direction</strong> — <code>UP</code> or <code>DOWN</code>, attached to a hall call specifically because a car already heading up shouldn't be dispatched to a passenger who wants to go down, even if it's momentarily closer.</li></ul>
+<hr>
+<h2 id="10-identifying-the-core-domain-entities">10. Identifying the Core Domain Entities</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public enum Direction { UP, DOWN }
+public enum ElevatorState { IDLE, MOVING_UP, MOVING_DOWN, DOORS_OPEN, OUT_OF_SERVICE }
+
+public record HallCall(int floor, Direction direction, Instant requestedAt) { }
+public record CarCall(int destinationFloor) { }
+
+public class ElevatorCar {
+    private final String carId;
+    private int currentFloor;
+    private ElevatorState state;
+    private final TreeSet&lt;Integer&gt; upStops = new TreeSet&lt;&gt;();
+    private final TreeSet&lt;Integer&gt; downStops = new TreeSet&lt;&gt;();
+    private int currentLoad = 0;
+    private final int capacity;
+}</code></pre></div>
+<p>Splitting a car's pending stops into two separate sorted sets — <code>upStops</code> and <code>downStops</code> — rather than one flat list is the single modeling decision that makes the SCAN algorithm (<a href="#20-follow-up-question-5-design-the-classic-scan-algorithm-what-problem-does-it-actually-fix-precisely">§20-22</a>) fall out almost for free: a car moving up only ever needs the <em>next-higher</em> entry in <code>upStops</code>, and a car moving down only ever needs the <em>next-lower</em> entry in <code>downStops</code>, both O(log n) operations on a <code>TreeSet</code>.</p>
+<hr>
+<h2 id="11-high-level-architecture-overview">11. High-Level Architecture Overview</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    +------------------------+
+Hall/Car call -----&gt;|   ElevatorController     |
+                    |  dispatch(hallCall)      |
+                    +-----------+--------------+
+                                |
+                    +-----------v--------------+
+                    |    DispatchStrategy        |
+                    |  FCFS | SCAN | NearestCar  |
+                    +-----------+--------------+
+                                |
+                    +-----------v--------------+
+                    |      ElevatorCar[]         |
+                    |  state, upStops, downStops |
+                    +-----------+--------------+
+                                |
+                    +-----------v--------------+       +------------------------+
+                    |    CapacityGuard            |       |   DispatchMetrics       |
+                    |    EmergencyOverride         |       |   wait/travel time      |
+                    +------------------------+       +------------------------+</code></pre></div>
+<p><code>ElevatorController</code> is deliberately the single place a hall call's <em>destination car</em> is decided — every car's own movement logic (<a href="#15-elevator-lifecycle-as-a-state-machine">§15-16</a>) only ever needs to know its own queued stops, never anything about the other cars or how it was assigned this particular stop.</p>
+<hr>
+<h2 id="12-follow-up-question-2-why-not-just-send-each-elevator-to-requests-in-the-order-they-arrive">12. Follow-up Question 2 — "Why Not Just Send Each Elevator to Requests in the Order They Arrive?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"The simplest possible dispatch: each elevator serves whichever request it received first, in arrival order. What's wrong with that?"</em></p></blockquote>
+<p>Because arrival order has nothing to do with <strong>physical proximity</strong> — a car could be sitting on floor 2 when request A (floor 18) arrives, then request B (floor 3) arrives a moment later; serving A first means physically passing right by floor 3 twice (once on the way up, once again after eventually coming back down) instead of simply stopping there on the way. First-come-first-served optimizes for a property (fairness in arrival order) that has no relationship to what actually determines wait time: how much physical travel a given ordering forces the car to do.</p>
+<hr>
+<h2 id="13-why-a-naive-fcfs-architecture-produces-poor-wait-times">13. Why a Naive FCFS Architecture Produces Poor Wait Times</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Car at floor 2. Requests arrive in this ORDER: floor 18 (A), floor 3 (B), floor 15 (C)
+
+FCFS (strict arrival order):  2 -&gt; 18 (serve A) -&gt; 3 (serve B) -&gt; 15 (serve C)
+   Total floors traveled: |18-2| + |3-18| + |15-3| = 16 + 15 + 12 = 43 floors
+
+SCAN (serve everything encountered along the current direction of travel, §20-22):
+   2 -&gt; 3 (serve B, encountered on the way up) -&gt; 15 (serve C) -&gt; 18 (serve A)
+   Total floors traveled: |3-2| + |15-3| + |18-15| = 1 + 12 + 3 = 16 floors</code></pre></div>
+<p>This is precisely the same insight behind disk-arm scheduling (SCAN is literally borrowed from that domain) — reordering requests to match the server's <em>physical</em> traversal, rather than the <em>arrival</em> order they happened to be requested in, is what actually minimizes total travel, and therefore average wait time.</p>
+<hr>
+<h2 id="14-follow-up-question-3-how-do-you-model-elevator-state-so-it-cant-accept-an-illegal-transition">14. Follow-up Question 3 — "How Do You Model Elevator State So It Can't Accept an Illegal Transition?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"What stops your code from, say, opening the doors while the car is still moving, or accepting a new destination while out of service?"</em></p></blockquote>
+<p>By making a car's current phase an explicit, small, closed set of values with clearly defined legal transitions between them — exactly the same <strong>State</strong> pattern this series has used for a parking spot's lifecycle and a Tic-Tac-Toe game's phase — rather than a handful of independent boolean flags (<code>isMoving</code>, <code>isDoorOpen</code>) that any code, anywhere, could set into a combination that's physically nonsensical (doors open <em>and</em> moving, simultaneously).</p>
+<hr>
+<h2 id="15-elevator-lifecycle-as-a-state-machine">15. Elevator Lifecycle as a State Machine</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>IDLE ----assignStop()----&gt; MOVING_UP / MOVING_DOWN ----arriveAtStop()----&gt; DOORS_OPEN
+DOORS_OPEN ----doorsTimeout() / closeButtonPressed()----&gt; IDLE (or immediately re-dispatched if more stops queued)
+ANY STATE ----takeOutOfService()----&gt; OUT_OF_SERVICE ----bringBackInService()----&gt; IDLE
+
+Illegal transitions (structurally PREVENTED, not just discouraged by convention):
+  MOVING_UP.openDoors()        -- doors cannot open while the car is in motion
+  OUT_OF_SERVICE.assignStop()  -- a car taken out of service cannot be dispatched to a new stop
+  DOORS_OPEN.assignStop()      -- (a genuinely subtle case, §16) -- a new stop is QUEUED, not IMMEDIATELY acted on</code></pre></div>
+<p>The <code>DOORS_OPEN.assignStop()</code> case is worth flagging early: a hall call arriving while a car's doors happen to be open at some other floor must be queued for later, never causing the car to suddenly slam its doors shut and move — this is exactly the kind of subtlety a state machine makes explicit and a scattered boolean-flag design tends to get quietly wrong.</p>
+<hr>
+<h2 id="16-implementing-elevator-state-transitions">16. Implementing Elevator State Transitions</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface CarState {
+    CarState assignStop(ElevatorCar car, int floor);
+    CarState arriveAtNextStop(ElevatorCar car);
+    CarState doorsTimeout(ElevatorCar car);
+}
+
+public class IdleState implements CarState {
+    @Override
+    public CarState assignStop(ElevatorCar car, int floor) {
+        car.enqueueStop(floor);
+        return floor &gt; car.currentFloor() ? new MovingUpState() : new MovingDownState();
+    }
+    @Override
+    public CarState arriveAtNextStop(ElevatorCar car) { throw new IllegalStateException("Idle car has no destination to arrive at"); }
+    @Override
+    public CarState doorsTimeout(ElevatorCar car) { throw new IllegalStateException("Doors are not open"); }
+}
+
+public class MovingUpState implements CarState {
+    @Override
+    public CarState assignStop(ElevatorCar car, int floor) { car.enqueueStop(floor); return this; } // queued, no immediate transition
+    @Override
+    public CarState arriveAtNextStop(ElevatorCar car) { car.openDoors(); return new DoorsOpenState(); }
+    @Override
+    public CarState doorsTimeout(ElevatorCar car) { throw new IllegalStateException("Doors are not open"); }
+}
+
+public class ElevatorCar {
+    private CarState state = new IdleState();
+    public void requestStop(int floor) { this.state = state.assignStop(this, floor); }
+    public void onArrival() { this.state = state.arriveAtNextStop(this); }
+}</code></pre></div>
+<p>Each concrete <code>CarState</code> owns exactly the transitions legal from that specific phase — <code>ElevatorCar</code> itself never contains a single <code>if (currentState == ...)</code> check; it simply delegates every operation to whichever state object it currently holds, exactly the same delegation structure this series' Parking Lot and Tic-Tac-Toe guides both used for their own state machines.</p>
+<hr>
+<h2 id="17-follow-up-question-4-why-distinguish-hall-calls-from-car-calls-and-why-does-direction-matter">17. Follow-up Question 4 — "Why Distinguish Hall Calls from Car Calls, and Why Does Direction Matter?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A passenger on floor 5 presses 'up.' A passenger already inside a car presses '12.' Aren't both just 'go to a floor'? Why model them differently?"</em></p></blockquote>
+<p>Because a <strong>hall call</strong> carries information a <strong>car call</strong> structurally cannot: the requester's <em>intended direction</em>, known before they've even boarded a car. A car call ("take me to floor 12") has no ambiguity — the car is already committed to serving that specific passenger. But a hall call ("I'm on floor 5, I want to go up") must be matched only to a car that is <em>already heading up and hasn't passed floor 5 yet</em>, or one that's idle — dispatching a car heading <em>down</em> through floor 5 to answer an "going up" hall call would mean picking up a passenger who then has to ride down past their own floor before eventually going up, which is never what SCAN-style dispatch should do.</p>
+<hr>
+<h2 id="18-hall-calls-vs-car-calls-and-why-direction-matters">18. Hall Calls vs. Car Calls, and Why Direction Matters</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Car currently at floor 10, moving DOWN, with floor 5 still ahead of it (on the way down).
+
+Hall call: floor 5, requesting UP     -- do NOT let this car answer it, even though floor 5 is
+                                          directly in its path -- picking up an "UP" passenger while
+                                          moving DOWN means they ride the WRONG WAY before their
+                                          actual trip even starts.
+
+Hall call: floor 5, requesting DOWN   -- this car CAN legitimately answer it -- it's already
+                                          heading the correct direction and floor 5 is ahead of it.</code></pre></div>
+<p>This is precisely why <code>HallCall</code> (<a href="#10-identifying-the-core-domain-entities">§10</a>) carries a <code>Direction</code> field that <code>CarCall</code> structurally has no equivalent for — the dispatch algorithm's correctness depends on this distinction being available as data, not re-derived unreliably from context at decision time.</p>
+<hr>
+<h2 id="19-implementing-the-request-model">19. Implementing the Request Model</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class ElevatorCar {
+    // ... existing fields ...
+    private Direction currentDirection; // null when IDLE
+
+    public boolean canServe(HallCall call) {
+        if (state instanceof OutOfServiceState) return false;
+        if (currentDirection == null) return true; // idle, or doors open with no committed direction -- can serve anything
+
+        boolean movingTowardCallFloor = currentDirection == Direction.UP
+            ? call.floor() &gt;= currentFloor
+            : call.floor() &lt;= currentFloor;
+        boolean sameDirectionAsRequested = currentDirection == call.direction();
+        return movingTowardCallFloor &amp;&amp; sameDirectionAsRequested;
+    }
+}</code></pre></div>
+<p><code>canServe</code> is the single method that encodes <a href="#17-follow-up-question-4-why-distinguish-hall-calls-from-car-calls-and-why-does-direction-matter">§17-18</a>'s entire rule — every dispatch strategy in this guide (<a href="#20-follow-up-question-5-design-the-classic-scan-algorithm-what-problem-does-it-actually-fix-precisely">§20-26</a>) calls this method rather than re-implementing the direction-compatibility check itself, which is exactly what keeps the rule centralized and correctly enforced regardless of which strategy is currently active.</p>
+<hr>
+<h2 id="20-follow-up-question-5-design-the-classic-scan-algorithm-what-problem-does-it-actually-fix-precisely">20. Follow-up Question 5 — "Design the Classic SCAN Algorithm — What Problem Does It Actually Fix, Precisely?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"You've shown FCFS travels more floors than necessary. Design the actual algorithm real elevators use, and state its guarantee precisely."</em></p></blockquote>
+<p><strong>SCAN</strong> (also called the elevator algorithm, borrowed directly from disk-arm scheduling): a car continues moving in its <strong>current direction</strong>, serving every pending stop it encounters along the way, until no further stops remain ahead of it in that direction — only then does it reverse. This guarantees a car never backtracks past a pending stop it could have served on the way, which is precisely the inefficiency <a href="#12-follow-up-question-2-why-not-just-send-each-elevator-to-requests-in-the-order-they-arrive">§12-13</a> identified in naive FCFS.</p>
+<hr>
+<h2 id="21-the-scan-elevator-algorithm">21. The SCAN (Elevator) Algorithm</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Car moving UP, upStops = {12, 15, 18}, currently at floor 9:
+  Serve 12 (next-highest in upStops that's still ahead) -&gt; serve 15 -&gt; serve 18
+  upStops now empty -&gt; check downStops -- if non-empty, REVERSE direction and serve those, descending
+  If downStops also empty -&gt; transition to IDLE, awaiting the next assigned stop
+
+At every step, the car only ever needs: "what's the NEXT stop in upStops that's &gt;= currentFloor"
+(a single TreeSet.ceiling() call, O(log n)) -- never a scan over the entire stop list.</code></pre></div>
+<p>The <code>TreeSet</code> split from <a href="#10-identifying-the-core-domain-entities">§10</a> is what makes this genuinely cheap — <code>upStops.ceiling(currentFloor)</code> and <code>downStops.floor(currentFloor)</code> are the only two operations SCAN's per-step decision ever needs, each a single O(log n) call rather than any kind of linear search over pending stops.</p>
+<hr>
+<h2 id="22-implementing-scan-dispatch">22. Implementing SCAN Dispatch</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public interface DispatchStrategy {
+    ElevatorCar selectCarFor(HallCall call, List&lt;ElevatorCar&gt; fleet);
+}
+
+public class ElevatorCar {
+    private final TreeSet&lt;Integer&gt; upStops = new TreeSet&lt;&gt;();
+    private final TreeSet&lt;Integer&gt; downStops = new TreeSet&lt;&gt;();
+
+    public void enqueueStop(int floor) {
+        if (floor &gt;= currentFloor) upStops.add(floor); else downStops.add(floor);
+    }
+
+    public OptionalInt nextStop() {
+        if (currentDirection == Direction.UP) {
+            Integer next = upStops.ceiling(currentFloor);
+            if (next != null) return OptionalInt.of(next);
+            return downStops.isEmpty() ? OptionalInt.empty() : OptionalInt.of(downStops.last()); // reverse
+        } else {
+            Integer next = downStops.floor(currentFloor);
+            if (next != null) return OptionalInt.of(next);
+            return upStops.isEmpty() ? OptionalInt.empty() : OptionalInt.of(upStops.first()); // reverse
+        }
+    }
+}
+
+public class ScanDispatchStrategy implements DispatchStrategy {
+    @Override
+    public ElevatorCar selectCarFor(HallCall call, List&lt;ElevatorCar&gt; fleet) {
+        return fleet.stream()
+            .filter(car -&gt; car.canServe(call))          // direction-compatible, per §19
+            .min(Comparator.comparingInt(car -&gt; Math.abs(car.currentFloor() - call.floor())))
+            .orElseGet(() -&gt; nearestIdleOrReversingCar(call, fleet)); // fallback, §25-26
+    }
+}</code></pre></div>
+<p><code>ScanDispatchStrategy</code> itself is a thin selection layer over each car's own SCAN-ordered stop list (<a href="#21-the-scan-elevator-algorithm">§21</a>) — the actual travel-minimizing behavior lives entirely inside <code>ElevatorCar.nextStop()</code>, which every dispatch strategy in this guide reuses unchanged, regardless of <em>which</em> car a given hall call gets assigned to.</p>
+<hr>
+<h2 id="23-class-diagram-the-core-elevator-domain-model">23. Class Diagram: The Core Elevator Domain Model</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+------------------------+        +------------------------+
+|       ElevatorCar         |-------&gt;|       CarState            |
+|  upStops, downStops,     |       |    &lt;&lt;interface&gt;&gt;          |
+|  requestStop(), onArrival()|      |  assignStop(), arrive()  |
++-----------+--------------+        +-----------+--------------+
+                                          ^      ^      ^      ^
+                                    +--------+ +--------+ +----------+ +----------------+
+                                    | Idle   | | Moving | | Doors    | | OutOfService   |
+                                    | State  | | Up/Down| | OpenState| | State          |
+                                    +--------+ +--------+ +----------+ +----------------+
+
++------------------------+        +------------------------+
+|      HallCall             |-------&gt;|     DispatchStrategy     |
+|  floor, direction         |       |    &lt;&lt;interface&gt;&gt;          |
++------------------------+        |  selectCarFor(call,fleet)|
+                                    +------------------------+</code></pre></div>
+<p><code>ElevatorCar</code> is deliberately unaware of <code>DispatchStrategy</code> entirely — it only ever exposes <code>canServe</code>, <code>enqueueStop</code>, and <code>nextStop</code>, and the controller (<a href="#24-follow-up-question-6-with-multiple-elevators-how-do-you-decide-which-one-answers-a-given-hall-call">§24-26</a>) is the only component that ever asks a strategy to choose <em>among</em> several cars, which is precisely the separation that lets a new dispatch strategy be added without touching <code>ElevatorCar</code> at all.</p>
+<hr>
+<h2 id="24-follow-up-question-6-with-multiple-elevators-how-do-you-decide-which-one-answers-a-given-hall-call">24. Follow-up Question 6 — "With Multiple Elevators, How Do You Decide Which One Answers a Given Hall Call?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A building has six elevators. A hall call arrives. How do you decide which of the six actually gets dispatched?"</em></p></blockquote>
+<p>Among every car that <code>canServe</code> the call (<a href="#19-implementing-the-request-model">§19</a>'s direction-compatibility filter already narrows this), prefer the one that will reach the requesting floor <strong>soonest</strong> — in the common case, this reduces to simple physical distance, but a genuinely idle car and a car already moving toward the call in the right direction are both legitimate candidates, and the estimate needs to account for which one actually is.</p>
+<hr>
+<h2 id="25-dispatching-among-multiple-elevators-the-nearest-car-heuristic">25. Dispatching Among Multiple Elevators: The Nearest-Car Heuristic</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Hall call: floor 8, requesting UP
+
+Car A: floor 3, IDLE                           -- estimated arrival: |8-3| = 5 floors of travel
+Car B: floor 10, MOVING_DOWN, will reverse      -- estimated arrival: MUCH further -- must first
+       once it clears its downStops                finish its current downward stops, THEN pass
+                                                     back through floor 8 -- not simply |10-8|=2
+Car C: floor 6, MOVING_UP, already correct dir  -- estimated arrival: |8-6| = 2 floors -- BEST candidate
+
+Naive "closest by raw floor distance" would have picked Car B (only 2 floors away) -- but Car B is
+moving the WRONG direction (§17-18) and must reverse first, making its TRUE arrival estimate far
+worse than its raw distance suggests.</code></pre></div>
+<p>The correct estimate is never raw floor distance alone — it must account for direction compatibility (already filtered by <code>canServe</code>) and, for a car with existing queued stops, however many of those it must still clear before it could plausibly divert to the new call.</p>
+<hr>
+<h2 id="26-implementing-multi-elevator-dispatch-as-a-pluggable-strategy">26. Implementing Multi-Elevator Dispatch as a Pluggable Strategy</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class NearestCarStrategy implements DispatchStrategy {
+    @Override
+    public ElevatorCar selectCarFor(HallCall call, List&lt;ElevatorCar&gt; fleet) {
+        return fleet.stream()
+            .filter(ElevatorCar::isInService)
+            .filter(car -&gt; car.canServe(call))
+            .min(Comparator.comparingInt(car -&gt; estimatedArrivalCost(car, call)))
+            .orElseThrow(() -&gt; new NoAvailableCarException(call));
+    }
+
+    private int estimatedArrivalCost(ElevatorCar car, HallCall call) {
+        if (car.isIdle()) return Math.abs(car.currentFloor() - call.floor());
+        // a busy, direction-compatible car's cost includes every stop still ahead of it before this one
+        return car.remainingStopsBeforeReaching(call.floor());
+    }
+}
+
+public class FirstComeFirstServedStrategy implements DispatchStrategy {
+    @Override
+    public ElevatorCar selectCarFor(HallCall call, List&lt;ElevatorCar&gt; fleet) {
+        return fleet.stream().filter(ElevatorCar::isInService).findFirst() // arrival order, no cost estimate at all
+            .orElseThrow(() -&gt; new NoAvailableCarException(call));
+    }
+}</code></pre></div>
+<p><code>NearestCarStrategy</code> and <code>FirstComeFirstServedStrategy</code> implement the identical <code>DispatchStrategy</code> interface introduced in <a href="#22-implementing-scan-dispatch">§22</a> — a textbook <strong>Strategy</strong> pattern application — which means a building operator can switch dispatch algorithms via configuration alone, with zero changes to <code>ElevatorController</code>'s own orchestration logic, and this guide's own interactive artifact (<a href="#1-what-we-are-building">§1</a>) lets these strategies be compared side by side on exactly this basis.</p>
+<hr>
+<h2 id="27-follow-up-question-7-nearest-car-dispatch-can-starve-a-request-how-do-you-prevent-that">27. Follow-up Question 7 — "Nearest-Car Dispatch Can Starve a Request. How Do You Prevent That?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A request on a distant, awkward floor keeps losing out to newer, more conveniently-placed requests. It could wait far longer than any individual request 'deserves.' How do you prevent this?"</em></p></blockquote>
+<p>By tracking <strong>how long each hall call has already been waiting</strong>, and letting that waiting time factor into dispatch cost, not just physical distance — a request that has waited unusually long should become effectively "closer" (in cost terms) than its raw distance suggests, until some car is finally compelled to answer it. This is the same general <strong>aging</strong> technique used in CPU and I/O scheduling to guarantee no request waits forever, applied here to hall-call dispatch instead.</p>
+<hr>
+<h2 id="28-preventing-starvation-aging-and-fairness-in-dispatch">28. Preventing Starvation: Aging and Fairness in Dispatch</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class FairnessAgingPolicy {
+    private static final Duration STARVATION_THRESHOLD = Duration.ofSeconds(45);
+    private static final int STARVATION_PRIORITY_BONUS = 1000; // large enough to always win a cost comparison
+
+    public int adjustedCost(int rawCost, HallCall call) {
+        Duration waited = Duration.between(call.requestedAt(), Instant.now());
+        if (waited.compareTo(STARVATION_THRESHOLD) &gt; 0) {
+            return rawCost - STARVATION_PRIORITY_BONUS; // effectively guarantees this call wins dispatch NOW
+        }
+        return rawCost;
+    }
+}</code></pre></div>
+<p><code>NearestCarStrategy</code> (<a href="#26-implementing-multi-elevator-dispatch-as-a-pluggable-strategy">§26</a>) would apply this adjustment before comparing costs across cars — the aging bonus is deliberately large enough to dominate any ordinary distance-based comparison once a request crosses the starvation threshold, converting "this request has waited unusually long" from an ignored fact into the single most important factor in the next dispatch decision.</p>
+<hr>
+<h2 id="29-follow-up-question-8-how-do-you-handle-capacity-limits-so-a-car-doesnt-accept-a-hall-call-it-physically-cant-fulfill">29. Follow-up Question 8 — "How Do You Handle Capacity Limits So a Car Doesn't Accept a Hall Call It Physically Can't Fulfill?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A nearly-full car is dispatched to a hall call along its route, but there's no room left for the new passenger by the time it arrives. How do you prevent that?"</em></p></blockquote>
+<p>By treating current load as a hard, checked precondition on <strong>boarding</strong>, not merely on dispatch — a car can legitimately be dispatched toward a hall call it currently has room for, and still arrive with insufficient room if it picked up unexpected additional passengers along the way (car calls don't carry weight information the controller can plan around in advance). The correct fix is a <strong>door sensor / capacity guard</strong> check at the moment of boarding, independent of whatever dispatch decision got the car there — the two checks protect against genuinely different failure windows.</p>
+<hr>
+<h2 id="30-capacity-constraints-and-door-sensor-handling">30. Capacity Constraints and Door Sensor Handling</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class CapacityGuard {
+    public boolean canBoard(ElevatorCar car, int additionalWeight) {
+        return car.currentLoad() + additionalWeight &lt;= car.capacity();
+    }
+
+    public void onDoorSensorTriggered(ElevatorCar car) {
+        // a physical obstruction (door sensor) reopens the doors regardless of the current
+        // state machine's timer -- SAFETY overrides the normal DOORS_OPEN -&gt; IDLE timeout
+        car.reopenDoors();
+    }
+}</code></pre></div>
+<p>The door sensor callback is a good example of a safety concern that must be able to <strong>interrupt</strong> the normal state machine's timing — <code>reopenDoors()</code> doesn't wait for the state machine to reach a convenient point, it takes effect immediately, which is precisely why safety-critical checks like this are kept as a distinct, always-active concern rather than folded into the ordinary state transition logic <a href="#15-elevator-lifecycle-as-a-state-machine">§15-16</a> already established.</p>
+<hr>
+<h2 id="31-follow-up-question-9-how-do-you-stay-correct-under-concurrency-when-several-hall-calls-arrive-at-nearly-the-same-instant">31. Follow-up Question 9 — "How Do You Stay Correct Under Concurrency When Several Hall Calls Arrive at Nearly the Same Instant?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"Two hall calls, from different floors, arrive within milliseconds of each other. What stops the dispatch decision or a car's own stop queue from being corrupted?"</em></p></blockquote>
+<p>By scoping any required lock to the <strong>specific car</strong> being modified, never to the whole building — dispatching two <em>different</em> hall calls to two <em>different</em> cars should never contend with each other at all, and even dispatching two hall calls to the <em>same</em> car only needs to briefly serialize that one car's <code>enqueueStop</code> calls, not block dispatch decisions for the rest of the fleet.</p>
+<hr>
+<h2 id="32-concurrency-thread-safe-request-queue-per-elevator">32. Concurrency: Thread-Safe Request Queue Per Elevator</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>WITHOUT per-car locking:
+  Hall call A dispatched to Car 1 --\
+  Hall call B dispatched to Car 2 ---+-- if these share ONE global lock, B waits on A
+                                          for NO REASON -- they don't touch the same car at all
+
+WITH per-car locking (this guide's design):
+  Car 1's enqueueStop() is synchronized on CAR 1's OWN monitor
+  Car 2's enqueueStop() is synchronized on CAR 2's OWN monitor
+  -- A and B proceed FULLY IN PARALLEL, since they never contend for the same lock</code></pre></div>
+<p><code>ElevatorCar.enqueueStop</code> (<a href="#22-implementing-scan-dispatch">§22</a>) is the one operation that actually mutates shared state (<code>upStops</code>/<code>downStops</code>), so it's the one operation that needs synchronization — everything else (dispatch cost estimation, direction compatibility checks) only ever <em>reads</em> a car's current state, which a <code>TreeSet</code> snapshot or simple volatile reads can serve safely without any lock at all.</p>
+<hr>
+<h2 id="33-class-diagram-multi-elevator-dispatch">33. Class Diagram: Multi-Elevator Dispatch</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>+------------------------+        +------------------------+
+|   ElevatorController      |-------&gt;|    DispatchStrategy      |
+|  onHallCall(call)         |       |    &lt;&lt;interface&gt;&gt;          |
++-----------+--------------+        +-----------+--------------+
+            |                              ^      ^      ^
+            v                        +----------+ +--------+ +----------------+
+  +------------------------+          | FCFS     | | Scan   | | NearestCar     |
+  |    FairnessAgingPolicy    |          | Strategy | |Strategy| | Strategy       |
+  |  adjustedCost(cost,call)  |          +----------+ +--------+ +----------------+
+  +------------------------+
+            |
+            v
+  +------------------------+
+  |      ElevatorCar[]        |
+  |  (per-car lock scope,     |
+  |   §32)                    |
+  +------------------------+</code></pre></div>
+<p><code>FairnessAgingPolicy</code> sits between the controller and whichever concrete strategy is active, adjusting the cost every strategy computes rather than being baked into any one of them individually — which means starvation prevention applies uniformly no matter which dispatch algorithm a building operator has currently selected.</p>
+<hr>
+<h2 id="34-follow-up-question-10-how-do-you-handle-a-fire-alarm-or-emergency-mode-that-must-override-normal-dispatch">34. Follow-up Question 10 — "How Do You Handle a Fire Alarm or Emergency Mode That Must Override Normal Dispatch?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A fire alarm triggers. Every elevator must immediately abandon its current queue and return to the ground floor, doors open, no longer accepting hall calls. How does that fit into your design?"</em></p></blockquote>
+<p>By treating emergency mode as a <strong>priority override layered on top of</strong> the normal state machine and dispatch pipeline, not a special case threaded through every existing method — <code>ElevatorController</code> checks for an active emergency <strong>before</strong> ever consulting a <code>DispatchStrategy</code>, and each car's own state machine gains one additional transition (any state directly to a dedicated emergency-recall behavior) that takes precedence over whatever it was doing.</p>
+<hr>
+<h2 id="35-emergency-override-and-priority-modes">35. Emergency Override and Priority Modes</h2>
+<div class="code-wrap"><span class="code-lang">Java</span><pre class="code-block"><code>public class ElevatorController {
+    private volatile boolean emergencyActive = false;
+
+    public void onHallCall(HallCall call) {
+        if (emergencyActive) return; // normal hall calls are simply IGNORED during an emergency
+        ElevatorCar chosen = dispatchStrategy.selectCarFor(call, fleet);
+        chosen.requestStop(call.floor());
+    }
+
+    public void activateEmergency() {
+        emergencyActive = true;
+        for (ElevatorCar car : fleet) {
+            car.clearAllQueuedStops();   // abandon whatever it was doing
+            car.forceRecallToGroundFloor(); // a dedicated transition, bypassing normal dispatch entirely
+        }
+    }
+}</code></pre></div>
+<p>Checking <code>emergencyActive</code> as the very first line of <code>onHallCall</code> — rather than threading an emergency check through <code>DispatchStrategy</code>, <code>CapacityGuard</code>, or any car's own state machine — is what keeps emergency handling a single, auditable override point, instead of a concern scattered across every other component that would each need to remember to check for it.</p>
+<hr>
+<h2 id="36-follow-up-question-11-how-do-you-evaluate-and-compare-dispatch-algorithms-what-metrics-actually-matter">36. Follow-up Question 11 — "How Do You Evaluate and Compare Dispatch Algorithms — What Metrics Actually Matter?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"You've now got three candidate dispatch strategies. How do you actually decide which one is better, rather than just guessing from intuition?"</em></p></blockquote>
+<p>Three metrics, each capturing a genuinely different failure mode: <strong>average wait time</strong> (how long, on average, a passenger waits from hall call to pickup — the headline number most people mean by "elevator performance"), <strong>average travel time</strong> (how long a trip takes once boarded — a strategy that minimizes wait time by packing cars full can quietly worsen this), and <strong>worst-case wait time</strong> (the single longest any request ever waited — the number that specifically exposes starvation, invisible in an average that many quick, easy requests can dilute).</p>
+<hr>
+<h2 id="37-evaluating-dispatch-algorithms-wait-time-travel-time-and-starvation">37. Evaluating Dispatch Algorithms: Wait Time, Travel Time, and Starvation</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                     Avg. wait time    Avg. travel time    Worst-case wait
+FCFS                 Poor (§12-13)     Reasonable           Poor (arrival order offers
+                                                              no protection against a run
+                                                              of badly-placed requests)
+SCAN (single car)     Good              Reasonable           Reasonable (bounded by one
+                                                              full sweep of the building)
+NearestCar            Best (multi-car)  Good                 CAN starve without §27-28's
+                                                              aging fix -- must be paired
+                                                              with fairness, not assumed safe alone</code></pre></div>
+<p>No single metric tells the whole story — a strategy that wins on average wait time while quietly producing occasional multi-minute worst-case waits (exactly nearest-car's failure mode without aging) is not actually the better strategy for a real building, which is why this guide's own interactive artifact (<a href="#1-what-we-are-building">§1</a>) surfaces all three numbers side by side rather than picking one "the" score.</p>
+<hr>
+<h2 id="38-follow-up-question-12-how-would-this-scale-to-a-very-tall-very-high-traffic-building">38. Follow-up Question 12 — "How Would This Scale to a Very Tall, Very High-Traffic Building?"</h2>
+<blockquote><p><strong>Interviewer:</strong> <em>"A 60-story office tower, with a sharp 'up-peak' every morning as everyone arrives around 9am. Does this design still work well, unmodified?"</em></p></blockquote>
+<p>Not unmodified — a single pool of general-purpose elevators serving every floor becomes genuinely inefficient once traffic is this concentrated and directional, and real high-rise buildings address this with structural changes beyond dispatch-algorithm tuning: <strong>zoning</strong> (dedicating specific elevator banks to specific floor ranges, so a car serving floors 30-45 never wastes a trip stopping at floor 4), and <strong>double-deck elevators</strong> (two stacked cabins sharing one shaft, serving odd and even floors simultaneously, doubling a single shaft's effective throughput) — both are structural answers to a traffic pattern that a smarter dispatch algorithm alone cannot fully solve.</p>
+<hr>
+<h2 id="39-scaling-to-high-rise-high-traffic-buildings-zoning-and-double-deck-elevators">39. Scaling to High-Rise, High-Traffic Buildings: Zoning and Double-Deck Elevators</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Un-zoned (this guide's core design):  6 elevators, EACH serving ALL 60 floors --
+  every car potentially stops at every floor, diluting effective capacity during a sharp up-peak
+
+Zoned:  elevators 1-2 serve floors 1-20; elevators 3-4 serve floors 21-40; elevators 5-6 serve
+  floors 41-60 -- each car's EFFECTIVE dispatch problem shrinks to a 20-floor building, and SCAN's
+  own per-sweep efficiency (§21) improves proportionally, since there's simply less building for
+  each car to physically traverse per trip.</code></pre></div>
+<p>Zoning doesn't require a new dispatch <em>algorithm</em> at all — it's implemented as a simple additional filter inside <code>canServe</code> (<a href="#19-implementing-the-request-model">§19</a>): a car only ever reports itself able to serve a hall call whose floor falls within its assigned zone, and every mechanism this guide already built (SCAN, nearest-car, aging) continues operating correctly, just within a narrower floor range per car.</p>
+<hr>
+<h2 id="40-capacity-estimation-requests-per-minute-and-dispatch-latency">40. Capacity Estimation: Requests per Minute and Dispatch Latency</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>Assume: a 20-floor office building, 4 elevators, peak morning traffic generating one hall call
+every 3 seconds building-wide (a busy but realistic up-peak)
+
+Hall calls/minute = 60 / 3                              = 20 calls/minute
+Per-call dispatch decision cost: filtering 4 cars + one TreeSet lookup each -- microseconds,
+  utterly negligible compared to the SECONDS a physical elevator takes to travel between floors
+
+This confirms dispatch DECISION latency is never the bottleneck at any realistic building scale --
+  the actual constraint is always PHYSICAL (car speed, door-cycle time, number of cars), never the
+  CPU cost of deciding which car to send, which is precisely why capacity planning for a real
+  elevator system is a mechanical/traffic-engineering problem first, a software-scaling problem second.</code></pre></div>
+<p>This is a genuinely different capacity story than this series' other guides (a rate limiter's Redis throughput, an analytics platform's ingestion volume) — the software layer here is comfortably fast at any realistic scale, and the real constraint this guide's own <a href="#38-follow-up-question-12-how-would-this-scale-to-a-very-tall-very-high-traffic-building">§38-39</a> already addressed (zoning, double-deck cars) is a physical, not computational, one.</p>
+<hr>
+<h2 id="41-full-worked-example-one-hall-call-traced-end-to-end">41. Full Worked Example: One Hall Call, Traced End to End</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>1. A passenger on floor 8 presses "UP" -- HallCall(floor=8, direction=UP, requestedAt=now) created
+2. ElevatorController.onHallCall(call) checks emergencyActive -- false, proceeds normally (§35)
+3. FairnessAgingPolicy.adjustedCost() checked for every candidate car -- no request has aged past
+   the starvation threshold yet, so raw costs are used unmodified this time (§27-28)
+4. NearestCarStrategy.selectCarFor(call, fleet):
+     a. Filters to cars where canServe(call) is true (§19) -- Car C (floor 6, MOVING_UP) qualifies;
+        Car B (floor 10, MOVING_DOWN) does NOT (wrong direction)
+     b. estimatedArrivalCost: Car C = 2 floors ahead; Car A (idle, floor 3) = 5 floors -- Car C wins
+5. Car C's enqueueStop(8) called, synchronized on Car C's own lock only (§32) -- Car A and Car B's
+   dispatch state are entirely untouched, no contention
+6. Car C's own SCAN ordering (§21) naturally includes floor 8 in its next-stop sequence, since it's
+   directly ahead in its current direction of travel
+7. Car C arrives at floor 8: CarState.arriveAtNextStop() transitions MovingUpState -&gt; DoorsOpenState
+   (§16), doors open, the passenger boards (subject to CapacityGuard.canBoard(), §30)
+8. DispatchMetrics records this call's wait time (requestedAt to arrival) for later comparison
+   against whichever OTHER dispatch strategy might be evaluated next (§36-37)</code></pre></div>
+<p>Every mechanism introduced by a follow-up question in this guide appears somewhere in this one hall call's journey — direction compatibility, cost estimation, fairness aging, per-car locking, and SCAN ordering are not independent, optional features, they are the actual steps one real hall call passes through in this design.</p>
+<hr>
+<h2 id="42-final-architecture-diagram">42. Final Architecture Diagram</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>                    +------------------------+
+Hall/Car call -----&gt;|   ElevatorController     |----(emergency check first, §34-35)
+                    +-----------+--------------+
+                                |
+                    +-----------v--------------+       +------------------------+
+                    |  FairnessAgingPolicy       |------&gt;|    DispatchStrategy      |
+                    |  (wraps cost, §27-28)      |       |  FCFS | SCAN | NearestCar|
+                    +------------------------+       +-----------+--------------+
+                                                                   |
+                                +----------------------------------+----------------------------------+
+                                v                                  v                                  v
+                    +------------------+              +------------------+              +------------------+
+                    |   ElevatorCar 1    |              |   ElevatorCar 2    |              |   ElevatorCar N    |
+                    | upStops/downStops  |              | (own lock, §32)    |              |                    |
+                    | CarState machine   |              +------------------+              +------------------+
+                    +---------+----------+
+                              |
+                    +---------v----------+       +------------------------+
+                    |   CapacityGuard      |       |    DispatchMetrics       |
+                    +------------------+       +------------------------+</code></pre></div>
+<hr>
+<h2 id="43-design-patterns-used-throughout-this-guide">43. Design Patterns Used Throughout This Guide</h2>
+<ul><li><strong>State</strong> — <code>CarState</code> (<a href="#15-elevator-lifecycle-as-a-state-machine">§15-16</a>) encodes exactly which transitions are legal from an elevator's current phase, structurally preventing illegal operations (opening doors mid-motion, dispatching an out-of-service car) rather than relying on scattered runtime checks.</li><li><strong>Strategy</strong> — <code>DispatchStrategy</code> (<a href="#22-implementing-scan-dispatch">§22-26</a>: FCFS, SCAN, nearest-car) is a single swappable interface behind which every dispatch algorithm lives, interchangeable via configuration alone.</li><li><strong>Decorator</strong> — <code>FairnessAgingPolicy</code> (<a href="#28-preventing-starvation-aging-and-fairness-in-dispatch">§28</a>) wraps whichever cost calculation a concrete strategy produces, layering starvation prevention on top without any strategy needing to implement it itself.</li><li><strong>Facade</strong> — <code>ElevatorController</code> hides emergency checking, fairness adjustment, and strategy selection behind a single <code>onHallCall</code> entry point.</li><li><strong>Observer</strong> (implicit) — <code>DispatchMetrics</code> reacts to completed trips (wait time, travel time) without the controller or any car needing to know how many downstream consumers exist.</li></ul>
+<hr>
+<h2 id="44-solid-principles-applied">44. SOLID Principles Applied</h2>
+<ul><li><strong>Single Responsibility</strong> — <code>ElevatorCar</code> only tracks its own state/queue/movement; <code>DispatchStrategy</code> only decides which car answers a call; <code>CapacityGuard</code> only enforces load limits — none of the three knows how to do the others' job.</li><li><strong>Open/Closed</strong> — adding a new dispatch algorithm (or a new safety check) means implementing one interface, never modifying <code>ElevatorController</code> or <code>ElevatorCar</code>.</li><li><strong>Liskov Substitution</strong> — every <code>CarState</code> implementation must honestly support the same three transition methods with the same contract (a new legal state, or a thrown exception for an illegal one), so <code>ElevatorCar</code> can delegate to whichever state it currently holds without special-casing.</li><li><strong>Interface Segregation</strong> — <code>DispatchStrategy</code> exposes exactly one method, so a trivial FCFS implementation isn't forced to depend on cost-estimation or aging concepts only more elaborate strategies actually need.</li><li><strong>Dependency Inversion</strong> — <code>ElevatorController</code> depends only on the <code>DispatchStrategy</code> abstraction, never on a concrete algorithm directly, so the active strategy can be swapped per deployment without touching controller logic.</li></ul>
+<hr>
+<h2 id="45-common-mistakes-when-building-this-yourself">45. Common Mistakes When Building This Yourself</h2>
+<div class="code-wrap"><span class="code-lang">Text</span><pre class="code-block"><code>MISTAKE                                                CORRECT APPROACH (this guide's section)
+Dispatching by raw arrival order (FCFS)                   SCAN reorders by physical travel (§12-13, §20-22)
+A boolean isMoving flag with scattered if-checks           Explicit State pattern with legal transitions (§15-16)
+Treating a hall call the same as a car call                Hall calls carry direction; car calls don't (§17-19)
+Picking the CLOSEST car by raw floor distance alone         Direction-compatible + queue-aware cost (§24-26)
+Nearest-car dispatch with no fairness mechanism             Aging bonus prevents starvation (§27-28)
+Checking capacity only at dispatch time, not boarding       CapacityGuard checked at the boarding moment (§29-30)
+One global lock across the whole fleet for every dispatch  Per-car lock scope, contention-free (§31-32)
+Threading an emergency check through every component        Single override point in the controller (§34-35)</code></pre></div>
+<hr>
+<h2 id="46-testing-strategy">46. Testing Strategy</h2>
+<ul><li><strong>SCAN ordering tests</strong> — enqueue a mix of up and down stops onto one car and assert <code>nextStop()</code> always returns the correct next stop for the car's current direction, reversing only once the current direction's stops are exhausted.</li><li><strong>State machine tests</strong> — assert every illegal transition (opening doors while moving, dispatching an out-of-service car) throws, and every legal transition produces the correct resulting state.</li><li><strong>Direction-compatibility tests</strong> — assert <code>canServe</code> correctly rejects a hall call whose requested direction doesn't match a busy car's current direction, and correctly accepts it for an idle car.</li><li><strong>Starvation prevention tests</strong> — synthetically age one request past the threshold and assert it wins dispatch over a closer, more recently-arrived competing request.</li><li><strong>Concurrent hall-call tests</strong> — fire many simulated hall calls at different cars simultaneously and assert no car's stop queue is corrupted, while confirming dispatch to <em>different</em> cars proceeds without contending on a shared lock.</li></ul>
+<hr>
+<h2 id="47-suggested-future-enhancements">47. Suggested Future Enhancements</h2>
+<ul><li><strong>Destination dispatch (hall call with intended floor entered up front)</strong> — replacing simple up/down hall-call buttons with a keypad that captures the destination floor <em>before</em> boarding, letting the controller group passengers headed to similar floors onto the same car far more precisely than direction alone allows.</li><li><strong>Predictive pre-positioning</strong> — during a well-understood recurring traffic pattern (a morning up-peak), proactively distributing idle cars toward the lobby <em>before</em> the rush begins, rather than reacting only once calls start arriving.</li><li><strong>Reinforcement-learning-based dispatch</strong> — the <em>elevator group control problem</em> is a genuine, decades-studied optimization problem in operations research, with published work applying reinforcement learning (state: car positions and queued calls; action: which car answers each hall call; reward: negative wait time) to outperform hand-tuned heuristics under complex, non-stationary traffic patterns — a legitimate next step, though a materially larger undertaking than this guide's SCAN/nearest-car strategies, requiring a full building traffic simulator to train against safely before ever touching a real building.</li><li><strong>Energy-aware dispatch</strong> — incorporating idle-car parking and selective standby power-down into the cost function itself, trading a small amount of average wait time for meaningfully lower energy consumption during low-traffic periods.</li><li><strong>Cross-building analytics</strong> — aggregating <code>DispatchMetrics</code> (<a href="#37-evaluating-dispatch-algorithms-wait-time-travel-time-and-starvation">§37</a>) across many buildings running the same system, to validate whether a given dispatch strategy's advantages generalize beyond one specific building's traffic pattern.</li></ul>
+<hr>
+<h2 id="48-progressive-interview-question-set">48. Progressive Interview Question Set</h2>
+<p>For an interviewer using this guide to run a structured round, in increasing difficulty:</p>
+<ol><li>Explain precisely why first-come-first-served dispatch produces worse average wait times than SCAN, with a concrete example. (<a href="#12-follow-up-question-2-why-not-just-send-each-elevator-to-requests-in-the-order-they-arrive">§12-13</a>, <a href="#20-follow-up-question-5-design-the-classic-scan-algorithm-what-problem-does-it-actually-fix-precisely">§20-22</a>)</li><li>Model an elevator's lifecycle so illegal transitions (doors opening mid-motion) are structurally impossible, not merely checked for. (<a href="#14-follow-up-question-3-how-do-you-model-elevator-state-so-it-cant-accept-an-illegal-transition">§14-16</a>)</li><li>Explain why a hall call and a car call need different data, and design the direction-compatibility rule this enables. (<a href="#17-follow-up-question-4-why-distinguish-hall-calls-from-car-calls-and-why-does-direction-matter">§17-19</a>)</li><li>Design dispatch across multiple elevators, including why raw floor distance alone is the wrong cost function. (<a href="#24-follow-up-question-6-with-multiple-elevators-how-do-you-decide-which-one-answers-a-given-hall-call">§24-26</a>)</li><li>Nearest-car dispatch can starve a request. Diagnose the failure mode and design the fix. (<a href="#27-follow-up-question-7-nearest-car-dispatch-can-starve-a-request-how-do-you-prevent-that">§27-28</a>)</li><li>Two hall calls arrive at nearly the same instant. Design the concurrency model that keeps dispatch correct without unnecessary contention. (<a href="#31-follow-up-question-9-how-do-you-stay-correct-under-concurrency-when-several-hall-calls-arrive-at-nearly-the-same-instant">§31-32</a>)</li><li>A fire alarm triggers. Design how your system overrides normal dispatch, and explain why the check belongs where you put it. (<a href="#34-follow-up-question-10-how-do-you-handle-a-fire-alarm-or-emergency-mode-that-must-override-normal-dispatch">§34-35</a>)</li><li>What metrics would you actually use to decide whether a new dispatch algorithm is better than the current one, and why isn't one number enough? (<a href="#36-follow-up-question-11-how-do-you-evaluate-and-compare-dispatch-algorithms-what-metrics-actually-matter">§36-37</a>)</li></ol>
+<hr>
+<h2 id="49-final-takeaway">49. Final Takeaway</h2>
+<p>Every hard decision in this guide traces back to one recurring idea: <strong>optimize for physical reality, not for the order information happens to arrive in</strong> — SCAN reorders stops by travel distance instead of arrival order (<a href="#12-follow-up-question-2-why-not-just-send-each-elevator-to-requests-in-the-order-they-arrive">§12-13</a>, <a href="#20-follow-up-question-5-design-the-classic-scan-algorithm-what-problem-does-it-actually-fix-precisely">§20-22</a>); nearest-car dispatch estimates true arrival cost instead of raw floor distance (<a href="#24-follow-up-question-6-with-multiple-elevators-how-do-you-decide-which-one-answers-a-given-hall-call">§24-26</a>); aging corrects for a request's actual waited time instead of treating every dispatch decision as freshly independent (<a href="#27-follow-up-question-7-nearest-car-dispatch-can-starve-a-request-how-do-you-prevent-that">§27-28</a>). Recognizing that the <em>naive</em> ordering of events (arrival order, raw distance, an isolated decision) is rarely the ordering that minimizes real-world cost is the transferable skill this guide is really teaching — the exact same lesson disk-arm scheduling taught operating-systems design decades before an elevator ever borrowed it.</p>
+    </main>
+  </div>
+
+  <footer>
+    pureeats-platform &middot; see also "Design an Elevator System — HLD, LLD, and Class Design From Scratch.md" for the plain-markdown version
+  </footer>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar-toc a[href^="#"]'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var headings = Array.prototype.slice.call(document.querySelectorAll('main.article h1, main.article h2, main.article h3'));
+  if (!('IntersectionObserver' in window) || !headings.length) return;
+  var current = null;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (!entry.isIntersecting) return;
+      var link = map[entry.target.id];
+      if (!link) return;
+      if (current) current.classList.remove('active');
+      link.classList.add('active');
+      current = link;
+    });
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  headings.forEach(function (h) { observer.observe(h); });
+})();
+</script>
