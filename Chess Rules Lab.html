@@ -1,0 +1,616 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chess Rules Lab</title>
+<style>
+  :root {
+    --bg: #f5f4f1;
+    --panel: #ffffff;
+    --ink: #201c16;
+    --sub: #756b5c;
+    --accent: #8a5a2b;
+    --accent-dark: #6b4420;
+    --line: #e3ddd0;
+    --danger: #b3261e;
+    --danger-bg: #fbeae9;
+    --ok: #3d7a45;
+    --ok-bg: #e9f3ea;
+    --pending: #9a6700;
+    --pending-bg: #fff3d6;
+    --chip: #f0ede6;
+    --light-sq: #f0d9b5;
+    --dark-sq: #b58863;
+    --highlight: #6fa8dc;
+    --sel: #f7d35a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16130f;
+      --panel: #211c15;
+      --ink: #ede7dc;
+      --sub: #b3a795;
+      --accent: #d9a15c;
+      --accent-dark: #e8b878;
+      --line: #37301f;
+      --danger: #ff8a80;
+      --danger-bg: #3a1c1a;
+      --ok: #6fcf7a;
+      --ok-bg: #1a3320;
+      --pending: #f2c866;
+      --pending-bg: #3a2f10;
+      --chip: #2a2419;
+      --light-sq: #8f6a4a;
+      --dark-sq: #5a4530;
+      --highlight: #4a90d9;
+      --sel: #c9a227;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16130f; --panel: #211c15; --ink: #ede7dc; --sub: #b3a795;
+    --accent: #d9a15c; --accent-dark: #e8b878; --line: #37301f;
+    --danger: #ff8a80; --danger-bg: #3a1c1a; --ok: #6fcf7a; --ok-bg: #1a3320;
+    --pending: #f2c866; --pending-bg: #3a2f10; --chip: #2a2419;
+    --light-sq: #8f6a4a; --dark-sq: #5a4530; --highlight: #4a90d9; --sel: #c9a227;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .eyebrow { font-family: "SF Mono", Consolas, monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sub); margin-bottom: 6px; }
+  h1 { font-size: 30px; margin: 0 0 10px; letter-spacing: -0.01em; }
+  .dek { color: var(--sub); font-size: 15px; line-height: 1.5; max-width: 760px; margin-bottom: 22px; }
+  .grid { display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .board-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .board { display: grid; grid-template-columns: repeat(8, 52px); grid-template-rows: repeat(8, 52px); border: 2px solid var(--accent-dark); border-radius: 4px; overflow: hidden; }
+  .sq { display: flex; align-items: center; justify-content: center; font-size: 34px; cursor: pointer; position: relative; user-select: none; }
+  .sq.light { background: var(--light-sq); }
+  .sq.dark { background: var(--dark-sq); }
+  .sq.selected::after { content: ""; position: absolute; inset: 0; background: var(--sel); opacity: 0.5; }
+  .sq.legal::after { content: ""; position: absolute; width: 16px; height: 16px; border-radius: 50%; background: var(--highlight); opacity: 0.75; }
+  .sq.legal-capture::after { content: ""; position: absolute; inset: 3px; border: 4px solid var(--highlight); border-radius: 50%; background: none; opacity: 0.85; }
+  .sq.last-from::before, .sq.last-to::before { content: ""; position: absolute; inset: 0; background: var(--sel); opacity: 0.28; }
+  .sq.in-check::after { content: ""; position: absolute; inset: 0; background: var(--danger); opacity: 0.4; }
+  .piece-w { color: #fff; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
+  .piece-b { color: #1a1a1a; text-shadow: 0 0 1px #fff; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
+  .panel h2 { font-size: 15px; margin: 0 0 12px; }
+  label { font-size: 12px; color: var(--sub); display: block; margin-bottom: 4px; }
+  select, button { font-size: 14px; }
+  select { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); margin-bottom: 12px; }
+  button { background: var(--accent); color: white; border: none; padding: 9px 14px; border-radius: 9px; font-weight: 600; cursor: pointer; margin-right: 6px; margin-bottom: 6px; }
+  button:hover { background: var(--accent-dark); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.secondary { background: var(--chip); color: var(--ink); }
+  button.secondary:hover { background: var(--line); }
+  .status-banner { padding: 10px 12px; border-radius: 9px; font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+  .status-banner.ok { background: var(--ok-bg); color: var(--ok); }
+  .status-banner.pending { background: var(--pending-bg); color: var(--pending); }
+  .status-banner.bad { background: var(--danger-bg); color: var(--danger); }
+  .move-log { max-height: 220px; overflow-y: auto; font-size: 13px; font-family: "SF Mono", Consolas, monospace; }
+  .move-log ol { margin: 0; padding-left: 22px; }
+  .move-log li { padding: 2px 0; color: var(--sub); }
+  .move-log li.current { color: var(--ink); font-weight: 700; }
+  .fine { font-size: 12px; color: var(--sub); margin-top: 10px; line-height: 1.5; }
+  .btn-row { margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Interactive Systems Lab · Companion to the Design Guide</div>
+  <h1>Chess Rules Lab</h1>
+  <div class="dek">
+    A fully rule-enforcing chess engine: legal move generation with real pin detection, castling with all four
+    preconditions, en passant, checkmate/stalemate as pure derived facts, undo/redo, and an alpha-beta AI opponent
+    you can play against.
+  </div>
+
+  <div class="grid">
+    <div class="board-panel">
+      <div id="board" class="board"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Game Control</h2>
+      <div id="statusBanner" class="status-banner ok">White to move</div>
+
+      <label for="modeSelect">Opponent</label>
+      <select id="modeSelect">
+        <option value="human">Human (pass and play)</option>
+        <option value="ai-black">AI plays Black (you play White)</option>
+        <option value="ai-white">AI plays White (you play Black)</option>
+      </select>
+
+      <label for="depthSelect">AI strength</label>
+      <select id="depthSelect">
+        <option value="1">Easy (depth 1)</option>
+        <option value="2" selected>Normal (depth 2)</option>
+        <option value="3">Hard (depth 3, slower)</option>
+      </select>
+
+      <div class="btn-row">
+        <button id="undoBtn">Undo</button>
+        <button id="redoBtn">Redo</button>
+        <button class="secondary" id="newGameBtn">New game</button>
+      </div>
+
+      <h2 style="margin-top:16px;">Move Log</h2>
+      <div class="move-log"><ol id="moveLogList"></ol></div>
+
+      <p class="fine">Click a piece to see its legal destinations highlighted — a pinned piece will show fewer dots than its raw movement pattern would suggest, because every candidate move is simulated and discarded if it would leave your own king in check. Pawns auto-promote to Queen.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const FILES = 8;
+  function idx(f, r) { return (f < 0 || f > 7 || r < 0 || r > 7) ? -1 : r * 8 + f; }
+  function fileOf(i) { return i % 8; }
+  function rankOf(i) { return Math.floor(i / 8); }
+  function opp(c) { return c === 'w' ? 'b' : 'w'; }
+  function sqName(i) { return "abcdefgh"[fileOf(i)] + (rankOf(i) + 1); }
+
+  const rookDirs = [[1,0],[-1,0],[0,1],[0,-1]];
+  const bishopDirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
+  const queenDirs = rookDirs.concat(bishopDirs);
+  const knightOffsets = [[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]];
+  const PIECE_GLYPH = {
+    w: { K:"♔", Q:"♕", R:"♖", B:"♗", N:"♘", P:"♙" },
+    b: { K:"♚", Q:"♛", R:"♜", B:"♝", N:"♞", P:"♟" }
+  };
+  const MATERIAL = { P:100, N:320, B:330, R:500, Q:900, K:0 };
+
+  function initialState() {
+    const board = new Array(64).fill(null);
+    const backRank = ['R','N','B','Q','K','B','N','R'];
+    for (let f = 0; f < 8; f++) {
+      board[idx(f,0)] = { type: backRank[f], color: 'w' };
+      board[idx(f,1)] = { type: 'P', color: 'w' };
+      board[idx(f,7)] = { type: backRank[f], color: 'b' };
+      board[idx(f,6)] = { type: 'P', color: 'b' };
+    }
+    return {
+      board, sideToMove: 'w',
+      castlingRights: { w: { K: true, Q: true }, b: { K: true, Q: true } },
+      enPassantTarget: -1,
+      halfmoveClock: 0
+    };
+  }
+
+  function cloneState(s) {
+    return {
+      board: s.board.slice(),
+      sideToMove: s.sideToMove,
+      castlingRights: { w: { ...s.castlingRights.w }, b: { ...s.castlingRights.b } },
+      enPassantTarget: s.enPassantTarget,
+      halfmoveClock: s.halfmoveClock
+    };
+  }
+
+  function findKing(board, color) {
+    for (let i = 0; i < 64; i++) { const p = board[i]; if (p && p.type === 'K' && p.color === color) return i; }
+    return -1;
+  }
+
+  function isSquareAttacked(board, square, byColor) {
+    const sf = fileOf(square), sr = rankOf(square);
+    const pawnRankDelta = byColor === 'w' ? -1 : 1;
+    for (const df of [-1, 1]) {
+      const pi = idx(sf + df, sr + pawnRankDelta);
+      if (pi >= 0) { const p = board[pi]; if (p && p.color === byColor && p.type === 'P') return true; }
+    }
+    for (const [df, dr] of knightOffsets) {
+      const ni = idx(sf + df, sr + dr);
+      if (ni >= 0) { const p = board[ni]; if (p && p.color === byColor && p.type === 'N') return true; }
+    }
+    for (const [df, dr] of queenDirs) {
+      const ni = idx(sf + df, sr + dr);
+      if (ni >= 0) { const p = board[ni]; if (p && p.color === byColor && p.type === 'K') return true; }
+    }
+    for (const [df, dr] of rookDirs) {
+      let f = sf + df, r = sr + dr;
+      while (true) {
+        const ni = idx(f, r); if (ni < 0) break;
+        const p = board[ni];
+        if (p) { if (p.color === byColor && (p.type === 'R' || p.type === 'Q')) return true; break; }
+        f += df; r += dr;
+      }
+    }
+    for (const [df, dr] of bishopDirs) {
+      let f = sf + df, r = sr + dr;
+      while (true) {
+        const ni = idx(f, r); if (ni < 0) break;
+        const p = board[ni];
+        if (p) { if (p.color === byColor && (p.type === 'B' || p.type === 'Q')) return true; break; }
+        f += df; r += dr;
+      }
+    }
+    return false;
+  }
+
+  function mkMove(from, to, captured, type) { return { from, to, captured: captured || null, type: type || (captured ? 'capture' : 'quiet') }; }
+
+  function pseudoLegalMovesForSquare(square, state) {
+    const board = state.board, piece = board[square];
+    const sf = fileOf(square), sr = rankOf(square);
+    const moves = [];
+    if (piece.type === 'P') {
+      const dir = piece.color === 'w' ? 1 : -1;
+      const startRank = piece.color === 'w' ? 1 : 6;
+      const promRank = piece.color === 'w' ? 7 : 0;
+      const oneIdx = idx(sf, sr + dir);
+      if (oneIdx >= 0 && !board[oneIdx]) {
+        if (rankOf(oneIdx) === promRank) moves.push({ from: square, to: oneIdx, type: 'promotion', promotion: 'Q' });
+        else moves.push(mkMove(square, oneIdx, null, 'quiet'));
+        if (sr === startRank) {
+          const twoIdx = idx(sf, sr + 2 * dir);
+          if (twoIdx >= 0 && !board[twoIdx]) moves.push({ from: square, to: twoIdx, type: 'double' });
+        }
+      }
+      for (const df of [-1, 1]) {
+        const cf = sf + df, cr = sr + dir;
+        const ci = idx(cf, cr);
+        if (ci < 0) continue;
+        const occ = board[ci];
+        if (occ && occ.color !== piece.color) {
+          if (rankOf(ci) === promRank) moves.push({ from: square, to: ci, type: 'promotion', promotion: 'Q', captured: occ });
+          else moves.push(mkMove(square, ci, occ, 'capture'));
+        } else if (!occ && state.enPassantTarget === ci) {
+          moves.push({ from: square, to: ci, type: 'enpassant', capturedSquare: idx(cf, sr) });
+        }
+      }
+    } else if (piece.type === 'N') {
+      for (const [df, dr] of knightOffsets) {
+        const ni = idx(sf + df, sr + dr);
+        if (ni < 0) continue;
+        const occ = board[ni];
+        if (!occ || occ.color !== piece.color) moves.push(mkMove(square, ni, occ));
+      }
+    } else if (piece.type === 'B' || piece.type === 'R' || piece.type === 'Q') {
+      const dirs = piece.type === 'B' ? bishopDirs : piece.type === 'R' ? rookDirs : queenDirs;
+      for (const [df, dr] of dirs) {
+        let f = sf + df, r = sr + dr;
+        while (true) {
+          const ni = idx(f, r); if (ni < 0) break;
+          const occ = board[ni];
+          if (!occ) { moves.push(mkMove(square, ni, null)); }
+          else { if (occ.color !== piece.color) moves.push(mkMove(square, ni, occ)); break; }
+          f += df; r += dr;
+        }
+      }
+    } else if (piece.type === 'K') {
+      for (const [df, dr] of queenDirs) {
+        const ni = idx(sf + df, sr + dr);
+        if (ni < 0) continue;
+        const occ = board[ni];
+        if (!occ || occ.color !== piece.color) moves.push(mkMove(square, ni, occ));
+      }
+    }
+    return moves;
+  }
+
+  function castlingMoves(state) {
+    const moves = [];
+    const color = state.sideToMove, board = state.board;
+    const rank = color === 'w' ? 0 : 7;
+    const kingSquare = idx(4, rank);
+    const king = board[kingSquare];
+    if (!king || king.type !== 'K' || king.color !== color) return moves;
+    const rights = state.castlingRights[color];
+    const attacker = opp(color);
+    if (rights.K) {
+      const f1 = idx(5, rank), g1 = idx(6, rank), h1 = idx(7, rank);
+      const rook = board[h1];
+      if (!board[f1] && !board[g1] && rook && rook.type === 'R' && rook.color === color) {
+        if (!isSquareAttacked(board, kingSquare, attacker) && !isSquareAttacked(board, f1, attacker) && !isSquareAttacked(board, g1, attacker)) {
+          moves.push({ from: kingSquare, to: g1, type: 'castleK', rookFrom: h1, rookTo: f1 });
+        }
+      }
+    }
+    if (rights.Q) {
+      const d1 = idx(3, rank), c1 = idx(2, rank), b1 = idx(1, rank), a1 = idx(0, rank);
+      const rook = board[a1];
+      if (!board[d1] && !board[c1] && !board[b1] && rook && rook.type === 'R' && rook.color === color) {
+        if (!isSquareAttacked(board, kingSquare, attacker) && !isSquareAttacked(board, d1, attacker) && !isSquareAttacked(board, c1, attacker)) {
+          moves.push({ from: kingSquare, to: c1, type: 'castleQ', rookFrom: a1, rookTo: d1 });
+        }
+      }
+    }
+    return moves;
+  }
+
+  function generateAllPseudoLegal(color, state) {
+    const moves = [];
+    for (let i = 0; i < 64; i++) {
+      const p = state.board[i];
+      if (p && p.color === color) moves.push(...pseudoLegalMovesForSquare(i, state));
+    }
+    if (color === state.sideToMove) moves.push(...castlingMoves(state));
+    return moves;
+  }
+
+  function applyMoveFunctional(state, move) {
+    const ns = cloneState(state);
+    const piece = ns.board[move.from];
+    let captured = null;
+    if (move.type === 'enpassant') {
+      captured = ns.board[move.capturedSquare];
+      ns.board[move.capturedSquare] = null;
+      ns.board[move.to] = piece; ns.board[move.from] = null;
+    } else if (move.type === 'castleK' || move.type === 'castleQ') {
+      ns.board[move.to] = piece; ns.board[move.from] = null;
+      ns.board[move.rookTo] = ns.board[move.rookFrom]; ns.board[move.rookFrom] = null;
+    } else if (move.type === 'promotion') {
+      captured = ns.board[move.to] || null;
+      ns.board[move.to] = { type: move.promotion, color: piece.color };
+      ns.board[move.from] = null;
+    } else {
+      captured = ns.board[move.to] || null;
+      ns.board[move.to] = piece;
+      ns.board[move.from] = null;
+    }
+    if (piece.type === 'K') { ns.castlingRights[piece.color].K = false; ns.castlingRights[piece.color].Q = false; }
+    if (piece.type === 'R') {
+      if (piece.color === 'w') { if (move.from === idx(0,0)) ns.castlingRights.w.Q = false; if (move.from === idx(7,0)) ns.castlingRights.w.K = false; }
+      else { if (move.from === idx(0,7)) ns.castlingRights.b.Q = false; if (move.from === idx(7,7)) ns.castlingRights.b.K = false; }
+    }
+    if (move.to === idx(0,0)) ns.castlingRights.w.Q = false;
+    if (move.to === idx(7,0)) ns.castlingRights.w.K = false;
+    if (move.to === idx(0,7)) ns.castlingRights.b.Q = false;
+    if (move.to === idx(7,7)) ns.castlingRights.b.K = false;
+
+    ns.enPassantTarget = move.type === 'double' ? (move.from + move.to) / 2 : -1;
+    ns.halfmoveClock = (piece.type === 'P' || captured) ? 0 : ns.halfmoveClock + 1;
+    ns.sideToMove = opp(state.sideToMove);
+    return { newState: ns, captured };
+  }
+
+  function legalMoves(color, state) {
+    const pseudo = generateAllPseudoLegal(color, state);
+    const legal = [];
+    for (const move of pseudo) {
+      const { newState } = applyMoveFunctional(state, move);
+      const kingSq = findKing(newState.board, color);
+      if (!isSquareAttacked(newState.board, kingSq, opp(color))) legal.push(move);
+    }
+    return legal;
+  }
+
+  function insufficientMaterial(board) {
+    let minorCount = 0, hasHeavyOrPawn = false;
+    for (let i = 0; i < 64; i++) {
+      const p = board[i]; if (!p || p.type === 'K') continue;
+      if (p.type === 'P' || p.type === 'R' || p.type === 'Q') { hasHeavyOrPawn = true; break; }
+      minorCount++;
+    }
+    return !hasHeavyOrPawn && minorCount <= 1;
+  }
+
+  function positionKey(state) {
+    return state.board.map(p => p ? p.color + p.type : '.').join('') + '|' + state.sideToMove + '|' +
+      JSON.stringify(state.castlingRights) + '|' + state.enPassantTarget;
+  }
+
+  function computeStatus(state, historyStates) {
+    const inCheck = isSquareAttacked(state.board, findKing(state.board, state.sideToMove), opp(state.sideToMove));
+    const legal = legalMoves(state.sideToMove, state);
+    if (legal.length === 0) return { kind: inCheck ? 'checkmate' : 'stalemate', inCheck, legal };
+    if (state.halfmoveClock >= 100) return { kind: 'fifty-move', inCheck, legal };
+    if (insufficientMaterial(state.board)) return { kind: 'insufficient-material', inCheck, legal };
+    if (historyStates) {
+      const key = positionKey(state);
+      let count = 0;
+      for (const hs of historyStates) if (positionKey(hs) === key) count++;
+      if (count >= 3) return { kind: 'repetition', inCheck, legal };
+    }
+    return { kind: inCheck ? 'check' : 'in-progress', inCheck, legal };
+  }
+
+  function evaluate(state) {
+    let score = 0;
+    for (let i = 0; i < 64; i++) {
+      const p = state.board[i]; if (!p) continue;
+      let v = MATERIAL[p.type];
+      const f = fileOf(i), r = rankOf(i);
+      const centerBonus = (3.5 - Math.abs(f - 3.5)) + (3.5 - Math.abs(r - 3.5));
+      if (p.type === 'N' || p.type === 'P') v += centerBonus * 2;
+      score += p.color === 'w' ? v : -v;
+    }
+    return score;
+  }
+
+  function negamax(state, depth, alpha, beta) {
+    const legal = legalMoves(state.sideToMove, state);
+    if (legal.length === 0) {
+      const inCheck = isSquareAttacked(state.board, findKing(state.board, state.sideToMove), opp(state.sideToMove));
+      return inCheck ? -100000 : 0;
+    }
+    if (depth === 0) {
+      const raw = evaluate(state);
+      return state.sideToMove === 'w' ? raw : -raw;
+    }
+    let best = -Infinity;
+    for (const move of legal) {
+      const { newState } = applyMoveFunctional(state, move);
+      const val = -negamax(newState, depth - 1, -beta, -alpha);
+      if (val > best) best = val;
+      if (best > alpha) alpha = best;
+      if (alpha >= beta) break;
+    }
+    return best;
+  }
+
+  function findBestMove(state, depth) {
+    const legal = legalMoves(state.sideToMove, state);
+    let best = null, bestVal = -Infinity, alpha = -Infinity, beta = Infinity;
+    for (const move of legal) {
+      const { newState } = applyMoveFunctional(state, move);
+      const val = -negamax(newState, depth - 1, -beta, -alpha);
+      if (val > bestVal) { bestVal = val; best = move; }
+      if (bestVal > alpha) alpha = bestVal;
+    }
+    return best;
+  }
+
+  // ---- game session ----
+  let gameStates = [initialState()];
+  let moveLabels = [];
+  let currentIndex = 0;
+  let selectedSquare = null;
+  let legalFromSelected = [];
+  let aiThinking = false;
+
+  function current() { return gameStates[currentIndex]; }
+
+  function formatMove(move, captured, state) {
+    const piece = state.board[move.to] || {};
+    let s = sqName(move.from) + (captured || move.captured ? "x" : "-") + sqName(move.to);
+    if (move.type === 'castleK') s = "O-O";
+    if (move.type === 'castleQ') s = "O-O-O";
+    if (move.type === 'promotion') s += "=Q";
+    if (move.type === 'enpassant') s += " e.p.";
+    return s;
+  }
+
+  function playMove(move) {
+    if (currentIndex < gameStates.length - 1) {
+      gameStates.length = currentIndex + 1;
+      moveLabels.length = currentIndex;
+    }
+    const beforeState = gameStates[currentIndex];
+    const { newState, captured } = applyMoveFunctional(beforeState, move);
+    const label = formatMove(move, captured, beforeState);
+    gameStates.push(newState);
+    moveLabels.push(label);
+    currentIndex++;
+    selectedSquare = null; legalFromSelected = [];
+    render();
+    maybeTriggerAI();
+  }
+
+  function undo() { if (currentIndex > 0) { currentIndex--; selectedSquare = null; legalFromSelected = []; render(); } }
+  function redo() { if (currentIndex < gameStates.length - 1) { currentIndex++; selectedSquare = null; legalFromSelected = []; render(); } }
+  function newGame() { gameStates = [initialState()]; moveLabels = []; currentIndex = 0; selectedSquare = null; legalFromSelected = []; aiThinking = false; render(); maybeTriggerAI(); }
+
+  function aiColorForCurrentMode() {
+    const mode = document.getElementById('modeSelect').value;
+    if (mode === 'ai-black') return 'b';
+    if (mode === 'ai-white') return 'w';
+    return null;
+  }
+
+  function maybeTriggerAI() {
+    const aiColor = aiColorForCurrentMode();
+    const state = current();
+    const status = computeStatus(state, gameStates.slice(0, currentIndex));
+    if (status.kind === 'checkmate' || status.kind === 'stalemate' || status.kind === 'fifty-move' ||
+        status.kind === 'insufficient-material' || status.kind === 'repetition') return;
+    if (aiColor && state.sideToMove === aiColor) {
+      aiThinking = true;
+      render();
+      setTimeout(() => {
+        const depth = parseInt(document.getElementById('depthSelect').value, 10);
+        const move = findBestMove(state, depth);
+        aiThinking = false;
+        if (move) playMove(move); else render();
+      }, 30);
+    }
+  }
+
+  function squareClass(i) {
+    return (fileOf(i) + rankOf(i)) % 2 === 0 ? 'dark' : 'light';
+  }
+
+  function render() {
+    const state = current();
+    const status = computeStatus(state, gameStates.slice(0, currentIndex));
+    const boardEl = document.getElementById('board');
+    boardEl.innerHTML = '';
+    const lastMove = currentIndex > 0 ? { from: null, to: null } : null;
+
+    for (let r = 7; r >= 0; r--) {
+      for (let f = 0; f < 8; f++) {
+        const i = idx(f, r);
+        const sq = document.createElement('div');
+        sq.className = 'sq ' + squareClass(i);
+        sq.dataset.square = i;
+        const piece = state.board[i];
+        if (piece) {
+          sq.innerHTML = '<span class="piece-' + piece.color + '">' + PIECE_GLYPH[piece.color][piece.type] + '</span>';
+        }
+        if (selectedSquare === i) sq.classList.add('selected');
+        const legalMove = legalFromSelected.find(m => m.to === i);
+        if (legalMove) sq.classList.add(piece ? 'legal-capture' : 'legal');
+        if (status.inCheck && piece && piece.type === 'K' && piece.color === state.sideToMove) sq.classList.add('in-check');
+        sq.addEventListener('click', () => onSquareClick(i));
+        boardEl.appendChild(sq);
+      }
+    }
+
+    const banner = document.getElementById('statusBanner');
+    const turnName = state.sideToMove === 'w' ? 'White' : 'Black';
+    const msgs = {
+      'in-progress': [turnName + ' to move', 'ok'],
+      'check': [turnName + ' to move — in check', 'pending'],
+      'checkmate': ['Checkmate — ' + (turnName === 'White' ? 'Black' : 'White') + ' wins', 'bad'],
+      'stalemate': ['Stalemate — draw', 'pending'],
+      'fifty-move': ['Draw — fifty-move rule', 'pending'],
+      'insufficient-material': ['Draw — insufficient material', 'pending'],
+      'repetition': ['Draw — threefold repetition', 'pending']
+    };
+    let [text, kind] = msgs[status.kind] || ['', 'ok'];
+    if (aiThinking) { text = "AI is thinking…"; kind = 'pending'; }
+    banner.textContent = text;
+    banner.className = 'status-banner ' + kind;
+
+    const logList = document.getElementById('moveLogList');
+    logList.innerHTML = '';
+    moveLabels.forEach((label, i) => {
+      const li = document.createElement('li');
+      li.textContent = label;
+      if (i === currentIndex - 1) li.className = 'current';
+      logList.appendChild(li);
+    });
+
+    document.getElementById('undoBtn').disabled = currentIndex === 0 || aiThinking;
+    document.getElementById('redoBtn').disabled = currentIndex === gameStates.length - 1 || aiThinking;
+  }
+
+  function onSquareClick(i) {
+    if (aiThinking) return;
+    const state = current();
+    const status = computeStatus(state, gameStates.slice(0, currentIndex));
+    if (['checkmate','stalemate','fifty-move','insufficient-material','repetition'].includes(status.kind)) return;
+    const aiColor = aiColorForCurrentMode();
+    if (aiColor && state.sideToMove === aiColor) return;
+
+    if (selectedSquare !== null) {
+      const move = legalFromSelected.find(m => m.to === i);
+      if (move) { playMove(move); return; }
+    }
+    const piece = state.board[i];
+    if (piece && piece.color === state.sideToMove) {
+      selectedSquare = i;
+      legalFromSelected = status.legal.filter(m => m.from === i);
+    } else {
+      selectedSquare = null;
+      legalFromSelected = [];
+    }
+    render();
+  }
+
+  document.getElementById('undoBtn').addEventListener('click', undo);
+  document.getElementById('redoBtn').addEventListener('click', redo);
+  document.getElementById('newGameBtn').addEventListener('click', newGame);
+  document.getElementById('modeSelect').addEventListener('change', () => { render(); maybeTriggerAI(); });
+
+  render();
+})();
+</script>
+</body>
+</html>
+
+</body></html>

@@ -9,7 +9,7 @@
 	- It should guarantee of not duplicate id
 	- I think timestamp is also a not proper id because multiple instance can create same timestampId
 	- It should have multiple instance of the service so that it can handle million of users
-	- Follow DOLID design principal and all design best practice
+	- Follow SOLID design principal and all design best practice
 	- Future improvement
 	- Calculate TPS / RPS etc
 	- Can we achieve TPS like 1M, how much max TPS we can achieve? what infra changes we need?
@@ -18,6 +18,28 @@
 	- Frame this question as a system design like question and with folowups in step by step manner
 6. Design Search Autocomplete System / Typeahead System
 7. Design a Real-Time Analytics Platform
+8. Design a Logging and Monitoring System like SL4J
+9. Design Rate Limiter
+10. Design a parking lot system
+11. Design Tic-Tac-Toe Game
+	- It will have both high level and low level design all functional and non-functional requirements,
+	class level diagram and future enhancement	
+	- It will follow the SOLID design principal	
+	- Frame this question as a system design like question and with folowups in step by step manner
+	- It will support multiplayer 
+	- How to incorporate AI player
+	- How to train AI payer
+	- Score management
+	- various strategy
+	- Support match or contest which will have winning prize etc...
+	- can you create the game in a canvas in JavaScript which will have all above feature
+12. Design Snake Game
+13. Design Elevator System
+14. Design BookMyShow & Concurrency handling
+15. Design Vending Machine
+16. Design ATM
+17. Design Dream11 like app
+18. Design Chess Game
 ########################################################
 
 
@@ -37,35 +59,14 @@ Can you write a step by step markdown guide as wel as html file to
 
 
 
-
-8. Design a Logging and Monitoring System like SL4J
-9. Design Rate Limiter
-10. Design a parking lot system
-11. Design Tic-Tac-Toe Game
-	- It will have both high level and low level design all functional and non-functional requirements,
-	class level diagram and future enhancement	
-	- It will follow the SOLID design principal	
-	- Frame this question as a system design like question and with folowups in step by step manner
-	- It will support multiplayer 
-	- How to incorporate AI player
-	- How to train AI payer
-	- Score management
-	- various strategy
-	- Support match or contest which will have winning prize etc...
-	- can you create the game in a canvas in JavaScript which will have all above feature
-12. Design Snake Game
-13. Design Elevator System
-14. Design Car Rental System
-15. Design BookMyShow & Concurrency handling
-16. Design Vending Machine
-17. Design ATM
-18. Design Chess Game
 19. Design Splitwise
 	- Splitwise Simplify Algorithm / Optimal Accounting Balancing
-20. Design True Caller
-21. Design Meeting Scheduler
-22. Design Online Voting System
+20. Design Meeting Scheduler
+21. Design Online Voting System
+22. Design True Caller
 23. I want to design a rest APi with following proper standard and all response error structure.
+24. Design a charbot flow
+	- How Swiggy designed and scaled its chatbot - by Arpit Bhayan
 I have an eligibility API, where I am planning for the response like below
 {
    userId: 1,
@@ -100,3 +101,26 @@ What is the better approach in this situation for better design. Can you explain
 Can you write a step by step markdown aswel as HTMl guide for complete REST APi interview questions
 It should cover all possible difficult REST concept with followup questions.
 
+
+
+In this era of AI when everyone is speaking about the disruption and catastropic disaster, I feel it can create a big revolution for the developing country like India.
+It can reduce the knowledge gap, it can reduce the dicission making time and will helps a lot in advance research.
+
+People who have courage to create something new and different, but didn't had proper idea where to start or how to progress can easily reduce that gap.
+
+For example from college days I had a dream to create a Operating stystem from scratch, which seems to be very difficult just  1 year ago, it seems to be possible now a days.
+We can create our own Database, Compiler or a stock price matching engine and the simulators within a single day. We can understand the difficult concepts of statistics in proper practical approach.
+We can create a Monticarlo simulation in just a few minute. So Education is going to be revolutionize.
+A physics researcher can easily create a "Topological Phases and Disorder in Quantum Simulators" or a "High-Precision Muonium Beams" or "Hyperbolic Metamaterials and Wave Control" or "Quantum Entanglement at High Energies", a chemistry researcher can simulate "Low-Energy Plastic Upcycling" or a "Solid-State Electrolyte Interfaces" or a biology student can understand the Genome sequencing better, we cant blame the knowledge gap now a days.
+
+Any one can learn even simulate the dron, missile, radar technologies by sitting in a rural place, Defence inovation can be boom, High skilled  VLSI design can be more practical, the things which seems to be more difficult few year ago, now atleast we have the understanding and knowledge base.
+I felt what Infosys chairmain said few months ago, its time for Indian youth for more hard work and more practical oriented.
+
+In the same time AI can create a massive catastropic disaster aswel, as the basic monthly subscription charge of basic frontier model is starting aroud $20 which is around 2000 INR, which is very difficult to bare for a ordinary middle class student or an individual.
+The kind of access an rich or wealthy individual can get from AI, the same an ordinary avergae middle class student might miss.
+
+Its so sad Govt is not coming with a proper guidline on this, no regulation atleast govt should provide a free AI subscription for all the students.
+Otherwise it will create a lots of knowledge gap and  which can create a massive catastropic disaster and disparity in socity. Atleast Govt should invest in some prive Indian AI frontier model or atleast they should provide some subscription for the student.
+Otherwise we will be fall behind in this race, a complete generation will be lag behind like when the Computer first came in India, and we did not accept it easily and hence we stikll are laging in lots of advance research and innovvation, The world is looking us as an consumer only.
+
+We need a courage to learn and to create something new
