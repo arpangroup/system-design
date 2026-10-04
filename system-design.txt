@@ -124,3 +124,71 @@ Otherwise it will create a lots of knowledge gap and  which can create a massive
 Otherwise we will be fall behind in this race, a complete generation will be lag behind like when the Computer first came in India, and we did not accept it easily and hence we stikll are laging in lots of advance research and innovvation, The world is looking us as an consumer only.
 
 We need a courage to learn and to create something new
+
+####################################
+Phase 1 — Lexical Analysis: From SQL Text to Tokens
+	1.1. Source Location
+	1.2. TokenType
+	1.3. Token
+	1.4. Keyword Table
+	1.5. Implement the Lexer
+
+
+Phase 2 — Defining the SQL Language: Grammar and Syntax
+	2.1. Initial Grammar
+	2.2. SELECT Grammar
+	2.3. FROM Grammar
+	2.4. Expression Grammar
+	2.5. WHERE / GROUP / HAVING
+	2.6. JOIN Grammar
+	2.7. ORDER / LIMIT / OFFSET
+
+
+
+Phase 3 — The SQL Domain Model: Representing Tables, Rows, and Types
+	3.1 Data Types
+		DataType
+	3.2 Columns and Schemas
+		Column
+		TableSchema
+	3.3 Rows and Values
+		Row
+		Value representation
+	3.4 Relationships Between the Models
+		TableSchema → Column
+		TableSchema → DataType
+		Row → Column/Value
+This phase answers:
+    What does the data look like?
+
+
+Phase 4 — The SQL AST: Representing SQL as a Structured Tree
+4.1 The Root SQL Node
+4.2. SqlStatement 
+public sealed interface SqlStatement
+        extends SqlNode
+        permits SelectStatement,
+                InsertStatement,
+                UpdateStatement,
+                DeleteStatement,
+                CreateTableStatement {
+}
+
+
+
+Phase 5 — Recursive-Descent Parsing: From Tokens to SQL AST
+Phase 6 — Semantic Analysis: Validating the SQL
+    Is the AST valid for our database/schema?
+
+Phase 7 — Query Planning: Turning the AST into an Execution Plan 
+    AST → Execution Plan
+
+Phase 8 — Query Execution: Producing Results 
+    Execution Plan → Results
+
+
+##############################
+01-SQL Parser From Scratch
+	--> Logical Query Processing
+02-TinyDB Query Engine and SQL Parser
+	--> 3.4. QueryResult and TransactionContext 
