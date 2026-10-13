@@ -192,3 +192,41 @@ Phase 8 — Query Execution: Producing Results
 	--> Logical Query Processing
 02-TinyDB Query Engine and SQL Parser
 	--> 3.4. QueryResult and TransactionContext 
+	
+
+
+Can you fix below issues:
+	
+	
+1. Sound not playing in Restaurant partner and Driver app
+2. Max order in queue in customer app
+3. If drivers are not available for certain time, admin panel will show offline status, a scheduler will automatically update status to offline in backend.
+   It will show in admin panel as forced stop for driver activity
+
+4. Driver app when going to background or switching tab after that order accept not working, it doesn't even show in available orders
+5. orders for admin assigned driver are not showing in driver app for that particular driver which assigned by the admin, as sometime admin might assign a driver forcefully, which will be showing in driver app.
+6. In Admin panel under setting section admin should have option to upload custom audio for order arrive sound, the default fallback sound should be the current one which dont need any download.
+	Similar like a image upload in admin panel setting section there would be an option to upload custom mp3 or wav file and also can be play the active sound aswell.
+7. The driver app and restaurant partner app and the admin panel also will play the sound if its available otherwise the default sound will play as a fallback
+8. For a signedin user clicking on saved address is not showing the aaddress in homepage although the same is showing in the cart page
+9. From where this message "You've placed 3 orders in the last 10 minutes - please wait a little before placing another." is showing in Customer app, this thing need to be configurable from admin panel.
+
+Admin Panel Login:
+https://admin.pureeats.in/admin/dashboard
+email: superadmin@pureeats.in
+OTP: superadmin@pureeats.in
+
+Driver Login: 
+email: driver1@gmail.com
+OTP: 123456
+
+Restaurant Partner Login:
+https://admin.pureeats.in/admin/dashboard
+email: arpan.store@pureeats.in
+OTP: 123456
+
+Customer APP Login:
+https://pureeats.in/
+email: 8655225588@otp.pureeats.local
+OTP: 123456
+
