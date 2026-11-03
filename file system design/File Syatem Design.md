@@ -1,5 +1,10 @@
-# [Design File System](https://algo.monster/liteproblems/1166)
-You need to design a file system that can create new file paths and associate integer values with them.
+# [Design a File System](https://algo.monster/liteproblems/1166) 
+- [link](https://medium.com/@ankitviddya/designing-a-file-system-low-level-design-lld-in-java-c51812c79fd2)
+
+![design-file-system.png](../assets/design-file-system.png)
+
+
+- You need to design a file system that can create new file paths and associate integer values with them.
 - Support hierarchical path structure: using the "/" delimiter
 - Implement path creation and value association
 - Manage file metadata

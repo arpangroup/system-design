@@ -1,0 +1,1690 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inodes, Bitmaps &amp; Allocators</title>
+<meta name="description" content="A beginner's step-by-step guide to inodes, block and inode bitmaps, and file system allocators, with an interactive playground.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fbfaf7;--surface:#ffffff;--surface-2:#f3f1ec;--text:#1f2328;--muted:#5d6470;
+  --border:#e3e0d8;--accent:#2f6fde;--accent-soft:#e7effc;--code-bg:#f5f3ee;
+  --analogy:#2e8b57;--analogy-bg:#eaf6ef;--tip:#2f6fde;--tip-bg:#e9f0fc;--warn:#b7791f;--warn-bg:#fdf4e3;
+  --meta:#8a8f98;--free:#ffffff;--free-border:#cfd3da;
+  --f0:#4c7ee8;--f1:#e0794a;--f2:#3aa57a;--f3:#a463d6;--f4:#d4a628;--f5:#d6577d;
+  --radius:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15171b;--surface:#1c1f24;--surface-2:#23272e;--text:#e6e7ea;--muted:#a1a7b3;
+    --border:#30353d;--accent:#7aa7ff;--accent-soft:#1f2a3d;--code-bg:#20242a;
+    --analogy:#6fcf97;--analogy-bg:#17271f;--tip:#7aa7ff;--tip-bg:#1a2333;--warn:#f0b75a;--warn-bg:#2b2316;
+    --meta:#5d636d;--free:#1c1f24;--free-border:#3a4049;
+    --f0:#6d97f5;--f1:#ee9268;--f2:#55c194;--f3:#bb84e8;--f4:#e2bd4b;--f5:#e87898;
+  }
+}
+:root[data-theme="dark"]{
+    --bg:#15171b;--surface:#1c1f24;--surface-2:#23272e;--text:#e6e7ea;--muted:#a1a7b3;
+    --border:#30353d;--accent:#7aa7ff;--accent-soft:#1f2a3d;--code-bg:#20242a;
+    --analogy:#6fcf97;--analogy-bg:#17271f;--tip:#7aa7ff;--tip-bg:#1a2333;--warn:#f0b75a;--warn-bg:#2b2316;
+    --meta:#5d636d;--free:#1c1f24;--free-border:#3a4049;
+    --f0:#6d97f5;--f1:#ee9268;--f2:#55c194;--f3:#bb84e8;--f4:#e2bd4b;--f5:#e87898;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:16px}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:17px/1.7 "Source Serif 4",Georgia,serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4,.toc,.pg-controls,button,select,input,th,.hero-kicker,.pg-legend,.pg-files,.pg-hint{
+  font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif}
+.layout{display:grid;grid-template-columns:270px minmax(0,1fr);gap:48px;max-width:1240px;margin:0 auto;padding:0 24px}
+nav.toc{position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto;padding:28px 0 40px;font-size:13.5px;line-height:1.45}
+nav.toc details{border:0;background:none;padding:0;margin:0}nav.toc summary{list-style:none}nav.toc summary::-webkit-details-marker{display:none}
+nav.toc .toc-title{cursor:default;font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:11.5px;color:var(--muted);margin:0 0 10px}
+nav.toc ul{list-style:none;margin:0;padding:0}
+nav.toc a{display:block;padding:5px 10px;border-radius:6px;color:var(--muted);text-decoration:none;border-left:2px solid transparent}
+nav.toc a:hover{color:var(--text);background:var(--surface-2)}
+nav.toc a.active{color:var(--accent);border-left-color:var(--accent);background:var(--accent-soft)}
+main{min-width:0;padding:40px 0 100px}
+.hero{padding:24px 0 8px}
+.hero-kicker{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+.hero h1{font-size:clamp(28px,4.2vw,42px);line-height:1.15;margin:.3em 0 .5em;letter-spacing:-.02em}
+.hero .lead p{color:var(--muted);margin:.4em 0}
+.theme-toggle{float:right;margin-top:6px}
+h2{font-size:26px;line-height:1.25;margin:2.4em 0 .6em;padding-top:.6em;border-top:1px solid var(--border);letter-spacing:-.01em}
+h3{font-size:19.5px;margin:1.8em 0 .5em}
+h4{font-size:15px;margin:1.2em 0 .4em}
+a{color:var(--accent)}
+p,li{max-width:74ch}
+code{font:0.86em/1.5 "JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code-bg);padding:.12em .38em;border-radius:5px}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;overflow-x:auto;line-height:1.45}
+pre code{background:none;padding:0;font-size:13.5px;white-space:pre}
+.diagram{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:1.2em 0;overflow-x:auto}
+pre.mermaid{background:none;border:0;margin:0;padding:0;text-align:center;font-family:"Inter",system-ui,sans-serif}
+.table-wrap{overflow-x:auto;margin:1.2em 0;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:15px;line-height:1.5}
+th,td{padding:9px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--border)}
+th{background:var(--surface-2);font-size:13.5px;font-weight:650}
+tr:last-child td{border-bottom:0}
+.callout{margin:1.3em 0;padding:12px 16px;border-radius:var(--radius);border-left:4px solid var(--accent);background:var(--tip-bg)}
+.callout p{margin:.35em 0}
+.callout.analogy{border-color:var(--analogy);background:var(--analogy-bg)}
+.callout.warn{border-color:var(--warn);background:var(--warn-bg)}
+.callout.tip{border-color:var(--tip);background:var(--tip-bg)}
+details{border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);padding:10px 14px;margin:.7em 0}
+details summary{cursor:pointer;font-family:"Inter",system-ui,sans-serif;font-size:15px}
+details[open] summary{margin-bottom:.4em}
+hr{border:0;border-top:1px solid var(--border);margin:2.5em 0}
+/* playground */
+.playground{margin:2.4em 0;padding:20px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+.playground h3{margin-top:0}
+.pg-intro{color:var(--muted);font-size:15.5px}
+.pg-controls{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:14px 0 18px;font-size:13.5px}
+.pg-controls label{display:flex;flex-direction:column;gap:4px;color:var(--muted)}
+input,select{font-size:15px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);min-width:140px}
+button{font-size:14px;font-weight:600;padding:8px 14px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+button.secondary,.theme-toggle{background:transparent;color:var(--text);border-color:var(--border)}
+button:hover{filter:brightness(1.08)}
+.pg-grid{display:grid;grid-template-columns:repeat(16,minmax(0,1fr));gap:4px}
+.blk{aspect-ratio:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font:600 11px/1.1 "JetBrains Mono",ui-monospace,monospace;border:1px solid var(--free-border);background:var(--free);color:var(--muted);cursor:pointer;user-select:none;transition:transform .12s, box-shadow .12s}
+.blk:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.12)}
+.blk .bit{font-size:10px;opacity:.75;margin-top:2px}
+.blk.meta{background:var(--meta);border-color:var(--meta);color:#fff}
+.blk.file{color:#fff;border-color:transparent}
+.blk.sel{outline:3px solid var(--text);outline-offset:1px}
+.pg-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted);margin:10px 0 4px;align-items:center}
+.pg-legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;width:13px;height:13px;border-radius:3px;border:1px solid var(--free-border)}
+.sw.meta{background:var(--meta);border-color:var(--meta)}.sw.free{background:var(--free)}
+.pg-panels{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}
+.pg-panel{background:var(--surface-2);border-radius:10px;padding:12px 14px;min-width:0}
+.pg-panel h4{margin:.2em 0 .5em}
+.mono{font:13px/1.6 "JetBrains Mono",ui-monospace,monospace;overflow-x:auto}
+.pg-bytes{margin-top:8px;display:grid;grid-template-columns:auto auto auto;gap:2px 14px;justify-content:start}
+.pg-bytes .h{color:var(--muted);font-size:11.5px}
+.pg-hint{font-size:12.5px;color:var(--muted);margin:.6em 0 0}
+.pg-files{list-style:none;margin:0;padding:0;font-size:13.5px}
+.pg-files li{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed var(--border)}
+.pg-files li:last-child{border-bottom:0}
+.pg-files .grow{flex:1;min-width:0}
+.pg-files button{padding:3px 9px;font-size:12px}
+.pg-files .frag{color:var(--warn);font-weight:600}
+.pg-log{white-space:pre-wrap;font-size:12.5px;color:var(--text)}
+@media (max-width:960px){
+  .layout{grid-template-columns:1fr;gap:0;padding:0 16px}
+  nav.toc{position:static;max-height:none;padding:16px 0 0;border-bottom:1px solid var(--border)}
+  nav.toc ul{columns:2;column-gap:12px}
+  .pg-panels{grid-template-columns:1fr}
+  nav.toc .toc-title{cursor:pointer;padding:6px 0}
+  nav.toc .toc-title::after{content:' ▾'}
+  nav.toc{padding-bottom:10px}
+}
+@media (max-width:560px){
+  body{font-size:16px}
+  nav.toc ul{columns:1}
+  .pg-grid{grid-template-columns:repeat(8,minmax(0,1fr))}
+  h2{font-size:22px}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc" aria-label="Contents">
+    <details id="toc-details" open><summary class="toc-title">Contents</summary>
+    <div>
+<ul>
+<li><a href="#step-1-a-disk-is-just-a-long-row-of-numbered-boxes">Step 1 — A disk is just a long row of numbered boxes</a></li>
+<li><a href="#step-2-the-problem-what-must-a-file-system-remember">Step 2 — The problem: what must a file system remember?</a></li>
+<li><a href="#step-3-the-inode-an-id-card-for-every-file">Step 3 — The inode: an ID card for every file</a></li>
+<li><a href="#step-4-the-inode-table-and-inode-numbers">Step 4 — The inode table and inode numbers</a></li>
+<li><a href="#step-5-where-do-file-names-live-directories">Step 5 — Where do file names live? Directories</a></li>
+<li><a href="#step-6-how-an-inode-finds-the-files-data">Step 6 — How an inode finds the file's data</a></li>
+<li><a href="#step-7-the-bookkeeping-problem-which-boxes-are-free">Step 7 — The bookkeeping problem: which boxes are free?</a></li>
+<li><a href="#step-8-what-is-a-bitmap">Step 8 — What is a bitmap?</a></li>
+<li><a href="#step-9-why-bitmaps-the-numbers">Step 9 — Why bitmaps? The numbers</a></li>
+<li><a href="#step-10-two-bitmaps-the-inode-bitmap-and-the-block-bitmap">Step 10 — Two bitmaps: the inode bitmap and the block bitmap</a></li>
+<li><a href="#step-11-the-allocator-the-one-who-hands-out-space">Step 11 — The Allocator: the one who hands out space</a></li>
+<li><a href="#step-12-putting-it-all-together-a-complete-walkthrough">Step 12 — Putting it all together: a complete walkthrough</a></li>
+<li><a href="#step-13-deleting-files-link-counts-and-hard-links">Step 13 — Deleting files, link counts and hard links</a></li>
+<li><a href="#step-14-running-out-of-inodes-while-the-disk-has-space">Step 14 — Running out of inodes (while the disk has space!)</a></li>
+<li><a href="#step-15-what-if-the-power-fails-mid-write">Step 15 — What if the power fails mid-write?</a></li>
+<li><a href="#step-16-hands-on-lab-look-at-a-real-ext4-disk">Step 16 — Hands-on lab: look at a real ext4 disk</a></li>
+<li><a href="#step-17-block-groups-how-ext4-scales-this-up">Step 17 — Block groups: how ext4 scales this up</a></li>
+<li><a href="#step-18-inodes-in-other-file-systems">Step 18 — Inodes in other file systems</a></li>
+<li><a href="#the-complete-simulator-code">The complete simulator code</a></li>
+<li><a href="#cheat-sheet-glossary-and-self-check">Cheat sheet, glossary and self-check</a></li>
+</ul>
+</div>
+
+    </details>
+  </nav>
+  <main>
+    <header class="hero">
+      <button id="theme-toggle" class="theme-toggle" type="button">🌙 Dark</button>
+      <div class="hero-kicker">File systems from scratch</div>
+      <h1>Understanding Inodes, Bitmaps and the Allocator — A Beginner's Step-by-Step Guide</h1>
+      <div class="lead">
+<p><strong>Who this is for:</strong> anyone who has used files and folders all their life and now wants to know what actually happens on the disk. No prior operating-systems knowledge needed — every term is explained the first time it appears, and every idea comes with a worked example.</p>
+<p><strong>What you'll be able to do at the end:</strong> explain what an inode is, how a file system finds a file's data from its name, what a bitmap is and why file systems use them, how an allocator picks free space, and read the raw bitmaps of a real ext4 disk yourself.</p>
+</div>
+    </header>
+    
+<h2 id="step-1-a-disk-is-just-a-long-row-of-numbered-boxes">Step 1 — A disk is just a long row of numbered boxes</h2>
+<p>Forget files and folders for a moment. To the computer, a storage device (hard disk, SSD, USB stick) is nothing more than <strong>a very long row of equal-sized boxes, each with a number</strong>.</p>
+<pre><code class="language-text"> ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┬─────────────┐
+ │  0   │  1   │  2   │  3   │  4   │  5   │  6   │  7   │  ... 268 M  │
+ └──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┴─────────────┘
+   each box = one block = 4096 bytes (4 KiB)
+</code></pre>
+<ul>
+<li>The hardware itself works in <strong>sectors</strong> (traditionally 512 bytes; modern drives 4096 bytes).</li>
+<li>The file system groups sectors into <strong>blocks</strong>, usually <strong>4 KiB</strong> each. A block is the smallest unit the file system reads or writes.</li>
+<li>The disk only understands two commands: <strong>"give me block N"</strong> and <strong>"store these 4096 bytes in block N"</strong>.</li>
+</ul>
+<aside class="callout analogy">
+<p>🏨 <strong>Analogy — a hotel.</strong> Think of the disk as a huge hotel with numbered rooms. Every room is the same size. The building itself has no idea who is staying in which room — that information lives in the <strong>reception desk's records</strong>. A file system <em>is</em> that reception desk.</p>
+</aside>
+<p><strong>Key point:</strong> the disk does not know what a "file" is. It has no names, no folders, no sizes. Everything else in this guide is about the records a file system keeps <em>on that same disk</em> so it can turn "boxes of bytes" into "files and folders".</p>
+<hr />
+<h2 id="step-2-the-problem-what-must-a-file-system-remember">Step 2 — The problem: what must a file system remember?</h2>
+<p>Suppose you save a 6000-byte file called <code>notes.txt</code>. A 4096-byte block can't hold it, so it needs <strong>2 blocks</strong>. Now the file system must be able to answer, later, after a reboot:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Question</th>
+<th>Example answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>What is this thing — a file or a folder?</td>
+<td>regular file</td>
+</tr>
+<tr>
+<td>2</td>
+<td>How big is it exactly?</td>
+<td>6000 bytes (not 8192 — the 2nd block is only partly used)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Who owns it, who may read/write it?</td>
+<td>user <code>alice</code>, permissions <code>rw-r--r--</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td>When was it created / changed / read?</td>
+<td>timestamps</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Which blocks hold its bytes, and in what order?</strong></td>
+<td>blocks 1038, 1039</td>
+</tr>
+<tr>
+<td>6</td>
+<td>What is it called and which folder is it in?</td>
+<td><code>notes.txt</code> in <code>/</code></td>
+</tr>
+<tr>
+<td>7</td>
+<td>Which blocks are still free for the <em>next</em> file?</td>
+<td>everything except the used ones</td>
+</tr>
+</tbody>
+</table></div>
+<p>Questions 1–5 are answered by the <strong>inode</strong>. Question 6 is answered by <strong>directories</strong>. Question 7 is answered by <strong>bitmaps</strong> and the <strong>allocator</strong>. We'll take them one at a time.</p>
+<hr />
+<h2 id="step-3-the-inode-an-id-card-for-every-file">Step 3 — The inode: an ID card for every file</h2>
+<p>An <strong>inode</strong> (short for <strong>index node</strong>, a term from early Unix) is a small, fixed-size record — typically <strong>256 bytes</strong> on ext4 — that stores <strong>everything about a file except its name and its actual content</strong>.</p>
+<aside class="callout analogy">
+<p>🪪 <strong>Analogy — a hotel guest card.</strong> Reception keeps one card per guest: check-in time, how many rooms they have, which room numbers, who's allowed to visit. The card doesn't contain the guest's luggage (the data) — it tells you <em>where</em> the luggage is.</p>
+</aside>
+<h3 id="whats-inside-an-inode">What's inside an inode</h3>
+<pre><code class="language-text"> ┌───────────────────────────── inode #13 ─────────────────────────────┐
+ │  type .............. regular file                                   │
+ │  permissions ....... rw-r--r--   (0644)                             │
+ │  owner / group ..... uid 1000 / gid 1000                            │
+ │  size .............. 6000 bytes                                     │
+ │  link count ........ 1          (how many names point to this inode)│
+ │  timestamps ........ atime, mtime, ctime, crtime                    │
+ │  block count ....... how much disk space is actually used           │
+ │  block map ......... WHERE the data lives → blocks 1038, 1039       │
+ │  flags, checksum ... extents in use, inode checksum, …              │
+ └─────────────────────────────────────────────────────────────────────┘
+          ✗ no file name        ✗ no file content
+</code></pre>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+<th>Why it's needed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>mode</strong></td>
+<td>file type (file, directory, symlink, device…) + permission bits</td>
+<td><code>ls -l</code>'s first column; access checks</td>
+</tr>
+<tr>
+<td><strong>uid / gid</strong></td>
+<td>owner and group</td>
+<td>permission checks</td>
+</tr>
+<tr>
+<td><strong>size</strong></td>
+<td>exact length in bytes</td>
+<td>so you don't read garbage past the end of the last block</td>
+</tr>
+<tr>
+<td><strong>links</strong></td>
+<td>number of directory entries (names) pointing to this inode</td>
+<td>decides when the file can really be freed</td>
+</tr>
+<tr>
+<td><strong>atime / mtime / ctime</strong></td>
+<td>last access, last content modification, last inode change</td>
+<td>backups, <code>make</code>, <code>ls -lt</code></td>
+</tr>
+<tr>
+<td><strong>crtime</strong></td>
+<td>creation ("birth") time (ext4)</td>
+<td>auditing</td>
+</tr>
+<tr>
+<td><strong>block map</strong></td>
+<td>list of block numbers, or extents</td>
+<td>finding the data — the most important field</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="why-is-the-name-not-in-the-inode">Why is the name <em>not</em> in the inode?</h3>
+<p>Because one file can have <strong>several names</strong> (hard links, Step 13), and renaming a file shouldn't require touching the file itself. Names live in directories; the inode is the file's true identity.</p>
+<p>You can see a real inode on Linux with <code>stat</code>:</p>
+<pre><code class="language-text">$ stat notes.txt
+  File: notes.txt
+  Size: 6000        Blocks: 16         IO Block: 4096   regular file
+Device: 8,2         Inode: 1311234     Links: 1
+Access: (0644/-rw-r--r--)  Uid: ( 1000/   alice)   Gid: ( 1000/   alice)
+Modify: 2026-11-04 09:12:31.000000000 +0530
+Change: 2026-11-04 09:12:31.000000000 +0530
+ Birth: 2026-11-04 09:12:31.000000000 +0530
+</code></pre>
+<aside class="callout tip">
+<p>💡 <strong>"Blocks: 16" puzzle.</strong> The file uses 2 file-system blocks of 4 KiB, but <code>stat</code> counts in old-style <strong>512-byte units</strong>: 8192 ÷ 512 = <strong>16</strong>. Size (6000) is what the file <em>contains</em>; Blocks is what it <em>occupies</em> on disk.</p>
+</aside>
+<hr />
+<h2 id="step-4-the-inode-table-and-inode-numbers">Step 4 — The inode table and inode numbers</h2>
+<p>Inodes are stored in a reserved area of the disk called the <strong>inode table</strong> — simply an array of inodes, one after another. An inode's position in that array is its <strong>inode number</strong>.</p>
+<pre><code class="language-text"> Inode table (each slot = 256 bytes)
+ ┌─────────┬─────────┬─────────┬─────────┬─────────┬─────────┬───────┐
+ │ inode 1 │ inode 2 │ inode 3 │   ...   │ inode 12│ inode 13│  ...  │
+ │ (bad    │ (root   │         │         │ hello   │ notes   │       │
+ │ blocks) │  &quot;/&quot;)   │         │         │  .txt   │  .txt   │       │
+ └─────────┴─────────┴─────────┴─────────┴─────────┴─────────┴───────┘
+</code></pre>
+<p>Because every inode has the <strong>same size</strong>, finding inode <em>N</em> is just arithmetic — no searching:</p>
+<pre><code class="language-text">byte offset in table = (N − 1) × inode_size         (ext numbers inodes from 1)
+block                = table_start + offset ÷ block_size
+offset inside block  = offset mod block_size
+</code></pre>
+<p><strong>Worked example</strong> (real numbers from the lab in Step 16): inode table starts at block <strong>35</strong>, inode size <strong>256</strong>, block size <strong>4096</strong>. Where is inode <strong>13</strong>?</p>
+<pre><code class="language-text">offset = (13 − 1) × 256 = 3072
+block  = 35 + 3072 ÷ 4096 = 35 + 0 = 35
+inside = 3072 mod 4096    = 3072
+→ read block 35, take the 256 bytes starting at byte 3072.
+</code></pre>
+<p>That's why inode numbers matter: <strong>an inode number is a direct address</strong>.</p>
+<p>Some inode numbers are reserved on ext2/3/4:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Inode</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>list of bad blocks</td>
+</tr>
+<tr>
+<td><strong>2</strong></td>
+<td><strong>root directory <code>/</code></strong> — the starting point of every path lookup</td>
+</tr>
+<tr>
+<td>3–10</td>
+<td>reserved (journal is 8, resize is 7, …)</td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>lost+found</code> (first normal inode)</td>
+</tr>
+<tr>
+<td>12+</td>
+<td>your files</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="step-5-where-do-file-names-live-directories">Step 5 — Where do file names live? Directories</h2>
+<p>A <strong>directory is just a special file</strong> whose content is a table of <code>name → inode number</code> pairs (called <strong>directory entries</strong>, or <em>dentries</em>).</p>
+<pre><code class="language-text"> Directory &quot;/&quot;  (inode 2)            Directory &quot;/docs&quot; (inode 14)
+ ┌──────────────┬─────────┐          ┌──────────────┬─────────┐
+ │ name         │ inode # │          │ name         │ inode # │
+ ├──────────────┼─────────┤          ├──────────────┼─────────┤
+ │ .            │    2    │          │ .            │   14    │
+ │ ..           │    2    │          │ ..           │    2    │
+ │ lost+found   │   11    │          │ lld          │   20    │
+ │ hello.txt    │   12    │          └──────────────┴─────────┘
+ │ notes.txt    │   13    │
+ │ docs         │   14    │
+ └──────────────┴─────────┘
+</code></pre>
+<ul>
+<li><code>.</code> points to the directory itself; <code>..</code> points to its parent. For <code>/</code>, both are 2.</li>
+<li><code>ls -i</code> shows the inode number next to each name.</li>
+</ul>
+<h3 id="path-lookup-step-by-step-opendocslldplanmd">Path lookup, step by step: <code>open("/docs/lld/plan.md")</code></h3>
+<div class="diagram"><pre class="mermaid">flowchart LR
+    A[&quot;Start at inode 2&lt;br/&gt;(root, always known)&quot;] --&gt; B[&quot;Read root's entries&lt;br/&gt;find 'docs' → 14&quot;]
+    B --&gt; C[&quot;Read inode 14&lt;br/&gt;it's a directory ✔&lt;br/&gt;find 'lld' → 20&quot;]
+    C --&gt; D[&quot;Read inode 20&lt;br/&gt;directory ✔&lt;br/&gt;find 'plan.md' → 27&quot;]
+    D --&gt; E[&quot;Read inode 27&lt;br/&gt;regular file ✔&lt;br/&gt;block map → data&quot;]
+</pre></div>
+<p>Each <code>/</code> in a path means <em>"look up the next name in this directory, get an inode number, load that inode."</em> The OS keeps recently used lookups in memory (the <strong>dentry cache</strong>) so repeated opens are fast.</p>
+<aside class="callout analogy">
+<p>🏨 <strong>Analogy:</strong> the directory is the hotel's guest <strong>register</strong> (name → card number). The inode is the <strong>guest card</strong> (card number → room numbers). You never go from a name straight to rooms; you always go <strong>name → inode → blocks</strong>.</p>
+</aside>
+<div class="diagram"><pre class="mermaid">flowchart LR
+    N[&quot;Name&lt;br/&gt;'notes.txt'&quot;] -- &quot;directory entry&quot; --&gt; I[&quot;Inode #13&lt;br/&gt;size, owner, times…&quot;]
+    I -- &quot;block map&quot; --&gt; D1[&quot;Block 1038&quot;]
+    I -- &quot;block map&quot; --&gt; D2[&quot;Block 1039&quot;]
+</pre></div>
+<hr />
+<h2 id="step-6-how-an-inode-finds-the-files-data">Step 6 — How an inode finds the file's data</h2>
+<p>The <strong>block map</strong> is the most important part of the inode. There are two classic ways to store it.</p>
+<h3 id="61-block-pointers-ext2ext3">6.1 Block pointers (ext2/ext3)</h3>
+<p>The inode holds <strong>15 block-number slots</strong> (each 4 bytes):</p>
+<pre><code class="language-text"> inode
+ ┌───────────────┐
+ │ slot 0  ──────┼──► data block
+ │ slot 1  ──────┼──► data block
+ │  ...          │        (12 DIRECT pointers)
+ │ slot 11 ──────┼──► data block
+ │ slot 12 ──────┼──► [ pointer block: 1024 numbers ] ──► 1024 data blocks          (single indirect)
+ │ slot 13 ──────┼──► [ 1024 pointer blocks ] ──► [ 1024 each ] ──► data            (double indirect)
+ │ slot 14 ──────┼──► [ ... three levels ... ] ──► data                             (triple indirect)
+ └───────────────┘
+</code></pre>
+<ul>
+<li>Small files (the vast majority) fit in the 12 <strong>direct</strong> pointers → found in one step.</li>
+<li>Bigger files use an <strong>indirect block</strong>: a whole data block filled with block numbers. A 4096-byte block holds 4096 ÷ 4 = <strong>1024</strong> numbers.</li>
+</ul>
+<p><strong>How big can a file get?</strong> (4 KiB blocks)</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Blocks reachable</th>
+<th>Data reachable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>12 direct</td>
+<td>12</td>
+<td>48 KiB</td>
+</tr>
+<tr>
+<td>single indirect</td>
+<td>1 024</td>
+<td>4 MiB</td>
+</tr>
+<tr>
+<td>double indirect</td>
+<td>1 024² = 1 048 576</td>
+<td>4 GiB</td>
+</tr>
+<tr>
+<td>triple indirect</td>
+<td>1 024³ ≈ 1.07 billion</td>
+<td>4 TiB</td>
+</tr>
+<tr>
+<td><strong>total (theoretical)</strong></td>
+<td></td>
+<td><strong>≈ 4 TiB</strong></td>
+</tr>
+</tbody>
+</table></div>
+<aside class="callout note">
+<p>In practice ext2/ext3 cap files at 2 TiB because of another 32-bit counter, but the tree idea is what matters: <strong>small files are cheap, big files are possible.</strong></p>
+</aside>
+<p><strong>Downside:</strong> a 1 GiB file needs 262 144 individual block numbers stored across many pointer blocks — even if those blocks are all next to each other.</p>
+<h3 id="62-extents-ext4-xfs-ntfs-btrfs-apfs">6.2 Extents (ext4, XFS, NTFS, Btrfs, APFS)</h3>
+<p>An <strong>extent</strong> says <em>"starting at file block X, the next N blocks are at disk blocks Y … Y+N−1"</em>. One extent can describe up to 32 768 blocks (128 MiB) on ext4.</p>
+<pre><code class="language-text"> Block pointers for a 6-block file:   [1038, 1039, 1040, 1041, 1042, 1043]   (6 numbers)
+ Extent for the same file:            (file 0-5) → disk 1038-1043             (1 entry)
+</code></pre>
+<p>Real output from the lab (Step 16):</p>
+<pre><code class="language-text">$ debugfs -R &quot;stat /notes.txt&quot; disk.img
+...
+EXTENTS:
+(0-1):1038-1039          ← file blocks 0–1 live in disk blocks 1038–1039
+</code></pre>
+<p>ext4's inode has room for <strong>4 extents</strong> directly; beyond that it builds a small <strong>B-tree</strong> of extents. A perfectly contiguous 100 GiB file can be described in a few hundred extents instead of 26 million pointers.</p>
+<hr />
+<h2 id="step-7-the-bookkeeping-problem-which-boxes-are-free">Step 7 — The bookkeeping problem: which boxes are free?</h2>
+<p>We now know how to <em>find</em> a file. But when you create a new one, the file system needs to quickly answer:</p>
+<ul>
+<li><strong>Which inode slot is free?</strong></li>
+<li><strong>Which data blocks are free?</strong></li>
+</ul>
+<h3 id="option-a-scan-every-inode">Option A — scan every inode</h3>
+<p>Read every inode and collect every block it uses; whatever's left is free. With 67 million inodes on a 1 TiB disk, that's gigabytes of reads <strong>every time you save a file</strong>. ❌ Far too slow.</p>
+<h3 id="option-b-keep-a-list-of-free-block-numbers">Option B — keep a list of free block numbers</h3>
+<p><code>free = [5, 6, 11, 12, 13, ...]</code> — 4 bytes per free block. On an empty 1 TiB disk that's 268 million numbers = <strong>1 GiB</strong> of list, and checking "is block 7 free?" means searching the list. ❌ Big and awkward.</p>
+<h3 id="option-c-a-linked-chain-of-free-blocks-fats-approach">Option C — a linked chain of free blocks (FAT's approach)</h3>
+<p>Every block entry points to the next free one. Finding <em>one</em> free block is easy, but finding <strong>many blocks next to each other</strong> (for a fast, unfragmented file) is slow. ⚠️</p>
+<h3 id="option-d-a-bitmap">Option D — a <strong>bitmap</strong> ✅</h3>
+<p>Keep <strong>one bit per block</strong>: <code>0</code> = free, <code>1</code> = used. That's the approach used by ext2/3/4, NTFS (<code>$Bitmap</code>), and many others. Let's understand it properly.</p>
+<aside class="callout analogy">
+<p>🏨 <strong>Analogy:</strong> instead of a notebook listing free room numbers, reception has a <strong>wall board with one light per room</strong> — on = occupied, off = free. One glance tells you everything, and the board is tiny compared to the hotel.</p>
+</aside>
+<hr />
+<h2 id="step-8-what-is-a-bitmap">Step 8 — What is a bitmap?</h2>
+<h3 id="81-bits-and-bytes-quickly">8.1 Bits and bytes, quickly</h3>
+<ul>
+<li>A <strong>bit</strong> is the smallest unit of information: <code>0</code> or <code>1</code>.</li>
+<li>A <strong>byte</strong> is 8 bits, e.g. <code>10110000</code>.</li>
+<li>A <strong>bitmap</strong> (also called a <em>bit array</em> or <em>bitset</em>) is a sequence of bits where <strong>bit number <em>n<em> describes item number </em>n</em></strong>.</li>
+</ul>
+<h3 id="82-a-tiny-example-a-disk-with-16-blocks">8.2 A tiny example: a disk with 16 blocks</h3>
+<pre><code class="language-text"> block #     0  1  2  3   4  5  6  7   8  9 10 11  12 13 14 15
+ bitmap      1  1  1  1   1  1  1  0   0  1  1  0   0  0  0  0
+             └──────────┘ └──────────┘ └──────────┘ └───────────┘
+               byte 0       (still byte 0) byte 1       (byte 1)
+</code></pre>
+<p>Reading it:</p>
+<ul>
+<li>Blocks 0–6 are used, block <strong>7 is free</strong>, 8 is free, 9–10 used, 11–15 free.</li>
+<li>16 blocks need only <strong>16 bits = 2 bytes</strong>.</li>
+<li>"Is block 9 free?" → look at bit 9 → <code>1</code> → no, it's used. <strong>One lookup, no searching.</strong></li>
+</ul>
+<h3 id="83-finding-bit-n-inside-the-bytes">8.3 Finding bit <em>n</em> inside the bytes</h3>
+<p>Computers can't address single bits directly; they read whole bytes. So for item <em>n</em>:</p>
+<pre><code class="language-text">byte index = n ÷ 8          (integer division)
+bit index  = n mod 8        (remainder)
+mask       = 1 &lt;&lt; bit index (a byte with only that one bit set)
+</code></pre>
+<p><strong>Worked example — block 13:</strong></p>
+<pre><code class="language-text">byte index = 13 ÷ 8 = 1
+bit index  = 13 mod 8 = 5
+mask       = 1 &lt;&lt; 5 = 0010 0000  (binary)  = 0x20 (hex) = 32 (decimal)
+</code></pre>
+<p>Now the three operations every bitmap needs:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Code</th>
+<th>What it does to byte 1 (<code>0000 0110</code> → blocks 9 and 10 used)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>test</strong> — is it used?</td>
+<td><code>(bytes[1] &amp; 0x20) != 0</code></td>
+<td><code>0000 0110 &amp; 0010 0000 = 0000 0000</code> → <strong>free</strong></td>
+</tr>
+<tr>
+<td><strong>set</strong> — mark used</td>
+<td><code>bytes[1] |= 0x20</code></td>
+<td><code>0000 0110 | 0010 0000 = 0010 0110</code></td>
+</tr>
+<tr>
+<td><strong>clear</strong> — mark free</td>
+<td><code>bytes[1] &amp;= ~0x20</code></td>
+<td><code>0010 0110 &amp; 1101 1111 = 0000 0110</code></td>
+</tr>
+</tbody>
+</table></div>
+<aside class="callout warn">
+<p>⚠️ <strong>Bit order.</strong> ext2/3/4 store bit 0 as the <strong>least significant</strong> (rightmost) bit of each byte. So byte <code>0000 0110</code> means "bits 1 and 2 set" → items 9 and 10 in byte 1. When you dump a real bitmap in hex, remember that each byte reads <strong>right-to-left</strong>. We'll decode a real one in Step 16.</p>
+</aside>
+<h3 id="84-the-same-thing-in-java">8.4 The same thing in Java</h3>
+<pre><code class="language-java">class Bitmap {
+    private final byte[] bytes;
+    private final int size;
+
+    Bitmap(int size) { this.size = size; this.bytes = new byte[(size + 7) / 8]; }
+
+    boolean isUsed(int n) { return (bytes[n / 8] &amp; (1 &lt;&lt; (n % 8))) != 0; }
+    void    set(int n)    { bytes[n / 8] |=  (1 &lt;&lt; (n % 8)); }
+    void    clear(int n)  { bytes[n / 8] &amp;= ~(1 &lt;&lt; (n % 8)); }
+
+    /** First free bit at or after 'start', or -1. */
+    int findFree(int start) {
+        for (int i = start; i &lt; size; i++) if (!isUsed(i)) return i;
+        return -1;
+    }
+}
+</code></pre>
+<aside class="callout tip">
+<p>🚀 <strong>Real systems are faster than this loop.</strong> They check 64 bits at a time: if a 64-bit word equals <code>0xFFFF_FFFF_FFFF_FFFF</code>, all 64 blocks are used — skip it. Otherwise a single CPU instruction (<em>count trailing zeros</em> on the inverted word) finds the first free bit. That's 64 blocks examined per instruction.</p>
+</aside>
+<hr />
+<section class="playground" id="bitmap-playground" aria-labelledby="pg-title">
+  <h3 id="pg-title">🧪 Try it: interactive bitmap &amp; allocator playground</h3>
+  <p class="pg-intro">A 32-block disk. Blocks 0–3 are metadata (superblock, inode bitmap, block bitmap, inode table) and are always used. Create files of different sizes, delete them, and watch the <strong>block bitmap</strong> bits and bytes change. Switch the allocation strategy to see how fragmentation changes. Click any block to see its byte, bit and mask.</p>
+
+  <div class="pg-controls">
+    <label>File size (bytes)
+      <input id="pg-size" type="number" min="0" step="100" value="10000">
+    </label>
+    <label>Strategy
+      <select id="pg-strategy">
+        <option value="first">First fit</option>
+        <option value="next">Next fit</option>
+        <option value="contig">Contiguous run first</option>
+      </select>
+    </label>
+    <button id="pg-create" type="button">Create file</button>
+    <button id="pg-reset" type="button" class="secondary">Reset disk</button>
+  </div>
+
+  <div class="pg-grid" id="pg-grid" role="grid" aria-label="Disk blocks"></div>
+
+  <div class="pg-legend">
+    <span><i class="sw meta"></i>metadata</span>
+    <span><i class="sw free"></i>free (bit 0)</span>
+    <span class="pg-legend-files" id="pg-legend-files"></span>
+  </div>
+
+  <div class="pg-panels">
+    <div class="pg-panel">
+      <h4>Block bitmap</h4>
+      <div id="pg-bits" class="mono"></div>
+      <div id="pg-bytes" class="mono pg-bytes"></div>
+      <p class="pg-hint">Each byte reads <strong>right-to-left</strong>: bit 0 is the rightmost binary digit (ext4 convention).</p>
+    </div>
+    <div class="pg-panel">
+      <h4>Inodes (files)</h4>
+      <ul id="pg-files" class="pg-files"></ul>
+      <h4>Last action</h4>
+      <div id="pg-log" class="pg-log mono"></div>
+    </div>
+  </div>
+</section>
+
+<h2 id="step-9-why-bitmaps-the-numbers">Step 9 — Why bitmaps? The numbers</h2>
+<p>Take a <strong>1 TiB disk</strong> with <strong>4 KiB blocks</strong>:</p>
+<pre><code class="language-text">number of blocks = 1 TiB ÷ 4 KiB = 2^40 ÷ 2^12 = 2^28 = 268,435,456 blocks
+bitmap size      = 268,435,456 bits ÷ 8 = 33,554,432 bytes = 32 MiB
+fraction of disk = 32 MiB ÷ 1 TiB ≈ 0.003 %
+</code></pre>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>Space for 1 TiB</th>
+<th>"Is block N free?"</th>
+<th>"Find 100 free blocks in a row"</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scan all inodes</td>
+<td>0 extra</td>
+<td>read every inode 😱</td>
+<td>very slow</td>
+</tr>
+<tr>
+<td>Free list (4-byte numbers)</td>
+<td>up to <strong>1 GiB</strong></td>
+<td>search the list</td>
+<td>sort and search</td>
+</tr>
+<tr>
+<td>Linked chain (FAT)</td>
+<td>4 bytes per block</td>
+<td>follow pointers</td>
+<td>slow</td>
+</tr>
+<tr>
+<td><strong>Bitmap</strong></td>
+<td><strong>32 MiB, fixed</strong></td>
+<td><strong>one bit test</strong></td>
+<td><strong>scan for a run of 0s</strong> — fast with 64-bit words</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="why-bitmaps-win-for-classic-file-systems">Why bitmaps win for classic file systems</h3>
+<ol>
+<li><strong>Tiny and fixed size.</strong> Always exactly 1 bit per block, whether the disk is full or empty.</li>
+<li><strong>O(1) check, set and clear.</strong> Pure arithmetic, no searching.</li>
+<li><strong>Locality is visible.</strong> Free space that's physically next to each other is next to each other in the bitmap → easy to find <strong>contiguous</strong> runs, which keeps files unfragmented.</li>
+<li><strong>Cache-friendly.</strong> One 4 KiB bitmap block describes 32 768 blocks (128 MiB of disk) and fits easily in memory.</li>
+<li><strong>Simple to keep consistent.</strong> Updating one bit is one small write, easy to journal.</li>
+</ol>
+<h3 id="where-bitmaps-struggle-and-what-others-do">Where bitmaps struggle (and what others do)</h3>
+<ul>
+<li>On a <strong>nearly full</strong> or <strong>huge</strong> disk, scanning for zeros takes longer. ext4 keeps per-group free counts and an in-memory "buddy" cache to skip full regions.</li>
+<li><strong>XFS</strong> uses <strong>B+trees of free extents</strong> ("I have 500 free blocks starting at 9000") — great for huge disks and big files.</li>
+<li><strong>ZFS</strong> uses <strong>space maps</strong> (logs of alloc/free ranges); <strong>Btrfs</strong> tracks free space with a cache tree.</li>
+</ul>
+<p>For learning — and for ext4, the most common Linux file system — bitmaps are the model to understand.</p>
+<hr />
+<h2 id="step-10-two-bitmaps-the-inode-bitmap-and-the-block-bitmap">Step 10 — Two bitmaps: the inode bitmap and the block bitmap</h2>
+<p>A file system has <strong>two separate resources</strong> to hand out, so it keeps <strong>two bitmaps</strong>:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th><strong>Inode bitmap</strong></th>
+<th><strong>Block bitmap</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One bit per…</td>
+<td>inode slot in the inode table</td>
+<td>data block on the disk</td>
+</tr>
+<tr>
+<td><code>1</code> means</td>
+<td>that inode is in use (a file/dir exists there)</td>
+<td>that block holds data or metadata</td>
+</tr>
+<tr>
+<td>Used when</td>
+<td>creating / deleting a file or directory</td>
+<td>writing data, growing / truncating / deleting a file</td>
+</tr>
+<tr>
+<td>Size (example)</td>
+<td>32 inodes → 32 bits</td>
+<td>4096 blocks → 4096 bits</td>
+</tr>
+</tbody>
+</table></div>
+<div class="diagram"><pre class="mermaid">flowchart LR
+    subgraph Metadata
+        IBM[&quot;Inode bitmap&lt;br/&gt;1 bit per inode&quot;]
+        BBM[&quot;Block bitmap&lt;br/&gt;1 bit per block&quot;]
+        IT[&quot;Inode table&lt;br/&gt;array of inodes&quot;]
+    end
+    subgraph Data
+        DB[&quot;Data blocks&quot;]
+    end
+    IBM -.-&gt;|which slots are taken| IT
+    BBM -.-&gt;|which blocks are taken| DB
+    IT -- &quot;block map points to&quot; --&gt; DB
+</pre></div>
+<p>Why two and not one? They count <strong>different things</strong>, and their numbers are independent: a 1 TiB disk might have 268 million blocks but only 67 million inodes. Creating an empty file uses an inode but <strong>zero</strong> blocks; appending to a file uses blocks but <strong>no new</strong> inode.</p>
+<h3 id="disk-layout-of-our-toy-file-system">Disk layout of our toy file system</h3>
+<pre><code class="language-text"> block:   0            1              2              3             4 … 15
+        ┌────────────┬──────────────┬──────────────┬─────────────┬───────────────────┐
+        │ Superblock │ Inode bitmap │ Block bitmap │ Inode table │   Data blocks     │
+        │ sizes,     │ 8 bits       │ 16 bits      │ 8 inodes    │ file contents and │
+        │ counts,    │              │              │             │ directory entries │
+        │ locations  │              │              │             │                   │
+        └────────────┴──────────────┴──────────────┴─────────────┴───────────────────┘
+</code></pre>
+<ul>
+<li>The <strong>superblock</strong> says how big everything is and where each region starts.</li>
+<li>The metadata blocks 0–3 are themselves marked <strong>used</strong> in the block bitmap — otherwise the allocator might hand them out as data!</li>
+</ul>
+<hr />
+<h2 id="step-11-the-allocator-the-one-who-hands-out-space">Step 11 — The Allocator: the one who hands out space</h2>
+<p>The <strong>allocator</strong> is the part of the file system that <strong>owns the bitmaps</strong>. Nobody else flips bits; everybody else asks the allocator.</p>
+<aside class="callout analogy">
+<p>🏨 <strong>Analogy:</strong> the allocator is the <strong>receptionist</strong>. Guests (files) never pick their own rooms; they ask reception, which checks the light board (bitmap), assigns rooms, and switches the lights on. At check-out, reception switches them off.</p>
+</aside>
+<h3 id="111-its-job-as-an-interface">11.1 Its job, as an interface</h3>
+<pre><code class="language-java">interface Allocator {
+    int  allocateInode();          // find a 0 in the inode bitmap, set it to 1, return its number
+    void freeInode(int inodeNo);   // set that bit back to 0
+    long allocateBlock();          // find a 0 in the block bitmap, set it to 1, return its number
+    void freeBlock(long blockNo);  // set that bit back to 0
+}
+</code></pre>
+<h3 id="112-inside-allocateblock">11.2 Inside <code>allocateBlock()</code></h3>
+<div class="diagram"><pre class="mermaid">flowchart TD
+    A[&quot;allocateBlock()&quot;] --&gt; B[&quot;Pick a starting point&lt;br/&gt;(the 'goal' block)&quot;]
+    B --&gt; C[&quot;Scan block bitmap for a 0 bit&quot;]
+    C --&gt; D{&quot;Found?&quot;}
+    D -- No --&gt; E[&quot;Disk full → error ENOSPC&quot;]
+    D -- Yes --&gt; F[&quot;Set the bit to 1&quot;]
+    F --&gt; G[&quot;Decrease free-block counter&lt;br/&gt;in superblock / group descriptor&quot;]
+    G --&gt; H[&quot;Return block number&quot;]
+</pre></div>
+<h3 id="113-allocation-strategies-where-to-look-matters">11.3 Allocation strategies — <em>where</em> to look matters</h3>
+<p>Simply returning <strong>the first free block</strong> works, but real allocators are smarter, because <strong>where</strong> data lands decides how fast it can be read later.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>Idea</th>
+<th>Benefit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>First fit</strong></td>
+<td>Return the lowest-numbered free block</td>
+<td>Simple (our toy uses this)</td>
+</tr>
+<tr>
+<td><strong>Next fit</strong></td>
+<td>Continue scanning from where the last allocation stopped</td>
+<td>Spreads writes; avoids re-scanning the full start of disk</td>
+</tr>
+<tr>
+<td><strong>Goal / locality</strong></td>
+<td>Start near the file's previous block, or near its inode</td>
+<td>Keeps a file's blocks together → fewer seeks, fewer extents</td>
+</tr>
+<tr>
+<td><strong>Contiguous / best fit for runs</strong></td>
+<td>Look for a run of N free blocks at once</td>
+<td>Big files stay in one piece</td>
+</tr>
+<tr>
+<td><strong>Pre-allocation</strong></td>
+<td>Reserve a few extra blocks after the file's end</td>
+<td>A file that keeps growing (logs) stays contiguous</td>
+</tr>
+<tr>
+<td><strong>Delayed allocation</strong> (ext4, XFS)</td>
+<td>Don't pick blocks at <code>write()</code>; pick them when data is flushed</td>
+<td>By then the final size is known → one big contiguous allocation</td>
+</tr>
+<tr>
+<td><strong>Spread directories</strong> (Orlov, ext4)</td>
+<td>Put new top-level directories in different block groups, files near their directory</td>
+<td>Balanced disk, related files close together</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="114-fragmentation-what-bad-allocation-looks-like">11.4 Fragmentation — what bad allocation looks like</h3>
+<p>If a file's blocks are scattered, reading it means jumping around the disk:</p>
+<pre><code class="language-text"> contiguous file:   [ A A A A A ]                       → 1 extent, 1 seek
+ fragmented file:   [ A A ] [x x x] [ A ] [x] [ A A ]    → 3 extents, 3 seeks
+</code></pre>
+<p>On spinning hard disks every jump costs milliseconds; on SSDs it costs much less, but more extents still mean more metadata and more I/O requests. We'll <strong>create</strong> fragmentation on purpose in the next step.</p>
+<hr />
+<h2 id="step-12-putting-it-all-together-a-complete-walkthrough">Step 12 — Putting it all together: a complete walkthrough</h2>
+<p>Let's run the toy file system from <a href="#the-complete-simulator-code">the simulator code</a>. Its parameters:</p>
+<ul>
+<li><strong>16 blocks</strong> of 4096 bytes, <strong>8 inodes</strong></li>
+<li>Blocks 0–3: superblock, inode bitmap, block bitmap, inode table</li>
+<li>Inode 0 is reserved ("no inode"), inode 1 is the root directory <em>(ext4 uses inode 2 for root — the idea is identical)</em></li>
+<li>First-fit allocation</li>
+</ul>
+<h3 id="121-format-the-disk">12.1 Format the disk</h3>
+<pre><code class="language-text">== After format ==
+inode bitmap (0..7):  1100 0000   free inodes: 6
+block bitmap (0..15): 1111 1000 0000 0000   free blocks: 11
+</code></pre>
+<ul>
+<li>Inode bits 0 and 1 are set: reserved inode + root directory.</li>
+<li>Block bits 0–3 are set (metadata), and bit 4 is set because the root directory needs one block to store its entries.</li>
+</ul>
+<h3 id="122-create-three-files">12.2 Create three files</h3>
+<pre><code class="language-text">create notes.txt    6000 B -&gt; needs 2 block(s) -&gt; inode #2 {type=FILE, size=6000 B, links=1, blocks=[5, 6]}
+create photo.jpg   10000 B -&gt; needs 3 block(s) -&gt; inode #3 {type=FILE, size=10000 B, links=1, blocks=[7, 8, 9]}
+create a.txt         100 B -&gt; needs 1 block(s) -&gt; inode #4 {type=FILE, size=100 B, links=1, blocks=[10]}
+
+== After creating 3 files ==
+inode bitmap (0..7):  1111 1000   free inodes: 3
+block bitmap (0..15): 1111 1111 1110 0000   free blocks: 5
+root directory:       {notes.txt=2, photo.jpg=3, a.txt=4}
+</code></pre>
+<p>How many blocks does a file need? <strong>Ceiling division:</strong> <code>blocks = ⌈size ÷ 4096⌉</code></p>
+<ul>
+<li>6000 → ⌈1.46⌉ = 2 · 10000 → ⌈2.44⌉ = 3 · 100 → ⌈0.02⌉ = 1</li>
+</ul>
+<p>Note that <code>a.txt</code> holds only 100 bytes but occupies a full 4096-byte block — the other 3996 bytes are <strong>internal fragmentation</strong> (wasted slack). That's the price of fixed-size blocks.</p>
+<p>What happened during <code>create("notes.txt", 6000)</code>, in order:</p>
+<div class="diagram"><pre class="mermaid">sequenceDiagram
+    participant U as User
+    participant FS as File system
+    participant A as Allocator
+    participant IB as Inode bitmap
+    participant BB as Block bitmap
+
+    U-&gt;&gt;FS: create(&quot;notes.txt&quot;, 6000 bytes)
+    FS-&gt;&gt;FS: blocks needed = ⌈6000 / 4096⌉ = 2
+    FS-&gt;&gt;A: allocateInode()
+    A-&gt;&gt;IB: find first 0 → bit 2
+    A-&gt;&gt;IB: set bit 2 = 1
+    A--&gt;&gt;FS: inode #2
+    FS-&gt;&gt;A: allocateBlock() ×2
+    A-&gt;&gt;BB: first 0 → bit 5, set it, then first 0 → bit 6, set it
+    A--&gt;&gt;FS: blocks 5, 6
+    FS-&gt;&gt;FS: fill inode #2: FILE, 6000 B, links=1, blocks [5, 6]
+    FS-&gt;&gt;FS: add entry &quot;notes.txt&quot; → 2 to root directory
+    FS--&gt;&gt;U: done
+</pre></div>
+<p>Visual state of the disk now:</p>
+<pre><code class="language-text"> block:  0  1  2  3 │ 4    5    6    7    8    9    10   11 12 13 14 15
+        [S][I][B][T]│[/] [n1] [n2] [p1] [p2] [p3] [a1] [ ][ ][ ][ ][ ]
+                    │ root notes.txt   photo.jpg      a.txt  ← free →
+</code></pre>
+<h3 id="123-delete-notestxt">12.3 Delete <code>notes.txt</code></h3>
+<pre><code class="language-text">delete notes.txt  (inode #2, links now 0) -&gt; freed blocks [5, 6] and inode #2
+
+== After deleting notes.txt ==
+inode bitmap (0..7):  1101 1000   free inodes: 4
+block bitmap (0..15): 1111 1001 1110 0000   free blocks: 7
+</code></pre>
+<p>Only <strong>three bits</strong> changed (inode bit 2, block bits 5 and 6) plus one directory entry removed. The bytes of <code>notes.txt</code> are <strong>still physically in blocks 5 and 6</strong> — they're just marked free. (That's why "undelete" tools can sometimes recover files, and why secure deletion requires overwriting.)</p>
+<pre><code class="language-text"> block:  0  1  2  3 │ 4    5    6    7    8    9    10   11 12 13 14 15
+        [S][I][B][T]│[/] [  ] [  ] [p1] [p2] [p3] [a1] [ ][ ][ ][ ][ ]
+                    │      ↑ hole ↑
+</code></pre>
+<h3 id="124-create-a-5-block-file-fragmentation">12.4 Create a 5-block file → fragmentation</h3>
+<pre><code class="language-text">create big.log     20000 B -&gt; needs 5 block(s) -&gt; inode #2 {type=FILE, size=20000 B, links=1, blocks=[5, 6, 11, 12, 13]}
+
+== After creating big.log (note the fragmentation) ==
+inode bitmap (0..7):  1111 1000   free inodes: 3
+block bitmap (0..15): 1111 1111 1111 1100   free blocks: 2
+</code></pre>
+<p>Two things to notice:</p>
+<ol>
+<li><strong>Inode #2 was reused.</strong> First-fit found bit 2 = 0 first.</li>
+<li><strong><code>big.log</code> is fragmented</strong>: first-fit filled the 2-block hole at 5–6, then jumped to 11–13.</li>
+</ol>
+<pre><code class="language-text"> block:  0  1  2  3 │ 4    5    6    7    8    9    10   11   12   13   14 15
+        [S][I][B][T]│[/] [b1] [b2] [p1] [p2] [p3] [a1] [b3] [b4] [b5] [ ][ ]
+                         └─ extent 1 ─┘                 └─── extent 2 ───┘
+</code></pre>
+<p>A smarter allocator (look for a run of 5 free blocks first, or use delayed allocation) would have placed it in one piece at 11–15 — that's exactly the kind of decision Step 11's strategies are about.</p>
+<hr />
+<h2 id="step-13-deleting-files-link-counts-and-hard-links">Step 13 — Deleting files, link counts and hard links</h2>
+<p>The <strong>link count</strong> in the inode says how many directory entries point at it. A file's inode and blocks are freed <strong>only when the link count reaches 0</strong> (and no program still has it open).</p>
+<pre><code class="language-text">link   b.txt -&gt; a.txt (same inode #4, links=2)
+delete a.txt      (inode #4, links now 1) -&gt; data kept, another name still points to it
+
+== Hard link: a.txt deleted, b.txt still works ==
+root directory:       {photo.jpg=3, big.log=2, b.txt=4}
+</code></pre>
+<div class="diagram"><pre class="mermaid">flowchart LR
+    subgraph S1[&quot;Before delete&quot;]
+        A1[&quot;a.txt&quot;] --&gt; I1[&quot;inode #4&lt;br/&gt;links = 2&quot;]
+        B1[&quot;b.txt&quot;] --&gt; I1
+    end
+    subgraph S2[&quot;After deleting a.txt&quot;]
+        B2[&quot;b.txt&quot;] --&gt; I2[&quot;inode #4&lt;br/&gt;links = 1&quot;]
+    end
+</pre></div>
+<p>This is why the Unix command to delete a file is called <strong><code>unlink</code></strong> — it removes a <em>name</em>, not necessarily the file.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th><strong>Hard link</strong></th>
+<th><strong>Symbolic (soft) link</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What it is</td>
+<td>another directory entry with the <strong>same inode number</strong></td>
+<td>a <strong>separate small file (own inode)</strong> whose content is a path</td>
+</tr>
+<tr>
+<td>Survives deleting the original name?</td>
+<td>✅ yes — same data</td>
+<td>❌ no — becomes a "dangling" link</td>
+</tr>
+<tr>
+<td>Can cross file systems?</td>
+<td>❌ no (inode numbers are per file system)</td>
+<td>✅ yes</td>
+</tr>
+<tr>
+<td>Can point to a directory?</td>
+<td>❌ not allowed (would create loops)</td>
+<td>✅ yes</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="step-14-running-out-of-inodes-while-the-disk-has-space">Step 14 — Running out of inodes (while the disk has space!)</h2>
+<p>The number of inodes is usually <strong>fixed when the disk is formatted</strong> (ext4 default: one inode per 16 KiB of disk). If you create millions of tiny files, you can run out of <strong>inodes</strong> long before you run out of <strong>blocks</strong>.</p>
+<p>Our toy has only 8 inodes. Watch what happens when we create empty files (an empty file needs an inode but zero blocks):</p>
+<pre><code class="language-text">create empty1.txt      0 B -&gt; needs 0 block(s) -&gt; inode #5 {type=FILE, size=0 B, links=1, blocks=[]}
+create empty2.txt      0 B -&gt; needs 0 block(s) -&gt; inode #6 {type=FILE, size=0 B, links=1, blocks=[]}
+create empty3.txt      0 B -&gt; needs 0 block(s) -&gt; inode #7 {type=FILE, size=0 B, links=1, blocks=[]}
+create empty4.txt    -&gt; ERROR: No free inodes (disk may still have free space!)
+
+== Out of inodes, but free blocks remain ==
+inode bitmap (0..7):  1111 1111   free inodes: 0
+block bitmap (0..15): 1111 1111 1111 1100   free blocks: 2
+</code></pre>
+<p>On a real Linux machine this shows up as <strong>"No space left on device"</strong> even though <code>df -h</code> shows free space. Check with:</p>
+<pre><code class="language-text">$ df -h /        # space (blocks)
+$ df -i /        # inodes — look at IUse%
+</code></pre>
+<p>Common culprits: mail queues, cache directories, <code>node_modules</code>, session files. Fixes: delete the small files, or reformat with more inodes (<code>mkfs.ext4 -i 4096</code> or <code>-N &lt;count&gt;</code>). XFS and Btrfs allocate inodes <strong>dynamically</strong>, so they rarely hit this.</p>
+<hr />
+<h2 id="step-15-what-if-the-power-fails-mid-write">Step 15 — What if the power fails mid-write?</h2>
+<p>Creating <code>notes.txt</code> changed <strong>four</strong> separate places on disk: the inode bitmap, the block bitmap, the inode table, and the root directory's block. The disk can only write them one at a time. Suppose power fails between writes:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Crash after writing…</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bitmaps only</td>
+<td>Bits say "used" but no inode/dir points there → <strong>leaked</strong> space</td>
+</tr>
+<tr>
+<td>inode only</td>
+<td>Inode points to blocks still marked <strong>free</strong> → another file may overwrite them later → <strong>corruption</strong></td>
+</tr>
+<tr>
+<td>directory entry only</td>
+<td>Name points to an uninitialised inode → <strong>garbage file</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>Two classic solutions:</p>
+<ol>
+<li><strong><code>fsck</code></strong> (file system check) after an unclean shutdown: walk every directory and inode, rebuild the bitmaps from what is actually reachable. Correct but slow — hours on big disks. Orphaned files end up in <strong><code>lost+found</code></strong> (inode 11).</li>
+<li><strong>Journaling</strong> (ext3/ext4, XFS, NTFS): first write all four changes to a log (<strong>journal</strong>), then a "commit" record, then write them to their real places. On reboot, replay committed transactions and ignore incomplete ones. Recovery takes seconds.</li>
+</ol>
+<div class="diagram"><pre class="mermaid">sequenceDiagram
+    participant FS as File system
+    participant J as Journal
+    participant D as Real locations
+    FS-&gt;&gt;J: inode bitmap, block bitmap, inode, dir block
+    FS-&gt;&gt;J: COMMIT
+    Note over J: Now safe — will be replayed if we crash
+    FS-&gt;&gt;D: write the 4 blocks to their real places
+    FS-&gt;&gt;J: mark transaction done
+</pre></div>
+<hr />
+<h2 id="step-16-hands-on-lab-look-at-a-real-ext4-disk">Step 16 — Hands-on lab: look at a real ext4 disk</h2>
+<p>Everything above can be seen on a real ext4 file system <strong>without root and without mounting anything</strong> — just a disk image file and the <code>e2fsprogs</code> tools (pre-installed on most Linux distros; on macOS use a Linux VM or Docker). All outputs below are real.</p>
+<h3 id="161-create-a-small-disk-and-some-files">16.1 Create a small disk and some files</h3>
+<pre><code class="language-bash">truncate -s 16M disk.img                    # a 16 MiB &quot;disk&quot; (4096 blocks of 4 KiB)
+mkfs.ext4 -q -b 4096 -N 32 disk.img         # format: 4 KiB blocks, only 32 inodes
+printf 'hello inode world\n' &gt; hello.txt
+head -c 6000 /dev/urandom &gt; notes.txt       # a 6000-byte file
+debugfs -w -R &quot;write hello.txt hello.txt&quot; disk.img
+debugfs -w -R &quot;write notes.txt notes.txt&quot; disk.img
+debugfs -w -R &quot;mkdir docs&quot; disk.img
+</code></pre>
+<pre><code class="language-text">Allocated inode: 12
+Allocated inode: 13
+</code></pre>
+<h3 id="162-list-the-root-directory-with-inode-numbers">16.2 List the root directory with inode numbers</h3>
+<pre><code class="language-text">$ debugfs -R &quot;ls -l /&quot; disk.img
+      2   40755 (2)      0      0    4096  .
+      2   40755 (2)      0      0    4096  ..
+     11   40700 (2)      0      0   16384  lost+found
+     12  100644 (1)      0      0      18  hello.txt
+     13  100644 (1)      0      0    6000  notes.txt
+     14   40755 (2)      0      0    4096  docs
+</code></pre>
+<ul>
+<li>First column: <strong>inode number</strong>. Root is <strong>2</strong>, <code>lost+found</code> is <strong>11</strong>, our files start at <strong>12</strong>.</li>
+<li><code>40755</code> = directory (<code>4</code>) with permissions 755; <code>100644</code> = regular file with 644.</li>
+</ul>
+<h3 id="163-look-at-an-inode">16.3 Look at an inode</h3>
+<pre><code class="language-text">$ debugfs -R &quot;stat /notes.txt&quot; disk.img
+Inode: 13   Type: regular    Mode:  0644   Flags: 0x80000
+User:     0   Group:     0   Project:     0   Size: 6000
+Links: 1   Blockcount: 16
+ ctime: ... mtime: ... atime: ... crtime: ...
+Inode checksum: 0x6a508fe5
+EXTENTS:
+(0-1):1038-1039
+</code></pre>
+<p><code>Flags: 0x80000</code> means "uses extents". One extent: file blocks 0–1 → disk blocks <strong>1038–1039</strong>.</p>
+<h3 id="164-find-the-bitmaps-and-inode-table">16.4 Find the bitmaps and inode table</h3>
+<pre><code class="language-text">$ dumpe2fs disk.img
+Inode count:              32
+Block count:              4096
+Inode size:               256
+Blocks per group:         32768
+Inodes per group:         32
+First inode:              11
+Group 0: (Blocks 0-4095)
+  Block bitmap at 3
+  Inode bitmap at 19
+  Inode table at 35-36
+  Free blocks: 1041-4095
+  Free inodes: 15-32
+</code></pre>
+<p>Check the math from Step 4: 32 inodes × 256 bytes = 8192 bytes = <strong>2 blocks</strong> → inode table at 35–36. ✔</p>
+<h3 id="165-decode-the-raw-inode-bitmap">16.5 Decode the raw inode bitmap</h3>
+<pre><code class="language-text">$ debugfs -R &quot;bd 19&quot; disk.img          # block dump of block 19
+0000  ff3f 0000 ffff ffff ffff ffff ...
+</code></pre>
+<p>Byte by byte (remember: ext numbers inodes from <strong>1</strong>, so bit 0 of byte 0 = inode 1, and each byte reads <strong>right-to-left</strong>):</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Byte</th>
+<th>Hex</th>
+<th>Binary (bit 7 … bit 0)</th>
+<th>Inodes</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td><code>ff</code></td>
+<td><code>1111 1111</code></td>
+<td>1–8</td>
+<td>all used (reserved)</td>
+</tr>
+<tr>
+<td>1</td>
+<td><code>3f</code></td>
+<td><code>0011 1111</code></td>
+<td>9–16</td>
+<td>9–14 used, <strong>15, 16 free</strong></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>00</code></td>
+<td><code>0000 0000</code></td>
+<td>17–24</td>
+<td>all free</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>00</code></td>
+<td><code>0000 0000</code></td>
+<td>25–32</td>
+<td>all free</td>
+</tr>
+<tr>
+<td>4+</td>
+<td><code>ff</code></td>
+<td><code>1111 1111</code></td>
+<td>33+</td>
+<td>don't exist — <strong>padding set to 1</strong> so they're never handed out</td>
+</tr>
+</tbody>
+</table></div>
+<p>That matches <code>Free inodes: 15-32</code> exactly. And the allocator agrees:</p>
+<pre><code class="language-text">$ debugfs -R &quot;ffi&quot; disk.img            # find free inode
+Free inode found: 15
+</code></pre>
+<h3 id="166-decode-the-raw-block-bitmap">16.6 Decode the raw block bitmap</h3>
+<pre><code class="language-text">$ debugfs -R &quot;bd 3&quot; disk.img
+0000  ffff ffff ffff ... (all ff)
+*
+0200  ffff 0100 0000 0000 ...
+</code></pre>
+<p><code>debugfs</code> prints offsets in <strong>octal</strong>: <code>0200</code> octal = <strong>byte 128</strong>.</p>
+<ul>
+<li>Bytes 0–127 = <code>ff</code> → blocks 0–1023 used (metadata, journal, root dir…).</li>
+<li>Byte 128 = <code>ff</code> → blocks 1024–1031 used.</li>
+<li>Byte 129 = <code>ff</code> → blocks 1032–1039 used — includes <strong>1038–1039 = notes.txt</strong> ✔</li>
+<li>Byte 130 = <code>01</code> = <code>0000 0001</code> → only bit 0 → <strong>block 1040</strong> used (the <code>docs</code> directory); 1041–1047 free.</li>
+</ul>
+<pre><code class="language-text">$ debugfs -R &quot;testb 1038 3&quot; disk.img
+Block 1038 marked in use
+Block 1039 marked in use
+Block 1040 marked in use
+$ debugfs -R &quot;ffb 3&quot; disk.img          # find 3 free blocks
+Free blocks found: 1041 1042 1043
+</code></pre>
+<p>You have just read a real file system's allocator state by hand. 🎉</p>
+<hr />
+<h2 id="step-17-block-groups-how-ext4-scales-this-up">Step 17 — Block groups: how ext4 scales this up</h2>
+<p>One bitmap block is 4096 bytes = <strong>32 768 bits</strong>, so it can describe <strong>32 768 blocks × 4 KiB = 128 MiB</strong> of disk. That's not a coincidence — it's exactly why ext4's <strong>block group</strong> size is 128 MiB (<code>Blocks per group: 32768</code> in the dump above).</p>
+<p>ext4 splits the disk into many block groups, each with <strong>its own</strong> bitmaps and inode table:</p>
+<pre><code class="language-text"> ┌───────────────────────────────────── Disk ─────────────────────────────────────┐
+ │ Block group 0          │ Block group 1          │ Block group 2          │ ... │
+ │ ┌────┬────┬────┬─────┐ │ ┌────┬────┬────┬─────┐ │ ┌────┬────┬────┬─────┐ │     │
+ │ │ SB │BBMP│IBMP│ITBL │…│ │(SB)│BBMP│IBMP│ITBL │…│ │ -- │BBMP│IBMP│ITBL │…│     │
+ │ │+GDT│    │    │     │D│ │copy│    │    │     │D│ │    │    │    │     │D│     │
+ │ └────┴────┴────┴─────┘ │ └────┴────┴────┴─────┘ │ └────┴────┴────┴─────┘ │     │
+ └────────────────────────────────────────────────────────────────────────────────┘
+  SB = superblock   GDT = group descriptor table   BBMP = block bitmap
+  IBMP = inode bitmap   ITBL = inode table   D = data blocks
+</code></pre>
+<p>Why this helps:</p>
+<ul>
+<li><strong>Locality:</strong> the allocator puts a file's blocks in the same group as its inode, and a file near its directory → less disk travel.</li>
+<li><strong>Smaller scans:</strong> each group keeps a free-blocks counter in its <strong>group descriptor</strong>; full groups are skipped without reading their bitmap.</li>
+<li><strong>Parallelism:</strong> different CPUs can allocate in different groups at the same time.</li>
+<li><strong>Safety:</strong> backup superblocks are stored in some groups, so a damaged first one can be recovered.</li>
+<li><strong>flex_bg</strong> (ext4): groups' bitmaps are packed together into larger runs, which is why in our 1-group lab the block bitmap (3), inode bitmap (19) and inode table (35) are spaced apart.</li>
+</ul>
+<p>To find which group an inode lives in: <code>group = (inode − 1) ÷ inodes_per_group</code>; index inside = <code>(inode − 1) mod inodes_per_group</code>.</p>
+<hr />
+<h2 id="step-18-inodes-in-other-file-systems">Step 18 — Inodes in other file systems</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>File system</th>
+<th>"Inode" equivalent</th>
+<th>Free-space tracking</th>
+<th>Inode count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ext2/3/4</strong></td>
+<td>inode (128/256 B) in per-group inode tables</td>
+<td><strong>bitmaps</strong> per block group</td>
+<td>fixed at format</td>
+</tr>
+<tr>
+<td><strong>XFS</strong></td>
+<td>inode, allocated in chunks of 64</td>
+<td><strong>B+trees of free extents</strong></td>
+<td>dynamic</td>
+</tr>
+<tr>
+<td><strong>Btrfs</strong></td>
+<td>inode item stored in a B-tree</td>
+<td>free-space tree / cache</td>
+<td>dynamic</td>
+</tr>
+<tr>
+<td><strong>ZFS</strong></td>
+<td>dnode</td>
+<td>space maps (logs of alloc/free)</td>
+<td>dynamic</td>
+</tr>
+<tr>
+<td><strong>NTFS</strong></td>
+<td><strong>MFT record</strong> (1 KiB) — small files stored <em>inside</em> it</td>
+<td><strong><code>$Bitmap</code></strong> file — a bitmap!</td>
+<td>MFT grows as needed</td>
+</tr>
+<tr>
+<td><strong>FAT32 / exFAT</strong></td>
+<td>no inodes — metadata lives <strong>in the directory entry</strong></td>
+<td>FAT chain (exFAT adds an allocation bitmap)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>APFS</strong></td>
+<td>inode records in a B-tree</td>
+<td>space manager with bitmaps</td>
+<td>dynamic</td>
+</tr>
+</tbody>
+</table></div>
+<p>The vocabulary differs, but every file system answers the same three questions: <strong>what is this file (metadata)? where is its data (block map)? what's free (allocator)?</strong></p>
+<hr />
+<h2 id="the-complete-simulator-code">The complete simulator code</h2>
+<p>Save as <code>ToyFS.java</code>, then run <code>javac ToyFS.java &amp;&amp; java ToyFS</code>. Every output in Steps 12–14 comes from this program.</p>
+<pre><code class="language-java">import java.util.*;
+
+/** A tiny teaching file system: 16 blocks of 4 KiB, 8 inodes, bitmaps + first-fit allocator. */
+public class ToyFS {
+
+    // ---------- Bitmap: one bit per thing (block or inode). 1 = used, 0 = free ----------
+    static class Bitmap {
+        private final byte[] bytes;
+        private final int size;
+        Bitmap(int size) { this.size = size; this.bytes = new byte[(size + 7) / 8]; }
+
+        boolean isUsed(int n) { return (bytes[n / 8] &amp; (1 &lt;&lt; (n % 8))) != 0; }
+        void set(int n)       { bytes[n / 8] |=  (1 &lt;&lt; (n % 8)); }
+        void clear(int n)     { bytes[n / 8] &amp;= ~(1 &lt;&lt; (n % 8)); }
+
+        /** First-fit: first free bit at or after 'start'; -1 if none. */
+        int findFree(int start) {
+            for (int i = start; i &lt; size; i++) if (!isUsed(i)) return i;
+            return -1;
+        }
+        int countFree() { int c = 0; for (int i = 0; i &lt; size; i++) if (!isUsed(i)) c++; return c; }
+
+        String bits() {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i &lt; size; i++) { if (i &gt; 0 &amp;&amp; i % 4 == 0) sb.append(' '); sb.append(isUsed(i) ? '1' : '0'); }
+            return sb.toString();
+        }
+    }
+
+    // ---------- Inode: everything about a file EXCEPT its name ----------
+    static class Inode {
+        final int number;
+        String type; long size; int linkCount;
+        final List&lt;Integer&gt; blocks = new ArrayList&lt;&gt;();   // &quot;direct block pointers&quot;
+        Inode(int number) { this.number = number; }
+        public String toString() {
+            return &quot;inode #&quot; + number + &quot; {type=&quot; + type + &quot;, size=&quot; + size + &quot; B, links=&quot; + linkCount + &quot;, blocks=&quot; + blocks + &quot;}&quot;;
+        }
+    }
+
+    // ---------- Allocator: the only code that touches the bitmaps ----------
+    static class Allocator {
+        final Bitmap inodeBitmap, blockBitmap;
+        Allocator(Bitmap i, Bitmap b) { inodeBitmap = i; blockBitmap = b; }
+
+        int allocateInode() {
+            int n = inodeBitmap.findFree(0);
+            if (n &lt; 0) throw new IllegalStateException(&quot;No free inodes (disk may still have free space!)&quot;);
+            inodeBitmap.set(n);
+            return n;
+        }
+        int allocateBlock() {
+            int n = blockBitmap.findFree(0);
+            if (n &lt; 0) throw new IllegalStateException(&quot;No free blocks: disk full&quot;);
+            blockBitmap.set(n);
+            return n;
+        }
+        void freeInode(int n) { inodeBitmap.clear(n); }
+        void freeBlock(int n) { blockBitmap.clear(n); }
+    }
+
+    static final int BLOCK_SIZE = 4096, TOTAL_BLOCKS = 16, TOTAL_INODES = 8, ROOT_INODE = 1;
+
+    final Bitmap inodeBitmap = new Bitmap(TOTAL_INODES);
+    final Bitmap blockBitmap = new Bitmap(TOTAL_BLOCKS);
+    final Allocator alloc = new Allocator(inodeBitmap, blockBitmap);
+    final Inode[] inodeTable = new Inode[TOTAL_INODES];
+    final Map&lt;String, Integer&gt; rootDir = new LinkedHashMap&lt;&gt;();  // name -&gt; inode number
+
+    void format() {
+        // Blocks 0..3 hold metadata: 0 superblock, 1 inode bitmap, 2 block bitmap, 3 inode table
+        for (int b = 0; b &lt;= 3; b++) blockBitmap.set(b);
+        inodeBitmap.set(0);                                   // inode 0 = &quot;no inode&quot;, never used
+        int root = alloc.allocateInode();                     // -&gt; 1
+        Inode r = new Inode(root); r.type = &quot;DIR&quot;; r.linkCount = 2;
+        r.blocks.add(alloc.allocateBlock());                  // -&gt; block 4 holds root's entries
+        r.size = BLOCK_SIZE; inodeTable[root] = r;
+    }
+
+    void create(String name, long size) {
+        int needed = (int) ((size + BLOCK_SIZE - 1) / BLOCK_SIZE);   // ceiling division
+        if (rootDir.containsKey(name)) throw new IllegalStateException(&quot;exists&quot;);
+        if (blockBitmap.countFree() &lt; needed) throw new IllegalStateException(&quot;not enough space&quot;);
+        int ino = alloc.allocateInode();
+        Inode node = new Inode(ino); node.type = &quot;FILE&quot;; node.size = size; node.linkCount = 1;
+        for (int i = 0; i &lt; needed; i++) node.blocks.add(alloc.allocateBlock());
+        inodeTable[ino] = node;
+        rootDir.put(name, ino);
+        System.out.printf(&quot;create %-10s %6d B -&gt; needs %d block(s) -&gt; %s%n&quot;, name, size, needed, node);
+    }
+
+    void link(String existing, String newName) {
+        int ino = rootDir.get(existing);
+        rootDir.put(newName, ino);
+        inodeTable[ino].linkCount++;
+        System.out.printf(&quot;link   %s -&gt; %s (same inode #%d, links=%d)%n&quot;, newName, existing, ino, inodeTable[ino].linkCount);
+    }
+
+    void delete(String name) {
+        int ino = rootDir.remove(name);
+        Inode node = inodeTable[ino];
+        node.linkCount--;
+        System.out.printf(&quot;delete %-10s (inode #%d, links now %d)&quot;, name, ino, node.linkCount);
+        if (node.linkCount == 0) {
+            for (int b : node.blocks) alloc.freeBlock(b);
+            alloc.freeInode(ino);
+            inodeTable[ino] = null;
+            System.out.printf(&quot; -&gt; freed blocks %s and inode #%d%n&quot;, node.blocks, ino);
+        } else System.out.println(&quot; -&gt; data kept, another name still points to it&quot;);
+    }
+
+    void show(String title) {
+        System.out.println(&quot;\n== &quot; + title + &quot; ==&quot;);
+        System.out.println(&quot;inode bitmap (0..7):  &quot; + inodeBitmap.bits() + &quot;   free inodes: &quot; + inodeBitmap.countFree());
+        System.out.println(&quot;block bitmap (0..15): &quot; + blockBitmap.bits() + &quot;   free blocks: &quot; + blockBitmap.countFree());
+        System.out.println(&quot;root directory:       &quot; + rootDir);
+        System.out.println();
+    }
+
+    public static void main(String[] args) {
+        ToyFS fs = new ToyFS();
+        fs.format();                       fs.show(&quot;After format&quot;);
+        fs.create(&quot;notes.txt&quot;, 6000);
+        fs.create(&quot;photo.jpg&quot;, 10000);
+        fs.create(&quot;a.txt&quot;, 100);           fs.show(&quot;After creating 3 files&quot;);
+        fs.delete(&quot;notes.txt&quot;);            fs.show(&quot;After deleting notes.txt&quot;);
+        fs.create(&quot;big.log&quot;, 20000);       fs.show(&quot;After creating big.log (note the fragmentation)&quot;);
+        fs.link(&quot;a.txt&quot;, &quot;b.txt&quot;);
+        fs.delete(&quot;a.txt&quot;);                fs.show(&quot;Hard link: a.txt deleted, b.txt still works&quot;);
+        for (int i = 1; i &lt;= 4; i++) {
+            try { fs.create(&quot;empty&quot; + i + &quot;.txt&quot;, 0); }
+            catch (IllegalStateException e) { System.out.println(&quot;create empty&quot; + i + &quot;.txt    -&gt; ERROR: &quot; + e.getMessage()); }
+        }
+        fs.show(&quot;Out of inodes, but free blocks remain&quot;);
+    }
+}
+</code></pre>
+<details>
+<summary><strong>Full program output</strong></summary>
+<pre><code class="language-text">
+== After format ==
+inode bitmap (0..7):  1100 0000   free inodes: 6
+block bitmap (0..15): 1111 1000 0000 0000   free blocks: 11
+root directory:       {}
+
+create notes.txt    6000 B -&gt; needs 2 block(s) -&gt; inode #2 {type=FILE, size=6000 B, links=1, blocks=[5, 6]}
+create photo.jpg   10000 B -&gt; needs 3 block(s) -&gt; inode #3 {type=FILE, size=10000 B, links=1, blocks=[7, 8, 9]}
+create a.txt         100 B -&gt; needs 1 block(s) -&gt; inode #4 {type=FILE, size=100 B, links=1, blocks=[10]}
+
+== After creating 3 files ==
+inode bitmap (0..7):  1111 1000   free inodes: 3
+block bitmap (0..15): 1111 1111 1110 0000   free blocks: 5
+root directory:       {notes.txt=2, photo.jpg=3, a.txt=4}
+
+delete notes.txt  (inode #2, links now 0) -&gt; freed blocks [5, 6] and inode #2
+
+== After deleting notes.txt ==
+inode bitmap (0..7):  1101 1000   free inodes: 4
+block bitmap (0..15): 1111 1001 1110 0000   free blocks: 7
+root directory:       {photo.jpg=3, a.txt=4}
+
+create big.log     20000 B -&gt; needs 5 block(s) -&gt; inode #2 {type=FILE, size=20000 B, links=1, blocks=[5, 6, 11, 12, 13]}
+
+== After creating big.log (note the fragmentation) ==
+inode bitmap (0..7):  1111 1000   free inodes: 3
+block bitmap (0..15): 1111 1111 1111 1100   free blocks: 2
+root directory:       {photo.jpg=3, a.txt=4, big.log=2}
+
+link   b.txt -&gt; a.txt (same inode #4, links=2)
+delete a.txt      (inode #4, links now 1) -&gt; data kept, another name still points to it
+
+== Hard link: a.txt deleted, b.txt still works ==
+inode bitmap (0..7):  1111 1000   free inodes: 3
+block bitmap (0..15): 1111 1111 1111 1100   free blocks: 2
+root directory:       {photo.jpg=3, big.log=2, b.txt=4}
+
+create empty1.txt      0 B -&gt; needs 0 block(s) -&gt; inode #5 {type=FILE, size=0 B, links=1, blocks=[]}
+create empty2.txt      0 B -&gt; needs 0 block(s) -&gt; inode #6 {type=FILE, size=0 B, links=1, blocks=[]}
+create empty3.txt      0 B -&gt; needs 0 block(s) -&gt; inode #7 {type=FILE, size=0 B, links=1, blocks=[]}
+create empty4.txt    -&gt; ERROR: No free inodes (disk may still have free space!)
+
+== Out of inodes, but free blocks remain ==
+inode bitmap (0..7):  1111 1111   free inodes: 0
+block bitmap (0..15): 1111 1111 1111 1100   free blocks: 2
+root directory:       {photo.jpg=3, big.log=2, b.txt=4, empty1.txt=5, empty2.txt=6, empty3.txt=7}
+</code></pre>
+</details>
+<h3 id="ideas-to-extend-it">Ideas to extend it</h3>
+<ol>
+<li>Add <strong>next-fit</strong> or <strong>best-fit-for-runs</strong> to <code>Allocator</code> and see whether <code>big.log</code> stays contiguous.</li>
+<li>Store block lists as <strong>extents</strong> (<code>start, length</code>) instead of individual numbers.</li>
+<li>Add <strong>indirect blocks</strong> so a file can be bigger than the inode's direct slots.</li>
+<li>Persist everything to a <code>disk.img</code> with <code>RandomAccessFile</code> — real bytes, real offsets.</li>
+<li>Add a mini <strong>journal</strong>: log bitmap/inode changes before applying them.</li>
+</ol>
+<hr />
+<h2 id="cheat-sheet-glossary-and-self-check">Cheat sheet, glossary and self-check</h2>
+<h3 id="one-picture-summary">One-picture summary</h3>
+<div class="diagram"><pre class="mermaid">flowchart LR
+    P[&quot;Path&lt;br/&gt;/docs/plan.md&quot;] --&gt; DIR[&quot;Directories&lt;br/&gt;name → inode #&quot;]
+    DIR --&gt; INO[&quot;Inode&lt;br/&gt;metadata + block map&quot;]
+    INO --&gt; DATA[&quot;Data blocks&quot;]
+    ALLOC[&quot;Allocator&quot;] -- &quot;hands out / frees&quot; --&gt; INO
+    ALLOC -- &quot;hands out / frees&quot; --&gt; DATA
+    IBM[&quot;Inode bitmap&quot;] &lt;--&gt;|reads / flips bits| ALLOC
+    BBM[&quot;Block bitmap&quot;] &lt;--&gt;|reads / flips bits| ALLOC
+</pre></div>
+<h3 id="glossary">Glossary</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Block</strong></td>
+<td>Fixed-size unit (usually 4 KiB) the file system reads/writes</td>
+</tr>
+<tr>
+<td><strong>Inode</strong></td>
+<td>Fixed-size record with a file's metadata and block map — everything except name and content</td>
+</tr>
+<tr>
+<td><strong>Inode number</strong></td>
+<td>Index of the inode in the inode table; a file's real identity</td>
+</tr>
+<tr>
+<td><strong>Inode table</strong></td>
+<td>Array of all inodes on disk</td>
+</tr>
+<tr>
+<td><strong>Directory entry (dentry)</strong></td>
+<td>One <code>name → inode number</code> pair inside a directory</td>
+</tr>
+<tr>
+<td><strong>Block map</strong></td>
+<td>Inode's list of where the data is: block pointers or extents</td>
+</tr>
+<tr>
+<td><strong>Extent</strong></td>
+<td>"N contiguous blocks starting at block Y" — compact block map entry</td>
+</tr>
+<tr>
+<td><strong>Bitmap</strong></td>
+<td>Array of bits; bit <em>n</em> = 1 if item <em>n</em> is used, 0 if free</td>
+</tr>
+<tr>
+<td><strong>Inode bitmap</strong></td>
+<td>Bitmap with one bit per inode</td>
+</tr>
+<tr>
+<td><strong>Block bitmap</strong></td>
+<td>Bitmap with one bit per data block</td>
+</tr>
+<tr>
+<td><strong>Allocator</strong></td>
+<td>Component that searches bitmaps, hands out and frees inodes/blocks</td>
+</tr>
+<tr>
+<td><strong>Superblock</strong></td>
+<td>Global header: sizes, counts, where everything is</td>
+</tr>
+<tr>
+<td><strong>Block group</strong></td>
+<td>ext4 region with its own bitmaps + inode table (128 MiB at 4 KiB blocks)</td>
+</tr>
+<tr>
+<td><strong>Link count</strong></td>
+<td>Number of names pointing to an inode; freed at 0</td>
+</tr>
+<tr>
+<td><strong>Fragmentation</strong></td>
+<td>A file's blocks scattered across the disk instead of contiguous</td>
+</tr>
+<tr>
+<td><strong>Journal</strong></td>
+<td>Write-ahead log that makes multi-block updates crash-safe</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="useful-commands">Useful commands</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ls -i</code></td>
+<td>inode numbers next to names</td>
+</tr>
+<tr>
+<td><code>stat file</code></td>
+<td>the inode's fields</td>
+</tr>
+<tr>
+<td><code>df -i</code></td>
+<td>inode usage per file system</td>
+</tr>
+<tr>
+<td><code>find . -inum 1311234</code></td>
+<td>all names (hard links) for an inode</td>
+</tr>
+<tr>
+<td><code>filefrag -v file</code></td>
+<td>a file's extents (is it fragmented?)</td>
+</tr>
+<tr>
+<td><code>dumpe2fs /dev/sdX1</code> or <code>dumpe2fs disk.img</code></td>
+<td>superblock, groups, bitmap locations</td>
+</tr>
+<tr>
+<td><code>debugfs disk.img</code></td>
+<td>interactive explorer: <code>stat</code>, <code>ls -l</code>, <code>bd</code>, <code>testb</code>, <code>ffb</code>, <code>ffi</code>, <code>blocks</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="self-check-questions">Self-check questions</h3>
+<details>
+<summary>1. Where is a file's name stored — in the inode or somewhere else?</summary>
+<p>In the <strong>directory entry</strong> of its parent directory. The inode stores no name, which is what makes hard links and cheap renames possible.</p>
+</details>
+<details>
+<summary>2. A disk has 2,000,000 blocks. How big is its block bitmap?</summary>
+<p>2,000,000 bits ÷ 8 = <strong>250,000 bytes ≈ 244 KiB</strong>, which fits in ⌈250000 ÷ 4096⌉ = <strong>62 blocks</strong>.</p>
+</details>
+<details>
+<summary>3. Which byte and bit hold the status of block 42? What mask tests it?</summary>
+<p>Byte 42 ÷ 8 = <strong>5</strong>, bit 42 mod 8 = <strong>2</strong>, mask <code>1 &lt;&lt; 2</code> = <code>0000 0100</code> = <strong>0x04</strong>. Test with <code>(bytes[5] &amp; 0x04) != 0</code>.</p>
+</details>
+<details>
+<summary>4. A 9,000-byte file on a 4 KiB-block file system: how many blocks, and how much is wasted?</summary>
+<p>⌈9000 ÷ 4096⌉ = <strong>3 blocks</strong> = 12,288 bytes; wasted = 12,288 − 9,000 = <strong>3,288 bytes</strong> of internal fragmentation.</p>
+</details>
+<details>
+<summary>5. You delete a file but <code>df</code> shows no space freed. Why might that be?</summary>
+<p>Either another <strong>hard link</strong> still points to the inode (link count &gt; 0), or a running <strong>process still has the file open</strong> — the inode and blocks are freed only when both the link count and the open count reach zero.</p>
+</details>
+<details>
+<summary>6. <code>touch newfile</code> fails with "No space left on device", but <code>df -h</code> shows 40% free. What's wrong?</summary>
+<p>The file system ran out of <strong>inodes</strong>. Check <code>df -i</code>. Creating an empty file needs an inode even though it needs no data blocks.</p>
+</details>
+<details>
+<summary>7. Why are padding bits at the end of ext4's inode bitmap set to 1, not 0?</summary>
+<p>So the allocator never "finds" a free inode that doesn't actually exist. Marking non-existent items as used makes the search code simpler — no special end-of-range check.</p>
+</details>
+<hr />
+<p><strong>Key takeaway:</strong> a file is really three things working together — a <strong>name</strong> in a directory, an <strong>inode</strong> that describes it, and <strong>data blocks</strong> that hold its bytes — and the <strong>allocator</strong>, using two compact <strong>bitmaps</strong>, decides which inode and which blocks each new file gets.</p>
+  </main>
+</div>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  window.mermaid = mermaid;
+  if (window.__renderMermaid) window.__renderMermaid(); else window.dispatchEvent(new Event('mermaid-ready'));
+</script>
+<script>
+(function(){
+  // ---------- theme toggle ----------
+  const root=document.documentElement, btn=document.getElementById('theme-toggle');
+  try{const t=localStorage.getItem('inode-guide-theme'); if(t) root.dataset.theme=t;}catch(e){}
+  function isDark(){return root.dataset.theme? root.dataset.theme==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;}
+  function label(){btn.textContent=isDark()?'☀️ Light':'🌙 Dark';}
+  label();
+  btn.addEventListener('click',()=>{root.dataset.theme=isDark()?'light':'dark';try{localStorage.setItem('inode-guide-theme',root.dataset.theme);}catch(e){} label(); renderMermaid();});
+
+  // ---------- TOC: collapsed by default on small screens ----------
+  const td=document.getElementById('toc-details');
+  if(matchMedia('(max-width:960px)').matches) td.removeAttribute('open');
+  else td.querySelector('summary').addEventListener('click',e=>e.preventDefault());
+  // ---------- TOC highlight ----------
+  const links=[...document.querySelectorAll('nav.toc a')];
+  const map=new Map(links.map(a=>[decodeURIComponent(a.getAttribute('href').slice(1)),a]));
+  const heads=[...document.querySelectorAll('main h2[id]')];
+  const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('active'));const a=map.get(e.target.id);if(a)a.classList.add('active');}})},{rootMargin:'0px 0px -75% 0px'});
+  heads.forEach(h=>obs.observe(h));
+
+  // ---------- mermaid ----------
+  const sources=[...document.querySelectorAll('pre.mermaid')].map(p=>p.textContent);
+  async function renderMermaid(){
+    if(!window.mermaid) return;
+    const els=[...document.querySelectorAll('pre.mermaid')];
+    els.forEach((el,i)=>{el.removeAttribute('data-processed');el.textContent=sources[i];});
+    window.mermaid.initialize({startOnLoad:false,theme:isDark()?'dark':'neutral',fontFamily:'Inter, system-ui, sans-serif',securityLevel:'strict'});
+    try{await window.mermaid.run({nodes:els});}catch(e){console.warn(e);}
+  }
+  window.__renderMermaid=renderMermaid;
+  if(window.mermaid) renderMermaid(); else window.addEventListener('mermaid-ready',renderMermaid);
+
+  // ---------- bitmap playground ----------
+  const N=32, BS=4096, META=4, COLORS=6;
+  let bits, owner, files, nextIno, cursor, selected=null;
+  const grid=document.getElementById('pg-grid'), $=id=>document.getElementById(id);
+  function reset(){bits=new Array(N).fill(0);owner=new Array(N).fill(null);files=[];nextIno=12;cursor=META;selected=null;
+    for(let i=0;i<META;i++){bits[i]=1;owner[i]='meta';}
+    log('Formatted: blocks 0–3 hold metadata and are marked used.');render();}
+  function firstFree(from){for(let i=from;i<N;i++) if(!bits[i]) return i; return -1;}
+  function pick(n,strategy){
+    const free=bits.reduce((c,b)=>c+(b?0:1),0); if(free<n) return null;
+    const out=[];
+    if(strategy==='contig'){
+      let run=0;for(let i=0;i<N;i++){run=bits[i]?0:run+1; if(run===n){for(let j=i-n+1;j<=i;j++) out.push(j);return out;}}
+      strategy='first';
+    }
+    if(strategy==='next'){let p=cursor;while(out.length<n){let f=firstFree(p);if(f<0){f=firstFree(META);}out.push(f);bits[f]=1;p=f+1;}out.forEach(b=>bits[b]=0);cursor=(out[out.length-1]+1)%N;if(cursor<META)cursor=META;return out;}
+    let p=0;while(out.length<n){const f=firstFree(p);out.push(f);p=f+1;}return out;
+  }
+  function extents(bl){let c=0;for(let i=0;i<bl.length;i++) if(i===0||bl[i]!==bl[i-1]+1) c++;return c;}
+  function create(){
+    const size=Math.max(0,parseInt($('pg-size').value||'0',10));
+    const need=Math.ceil(size/BS), strat=$('pg-strategy').value;
+    const blocks=need?pick(need,strat):[];
+    if(blocks===null){log(`✗ Need ${need} block(s) for ${size} B but only ${bits.filter(b=>!b).length} free → ENOSPC (disk full)`);return;}
+    let ino=12;while(files.some(x=>x.ino===ino)) ino++;const k=nextIno++;const f={ino,name:'file'+(k-11)+'.dat',size,blocks,color:(k-12)%COLORS};
+    blocks.forEach(b=>{bits[b]=1;owner[b]=f;});files.push(f);
+    const lines=[`create ${f.name} (${size} B) → ⌈${size}/4096⌉ = ${need} block(s)`,`allocateInode() → inode #${f.ino}`];
+    blocks.forEach(b=>lines.push(`allocateBlock() → ${b}: byte ${b>>3}, bit ${b&7}, mask 0x${(1<<(b&7)).toString(16).padStart(2,'0')} → set`));
+    if(blocks.length>1&&extents(blocks)>1) lines.push(`⚠ fragmented into ${extents(blocks)} extents`);
+    log(lines.join('\n'));render();
+  }
+  function del(ino){const f=files.find(x=>x.ino===ino);if(!f) return;
+    f.blocks.forEach(b=>{bits[b]=0;owner[b]=null;});files=files.filter(x=>x!==f);
+    log(`delete ${f.name}: freeInode(#${f.ino}); freeBlock(${f.blocks.join(', ')||'—'})\nOnly ${f.blocks.length} bit(s) cleared — the old bytes stay on disk until overwritten.`);render();}
+  function log(t){$('pg-log').textContent=t;}
+  function render(){
+    grid.innerHTML='';
+    for(let i=0;i<N;i++){const d=document.createElement('div');d.className='blk';d.setAttribute('role','gridcell');d.tabIndex=0;
+      const o=owner[i];
+      if(o==='meta') d.classList.add('meta'); else if(o){d.classList.add('file');d.style.background=`var(--f${o.color})`;}
+      if(selected===i) d.classList.add('sel');
+      d.innerHTML=`<span>${i}</span><span class="bit">${bits[i]}</span>`;
+      d.title=`block ${i}: ${o==='meta'?'metadata':o?o.name+' (inode #'+o.ino+')':'free'}`;
+      d.addEventListener('click',()=>{selected=i;const b=i>>3,k=i&7,m=1<<k;
+        log(`block ${i}\nbyte index = ${i} ÷ 8 = ${b}\nbit index  = ${i} mod 8 = ${k}\nmask       = 1 << ${k} = ${m.toString(2).padStart(8,'0')} (0x${m.toString(16).padStart(2,'0')})\ntest: (byte[${b}] & 0x${m.toString(16).padStart(2,'0')}) → ${bits[i]?'used':'free'}`);render();});
+      d.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();d.click();}});
+      grid.appendChild(d);}
+    $('pg-bits').innerHTML='bits 0–31: '+bits.map((b,i)=>(i&&i%8===0?' │ ':(i&&i%4===0?' ':''))+b).join('');
+    let bh='<span class="h">byte</span><span class="h">binary (bit7…bit0)</span><span class="h">hex</span>';
+    for(let B=0;B<N/8;B++){let v=0;for(let k=0;k<8;k++) if(bits[B*8+k]) v|=1<<k;
+      bh+=`<span>${B} (blk ${B*8}–${B*8+7})</span><span>${v.toString(2).padStart(8,'0')}</span><span>0x${v.toString(16).padStart(2,'0')}</span>`;}
+    $('pg-bytes').innerHTML=bh;
+    const ul=$('pg-files');ul.innerHTML=files.length?'':'<li class="grow">No files yet.</li>';
+    files.forEach(f=>{const li=document.createElement('li');const ex=extents(f.blocks);
+      li.innerHTML=`<i class="sw" style="background:var(--f${f.color});border-color:transparent"></i><span class="grow"><strong>#${f.ino}</strong> ${f.name} · ${f.size} B · blocks [${f.blocks.join(', ')}] ${ex>1?'<span class="frag">· '+ex+' extents</span>':''}</span>`;
+      const b=document.createElement('button');b.className='secondary';b.textContent='Delete';b.onclick=()=>del(f.ino);li.appendChild(b);ul.appendChild(li);});
+    const free=bits.filter(b=>!b).length;$('pg-legend-files').textContent=`${free} free / ${N} blocks · ${files.length} file(s)`;
+  }
+  $('pg-create').addEventListener('click',create);$('pg-reset').addEventListener('click',reset);
+  reset();
+})();
+</script>
+</body>
+</html>
