@@ -372,6 +372,52 @@ inside = 3072 mod 4096    = 3072
 </tr>
 </tbody>
 </table></div>
+<h3 id="is-there-only-one-inode-in-linux-no-one-per-file-per-file-system">Is there only one inode in Linux? No — one per file, per file system</h3>
+<p>A common beginner confusion: "the inode" is not one central thing. There is <strong>one inode for every file, directory and symlink</strong>, so a normal Linux machine has <strong>hundreds of thousands to millions</strong> of them. Check yours:</p>
+<pre><code class="language-text">$ df -i /
+Filesystem      Inodes   IUsed    IFree IUse% Mounted on
+/dev/nvme0n1p2  30.5M    812K    29.7M    3% /
+</code></pre>
+<p>Here 812K inodes are in use, roughly 812K files and directories, and every new file uses up one more.</p>
+<p><strong>Each file system has its own inode table.</strong> If <code>/</code> is on one partition and <code>/home</code> on another, each partition numbers its inodes from 1 independently. Inode numbers are therefore unique only <strong>within one file system</strong>:</p>
+<pre><code class="language-text">$ ls -i /etc/hostname /home/alice/notes.txt
+1311234 /etc/hostname
+1311234 /home/alice/notes.txt     ← same number, different file (different partition)
+</code></pre>
+<p>So a file's true identity is the pair <strong>(device, inode number)</strong>. This is also why hard links can't cross partitions.</p>
+<p>Cases that <em>look</em> like "one inode, several files" but aren't:</p>
+<ul>
+<li><strong>Hard links</strong> — several <em>names</em> share one inode. That's one file with several names (Step 13).</li>
+<li><strong>Empty files</strong> — still take one inode each, even with zero data blocks (Step 14).</li>
+</ul>
+<p>There are also <strong>two kinds of inode</strong> at runtime:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>On-disk inode</th>
+<th>In-memory inode</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What</td>
+<td>the fixed-size record (e.g. 256 bytes) in the inode table</td>
+<td><code>struct inode</code> in the kernel's VFS layer</td>
+</tr>
+<tr>
+<td>When it exists</td>
+<td>from file creation until deletion</td>
+<td>while the file is in use or cached in RAM</td>
+</tr>
+<tr>
+<td>Who has one</td>
+<td>ext2/3/4, XFS, Btrfs…</td>
+<td><strong>every</strong> open file, even on FAT, <code>/proc</code> and <code>tmpfs</code>, which have no on-disk inodes</td>
+</tr>
+</tbody>
+</table></div>
+<p>Finally, <strong>the number of inodes is usually fixed</strong> on ext4 — decided at format time (default: one per 16 KiB of space). XFS and Btrfs create inodes on demand instead.</p>
 <hr />
 <h2 id="step-5-where-do-file-names-live-directories">Step 5 — Where do file names live? Directories</h2>
 <p>A <strong>directory is just a special file</strong> whose content is a table of <code>name → inode number</code> pairs (called <strong>directory entries</strong>, or <em>dentries</em>).</p>
@@ -407,6 +453,111 @@ inside = 3072 mod 4096    = 3072
     I -- &quot;block map&quot; --&gt; D1[&quot;Block 1038&quot;]
     I -- &quot;block map&quot; --&gt; D2[&quot;Block 1039&quot;]
 </pre></div>
+<h3 id="a-deeper-walkthrough-homemysongpopmusic1mp3">A deeper walkthrough: <code>/home/mysong/pop/music1.mp3</code></h3>
+<p><strong>Where does the search start? Is there a central inode that knows every file?</strong></p>
+<p>There is <strong>no central inode or master list of all paths</strong>. There is only a <strong>fixed starting point</strong>: the root directory <code>/</code>, which is always <strong>inode 2</strong> on ext2/3/4. From there the kernel walks the path <strong>one name at a time</strong>, and each directory only knows its own direct children.</p>
+<p><em>(The inode numbers below are examples.)</em></p>
+<pre><code class="language-text">Step 1  Start at &quot;/&quot;            → inode 2 (always known, never looked up)
+        Read inode 2 → it's a directory → read its data block:
+            .    → 2
+            ..   → 2
+            etc  → 12
+            home → 131073        ✔ found &quot;home&quot;
+
+Step 2  Load inode 131073 (&quot;home&quot;) → directory → read its entries:
+            mysong → 262145      ✔
+
+Step 3  Load inode 262145 (&quot;mysong&quot;) → directory → read its entries:
+            pop → 262200         ✔
+
+Step 4  Load inode 262200 (&quot;pop&quot;) → directory → read its entries:
+            music1.mp3 → 262311  ✔
+
+Step 5  Load inode 262311 → regular file → size 4.2 MB,
+        extents: (0-1023) → disk blocks 5,120,000–5,121,023
+        → read the song's data
+</code></pre>
+<pre><code class="language-text">&quot;/&quot; (inode 2)
+  └── home (131073)
+        └── mysong (262145)
+              └── pop (262200)
+                    └── music1.mp3 (262311) ──► data blocks
+</code></pre>
+<div class="diagram"><pre class="mermaid">sequenceDiagram
+    participant K as Kernel
+    participant R as inode 2 · root
+    participant H as inode 131073 · home
+    participant M as inode 262145 · mysong
+    participant P as inode 262200 · pop
+    participant F as inode 262311 · music1.mp3
+
+    K-&gt;&gt;R: read directory entries
+    R--&gt;&gt;K: &quot;home&quot; is inode 131073
+    K-&gt;&gt;H: read directory entries
+    H--&gt;&gt;K: &quot;mysong&quot; is inode 262145
+    K-&gt;&gt;M: read directory entries
+    M--&gt;&gt;K: &quot;pop&quot; is inode 262200
+    K-&gt;&gt;P: read directory entries
+    P--&gt;&gt;K: &quot;music1.mp3&quot; is inode 262311
+    K-&gt;&gt;F: read inode: regular file, extents
+    F--&gt;&gt;K: data blocks 5,120,000 to 5,121,023
+</pre></div>
+<p>Every <code>/</code> in the path means: <em>look up the next name in this directory, get an inode number, load that inode, repeat.</em> Things that can stop the walk:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Problem during the walk</th>
+<th>Error you see</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A name isn't in the directory</td>
+<td><code>No such file or directory</code> (ENOENT)</td>
+</tr>
+<tr>
+<td>You lack execute (<code>x</code>) permission on a directory you pass through</td>
+<td><code>Permission denied</code> (EACCES)</td>
+</tr>
+<tr>
+<td>A middle component is a file, not a directory (e.g. <code>/home/a.txt/b</code>)</td>
+<td><code>Not a directory</code> (ENOTDIR)</td>
+</tr>
+</tbody>
+</table></div>
+<h4 id="how-does-the-kernel-find-inode-2-in-the-first-place">How does the kernel find inode 2 in the first place?</h4>
+<p>Inode 2 isn't stored in some special place — its location is <strong>calculated</strong>, exactly like any other inode (see the formula in Step 4):</p>
+<ol>
+<li>At <strong>mount</strong> time the kernel reads the <strong>superblock</strong>, which sits at a fixed spot (byte 1024 of the partition). It gives the block size, inode size and inodes per group.</li>
+<li>The <strong>group descriptors</strong> right after it say where each group's inode table starts.</li>
+<li>Then <code>group = (2 − 1) ÷ inodes_per_group = 0</code> and <code>offset = (2 − 1) × 256</code> give the exact block and byte.</li>
+</ol>
+<p>The same formula finds <em>any</em> inode once you know its number. That's why a directory only needs to store <code>name → inode number</code>.</p>
+<h4 id="what-if-home-is-a-different-partition-a-mount-point">What if <code>/home</code> is a different partition (a mount point)?</h4>
+<p>The walk reaches <code>home</code> in the root file system, but <code>/home</code> is a <strong>mount point</strong>. The kernel notices this and jumps to the <strong>root inode of the mounted file system</strong> — inode 2 <em>of that partition</em> — and continues from there.</p>
+<div class="diagram"><pre class="mermaid">flowchart LR
+    subgraph FS1[&quot;Partition 1 (mounted at /)&quot;]
+        R1[&quot;inode 2&lt;br/&gt;'/'&quot;] --&gt; H1[&quot;'home'&lt;br/&gt;mount point&quot;]
+    end
+    subgraph FS2[&quot;Partition 2 (mounted at /home)&quot;]
+        R2[&quot;inode 2&lt;br/&gt;root of this FS&quot;] --&gt; M2[&quot;'mysong'&quot;] --&gt; P2[&quot;'pop'&quot;] --&gt; F2[&quot;'music1.mp3'&quot;]
+    end
+    H1 -.-&gt;|kernel switches file system| R2
+</pre></div>
+<p>Each file system has its own inode 2, which is another reason inode numbers are only unique per file system.</p>
+<h4 id="relative-paths">Relative paths</h4>
+<p><code>pop/music1.mp3</code> (no leading <code>/</code>) starts from the <strong>current working directory's inode</strong> instead of inode 2. The kernel keeps a reference to that inode for every process (that's what <code>cd</code> changes).</p>
+<h4 id="isnt-this-slow-for-deep-paths">Isn't this slow for deep paths?</h4>
+<p>It would be if every step read the disk, so:</p>
+<ul>
+<li>The kernel caches every lookup in the <strong>dentry cache</strong> in RAM, keyed by <em>(parent directory, name) → inode</em>. The second time you open the same path, often <strong>no disk reads happen at all</strong>.</li>
+<li>Large directories use an <strong>HTree index</strong> (on by default in ext4), so finding <code>music1.mp3</code> among 100,000 files is a hash lookup rather than a scan of every entry.</li>
+</ul>
+<h4 id="try-it-yourself">Try it yourself</h4>
+<pre><code class="language-bash">ls -id / /home /home/mysong /home/mysong/pop    # inode number of each directory on the path
+stat /home/mysong/pop/music1.mp3               # the final file's inode
+findmnt /home                                  # is /home a separate file system?
+</code></pre>
 <hr />
 <h2 id="step-6-how-an-inode-finds-the-files-data">Step 6 — How an inode finds the file's data</h2>
 <p>The <strong>block map</strong> is the most important part of the inode. There are two classic ways to store it.</p>
