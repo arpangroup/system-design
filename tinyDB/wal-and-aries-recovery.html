@@ -1,0 +1,1172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WAL and ARIES Recovery</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:ital,wght@0,400;0,600;1,400&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap">
+<style>
+/* Layout: one reading column (~68ch) with the simulator breaking out to 1120px; RAM drawn as a dashed zone above a solid disk zone, the power-loss line between them */
+:root{
+  --bg:#eceeec; --surface:#f7f8f6; --ink:#141918; --muted:#57605d; --line:#cfd5d2; --hdr:#e3e7e4;
+  --accent:#b77d00; --accent-ink:#7d5500; --accent-soft:#f4e5bd;
+  --ram:#f1f0fa; --ram-line:#9a92c9; --disk:#e8ece9; --disk-line:#8d9893; --hatch:rgba(20,25,24,.13);
+  --upd:#2f62a8; --upd-bg:#dde8f6; --clr:#8a4fb3; --clr-bg:#ecdff5; --com:#2a7d46; --com-bg:#d9efdf;
+  --abt:#b33a2a; --abt-bg:#f6dcd6; --end:#5c6461; --end-bg:#e3e6e4; --ckp:#a06c00; --ckp-bg:#f4e5bd;
+  --go:#dcd7f6; --go-ink:#3a2f86;
+  --f-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --f-body:"Literata",Georgia,"Times New Roman",serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121514; --surface:#1a1e1d; --ink:#e6ebe9; --muted:#9ba6a2; --line:#2d3432; --hdr:#232827;
+  --accent:#e7b33a; --accent-ink:#f0c661; --accent-soft:#3d3218;
+  --ram:#1a1a26; --ram-line:#6d64a6; --disk:#171b1a; --disk-line:#55605b; --hatch:rgba(230,235,233,.12);
+  --upd:#8db8ee; --upd-bg:#1d2c40; --clr:#c9a0ea; --clr-bg:#2e2140; --com:#79d097; --com-bg:#18301f;
+  --abt:#f08e7a; --abt-bg:#3a1f1a; --end:#aab3af; --end-bg:#262b29; --ckp:#e7b33a; --ckp-bg:#3a2f15;
+  --go:#2e2a55; --go-ink:#d4ccff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121514; --surface:#1a1e1d; --ink:#e6ebe9; --muted:#9ba6a2; --line:#2d3432; --hdr:#232827;
+  --accent:#e7b33a; --accent-ink:#f0c661; --accent-soft:#3d3218;
+  --ram:#1a1a26; --ram-line:#6d64a6; --disk:#171b1a; --disk-line:#55605b; --hatch:rgba(230,235,233,.12);
+  --upd:#8db8ee; --upd-bg:#1d2c40; --clr:#c9a0ea; --clr-bg:#2e2140; --com:#79d097; --com-bg:#18301f;
+  --abt:#f08e7a; --abt-bg:#3a1f1a; --end:#aab3af; --end-bg:#262b29; --ckp:#e7b33a; --ckp-bg:#3a2f15;
+  --go:#2e2a55; --go-ink:#d4ccff; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:17px/1.65 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 72px}
+.wrap{max-width:1120px;margin:0 auto}
+.prose{max-width:68ch}
+.prose p{margin:0 0 1em}
+.prose ul,.prose ol{padding-left:1.3em;margin:0 0 1em}
+.prose li{margin-bottom:.35em}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.08;letter-spacing:-0.012em}
+h1{font-size:clamp(2.5rem,7vw,4.6rem);font-weight:800;margin:.15em 0 .3em}
+h2{font-size:clamp(1.65rem,3.6vw,2.4rem);font-weight:800;margin:.2em 0 .5em}
+h3{font-size:1.18rem;font-weight:600;margin:1.6em 0 .45em}
+a{color:var(--accent-ink)}
+.eyebrow{font:600 12px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent-ink)}
+header.hero{padding-block:56px 32px}
+.dek{font-size:1.25rem;line-height:1.5;color:var(--muted);max-width:56ch;margin:0}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px}
+nav.toc a{font:500 13px var(--f-mono);text-decoration:none;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--surface)}
+nav.toc a:hover{border-color:var(--accent)}
+section{padding-block:56px 12px;border-top:1px solid var(--line)}
+code{font-family:var(--f-mono);font-size:.84em;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+pre.code{font:13px/1.7 var(--f-mono);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;margin:0 0 1.2em;max-width:76ch}
+pre.code .c{color:var(--muted)}
+pre.code b{color:var(--accent-ink);font-weight:600}
+.scroll{overflow-x:auto}
+table.grid{border-collapse:collapse;font:13.5px/1.5 var(--f-mono);margin:6px 0 20px}
+.grid th,.grid td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+.grid th{background:var(--surface);font-weight:600}
+.grid td.win{background:var(--accent-soft)}
+dl.terms{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;max-width:76ch;margin:10px 0 24px}
+dl.terms dt{font:600 14px/1.6 var(--f-mono)}
+dl.terms dd{margin:0;font-size:.97rem}
+@media (max-width:560px){dl.terms{grid-template-columns:1fr}dl.terms dd{margin-bottom:8px}}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:10px 0 24px}
+.rule{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.rule .k{font:600 12px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent-ink)}
+.rule .f{font:600 15px/1.5 var(--f-mono);margin:6px 0}
+.rule p{margin:0;font-size:.95rem}
+
+/* byte layout */
+.layouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr));gap:18px;margin:12px 0 24px}
+.layout h4{font:600 13px var(--f-mono);margin:0 0 8px;letter-spacing:.04em}
+.bytes{display:grid;grid-template-columns:44px repeat(8,minmax(0,1fr));gap:3px;font:11.5px/1.25 var(--f-mono)}
+.bytes .off{color:var(--muted);align-self:center;text-align:right;padding-right:6px}
+.bytes .hd{color:var(--muted);text-align:center;font-size:10.5px}
+.bytes .b{border-radius:4px;padding:7px 4px;text-align:center;border:1px solid var(--line);min-width:0;overflow-wrap:anywhere}
+.bytes .h{background:var(--hdr)} .bytes .p{background:var(--upd-bg)} .bytes .q{background:var(--clr-bg)}
+.bytes .b small{display:block;color:var(--muted);font-size:10px}
+
+/* simulator */
+.sim{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin:24px 0 32px;display:grid;gap:14px}
+.sim:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.lbl{font:italic 12px var(--f-mono);color:var(--muted)}
+.grp{display:flex;flex-direction:column;gap:6px}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.bar{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:flex-end}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:500 13px var(--f-mono);padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn{font:600 14px var(--f-mono);border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px;min-width:40px;height:40px;padding:0 12px;cursor:pointer}
+.btn:hover:not(:disabled){border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.play{background:var(--go);color:var(--go-ink);border-color:transparent;min-width:110px}
+.btn.danger{border-color:var(--abt);color:var(--abt)}
+.btn:focus-visible,.chip:focus-visible,select:focus-visible,input:focus-visible,.steps button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.val{font:600 14px var(--f-mono);min-width:56px;height:40px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:0 8px;font-variant-numeric:tabular-nums}
+select,input[type=number]{font:500 13px var(--f-mono);height:40px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);padding:0 10px}
+label.chk{font:12px var(--f-mono);color:var(--muted);display:flex;gap:6px;align-items:center;cursor:pointer}
+label.chk input{accent-color:var(--accent)}
+.timeline{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
+.timeline input{width:100%;accent-color:var(--accent);min-width:0}
+.stepno{font:600 13px var(--f-mono);white-space:nowrap;font-variant-numeric:tabular-nums}
+.phases{display:flex;flex-wrap:wrap;gap:6px;font:600 11.5px var(--f-mono);letter-spacing:.08em;text-transform:uppercase}
+.phases span{padding:5px 10px;border-radius:5px;border:1px solid var(--line);color:var(--muted)}
+.phases span.on{color:var(--bg);border-color:transparent}
+.ph-normal.on{background:var(--ink)} .ph-crash.on{background:var(--abt)} .ph-analysis.on{background:var(--ckp)}
+.ph-redo.on{background:var(--upd)} .ph-undo.on{background:var(--clr)} .ph-done.on{background:var(--com)}
+.narr{border-left:4px solid var(--pc,var(--ink));background:var(--bg);border-radius:0 10px 10px 0;padding:12px 16px;min-height:12.5em;display:grid;gap:8px;align-content:start}
+.narr h3{margin:0;font-size:1.25rem}
+.narr p{margin:0;font-size:.98rem;max-width:80ch}
+.narr .math{font:12.5px/1.75 var(--f-mono);white-space:pre-wrap;color:var(--ink);background:var(--surface);border:1px dashed var(--line);border-radius:8px;padding:8px 12px;font-variant-numeric:tabular-nums;overflow-x:auto}
+.narr .math:empty{display:none}
+.badge{font:600 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:4px;color:var(--bg);background:var(--pc,var(--ink))}
+
+.stage-scroll{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--bg);max-height:none}
+.stage-inner{font-size:calc(12.5px * var(--z,1));width:calc(100% * var(--zw,1));padding:1em;display:grid;gap:.6em;font-family:var(--f-mono);line-height:1.45}
+.zone{border-radius:.8em;padding:2.1em .9em .9em;position:relative;transition:filter .4s}
+.zone.ram{border:1.5px dashed var(--ram-line);background:var(--ram)}
+.zone.ram.down{filter:grayscale(1);opacity:.75}
+.zone.disk{border:1.5px solid var(--disk-line);background:var(--disk);display:grid;gap:.8em}
+.zone-lbl{position:absolute;top:.6em;left:.9em;font-size:.8em;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.zone-lbl b{color:var(--ink)}
+.powerline{text-align:center;font-size:.8em;color:var(--muted);letter-spacing:.06em;display:flex;align-items:center;gap:.8em}
+.powerline::before,.powerline::after{content:"";flex:1;border-top:2px dotted var(--abt)}
+.ram-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) minmax(0,1.2fr);gap:.8em}
+.disk-grid{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:.8em}
+@media (max-width:760px){.ram-grid,.disk-grid{grid-template-columns:minmax(0,1fr)}}
+.col{display:grid;gap:.8em;align-content:start;min-width:0}
+.pnl{background:var(--surface);border:1px solid var(--line);border-radius:.6em;padding:.7em;min-width:0}
+.pnl h4{margin:0 0 .15em;font-size:.82em;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);font-weight:600}
+.pnl .cap{font-size:.78em;color:var(--muted);margin-bottom:.5em;font-style:italic}
+.stmt{font-size:.95em;background:var(--ink);color:var(--bg);border-radius:.5em;padding:.6em .7em;min-height:2.6em}
+.mini{width:100%;border-collapse:collapse;font-size:.92em;font-variant-numeric:tabular-nums}
+.mini th{text-align:left;color:var(--muted);font-weight:600;padding:.2em .4em;border-bottom:1px solid var(--line)}
+.mini td{padding:.3em .4em;border-bottom:1px solid var(--line)}
+.mini tr:last-child td{border-bottom:0}
+.empty{color:var(--muted);font-style:italic}
+.st{font-size:.85em;padding:.1em .45em;border-radius:.3em}
+.st-U{background:var(--upd-bg);color:var(--upd)} .st-C{background:var(--com-bg);color:var(--com)} .st-A{background:var(--abt-bg);color:var(--abt)}
+.pages{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5em}
+.pages.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:560px){.pages.four{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.page{border:1px solid var(--line);border-radius:.4em;background:var(--bg);overflow:hidden;min-width:0}
+.pg-hdr{display:flex;justify-content:space-between;gap:.4em;background:var(--hdr);padding:.25em .5em;font-size:.8em;color:var(--muted);flex-wrap:wrap}
+.pg-hdr b{color:var(--ink)}
+.pg-slot{display:flex;justify-content:space-between;gap:.4em;padding:.5em;font-size:1.02em;flex-wrap:wrap}
+.pg-slot b{font-size:1.08em}
+.pg-ft{font-size:.75em;padding:.15em .5em .3em;color:var(--muted)}
+.page.dirty{border-color:var(--accent)}
+.page.dirty .pg-ft{color:var(--accent-ink);font-weight:600}
+.page.vacant{display:grid;place-items:center;min-height:5.4em;color:var(--muted);border-style:dashed;background:transparent;text-align:center;font-size:.9em}
+.rc{--tc:var(--end);--tb:var(--end-bg);border:1px solid var(--tc);background-color:var(--tb);border-radius:.35em;padding:.3em .5em;font-size:.88em;cursor:pointer;background-image:repeating-linear-gradient(45deg,transparent 0 4px,var(--hatch) 4px 6px)}
+.rcs{display:grid;gap:.35em}
+.rc b{color:var(--tc)}
+.rc.lost{background:transparent;border-style:dashed;border-color:var(--abt);text-decoration:line-through;color:var(--muted);cursor:default}
+.t-upd{--tc:var(--upd);--tb:var(--upd-bg)} .t-clr{--tc:var(--clr);--tb:var(--clr-bg)} .t-com{--tc:var(--com);--tb:var(--com-bg)}
+.t-abt{--tc:var(--abt);--tb:var(--abt-bg)} .t-end{--tc:var(--end);--tb:var(--end-bg)} .t-ckp{--tc:var(--ckp);--tb:var(--ckp-bg)}
+.master{display:grid;gap:.3em;font-size:.95em}
+.master b{font-size:1.3em}
+.walhead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.4em;align-items:baseline}
+.walhead .fl{font-size:.9em}
+.walhead .fl b{color:var(--accent-ink)}
+.tape{position:relative;height:2.2em;background:var(--bg);border:1px solid var(--line);border-radius:.3em;margin:1.7em 0 1.9em}
+.tb{--tc:var(--end);--tb:var(--end-bg);position:absolute;top:0;bottom:0;background:var(--tb);border-right:1px solid var(--tc);box-shadow:inset 0 3px 0 var(--tc);font-size:.72em;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--ink)}
+.tb.tail{background-image:repeating-linear-gradient(45deg,transparent 0 3px,var(--hatch) 3px 5px)}
+.tb.cur{box-shadow:inset 0 0 0 2px var(--ink)}
+.tb.lost{background:transparent;border:1px dashed var(--abt);box-shadow:none}
+.mk{position:absolute;font-size:.72em;white-space:nowrap;color:var(--muted);transform:translateX(-50%)}
+.mk.fl{top:100%;padding-top:.2em;color:var(--accent-ink);font-weight:600}
+.mk.fl::before{content:"";position:absolute;left:50%;bottom:100%;height:2.9em;border-left:2px solid var(--accent)}
+.mk.ms{bottom:100%;padding-bottom:.25em}
+.mk.cu{bottom:100%;padding-bottom:.25em;color:var(--ink);font-weight:600}
+.mk.ax{top:100%;padding-top:.2em}
+.walt-wrap{overflow-x:auto}
+.walt{width:100%;border-collapse:collapse;font-size:.9em;font-variant-numeric:tabular-nums;min-width:44em}
+.walt th{text-align:left;color:var(--muted);font-weight:600;padding:.3em .5em;border-bottom:1px solid var(--line);white-space:nowrap}
+.walt td{padding:.3em .5em;border-bottom:1px solid var(--line);white-space:nowrap}
+.walt tr{cursor:pointer}
+.walt tr:hover td{background:var(--hdr)}
+.walt td:first-child{border-left:4px solid var(--tc)}
+.walt tr.cur td{background:var(--accent-soft)}
+.walt tr.sel td{font-weight:600}
+.walt tr.chain td:first-child{box-shadow:inset 3px 0 0 var(--ink)}
+.ty{font-size:.85em;padding:.05em .4em;border-radius:.3em;background:var(--tb);color:var(--tc);font-weight:600}
+.hl{outline:2.5px solid var(--accent);outline-offset:2px;border-radius:.4em}
+tr.hl{outline-offset:-2px}
+.fly{position:fixed;left:0;top:0;z-index:60;pointer-events:none;font:600 12px var(--f-mono);padding:5px 9px;border-radius:6px;background:var(--ink);color:var(--bg);box-shadow:0 6px 18px rgba(0,0,0,.28);white-space:nowrap}
+
+.under{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:14px}
+@media (max-width:860px){.under{grid-template-columns:minmax(0,1fr)}}
+.steps{max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:6px}
+.steps ol{list-style:none;margin:0;padding:0;counter-reset:s}
+.steps li{counter-increment:s}
+.steps button{all:unset;box-sizing:border-box;display:grid;grid-template-columns:2.6em 10px 1fr;gap:8px;align-items:baseline;width:100%;padding:5px 8px;border-radius:6px;font:12.5px/1.4 var(--f-mono);cursor:pointer;color:var(--muted)}
+.steps button::before{content:counter(s);text-align:right;font-variant-numeric:tabular-nums}
+.steps button i{width:8px;height:8px;border-radius:50%;background:var(--pc);display:inline-block;align-self:center}
+.steps button:hover{background:var(--hdr)}
+.steps li.on button{background:var(--accent-soft);color:var(--ink);font-weight:600}
+.steps li.past button{color:var(--ink)}
+.insp{border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:12px;display:grid;gap:10px;min-width:0}
+.insp h4{margin:0;font:600 13px var(--f-mono)}
+.insp .cap{font:italic 12px var(--f-mono);color:var(--muted)}
+.ftab{width:100%;border-collapse:collapse;font:12px/1.45 var(--f-mono);font-variant-numeric:tabular-nums}
+.ftab td{padding:3px 6px;border-bottom:1px solid var(--line)}
+.ftab td:first-child{white-space:nowrap;color:var(--muted)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.hex{font:12px/1.7 var(--f-mono);overflow-x:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
+.hex .ho{color:var(--muted);display:inline-block;width:4.2em}
+.hex span.by{padding:1px 2px;border-radius:2px;margin-right:2px}
+.f0{background:var(--hdr)} .f1{background:var(--upd-bg)} .f2{background:var(--com-bg)} .f3{background:var(--ckp-bg)} .f4{background:var(--clr-bg)} .f5{background:var(--abt-bg)}
+.acts{border-top:1px dashed var(--line);padding-top:14px;display:grid;gap:10px}
+.acts .bar{gap:10px 12px}
+.msg{font:12.5px var(--f-mono);color:var(--accent-ink);min-height:1.2em}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font:12px var(--f-mono);color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block;border:1px solid var(--tc);background:var(--tb)}
+.legend i.h{background-image:repeating-linear-gradient(45deg,transparent 0 3px,var(--hatch) 3px 5px)}
+@media (max-width:560px){body{font-size:16px}.timeline{grid-template-columns:1fr}}
+@media (prefers-reduced-motion: reduce){.zone{transition:none}}
+</style>
+
+<style>[hidden]{display:none!important}body{margin:0}</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">Storage engine notes · durability</div>
+  <h1>Write-Ahead Log and Crash Recovery</h1>
+  <p class="dek">How a database survives a power cut: what a log record looks like byte by byte, the two rules that make it work, and the three recovery passes of ARIES, animated step by step on four bank accounts.</p>
+  <nav class="toc" aria-label="Sections">
+    <a href="#why">Why a log</a><a href="#record">Log record anatomy</a><a href="#rules">Pointers and rules</a><a href="#sim">Simulator</a><a href="#recovery">Recovery passes</a><a href="#checkpoint">Checkpoints</a><a href="#real">Real engines</a><a href="#build">Building your own</a>
+  </nav>
+</header>
+
+<!-- ============ WHY ============ -->
+<section id="why">
+<div class="prose">
+  <div class="eyebrow">The problem</div>
+  <h2>Why a database keeps a log</h2>
+  <p>A database never edits the data file directly. It reads a page into the <b>buffer pool</b> in RAM, changes it there, and writes it back later, whenever the buffer manager decides. Two policy choices decide what a crash can break.</p>
+  <p><b>Steal.</b> May the buffer manager write a page to disk while a transaction that changed it is still running? If yes, a crash can leave <i>uncommitted</i> changes on disk. Recovery then needs <b>undo</b>.</p>
+  <p><b>Force.</b> Must every page a transaction changed be written to disk before the commit returns? If not, a crash can lose <i>committed</i> changes that were still only in RAM. Recovery then needs <b>redo</b>.</p>
+</div>
+<div class="scroll"><table class="grid">
+  <thead><tr><th></th><th>Force (write pages at commit)</th><th>No force</th></tr></thead>
+  <tbody>
+  <tr><th>No steal (never write uncommitted pages)</th><td>No undo, no redo. Commit waits on many random page writes, and every uncommitted page stays pinned in RAM.</td><td>Redo only.</td></tr>
+  <tr><th>Steal</th><td>Undo only.</td><td class="win"><b>Undo and redo.</b> Fastest at run time. This is what almost every disk-based engine picks.</td></tr>
+  </tbody></table></div>
+<div class="prose">
+  <p>The write-ahead log makes steal plus no-force safe. Every change is first described in a <b>log record</b> that holds enough to redo it (the new value) and to undo it (the old value). The log is append-only, so writing it is sequential. A commit costs one sequential write and an <code>fsync</code> of the log, instead of random writes to every page the transaction touched.</p>
+</div>
+</section>
+
+<!-- ============ RECORD ============ -->
+<section id="record">
+<div class="prose">
+  <div class="eyebrow">WAL structure</div>
+  <h2>Anatomy of a log record</h2>
+  <p>The log is one long file of variable-length records. Each record starts with a fixed header, followed by a payload whose shape depends on the record type. This page uses a small, realistic format: a 32-byte header plus a 24-byte payload for page changes, all integers little-endian.</p>
+  <p>A record's <b>LSN</b> (log sequence number) is simply its byte offset in the log file. The first record is at LSN 0; a 56-byte record at LSN 0 means the next one starts at LSN 56. PostgreSQL and InnoDB number their logs the same way, as byte positions.</p>
+</div>
+<div class="layouts">
+  <div class="layout">
+    <h4>UPDATE record · 56 bytes</h4>
+    <div class="bytes" aria-label="UPDATE record byte layout">
+      <span></span><span class="hd">+0</span><span class="hd">+1</span><span class="hd">+2</span><span class="hd">+3</span><span class="hd">+4</span><span class="hd">+5</span><span class="hd">+6</span><span class="hd">+7</span>
+      <span class="off">0</span><span class="b h" style="grid-column:span 4">total_len<small>u32 = 56</small></span><span class="b h">type<small>u8</small></span><span class="b h">flags</span><span class="b h" style="grid-column:span 2">reserved</span>
+      <span class="off">8</span><span class="b h" style="grid-column:span 4">xid<small>transaction id</small></span><span class="b h" style="grid-column:span 4">crc32<small>whole record</small></span>
+      <span class="off">16</span><span class="b h" style="grid-column:span 8">LSN<small>u64 · this record's byte offset</small></span>
+      <span class="off">24</span><span class="b h" style="grid-column:span 8">prevLSN<small>u64 · same transaction's previous record</small></span>
+      <span class="off">32</span><span class="b p" style="grid-column:span 4">pageId</span><span class="b p" style="grid-column:span 2">slot</span><span class="b p" style="grid-column:span 2">length</span>
+      <span class="off">40</span><span class="b p" style="grid-column:span 8">before image<small>old value · used by undo</small></span>
+      <span class="off">48</span><span class="b p" style="grid-column:span 8">after image<small>new value · used by redo</small></span>
+    </div>
+  </div>
+  <div class="layout">
+    <h4>CLR (compensation) record · 56 bytes</h4>
+    <div class="bytes" aria-label="CLR record byte layout">
+      <span></span><span class="hd">+0</span><span class="hd">+1</span><span class="hd">+2</span><span class="hd">+3</span><span class="hd">+4</span><span class="hd">+5</span><span class="hd">+6</span><span class="hd">+7</span>
+      <span class="off">0</span><span class="b h" style="grid-column:span 8">same 32-byte header<small>len · type · xid · crc · LSN · prevLSN</small></span>
+      <span class="off">32</span><span class="b q" style="grid-column:span 4">pageId</span><span class="b q" style="grid-column:span 2">slot</span><span class="b q" style="grid-column:span 2">length</span>
+      <span class="off">40</span><span class="b q" style="grid-column:span 8">restored value<small>redo-only: no before image</small></span>
+      <span class="off">48</span><span class="b q" style="grid-column:span 8">undoNextLSN<small>next record of this txn still to undo</small></span>
+    </div>
+    <h4 style="margin-top:16px">COMMIT · ABORT · END · BEGIN_CKPT · 32 bytes</h4>
+    <div class="bytes">
+      <span class="off">0</span><span class="b h" style="grid-column:span 8">header only, no payload</span>
+    </div>
+    <h4 style="margin-top:16px">END_CKPT · 36 + 16 per transaction + 12 per dirty page</h4>
+    <div class="bytes">
+      <span class="off">0</span><span class="b h" style="grid-column:span 8">header</span>
+      <span class="off">32</span><span class="b p" style="grid-column:span 2">#txns</span><span class="b p" style="grid-column:span 2">#pages</span><span class="b p" style="grid-column:span 4">then entries…</span>
+    </div>
+  </div>
+</div>
+<div class="prose">
+  <p>Worked example from the crash scenario below. Each LSN is the previous LSN plus the previous record's size:</p>
+</div>
+<pre class="code">LSN   0  T1 UPDATE P1 Ana ₹500→₹400   56 bytes   next =   0 + 56 = <b>56</b>
+LSN  56  T1 UPDATE P2 Raj ₹300→₹400   56 bytes   next =  56 + 56 = <b>112</b>   prevLSN = 0
+LSN 112  T2 UPDATE P3 Mia ₹200→₹250   56 bytes   next = 112 + 56 = <b>168</b>   prevLSN = none
+LSN 168  T1 COMMIT                     32 bytes   next = 168 + 32 = <b>200</b>   prevLSN = 56
+LSN 200  T1 END                        32 bytes   next = 200 + 32 = <b>232</b>
+LSN 232  BEGIN_CKPT                    32 bytes   next = <b>264</b>
+LSN 264  END_CKPT  1 txn, 3 pages      32 + 4 + 16×1 + 12×3 = 88 bytes   next = <b>352</b></pre>
+<div class="prose">
+  <p>The <b>prevLSN</b> field links each transaction's records into a backward chain through the log: T1's COMMIT points to 56, which points to 0. Undo walks exactly this chain. The <b>crc32</b> lets recovery find where the log really ends: after a crash the last record may be half-written, and the first record whose checksum fails marks the end. In the simulator you can click any record to see its real bytes, with the checksum computed.</p>
+</div>
+</section>
+
+<!-- ============ RULES ============ -->
+<section id="rules">
+<div class="prose">
+  <div class="eyebrow">Bookkeeping</div>
+  <h2>Six pointers and two rules</h2>
+  <p>Recovery works by comparing a handful of LSNs. Every one of them appears in the simulator.</p>
+</div>
+<dl class="terms">
+  <dt>pageLSN</dt><dd>Stored in each page's header, on disk and in memory: the LSN of the newest log record applied to that page. It answers "does this page already contain change X?"</dd>
+  <dt>flushedLSN</dt><dd>The log is durable on disk up to this byte. Everything after it is still in the log buffer in RAM.</dd>
+  <dt>prevLSN</dt><dd>In each record: the same transaction's previous record. Forms the undo chain.</dd>
+  <dt>lastLSN</dt><dd>In the <b>transaction table</b> (RAM): each active transaction's newest record, the head of its chain.</dd>
+  <dt>recLSN</dt><dd>In the <b>dirty page table</b> (RAM): the first record that made the page dirty since it was last written. Changes older than this are already on disk.</dd>
+  <dt>master record</dt><dd>A small fixed spot on disk holding the LSN where the latest checkpoint begins. Recovery reads it first.</dd>
+</dl>
+<div class="rules">
+  <div class="rule"><div class="k">Rule 1 · write-ahead</div><div class="f">before writing page P:<br>flushedLSN &gt; pageLSN(P)</div><p>The log record describing a change must be on disk before the changed page is. Otherwise a page with an uncommitted change could reach disk with no before image anywhere to undo it.</p></div>
+  <div class="rule"><div class="k">Rule 2 · commit</div><div class="f">commit returns only after<br>COMMIT record is durable</div><p>The transaction's pages can stay in RAM, but its COMMIT record and everything before it must be fsynced. Then redo can always rebuild the pages.</p></div>
+</div>
+</section>
+
+<!-- ============ SIM ============ -->
+<section id="sim">
+<div class="prose">
+  <div class="eyebrow">The simulator</div>
+  <h2>Watch it run</h2>
+  <p>Four accounts, one per page: Ana ₹500 on P1, Raj ₹300 on P2, Mia ₹200 on P3 and Leo ₹100 on P4. Pick a scenario and press <b>Play</b>, or step through with the arrow buttons. Each step explains what happened and shows the comparison it made.</p>
+  <ul>
+    <li><b>Pause</b> any time, drag the <b>timeline</b> to any step, or click a step in the list. Use speed 1 for 16 seconds per step, and zoom to enlarge the machine.</li>
+    <li>Turn on <b>Pause at each phase</b> to stop when the run moves from normal operation to crash, analysis, redo and undo.</li>
+    <li><b>Click any log record</b> to see its bytes and its transaction's prevLSN chain.</li>
+    <li>Use the <b>action bar</b> at the bottom to act at the current step: update a balance, commit, abort, flush, checkpoint, crash or recover. Scrub to the middle of a recovery and press Crash to see recovery survive a crash of its own. Acting replaces the steps after the current one.</li>
+  </ul>
+</div>
+
+<div class="sim" id="wal-sim" tabindex="-1">
+  <div class="grp"><span class="lbl">Scenario</span><div class="chips" id="scen"></div></div>
+  <div class="bar">
+    <div class="grp"><span class="lbl">Step</span><div class="row">
+      <button class="btn" id="b-first" aria-label="First step">⏮</button>
+      <button class="btn" id="b-prev" aria-label="Previous step">◀</button>
+      <button class="btn play" id="b-play">▶ Play</button>
+      <button class="btn" id="b-next" aria-label="Next step">▶|</button>
+      <button class="btn" id="b-last" aria-label="Last step">⏭</button></div></div>
+    <div class="grp"><span class="lbl">Speed</span><div class="row"><button class="btn" id="s-minus" aria-label="Slower">−</button><span class="val" id="s-val">3</span><button class="btn" id="s-plus" aria-label="Faster">+</button><span class="lbl" id="s-sec"></span></div></div>
+    <div class="grp"><span class="lbl">Zoom</span><div class="row"><button class="btn" id="z-minus" aria-label="Zoom out">−</button><span class="val" id="z-val">1×</span><button class="btn" id="z-plus" aria-label="Zoom in">+</button></div></div>
+    <div class="grp"><label class="chk"><input type="checkbox" id="stop-phase"> Pause at each phase</label></div>
+  </div>
+  <div class="timeline"><span class="lbl">Timeline</span><input type="range" id="tl" min="0" max="0" value="0" aria-label="Step timeline"><span class="stepno" id="stepno"></span></div>
+  <div class="phases" id="phases"></div>
+  <div class="narr" id="narr" aria-live="polite"></div>
+  <div class="stage-scroll" id="stage-scroll"><div class="stage-inner" id="stage"></div></div>
+  <div class="legend">
+    <span class="t-upd"><i></i>UPDATE</span><span class="t-clr"><i></i>CLR</span><span class="t-com"><i></i>COMMIT</span><span class="t-abt"><i></i>ABORT</span><span class="t-end"><i></i>END</span><span class="t-ckp"><i></i>checkpoint</span>
+    <span class="t-end"><i class="h"></i>hatched = still in RAM (log buffer)</span><span>orange outline = touched in this step</span>
+  </div>
+  <div class="under">
+    <div class="grp"><span class="lbl">All steps</span><div class="steps" id="steps"></div></div>
+    <div class="grp"><span class="lbl">Record inspector</span><div class="insp" id="insp"></div></div>
+  </div>
+  <div class="acts">
+    <span class="lbl">Act at the current step</span>
+    <div class="bar">
+      <div class="grp"><span class="lbl">Transaction</span><select id="a-x" aria-label="Transaction"></select></div>
+      <div class="grp"><span class="lbl">Page (account)</span><select id="a-p" aria-label="Page"><option value="P1">P1 · Ana</option><option value="P2">P2 · Raj</option><option value="P3">P3 · Mia</option><option value="P4">P4 · Leo</option></select></div>
+      <div class="grp"><span class="lbl">New balance ₹</span><input type="number" id="a-v" value="450" min="0" max="999999" style="width:110px" aria-label="New balance"></div>
+      <div class="row">
+        <button class="btn" id="a-upd">Update</button><button class="btn" id="a-com">Commit</button><button class="btn" id="a-abt">Abort</button>
+        <button class="btn" id="a-fp">Flush page</button><button class="btn" id="a-fl">Flush log</button><button class="btn" id="a-ck">Checkpoint</button>
+        <button class="btn danger" id="a-cr">⚡ Crash</button><button class="btn" id="a-rec">Recover</button>
+      </div>
+    </div>
+    <div class="msg" id="a-msg"></div>
+  </div>
+</div>
+</section>
+
+<!-- ============ RECOVERY ============ -->
+<section id="recovery">
+<div class="prose">
+  <div class="eyebrow">ARIES</div>
+  <h2>Recovery in three passes</h2>
+  <p>After a crash, RAM is empty. The disk holds a data file in an unknown mix of states (some pages too old, some holding uncommitted changes) and a log that ends somewhere. ARIES, the algorithm from IBM Research (Mohan et al., 1992) that most engines follow, repairs this in three passes.</p>
+  <h3>1. Analysis: who was running, and which pages might be stale?</h3>
+  <p>Start at the checkpoint named by the master record and scan forward to the end of the log. Rebuild the transaction table and the dirty page table as they were at the moment of the crash.</p>
+</div>
+<pre class="code">TT, DPT ← empty
+for rec in log, from master.checkpointLSN to the end:
+    if rec is END_CKPT:  add its saved TT and DPT entries
+    if rec belongs to a transaction x:
+        if rec is END:   remove x from TT
+        else:            TT[x].lastLSN = rec.LSN;  if COMMIT: TT[x].status = committed
+    if rec changes page P and P not in DPT:
+        DPT[P] = rec.LSN                       <span class="c">// first change that may be missing</span>
+for each committed x still in TT:  write END, remove x
+<b>losers</b> = every x left in TT              <span class="c">// were running at the crash</span></pre>
+<div class="prose">
+  <h3>2. Redo: repeat history</h3>
+  <p>Scan forward from the smallest recLSN in the dirty page table and reapply every change that did not reach disk, <i>including changes of losers</i>. After redo, memory looks exactly as it did the instant before the crash. Reapplying loser changes sounds wasteful, but it means the page state is always one the log can explain, so undo can work on it safely.</p>
+</div>
+<pre class="code">for rec from min(DPT.recLSN) to the end of the log:
+    if rec is UPDATE or CLR on page P:
+        if P not in DPT:          skip        <span class="c">// page was written after this change</span>
+        if rec.LSN &lt; DPT[P]:      skip        <span class="c">// change is older than the page's dirtiness</span>
+        read P;  if pageLSN(P) ≥ rec.LSN: skip   <span class="c">// <b>the page already has it</b></span>
+        apply rec.after to P;  pageLSN(P) = rec.LSN</pre>
+<div class="prose">
+  <p>The first two checks avoid reading pages from disk at all. The third, the <b>pageLSN test</b>, is what makes redo safe to repeat any number of times: a change is applied only if the page is older than the change. Real records are often not idempotent ("insert a row into slot 4"), so this test is required, not an optimisation.</p>
+  <h3>3. Undo: roll back the losers, newest first</h3>
+</div>
+<pre class="code">ToUndo = { lastLSN of every loser }
+while ToUndo is not empty:
+    L = max(ToUndo);  rec = log[L]                  <span class="c">// one backward sweep</span>
+    if rec is UPDATE:  write CLR(page, rec.before, undoNext = rec.prevLSN); apply it
+                       next = rec.prevLSN
+    if rec is CLR:     next = rec.undoNextLSN          <span class="c">// already undone earlier</span>
+    if rec is ABORT:   next = rec.prevLSN
+    if next is none:   write END for rec's transaction
+    else:              replace L by next in ToUndo</pre>
+<div class="prose">
+  <p>Every undo action writes a <b>CLR</b> (compensation log record). A CLR is redo-only: it carries the restored value and <b>undoNextLSN</b>, the next record of that transaction that still needs undoing. If the system crashes again in the middle of undo, the next recovery redoes the CLRs (so their work is back) and, reaching a CLR during undo, jumps straight to its undoNextLSN. No change is ever undone twice, and the total undo work is bounded even if the system crashes over and over. Scenario 3 in the simulator shows exactly this.</p>
+  <p>Taking the largest LSN each time means the undo pass reads the log in one backward sweep, even when several losers are interleaved.</p>
+</div>
+</section>
+
+<!-- ============ CHECKPOINT ============ -->
+<section id="checkpoint">
+<div class="prose">
+  <div class="eyebrow">Bounding the work</div>
+  <h2>Checkpoints</h2>
+  <p>Without checkpoints, analysis would scan the log from byte 0. A <b>fuzzy checkpoint</b> fixes that cheaply: it writes BEGIN_CKPT, then an END_CKPT holding copies of the transaction table and dirty page table, forces the log, and updates the master record. It does not stop transactions and does not write any data pages.</p>
+  <p>Two LSNs then bound recovery. Analysis starts at the checkpoint. Redo starts at the smallest recLSN in the dirty page table, which can be earlier than the checkpoint. That is why databases also run a background writer that keeps flushing old dirty pages: each flush removes a page from the dirty page table, moves the redo start forward, and lets the log before it be recycled.</p>
+  <p>The log can be truncated before min(redo start, first LSN of the oldest active transaction). Anything older is no longer needed for either redo or undo.</p>
+</div>
+</section>
+
+<!-- ============ REAL ============ -->
+<section id="real">
+<div class="prose">
+  <div class="eyebrow">In practice</div>
+  <h2>How real engines do it</h2>
+  <p><b>PostgreSQL</b> writes WAL records with a 24-byte header (total length, transaction id, pointer to the previous record, resource manager id, CRC) into 16 MB segment files. Its recovery is redo only. It needs no undo pass because of MVCC: rows written by a transaction that never committed stay on disk but are invisible, since the commit log (<code>pg_xact</code>) does not mark it committed. To protect against torn pages, the first change to a page after each checkpoint logs a full image of the page (<code>full_page_writes</code>).</p>
+  <p><b>MySQL InnoDB</b> splits the job in two. The redo log records physical changes to pages, numbered by a byte-based LSN. Undo information lives in undo tablespaces, and changes to those undo pages are themselves redo-logged. Recovery replays the redo log, then rolls back incomplete transactions using undo, partly in the background. A doublewrite buffer guards against torn page writes. With the default <code>innodb_flush_log_at_trx_commit=1</code>, every commit forces the log.</p>
+  <p><b>SQLite in WAL mode</b> appends whole page images as frames to a separate <code>-wal</code> file. A frame that carries the database size marks a commit, and cumulative checksums mark where valid frames end. Pages reach the main database file only when a checkpoint copies committed frames back. Uncommitted pages never touch the main file (no steal), so SQLite needs no undo either.</p>
+  <p>The approach in this simulator, with physical before and after images, prevLSN chains and CLRs, is classic ARIES. It is closest to what IBM Db2, SQL Server and InnoDB do.</p>
+</div>
+</section>
+
+<!-- ============ BUILD ============ -->
+<section id="build">
+<div class="prose">
+  <div class="eyebrow">For your storage engine</div>
+  <h2>Building it into your own engine</h2>
+  <ol>
+    <li><b>Put pageLSN in the page header.</b> In a slotted page, it sits next to the slot count and free-space pointer. Update it on every change, under the page latch.</li>
+    <li><b>Log before you modify.</b> Build the record with before and after images, append it to the log buffer to get its LSN, then change the page and stamp that LSN.</li>
+    <li><b>Enforce the WAL rule in the buffer manager.</b> Before evicting or writing a dirty page, flush the log up to its pageLSN.</li>
+    <li><b>Force at commit, in groups.</b> One log-writer thread can batch many transactions' COMMIT records into a single fsync.</li>
+    <li><b>Checksum every record.</b> Recovery must find a half-written tail and stop there.</li>
+    <li><b>Handle B+ tree splits as their own atomic action.</b> A split changes several pages. If the transaction that caused it aborts, undo should not unsplit the tree, because other transactions may already be using the new pages. ARIES logs splits as a "nested top action" that commits on its own.</li>
+    <li><b>Guard against torn pages.</b> A 16 KB page write can be interrupted halfway. Use page checksums plus full page images in the log (as PostgreSQL does) or a doublewrite area (as InnoDB does).</li>
+    <li><b>Test by crashing.</b> Inject a crash after every log append and every page write, run recovery, and check that committed data is present and uncommitted data is gone. Then crash during recovery and check again.</li>
+  </ol>
+  <h3>Further reading</h3>
+  <ul>
+    <li><a href="https://dl.acm.org/doi/10.1145/128765.128770">Mohan et al., ARIES: A Transaction Recovery Method…, ACM TODS 1992</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/wal-internals.html">PostgreSQL documentation: WAL internals</a></li>
+    <li><a href="https://dev.mysql.com/doc/refman/8.0/en/innodb-redo-log.html">MySQL documentation: InnoDB redo log</a></li>
+    <li><a href="https://www.sqlite.org/wal.html">SQLite: write-ahead logging</a></li>
+  </ul>
+</div>
+</section>
+</div>
+
+<script>
+/*ENGINE-START*/
+"use strict";
+const PAGES = ["P1", "P2", "P3", "P4"], OWNER = { P1: "Ana", P2: "Raj", P3: "Mia", P4: "Leo" }, INIT = { P1: 500, P2: 300, P3: 200, P4: 100 };
+const SIZE = { UPDATE: 56, CLR: 56, COMMIT: 32, ABORT: 32, END: 32, CKPT_BEGIN: 32 };
+const CODE = { UPDATE: 1, CLR: 2, COMMIT: 3, ABORT: 4, END: 5, CKPT_BEGIN: 6, CKPT_END: 7 };
+const TNAME = { UPDATE: "UPDATE", CLR: "CLR", COMMIT: "COMMIT", ABORT: "ABORT", END: "END", CKPT_BEGIN: "BEGIN_CKPT", CKPT_END: "END_CKPT" };
+const TCLS = { UPDATE: "upd", CLR: "clr", COMMIT: "com", ABORT: "abt", END: "end", CKPT_BEGIN: "ckp", CKPT_END: "ckp" };
+const STATUS = { U: "active", C: "committed", A: "aborting" };
+const money = v => "₹" + v;
+const L = l => l == null ? "—" : String(l);
+const clone = o => JSON.parse(JSON.stringify(o));
+const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
+
+function fresh() {
+  const disk = {}; PAGES.forEach(p => disk[p] = { val: INIT[p], plsn: null });
+  return { mode: "up", next: 0, log: [], flushed: 0, disk, master: null, buf: {}, tt: {}, dpt: {}, locks: {}, rec: null, lost: [], crashes: 0, xn: 1, cursor: null, stmt: "" };
+}
+let OUT = [];
+function emit(S, o) { OUT.push(Object.assign({ anims: [], focus: [], math: [], body: "" }, o, { phase: o.phase || phaseNow(S), S: clone(S) })); }
+function ttStr(tt) { const k = Object.keys(tt); return k.length ? "{ " + k.map(x => `${x}: ${STATUS[tt[x].status]}, lastLSN ${L(tt[x].last)}`).join(" · ") + " }" : "{ }"; }
+function dptStr(d) { const k = Object.keys(d).sort(); return k.length ? "{ " + k.map(p => `${p}: ${d[p]}`).join(", ") + " }" : "{ }"; }
+function recAt(S, l) { return l == null ? null : (S.log.find(r => r.lsn === l) || null); }
+function append(S, r) { r.lsn = S.next; if (!r.size) r.size = SIZE[r.type]; S.next += r.size; S.log.push(r); return r; }
+const isDur = (S, r) => r.lsn + r.size <= S.flushed;
+const tailOf = S => S.log.filter(r => !isDur(S, r));
+function desc(r) {
+  switch (r.type) {
+    case "UPDATE": return `${r.xid} UPDATE ${r.page} ${money(r.before)}→${money(r.after)}`;
+    case "CLR": return `${r.xid} CLR ${r.page} ←${money(r.after)} · undoNext ${L(r.undoNext)}`;
+    case "CKPT_BEGIN": return "BEGIN_CKPT";
+    case "CKPT_END": return `END_CKPT · TT{${Object.keys(r.tt).join(",")}} DPT{${Object.keys(r.dpt).sort().join(",")}}`;
+    default: return `${r.xid} ${r.type}`;
+  }
+}
+function ensureBuf(S, p) { if (S.buf[p]) return false; S.buf[p] = { val: S.disk[p].val, plsn: S.disk[p].plsn, dirty: false }; return true; }
+function touchTT(S, x) { if (!S.tt[x]) { S.tt[x] = { status: "U", last: null }; S.xn = Math.max(S.xn, +x.slice(1) + 1); return true; } return false; }
+function releaseLocks(S, x) { for (const p in S.locks) if (S.locks[p] === x) delete S.locks[p]; }
+const fetchAnim = p => ({ from: "disk-" + p, to: "buf-" + p, label: p + " → RAM" });
+
+/* ---------------- normal operation ---------------- */
+function opUpdate(S, op) {
+  const { x, p, v } = op;
+  if (ensureBuf(S, p)) emit(S, {
+    title: `Read ${p} into the buffer pool`,
+    body: `${x} wants to change ${OWNER[p]}'s balance on page ${p}, but ${p} is not in memory. The buffer manager copies it from the data file. The in-memory copy keeps the pageLSN stored in the page header on disk (${L(S.disk[p].plsn)}).`,
+    math: [`buffer pool ← disk ${p}: ${OWNER[p]} = ${money(S.disk[p].val)}, pageLSN ${L(S.disk[p].plsn)}`, `the copy is clean: memory and disk agree`],
+    anims: [fetchAnim(p)], focus: ["buf-" + p]
+  });
+  const b = S.buf[p], isNew = touchTT(S, x), prev = S.tt[x].last, before = b.val;
+  const r = append(S, { type: "UPDATE", xid: x, prev, page: p, before, after: v });
+  S.tt[x].last = r.lsn; S.locks[p] = x;
+  emit(S, {
+    title: `${x} logs the change first: UPDATE at LSN ${r.lsn}`,
+    body: (op.note ? op.note + " " : "") + `Before ${p} is touched, the change is written as an UPDATE record into the log buffer in RAM. It holds the before image (${money(before)}), which makes undo possible, and the after image (${money(v)}), which makes redo possible. Nothing is on disk yet. ` +
+      (isNew ? `${x} has no earlier record, so it enters the transaction table now and its prevLSN is empty.` : `prevLSN ${prev} links it to ${x}'s previous record, extending the transaction's backward chain.`),
+    math: [`LSN = next free byte of the log = ${r.lsn}`, `size = 32 header + 24 payload = 56 bytes → next LSN = ${r.lsn} + 56 = ${S.next}`, `prevLSN = ${L(prev)}`, `transaction table: ${x}.lastLSN = ${r.lsn}`],
+    anims: [{ from: "sql", to: "tail-" + r.lsn, label: "UPDATE @" + r.lsn }], focus: ["tail-" + r.lsn, "tt-" + x]
+  });
+  b.val = v; b.plsn = r.lsn; b.dirty = true;
+  const dNew = S.dpt[p] == null; if (dNew) S.dpt[p] = r.lsn;
+  emit(S, {
+    title: `Change ${p} in memory and stamp pageLSN = ${r.lsn}`,
+    body: `${OWNER[p]} goes from ${money(before)} to ${money(v)} in the buffer pool only. The page is now dirty: memory and disk disagree. pageLSN = ${r.lsn} records the newest log record this page reflects. ` +
+      (dNew ? `${p} enters the dirty page table with recLSN ${r.lsn}, the first change to ${p} that is not on disk.` : `${p} is already in the dirty page table, so its recLSN stays ${S.dpt[p]}.`),
+    math: [`${p}: ${money(before)} → ${money(v)}`, `pageLSN(${p}) = ${r.lsn}`, `dirty page table: ${p}.recLSN = ${S.dpt[p]}`, `log durable up to byte ${S.flushed}; record ${r.lsn} is not durable yet`],
+    anims: [{ from: "tail-" + r.lsn, to: "buf-" + p, label: `${money(before)} → ${money(v)}` }], focus: ["buf-" + p, "dpt-" + p]
+  });
+}
+function forceLog(S, title, body, extra) {
+  const t = tailOf(S); if (!t.length) return false;
+  const a = S.flushed, z = S.next; S.flushed = z;
+  emit(S, {
+    title, body,
+    math: [`write log bytes [${a}, ${z}) = ${z - a} bytes · ${plural(t.length, "record")}: ${t.map(r => r.lsn).join(", ")}`, `fsync() returns only when those bytes are on stable storage`, `flushedLSN: ${a} → ${z}`].concat(extra || []),
+    anims: t.map(r => ({ from: "tail-" + r.lsn, to: "wal-" + r.lsn, label: `${TNAME[r.type]} @${r.lsn}` })), focus: t.map(r => "wal-" + r.lsn).concat(["flushed"])
+  });
+  return true;
+}
+function opCommit(S, op) {
+  const x = op.x, t = S.tt[x];
+  const c = append(S, { type: "COMMIT", xid: x, prev: t.last }); t.last = c.lsn; t.status = "C";
+  emit(S, {
+    title: `${x} asks to commit: append COMMIT at LSN ${c.lsn}`,
+    body: `A COMMIT record is 32 bytes, a header with no payload. Appending it to the log buffer is not enough: until it is on disk, a crash would make ${x} look unfinished and recovery would roll it back.`,
+    math: [`LSN ${c.lsn}, 32 bytes → next LSN ${S.next}`, `prevLSN = ${L(c.prev)}`, `transaction table: ${x} status = committed (not yet durable)`],
+    anims: [{ from: "sql", to: "tail-" + c.lsn, label: "COMMIT @" + c.lsn }], focus: ["tail-" + c.lsn, "tt-" + x]
+  });
+  forceLog(S, `Force the log to disk through the COMMIT record`,
+    `Rule 2: ${x} is committed only once its COMMIT record is durable. The log writer writes the whole tail in one sequential write and calls fsync. Records of other transactions in the tail ride along for free; batching many commits into one fsync is called group commit. Only now does the client receive "COMMIT OK". ${x}'s changed pages are still only in RAM, which is fine: the log can redo them.`);
+  const e = append(S, { type: "END", xid: x, prev: c.lsn }); delete S.tt[x]; releaseLocks(S, x);
+  emit(S, {
+    title: `${x} is finished: append END, drop it from the transaction table`,
+    body: `END says nothing more will happen for ${x}. It is not forced: if it is lost in a crash, recovery sees the COMMIT and writes the END itself. ${x}'s locks are released.`,
+    math: [`LSN ${e.lsn}, 32 bytes → next LSN ${S.next}`, `transaction table: ${ttStr(S.tt)}`],
+    anims: [{ from: "sql", to: "tail-" + e.lsn, label: "END @" + e.lsn }], focus: ["tail-" + e.lsn]
+  });
+}
+function writeCLR(S, r) {
+  const fetched = ensureBuf(S, r.page), b = S.buf[r.page], old = b.val, x = r.xid;
+  const c = append(S, { type: "CLR", xid: x, prev: S.tt[x].last, page: r.page, after: r.before, undoNext: r.prev, undoes: r.lsn });
+  b.val = r.before; b.plsn = c.lsn; b.dirty = true;
+  if (S.dpt[r.page] == null) S.dpt[r.page] = c.lsn;
+  S.tt[x].last = c.lsn;
+  return { c, fetched, old };
+}
+function clrAnims(r, c, fetched) {
+  const a = []; if (fetched) a.push(fetchAnim(r.page));
+  a.push({ from: "wal-" + r.lsn, to: "tail-" + c.lsn, label: `undo @${r.lsn}` });
+  a.push({ from: "tail-" + c.lsn, to: "buf-" + r.page, label: "← " + money(r.before) });
+  return a;
+}
+function opAbort(S, op) {
+  const x = op.x, t = S.tt[x];
+  const a = append(S, { type: "ABORT", xid: x, prev: t.last }); t.last = a.lsn; t.status = "A";
+  emit(S, {
+    title: `${x} rolls back: append ABORT at LSN ${a.lsn}`,
+    body: `${x} is cancelled (the application called ROLLBACK). The database undoes its changes newest first by walking the prevLSN chain backwards from ${L(a.prev)}.`,
+    math: [`LSN ${a.lsn}, 32 bytes, prevLSN ${L(a.prev)}`, `undo chain starts at ${L(a.prev)}`],
+    anims: [{ from: "sql", to: "tail-" + a.lsn, label: "ABORT @" + a.lsn }], focus: ["tail-" + a.lsn, "tt-" + x]
+  });
+  let l = a.prev, guard = 0;
+  while (l != null && guard++ < 100) {
+    const r = recAt(S, l); if (!r) break;
+    if (r.type === "UPDATE") {
+      const { c, fetched } = writeCLR(S, r);
+      emit(S, {
+        title: `Undo LSN ${r.lsn}: write CLR at ${c.lsn}, restore ${r.page} to ${money(r.before)}`,
+        body: `Undo is itself a change to a page, so it is logged too. The compensation log record (CLR) carries the restored value and undoNextLSN = ${L(r.prev)}, the next record of ${x} still to undo. CLRs are redo-only and are never undone themselves, so a rollback can never loop.`,
+        math: [`record ${r.lsn}: ${r.page} ${money(r.before)} → ${money(r.after)}`, `CLR ${c.lsn}: ${r.page} ← ${money(r.before)}, undoNextLSN = ${L(r.prev)}, prevLSN = ${L(c.prev)}`, `pageLSN(${r.page}) = ${c.lsn}`, `next to undo: ${r.prev == null ? "none, the chain is finished" : r.prev}`],
+        anims: clrAnims(r, c, fetched), focus: ["tail-" + c.lsn, "buf-" + r.page]
+      });
+      l = r.prev;
+    } else if (r.type === "CLR") l = r.undoNext; else l = r.prev;
+  }
+  const e = append(S, { type: "END", xid: x, prev: t.last }); delete S.tt[x]; releaseLocks(S, x);
+  emit(S, {
+    title: `${x} rollback complete: append END`,
+    body: `Every change ${x} made is reversed in the buffer pool. The pages are dirty again and will reach disk later like any other change. If a page with ${x}'s old change was already written to disk, the CLR in the log guarantees the reversal survives a crash.`,
+    math: [`LSN ${e.lsn}, prevLSN ${L(e.prev)}`, `transaction table: ${ttStr(S.tt)}`],
+    anims: [{ from: "sql", to: "tail-" + e.lsn, label: "END @" + e.lsn }], focus: ["tail-" + e.lsn]
+  });
+}
+function opFlushPage(S, op) {
+  const p = op.p, b = S.buf[p];
+  if (!b || !b.dirty) { emit(S, { phase: phaseNow(S), title: `${p} is clean or not cached: nothing to write`, body: `Only dirty pages need writing. ${p} on disk already matches memory.`, focus: ["disk-" + p] }); return; }
+  const ok = b.plsn == null || S.flushed > b.plsn;
+  emit(S, {
+    phase: phaseNow(S),
+    title: `Buffer manager wants to write ${p}: check the WAL rule`,
+    body: ok ? `The record that last changed ${p} is already on disk, so the page may be written.` : `Record ${b.plsn}, which last changed ${p}, is still in the log buffer. If the page went to disk first and the power failed, the disk would hold a change with no log record to undo or explain it. So the log must be forced first.`,
+    math: [`pageLSN(${p}) = ${b.plsn}`, `flushedLSN = ${S.flushed}`, ok ? `${S.flushed} > ${b.plsn} ✓ the record is durable` : `${S.flushed} ≤ ${b.plsn} ✗ record ${b.plsn} is not durable → force the log first`],
+    focus: ["buf-" + p, "flushed"]
+  });
+  if (!ok) forceLog(S, `WAL rule: force the log through LSN ${b.plsn} before writing ${p}`, `The log writer flushes the whole tail, which includes record ${b.plsn}. Now the page write may follow.`);
+  const old = S.disk[p].val, owner = S.locks[p], steal = owner && S.tt[owner] && S.tt[owner].status !== "C";
+  S.disk[p] = { val: b.val, plsn: b.plsn }; b.dirty = false; delete S.dpt[p];
+  emit(S, {
+    phase: phaseNow(S),
+    title: `Write ${p} to the data file`,
+    body: `The disk copy of ${p} now holds ${money(b.val)} with pageLSN ${b.plsn} in its header. ${p} is clean and leaves the dirty page table. No log record is written for a page write.` +
+      (steal ? ` This page contains ${owner}'s uncommitted change. Writing it anyway is a "steal". It is safe because the UPDATE record with the before image is already durable.` : ""),
+    math: [`disk ${p}: ${money(old)} → ${money(b.val)}`, `pageLSN on disk = ${b.plsn}`, `dirty page table: remove ${p} → ${dptStr(S.dpt)}`],
+    anims: [{ from: "buf-" + p, to: "disk-" + p, label: `${p} → disk` }], focus: ["disk-" + p]
+  });
+}
+function opFlushLog(S, op) {
+  if (!forceLog(S, `Flush the log buffer to disk`, (op.note ? op.note + " " : "") + `The log writer also flushes in the background, for example when the log buffer fills up or every few milliseconds, so records usually reach disk before anyone waits for them.`))
+    emit(S, { phase: phaseNow(S), title: "Log buffer is empty: nothing to flush", body: `Every record is already durable (flushedLSN = ${S.flushed}).`, focus: ["flushed"] });
+}
+function opCheckpoint(S) {
+  const b = append(S, { type: "CKPT_BEGIN" });
+  emit(S, {
+    title: `Checkpoint: append BEGIN_CKPT at LSN ${b.lsn}`,
+    body: `A fuzzy checkpoint does not pause transactions and does not write data pages. It records where recovery can start, so recovery never has to scan the log from byte 0.`,
+    math: [`LSN ${b.lsn}, 32 bytes → next LSN ${S.next}`],
+    anims: [{ from: "sql", to: "tail-" + b.lsn, label: "BEGIN_CKPT" }], focus: ["tail-" + b.lsn]
+  });
+  const tt = clone(S.tt), dpt = clone(S.dpt), n = Object.keys(tt).length, m = Object.keys(dpt).length;
+  const e = append(S, { type: "CKPT_END", tt, dpt, size: 36 + 16 * n + 12 * m });
+  emit(S, {
+    title: `Append END_CKPT with copies of both tables`,
+    body: `The record stores the transaction table (${plural(n, "entry").replace("entrys", "entries")}) and the dirty page table (${plural(m, "page")}). Analysis will load these instead of rebuilding them from older log records.`,
+    math: [`size = 32 header + 4 counts + 16 × ${n} txns + 12 × ${m} pages = ${e.size} bytes`, `LSN ${e.lsn} → next LSN ${S.next}`, `saved TT = ${ttStr(tt)}`, `saved DPT = ${dptStr(dpt)}`],
+    anims: [{ from: "tt-box", to: "tail-" + e.lsn, label: "TT copy" }, { from: "dpt-box", to: "tail-" + e.lsn, label: "DPT copy" }], focus: ["tail-" + e.lsn]
+  });
+  forceLog(S, `Force the checkpoint records to disk`, `The checkpoint is useful only once it is durable.`);
+  S.master = b.lsn;
+  const mins = Object.values(S.dpt);
+  emit(S, {
+    title: `Update the master record → LSN ${b.lsn}`,
+    body: `A small fixed location on disk now points at the checkpoint (PostgreSQL keeps this in the pg_control file). After a crash, recovery reads it first.`,
+    math: [`master record = ${b.lsn}`, `analysis would start at LSN ${b.lsn}`, mins.length ? `redo would start at min(recLSN) = min(${mins.join(", ")}) = ${Math.min(...mins)}` : `no dirty pages: redo would have nothing to do`],
+    anims: [{ from: "wal-" + b.lsn, to: "master", label: "ckpt @" + b.lsn }], focus: ["master"]
+  });
+}
+function opCrash(S) {
+  const t = tailOf(S), bytes = t.reduce((a, r) => a + r.size, 0), nb = Object.keys(S.buf).length, wasRec = S.mode === "recovering";
+  S.lost = t.map(r => clone(r)); S.log = S.log.filter(r => isDur(S, r)); S.next = S.flushed;
+  S.buf = {}; S.tt = {}; S.dpt = {}; S.locks = {}; S.rec = null; S.mode = "down"; S.crashes++; S.cursor = null;
+  emit(S, {
+    phase: "crash",
+    title: wasRec ? "Power failure again, in the middle of recovery" : "Power failure",
+    body: `Everything in RAM is gone: the buffer pool, the log buffer, the transaction table and the dirty page table. What survives is the data file as last written, the log up to byte ${S.flushed}, and the master record. ` +
+      (t.length ? `The log buffer held ${plural(t.length, "record")} (${bytes} bytes) that never reached disk. As far as the database will ever know, those changes never happened. ` : `The log buffer was empty, so no log records were lost. `) +
+      (wasRec ? "Recovery's own progress in memory is lost too, but any CLRs it flushed are in the log." : "Look at the data file: it may now hold uncommitted changes and miss committed ones."),
+    math: [`lost: ${t.length ? t.map(r => "@" + r.lsn + " " + TNAME[r.type]).join(", ") : "no log records"}; ${plural(nb, "buffered page")}; TT; DPT`,
+      `durable log: bytes [0, ${S.flushed})`, `data file: ${PAGES.map(p => `${p}=${money(S.disk[p].val)} (pageLSN ${L(S.disk[p].plsn)})`).join(" · ")}`, `master record: ${L(S.master)}`],
+    focus: t.map(r => "lost-" + r.lsn)
+  });
+}
+function phaseNow(S) { if (S.mode === "down") return "crash"; if (S.rec) return S.rec.phase === "start" ? "analysis" : S.rec.phase; return "normal"; }
+
+/* ---------------- recovery ---------------- */
+function opRecover(S, op) { S.mode = "recovering"; S.rec = { phase: "start", clrs: 0 }; runRecovery(S, op && op.until); }
+function runRecovery(S, until) { let g = 0; while (S.rec && g++ < 600) { recStep(S); if (until === "firstCLR" && S.rec && S.rec.clrs >= 1) break; } }
+function nextLsn(S, r) { const n = recAt(S, r.lsn + r.size); return n ? n.lsn : null; }
+function recStep(S) {
+  const R = S.rec;
+  if (R.phase === "start") {
+    const start = S.master == null ? 0 : S.master;
+    R.phase = "analysis"; R.cur = recAt(S, start) ? start : null; S.cursor = null;
+    S.stmt = "recovery manager: restart";
+    emit(S, {
+      phase: "analysis",
+      title: "Restart: read the master record",
+      body: `The system boots with empty memory. ${S.master == null ? "There is no checkpoint, so analysis must read the whole log from byte 0." : `The master record says the last checkpoint began at LSN ${S.master}, so analysis starts there and skips everything older.`} The end of the log is found by reading records until one fails its CRC check or the bytes are zero.`,
+      math: [S.master == null ? "master record: none → analysis starts at LSN 0" : `master record → BEGIN_CKPT at LSN ${S.master}`, `durable log: bytes [0, ${S.flushed}) · next record would fail its CRC`, `buffer pool, TT, DPT: empty`],
+      anims: S.master != null ? [{ from: "master", to: "wal-" + S.master, label: "start @" + S.master }] : [], focus: S.master != null ? ["wal-" + S.master, "master"] : []
+    });
+    return;
+  }
+  if (R.phase === "analysis") {
+    S.stmt = "recovery manager: analysis pass";
+    const r = recAt(S, R.cur);
+    if (!r) {
+      const end = S.next; const wrote = [], losers = [];
+      for (const x of Object.keys(S.tt)) {
+        if (S.tt[x].status === "C") { const e = append(S, { type: "END", xid: x, prev: S.tt[x].last }); wrote.push(x + " (END @" + e.lsn + ")"); delete S.tt[x]; }
+        else losers.push(x);
+      }
+      const vals = Object.values(S.dpt);
+      R.losers = losers; R.redoEnd = end; R.redoStart = vals.length ? Math.min(...vals) : null;
+      R.phase = "redo"; R.cur = R.redoStart; S.cursor = null;
+      emit(S, {
+        phase: "analysis",
+        title: `Analysis done: the log ends at byte ${end}`,
+        body: (wrote.length ? `${wrote.map(w => w.split(" ")[0]).join(", ")} committed but has no END record, so recovery writes it now. A winner needs only redo. ` : "") +
+          (losers.length ? `${losers.join(", ")} ${losers.length > 1 ? "were" : "was"} still running at the crash: ${losers.length > 1 ? "these are the losers" : "it is a loser"}, and must be rolled back. ` : "No transaction was running at the crash, so there will be nothing to undo. ") +
+          (vals.length ? `Redo will start at the smallest recLSN in the dirty page table, the oldest change that might be missing from disk.` : `The dirty page table is empty, so redo has nothing to do.`),
+        math: [`end of log = byte ${end}`, wrote.length ? `committed without END → write END: ${wrote.join(", ")}` : `no committed transactions without END`, `losers = { ${losers.join(", ")} }`, `TT = ${ttStr(S.tt)}`, `DPT = ${dptStr(S.dpt)}`, vals.length ? `redo start = min(recLSN) = min(${vals.join(", ")}) = ${R.redoStart}` : "redo start: none"],
+        focus: ["tt-box", "dpt-box"]
+      });
+      return;
+    }
+    S.cursor = r.lsn; R.cur = nextLsn(S, r);
+    let body = "", added = null;
+    const knew = r.xid ? !!S.tt[r.xid] : true;
+    if (r.type === "CKPT_BEGIN") body = "Start of the last checkpoint. Nothing to do here: the END_CKPT record carries the saved tables.";
+    else if (r.type === "CKPT_END") {
+      for (const x in r.tt) if (!S.tt[x]) S.tt[x] = clone(r.tt[x]);
+      for (const p in r.dpt) if (S.dpt[p] == null) S.dpt[p] = r.dpt[p];
+      body = `Load the tables saved by the checkpoint. They are a snapshot from checkpoint time; the records after this point bring them up to date.`;
+    } else {
+      const x = r.xid;
+      if (r.type === "END") { delete S.tt[x]; body = `${x} finished completely before the crash. Remove it from the transaction table.`; }
+      else {
+        if (!S.tt[x]) S.tt[x] = { status: "U", last: r.lsn };
+        S.tt[x].last = r.lsn;
+        if (r.type === "COMMIT") { S.tt[x].status = "C"; body = `${x} committed and the record is durable. Mark it committed: it is a winner, and its changes must survive.`; }
+        else if (r.type === "ABORT") { S.tt[x].status = "A"; body = `${x} was rolling back at the time. It stays a loser; undo will finish the rollback.`; }
+        else body = `${knew ? `${x} is already in the table; ` : `${x} is new to the table: add it as active; `}lastLSN = ${r.lsn}.`;
+      }
+      if ((r.type === "UPDATE" || r.type === "CLR")) {
+        if (S.dpt[r.page] == null) { S.dpt[r.page] = r.lsn; added = r.page; body += ` ${r.page} is not in the dirty page table, so add it with recLSN = ${r.lsn}. This change may be missing from disk.`; }
+        else body += ` ${r.page} is already in the dirty page table with recLSN ${S.dpt[r.page]}; keep the older value.`;
+      }
+    }
+    emit(S, {
+      phase: "analysis",
+      title: `Analysis · LSN ${r.lsn} ${TNAME[r.type]}${r.xid ? " (" + r.xid + ")" : ""}`,
+      body,
+      math: [`read record @${r.lsn}: ${desc(r)}`, `TT  = ${ttStr(S.tt)}`, `DPT = ${dptStr(S.dpt)}`],
+      anims: [r.type === "CKPT_END" ? { from: "wal-" + r.lsn, to: "dpt-box", label: "load tables" } : (r.xid ? { from: "wal-" + r.lsn, to: S.tt[r.xid] ? "tt-" + r.xid : "tt-box", label: r.xid } : null), added ? { from: "wal-" + r.lsn, to: "dpt-" + added, label: added + ": " + r.lsn } : null].filter(Boolean),
+      focus: ["wal-" + r.lsn]
+    });
+    return;
+  }
+  if (R.phase === "redo") {
+    S.stmt = "recovery manager: redo pass";
+    const r = R.cur == null ? null : recAt(S, R.cur);
+    if (!r || r.lsn >= R.redoEnd) {
+      R.phase = "undo"; R.toUndo = R.losers.filter(x => S.tt[x]).map(x => ({ x, l: S.tt[x].last })); S.cursor = null;
+      emit(S, {
+        phase: "undo",
+        title: "Redo done: memory matches the instant of the crash",
+        body: `Every change in the durable log is now in the buffer pool, including the losers' uncommitted changes. This is "repeating history". Undo now removes the losers' changes, always taking the largest LSN next so the log is read in one backward sweep.`,
+        math: [`buffer pool: ${PAGES.filter(p => S.buf[p]).map(p => `${p}=${money(S.buf[p].val)} (pageLSN ${L(S.buf[p].plsn)})`).join(" · ") || "empty"}`, `losers = { ${R.losers.join(", ")} }`, `ToUndo = { ${R.toUndo.map(u => `${u.x}@${u.l}`).join(", ")} }  ← each loser's lastLSN`],
+        focus: ["tt-box"]
+      });
+      return;
+    }
+    S.cursor = r.lsn; R.cur = nextLsn(S, r);
+    if (r.type !== "UPDATE" && r.type !== "CLR") {
+      emit(S, { phase: "redo", title: `Redo · LSN ${r.lsn} ${TNAME[r.type]}: not a page change, skip`, body: `Only UPDATE and CLR records change pages. Redo reads past this one.`, math: [`record @${r.lsn}: ${desc(r)}`], focus: ["wal-" + r.lsn] });
+      return;
+    }
+    const p = r.page, chk = [`record @${r.lsn}: ${desc(r)}`];
+    const inD = S.dpt[p] != null;
+    chk.push(`1. ${p} in dirty page table? ${inD ? `yes, recLSN = ${S.dpt[p]}` : "no → skip"}`);
+    if (!inD) { emit(S, { phase: "redo", title: `Redo · LSN ${r.lsn}: ${p} not dirty at the crash, skip`, body: `${p} is not in the dirty page table, so it was written to disk after this change. No need to even read it.`, math: chk, focus: ["wal-" + r.lsn] }); return; }
+    const c2 = r.lsn >= S.dpt[p];
+    chk.push(`2. LSN ${r.lsn} ≥ recLSN ${S.dpt[p]}? ${c2 ? "yes" : "no → skip"}`);
+    if (!c2) { emit(S, { phase: "redo", title: `Redo · LSN ${r.lsn}: older than ${p}'s recLSN, skip`, body: `${p} became dirty again only at LSN ${S.dpt[p]}, so this older change was already written to disk.`, math: chk, focus: ["wal-" + r.lsn, "dpt-" + p] }); return; }
+    const fetched = ensureBuf(S, p), b = S.buf[p], c3 = b.plsn == null || b.plsn < r.lsn;
+    chk.push(`3. read ${p}: pageLSN = ${L(b.plsn)}. pageLSN < ${r.lsn}? ${c3 ? "yes → the change is missing" : "no → the page already has it"}`);
+    const isLoser = R.losers.includes(r.xid), oldPl = b.plsn;
+    if (c3) { const old = b.val; b.val = r.after; b.plsn = r.lsn; b.dirty = true; chk.push(`REDO: ${p} ${money(old)} → ${money(r.after)}, pageLSN = ${r.lsn}`); }
+    const anims = []; if (fetched) anims.push(fetchAnim(p)); if (c3) anims.push({ from: "wal-" + r.lsn, to: "buf-" + p, label: "redo @" + r.lsn });
+    emit(S, {
+      phase: "redo",
+      title: c3 ? `REDO LSN ${r.lsn}: ${p} = ${money(r.after)}` : `Redo · LSN ${r.lsn}: ${p} already has it, skip`,
+      body: c3 ? `${p}'s pageLSN (${L(oldPl)}${fetched ? ", read from disk" : ""}) is older than this record, so the change never reached disk. Apply the ${r.type === "CLR" ? "restored value" : "after image"}. ` + (isLoser ? `${r.xid} is a loser, but redo reapplies its change anyway; undo will remove it next.` : (r.xid ? `${r.xid} is a winner, so this change must survive.` : "")) :
+        `The page header on disk says pageLSN ${L(b.plsn)}, which is not older than ${r.lsn}: this change was written to disk before the crash. Here reapplying a simple overwrite would be harmless, but for changes like "insert a row into slot 4" a second application would corrupt the page. The pageLSN test is what makes redo safe to repeat.`,
+      math: chk, anims, focus: ["wal-" + r.lsn, "buf-" + p]
+    });
+    return;
+  }
+  if (R.phase === "undo") {
+    S.stmt = "recovery manager: undo pass";
+    if (R.pendingEnd) {
+      const x = R.pendingEnd; R.pendingEnd = null;
+      const e = append(S, { type: "END", xid: x, prev: S.tt[x].last }); delete S.tt[x];
+      emit(S, { phase: "undo", title: `${x} is fully rolled back: write END at LSN ${e.lsn}`, body: `${x}'s chain reached its first record. It is now as if ${x} had never run.`, math: [`END @${e.lsn}, prevLSN ${L(e.prev)}`, `TT = ${ttStr(S.tt)}`, `ToUndo = { ${R.toUndo.map(u => `${u.x}@${u.l}`).join(", ")} }`], anims: [{ from: "sql", to: "tail-" + e.lsn, label: "END @" + e.lsn }], focus: ["tail-" + e.lsn] });
+      return;
+    }
+    if (!R.toUndo.length) {
+      R.phase = "done"; S.rec = null; S.mode = "up"; S.lost = []; S.cursor = null; S.stmt = "database open for new transactions";
+      const bal = PAGES.map(p => `${OWNER[p]} ${money(S.buf[p] ? S.buf[p].val : S.disk[p].val)}`);
+      const dirty = PAGES.filter(p => S.buf[p] && S.buf[p].dirty), tl = tailOf(S);
+      emit(S, {
+        phase: "done",
+        title: "Recovery complete: the database is open",
+        body: `Committed work is present and uncommitted work is gone. ${dirty.length ? `The buffer pool still has dirty pages (${dirty.join(", ")}); they will be written normally, following the WAL rule.` : ""} ${tl.length ? `${plural(tl.length, "record")} written during recovery ${tl.length > 1 ? "are" : "is"} still in the log buffer and will be flushed like any other.` : ""} Many systems take a checkpoint right away so the next recovery starts here.`,
+        math: [`balances: ${bal.join(" · ")}`, `total = ${money(PAGES.reduce((a, p) => a + (S.buf[p] ? S.buf[p].val : S.disk[p].val), 0))}`],
+        focus: PAGES.map(p => "buf-" + p)
+      });
+      return;
+    }
+    R.toUndo.sort((a, b) => b.l - a.l);
+    const before = R.toUndo.map(u => `${u.x}@${u.l}`).join(", ");
+    const it = R.toUndo[0], r = recAt(S, it.l); S.cursor = r.lsn;
+    if (r.type === "UPDATE") {
+      const { c, fetched } = writeCLR(S, r); R.clrs++;
+      if (r.prev == null) { R.toUndo.shift(); R.pendingEnd = r.xid; } else it.l = r.prev;
+      emit(S, {
+        phase: "undo",
+        title: `Undo LSN ${r.lsn} (${r.xid}): write CLR at ${c.lsn}, ${r.page} ← ${money(r.before)}`,
+        body: `The largest LSN in ToUndo is ${r.lsn}, an UPDATE by ${r.xid}. Restore its before image and log a CLR. Its undoNextLSN = ${L(r.prev)} tells any future recovery where to continue if the power fails again before this rollback finishes.`,
+        math: [`ToUndo = { ${before} } → pick max = ${r.lsn}`, `record @${r.lsn}: ${r.page} ${money(r.before)} → ${money(r.after)}`, `CLR @${c.lsn}: ${r.page} ← ${money(r.before)}, undoNextLSN = ${L(r.prev)}, prevLSN = ${L(c.prev)}`, `pageLSN(${r.page}) = ${c.lsn}`, `ToUndo → { ${R.toUndo.map(u => `${u.x}@${u.l}`).join(", ")} }${R.pendingEnd ? `  (${r.xid}'s chain ends → END next)` : ""}`],
+        anims: clrAnims(r, c, fetched), focus: ["wal-" + r.lsn, "tail-" + c.lsn, "buf-" + r.page]
+      });
+      return;
+    }
+    if (r.type === "CLR") {
+      if (r.undoNext == null) { R.toUndo.shift(); R.pendingEnd = r.xid; } else it.l = r.undoNext;
+      emit(S, {
+        phase: "undo",
+        title: `LSN ${r.lsn} is a CLR: jump to undoNextLSN ${L(r.undoNext)}`,
+        body: `This CLR was written by an earlier rollback attempt. It already reversed record ${r.undoes}, and redo just reapplied it. So undo does not touch ${r.undoes} again: it continues at undoNextLSN. This is why repeated crashes never cause a change to be undone twice.`,
+        math: [`ToUndo = { ${before} } → pick max = ${r.lsn}`, `CLR @${r.lsn} undid @${r.undoes}; undoNextLSN = ${L(r.undoNext)}`, `ToUndo → { ${R.toUndo.map(u => `${u.x}@${u.l}`).join(", ")} }${R.pendingEnd ? `  (nothing left for ${r.xid} → END next)` : ""}`],
+        focus: ["wal-" + r.lsn]
+      });
+      return;
+    }
+    if (r.prev == null) { R.toUndo.shift(); R.pendingEnd = r.xid; } else it.l = r.prev;
+    emit(S, { phase: "undo", title: `LSN ${r.lsn} ${TNAME[r.type]}: nothing to undo, follow prevLSN`, body: `This record does not change a page. Continue with ${r.xid}'s previous record.`, math: [`ToUndo = { ${before} } → pick max = ${r.lsn}`, `prevLSN = ${L(r.prev)}`], focus: ["wal-" + r.lsn] });
+  }
+}
+
+/* ---------------- op runner + scenarios ---------------- */
+function runOp(S, op) {
+  switch (op.op) {
+    case "update": S.stmt = `${op.x}: UPDATE accounts SET balance = ${op.v} WHERE name = '${OWNER[op.p]}';`; opUpdate(S, op); break;
+    case "commit": S.stmt = `${op.x}: COMMIT;`; opCommit(S, op); break;
+    case "abort": S.stmt = `${op.x}: ROLLBACK;`; opAbort(S, op); break;
+    case "flushPage": S.stmt = `buffer manager: write page ${op.p} to disk`; opFlushPage(S, op); break;
+    case "flushLog": S.stmt = "log writer: flush the log buffer"; opFlushLog(S, op); break;
+    case "checkpoint": S.stmt = "checkpointer: CHECKPOINT"; opCheckpoint(S); break;
+    case "crash": S.stmt = "⚡ power failure"; opCrash(S); break;
+    case "recover": opRecover(S, op); break;
+  }
+  if ((op.op === "flushLog" || op.op === "flushPage") && S.mode === "recovering" && op.cont !== false) runRecovery(S);
+}
+function initialStep(S) {
+  emit(S, { phase: "normal", title: "The database at rest", body: "Four accounts, one per page: Ana on P1, Raj on P2, Mia on P3, Leo on P4. The data file is on disk, the log is empty and nothing is cached in RAM yet. Each page header carries a pageLSN; '—' means the page was last changed before this log began.", math: [`data file: ${PAGES.map(p => `${p} ${OWNER[p]} ${money(INIT[p])}`).join(" · ")}`, "log: empty · flushedLSN = 0 · master record: none"] });
+}
+function build(ops) { const S = fresh(); OUT = []; initialStep(S); ops.forEach(o => runOp(S, o)); return OUT; }
+const CRASH_OPS = [
+  { op: "update", x: "T1", p: "P1", v: 400, note: "T1 transfers ₹100 from Ana to Raj." },
+  { op: "update", x: "T1", p: "P2", v: 400 },
+  { op: "update", x: "T2", p: "P3", v: 250, note: "T2 moves ₹50 from Ana to Mia, crediting Mia first." },
+  { op: "commit", x: "T1" },
+  { op: "checkpoint" },
+  { op: "update", x: "T3", p: "P4", v: 150, note: "T3 deposits ₹50 for Leo." },
+  { op: "update", x: "T2", p: "P1", v: 350, note: "T2 now debits Ana. T1 has ended, so P1 is free to lock." },
+  { op: "flushPage", p: "P1" },
+  { op: "commit", x: "T3" },
+  { op: "update", x: "T4", p: "P2", v: 420, note: "T4 deposits ₹20 for Raj. It will not get to commit." },
+  { op: "crash" }];
+const SCEN = {
+  normal: { label: "1 · Commit, abort and the WAL rule", ops: [
+    { op: "update", x: "T1", p: "P1", v: 450, note: "T1 pays ₹50 from Ana to Mia." },
+    { op: "update", x: "T1", p: "P3", v: 250 },
+    { op: "update", x: "T2", p: "P2", v: 400, note: "T2 is a ₹100 deposit into Raj's account." },
+    { op: "flushPage", p: "P3" },
+    { op: "commit", x: "T2" },
+    { op: "abort", x: "T1" },
+    { op: "flushLog" }] },
+  crash: { label: "2 · Crash and ARIES recovery", ops: CRASH_OPS.concat([{ op: "recover" }]) },
+  crash2: { label: "3 · Crash during recovery", ops: CRASH_OPS.concat([{ op: "recover", until: "firstCLR" }, { op: "flushLog", cont: false, note: "Suppose the log writer flushes here, so the first CLR reaches disk. Then the power fails again." }, { op: "crash" }, { op: "recover" }]) },
+  sandbox: { label: "4 · Sandbox (start empty)", ops: [] }
+};
+/*ENGINE-END*/
+</script>
+
+<script>
+"use strict";
+/* ---------------- record encoding (for the inspector) ---------------- */
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (const x of b) c = CRC_T[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+const hx = (v, n) => v.toString(16).toUpperCase().padStart(n, "0");
+function encode(r) {
+  const b = new Uint8Array(r.size), dv = new DataView(b.buffer), f = [];
+  const u64 = (o, v) => { if (v == null) for (let i = 0; i < 8; i++) b[o + i] = 0xFF; else { dv.setUint32(o, v >>> 0, true); dv.setUint32(o + 4, 0, true); } };
+  dv.setUint32(0, r.size, true); f.push([0, 4, "total_len", r.size + " bytes"]);
+  b[4] = CODE[r.type]; f.push([4, 1, "type", CODE[r.type] + " = " + TNAME[r.type]]);
+  f.push([5, 3, "flags, reserved", "0"]);
+  dv.setUint32(8, r.xid ? +r.xid.slice(1) : 0, true); f.push([8, 4, "xid", r.xid || "0 (no transaction)"]);
+  const crcField = [12, 4, "crc32", ""]; f.push(crcField);
+  u64(16, r.lsn); f.push([16, 8, "LSN", r.lsn]);
+  u64(24, r.prev); f.push([24, 8, "prevLSN", r.prev == null ? "none (FF…FF)" : r.prev]);
+  if (r.type === "UPDATE" || r.type === "CLR") {
+    dv.setUint32(32, +r.page.slice(1), true); f.push([32, 4, "pageId", r.page + " (" + OWNER[r.page] + ")"]);
+    f.push([36, 2, "slot", "0"]); dv.setUint16(38, 8, true); f.push([38, 2, "length", "8"]);
+    if (r.type === "UPDATE") { u64(40, r.before); f.push([40, 8, "before image", money(r.before)]); u64(48, r.after); f.push([48, 8, "after image", money(r.after)]); }
+    else { u64(40, r.after); f.push([40, 8, "restored value", money(r.after)]); u64(48, r.undoNext); f.push([48, 8, "undoNextLSN", r.undoNext == null ? "none (FF…FF)" : r.undoNext]); }
+  } else if (r.type === "CKPT_END") {
+    const tx = Object.keys(r.tt), pg = Object.keys(r.dpt).sort();
+    dv.setUint16(32, tx.length, true); dv.setUint16(34, pg.length, true); f.push([32, 4, "#txns, #pages", tx.length + ", " + pg.length]);
+    let o = 36;
+    tx.forEach(x => { dv.setUint32(o, +x.slice(1), true); b[o + 4] = { U: 1, C: 2, A: 3 }[r.tt[x].status]; u64(o + 8, r.tt[x].last); f.push([o, 16, "txn entry", `${x} ${STATUS[r.tt[x].status]} lastLSN ${L(r.tt[x].last)}`]); o += 16; });
+    pg.forEach(p => { dv.setUint32(o, +p.slice(1), true); u64(o + 4, r.dpt[p]); f.push([o, 12, "dirty page entry", `${p} recLSN ${r.dpt[p]}`]); o += 12; });
+  }
+  const crc = crc32(b); dv.setUint32(12, crc, true); crcField[3] = "0x" + hx(crc, 8);
+  return { b, f };
+}
+
+/* ---------------- UI state ---------------- */
+const $ = id => document.getElementById(id);
+let STEPS = [], cur = 0, scen = "crash", playing = false, timer = null, speed = 2, zoom = 1, sel = null;
+const DUR = [16000, 10000, 6000, 3800, 2400, 1300];
+const ZOOMS = [0.85, 1, 1.25, 1.5, 2];
+const PHASES = [["normal", "Normal operation"], ["crash", "Crash"], ["analysis", "Analysis"], ["redo", "Redo"], ["undo", "Undo"], ["done", "Recovered"]];
+const PC = { normal: "var(--ink)", crash: "var(--abt)", analysis: "var(--ckp)", redo: "var(--upd)", undo: "var(--clr)", done: "var(--com)" };
+const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+$("phases").innerHTML = PHASES.map(([k, l]) => `<span class="ph-${k}" id="ph-${k}">${l}</span>`).join("");
+const scenBox = $("scen");
+Object.entries(SCEN).forEach(([k, v]) => { const b = document.createElement("button"); b.className = "chip"; b.textContent = v.label; b.dataset.k = k; b.onclick = () => loadScen(k); scenBox.appendChild(b); });
+
+function loadScen(k) {
+  scen = k; setPlaying(false); STEPS = build(SCEN[k].ops); sel = null;
+  scenBox.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c.dataset.k === k ? "true" : "false"));
+  buildList(); go(0, false); $("a-msg").textContent = k === "sandbox" ? "Sandbox: pick a transaction and page below, then press Update." : "";
+}
+
+/* ---------------- rendering ---------------- */
+function pageCard(pre, p, pg) {
+  return `<div class="page ${pre === "buf" && pg.dirty ? "dirty" : ""}" id="${pre}-${p}"><div class="pg-hdr"><b>${p}</b><span>pageLSN ${L(pg.plsn)}</span></div><div class="pg-slot"><span>${OWNER[p]}</span><b>${money(pg.val)}</b></div>${pre === "buf" ? `<div class="pg-ft">${pg.dirty ? "dirty" : "clean"}</div>` : ""}</div>`;
+}
+function tapeHTML(S) {
+  const lostEnd = S.lost.length ? Math.max(...S.lost.map(r => r.lsn + r.size)) : 0;
+  const total = Math.max(S.next, lostEnd, 160), pct = v => (v / total * 100).toFixed(3) + "%";
+  let h = "";
+  if (S.mode !== "up") S.lost.forEach(r => h += `<div class="tb lost" style="left:${pct(r.lsn)};width:${pct(r.size)}" title="lost in crash: @${r.lsn} ${desc(r)}"></div>`);
+  S.log.forEach(r => { const w = r.size / total * 100; h += `<div class="tb t-${TCLS[r.type]} ${isDur(S, r) ? "" : "tail"} ${S.cursor === r.lsn ? "cur" : ""}" style="left:${pct(r.lsn)};width:${pct(r.size)}" title="@${r.lsn} · ${r.size} bytes · ${desc(r)}">${w >= 4.2 ? r.lsn : ""}</div>`; });
+  h += `<span class="mk fl" id="flushed" style="left:${pct(S.flushed)}">flushedLSN ${S.flushed}</span>`;
+  if (S.master != null) h += `<span class="mk ms" style="left:${pct(S.master)}">▼ checkpoint</span>`;
+  if (S.cursor != null) h += `<span class="mk cu" style="left:${pct(S.cursor)};${S.master != null && Math.abs(S.cursor - S.master) / total < .1 ? "bottom:calc(100% + 1.1em)" : ""}">▼ reading ${S.cursor}</span>`;
+  h += `<span class="mk ax" style="left:0;transform:none">0</span><span class="mk ax" style="left:100%;transform:translateX(-100%)">${total} bytes</span>`;
+  return `<div class="tape" aria-label="Log file as bytes">${h}</div>`;
+}
+function chainOf(S, r) {
+  if (!r || !r.xid) return [];
+  const out = []; let l = r.lsn, g = 0;
+  // walk forward to newest of this txn is not needed; walk backward from selected
+  while (l != null && g++ < 50) { const x = recAt(S, l); if (!x) break; out.push(x.lsn); l = x.prev; }
+  return out;
+}
+function stageHTML(S, st) {
+  const down = S.mode === "down";
+  const tt = Object.keys(S.tt).map(x => `<tr id="tt-${x}"><td>${x}</td><td><span class="st st-${S.tt[x].status}">${STATUS[S.tt[x].status]}</span></td><td>${L(S.tt[x].last)}</td></tr>`).join("") || `<tr><td colspan="3" class="empty">${down ? "lost in the crash" : "no transactions"}</td></tr>`;
+  const dpt = Object.keys(S.dpt).sort().map(p => `<tr id="dpt-${p}"><td>${p}</td><td>${S.dpt[p]}</td></tr>`).join("") || `<tr><td colspan="2" class="empty">${down ? "lost in the crash" : "no dirty pages"}</td></tr>`;
+  const buf = PAGES.map(p => S.buf[p] ? pageCard("buf", p, S.buf[p]) : `<div class="page vacant" id="buf-${p}"><span>${p}<br><small>${down ? "lost" : "not cached"}</small></span></div>`).join("");
+  const tl = tailOf(S);
+  let tail = tl.map(r => `<div class="rc t-${TCLS[r.type]}" id="tail-${r.lsn}" data-l="${r.lsn}"><b>@${r.lsn}</b> ${desc(r)}</div>`).join("");
+  if (S.mode !== "up" && S.lost.length) tail += S.lost.map(r => `<div class="rc lost" id="lost-${r.lsn}">@${r.lsn} ${desc(r)}</div>`).join("");
+  if (!tail) tail = `<div class="empty">empty: everything is on disk</div>`;
+  const selRec = recAt(S, sel), chain = chainOf(S, selRec);
+  const wal = S.log.filter(r => isDur(S, r)).map(r => `<tr id="wal-${r.lsn}" data-l="${r.lsn}" class="t-${TCLS[r.type]} ${S.cursor === r.lsn ? "cur" : ""} ${sel === r.lsn ? "sel" : ""} ${chain.includes(r.lsn) ? "chain" : ""}"><td>${r.lsn}</td><td>${r.size}</td><td>${L(r.prev)}</td><td>${r.xid || ""}</td><td><span class="ty">${TNAME[r.type]}</span></td><td>${r.page || ""}</td><td>${r.type === "UPDATE" ? `${money(r.before)} → ${money(r.after)}` : r.type === "CLR" ? `← ${money(r.after)}` : r.type === "CKPT_END" ? `TT{${Object.keys(r.tt).join(",")}} DPT{${Object.keys(r.dpt).sort().map(p => p + ":" + r.dpt[p]).join(",")}}` : ""}</td><td>${r.type === "CLR" ? L(r.undoNext) : ""}</td></tr>`).join("") || `<tr><td colspan="8" class="empty">no durable records yet</td></tr>`;
+  return `
+  <div class="zone ram ${down ? "down" : ""}"><div class="zone-lbl"><b>RAM</b> · volatile${down ? " · wiped by the crash" : ""}</div>
+    <div class="ram-grid">
+      <div class="col">
+        <div class="stmt" id="sql">${S.stmt || "idle"}</div>
+        <div class="pnl" id="tt-box"><h4>Transaction table</h4><div class="cap">xid · status · lastLSN</div><table class="mini"><tbody>${tt}</tbody></table></div>
+        <div class="pnl" id="dpt-box"><h4>Dirty page table</h4><div class="cap">page · recLSN</div><table class="mini"><tbody>${dpt}</tbody></table></div>
+      </div>
+      <div class="pnl"><h4>Buffer pool</h4><div class="cap">page copies being worked on</div><div class="pages">${buf}</div></div>
+      <div class="pnl"><h4>Log buffer</h4><div class="cap">records not yet on disk (LSN ≥ ${S.flushed})</div><div class="rcs">${tail}</div></div>
+    </div>
+  </div>
+  <div class="powerline">power-loss line · above is lost, below survives</div>
+  <div class="zone disk"><div class="zone-lbl"><b>Disk</b> · durable</div>
+    <div class="disk-grid">
+      <div class="pnl"><h4>Data file</h4><div class="cap">page on disk, pageLSN in its header</div><div class="pages four">${PAGES.map(p => pageCard("disk", p, S.disk[p])).join("")}</div></div>
+      <div class="pnl master" id="master"><h4>Master record</h4><div class="cap">latest checkpoint</div><b>${S.master == null ? "none" : "LSN " + S.master}</b></div>
+    </div>
+    <div class="pnl"><div class="walhead"><h4>WAL file</h4><span class="fl">durable up to byte <b>${S.flushed}</b> · ${plural(S.log.filter(r => isDur(S, r)).length, "record")}${S.crashes ? ` · crashes so far: ${S.crashes}` : ""}</span></div>
+      ${tapeHTML(S)}
+      <div class="walt-wrap"><table class="walt"><thead><tr><th>LSN</th><th>bytes</th><th>prevLSN</th><th>xid</th><th>type</th><th>page</th><th>change</th><th>undoNext</th></tr></thead><tbody>${wal}</tbody></table></div>
+    </div>
+  </div>`;
+}
+function inspHTML(S) {
+  let r = recAt(S, sel), pinned = true;
+  if (!r) { pinned = false; r = S.log.length ? S.log[S.log.length - 1] : null; }
+  if (!r) return `<div class="cap">No log records yet. Records appear here as they are written; click one to see its bytes.</div>`;
+  const { b, f } = encode(r), owner = new Array(b.length).fill(0);
+  f.forEach((x, i) => { for (let k = x[0]; k < x[0] + x[1]; k++) owner[k] = i % 6; });
+  let hex = "";
+  for (let o = 0; o < b.length; o += 16) {
+    hex += `<div><span class="ho">@${r.lsn + o}</span>`;
+    for (let k = o; k < Math.min(o + 16, b.length); k++) hex += `<span class="by f${owner[k]}">${hx(b[k], 2)}</span>`;
+    hex += `</div>`;
+  }
+  const ch = chainOf(S, r);
+  return `<h4>@${r.lsn} · ${TNAME[r.type]} · ${r.size} bytes · ${isDur(S, r) ? "on disk" : "in the log buffer"}</h4>
+    <div class="cap">${pinned ? "Selected record." : "Latest record (click any record to pin it)."} File bytes [${r.lsn}, ${r.lsn + r.size}), little-endian.</div>
+    <table class="ftab"><tbody>${f.map((x, i) => `<tr><td><span class="sw f${i % 6}"></span>${x[0]}–${x[0] + x[1] - 1}</td><td>${x[2]}</td><td>${x[3]}</td></tr>`).join("")}</tbody></table>
+    <div class="hex">${hex}</div>
+    ${r.xid ? `<div class="cap">${r.xid}'s prevLSN chain from here: ${ch.join(" → ")} → start</div>` : ""}`;
+}
+function buildList() {
+  $("steps").innerHTML = "<ol>" + STEPS.map((s, i) => `<li data-i="${i}"><button type="button" style="--pc:${PC[s.phase]}"><i></i><span>${s.title}</span></button></li>`).join("") + "</ol>";
+  $("steps").querySelectorAll("li").forEach(li => li.querySelector("button").onclick = () => { setPlaying(false); go(+li.dataset.i, false); });
+  $("tl").max = STEPS.length - 1;
+}
+function render() {
+  const st = STEPS[cur], S = st.S;
+  PHASES.forEach(([k]) => $("ph-" + k).classList.toggle("on", k === st.phase));
+  const pl = PHASES.find(p => p[0] === st.phase)[1];
+  $("narr").style.setProperty("--pc", PC[st.phase]);
+  $("narr").innerHTML = `<div class="row"><span class="badge">${pl}</span><span class="stepno">Step ${cur + 1} of ${STEPS.length}</span></div><h3>${st.title}</h3>${st.body ? `<p>${st.body}</p>` : ""}<div class="math">${(st.math || []).filter(Boolean).join("\n")}</div>`;
+  $("stage").innerHTML = stageHTML(S, st);
+  (st.focus || []).concat((st.anims || []).map(a => a.to)).forEach(id => { const el = document.getElementById(id); if (el) el.classList.add("hl"); });
+  $("insp").innerHTML = inspHTML(S);
+  $("tl").value = cur; $("stepno").textContent = `${cur + 1} / ${STEPS.length}`;
+  const lis = $("steps").querySelectorAll("li");
+  lis.forEach((li, i) => { li.classList.toggle("on", i === cur); li.classList.toggle("past", i < cur); });
+  const on = lis[cur]; if (on) { const box = $("steps"); const top = on.offsetTop - box.offsetTop; if (top < box.scrollTop || top > box.scrollTop + box.clientHeight - 40) box.scrollTop = top - box.clientHeight / 2; }
+  updateActions(S);
+}
+function go(i, animate) {
+  i = Math.max(0, Math.min(STEPS.length - 1, i));
+  const anims = animate ? (STEPS[i].anims || []) : [];
+  const rects = {};
+  anims.forEach(a => { const el = document.getElementById(a.from); if (el) rects[a.from] = el.getBoundingClientRect(); });
+  cur = i; render();
+  if (animate && !reduce) runAnims(anims, rects);
+}
+function runAnims(anims, rects) {
+  const d = Math.min(2600, DUR[speed] * 0.42), stagger = d * 0.55;
+  anims.forEach((a, k) => {
+    const t = document.getElementById(a.to), fr = rects[a.from] || (document.getElementById(a.from) || {}).getBoundingClientRect?.();
+    if (!t || !fr) return;
+    const tr = t.getBoundingClientRect(), chip = document.createElement("div");
+    chip.className = "fly"; chip.textContent = a.label; document.body.appendChild(chip);
+    const w = chip.offsetWidth, h = chip.offsetHeight;
+    const fx = fr.left + fr.width / 2 - w / 2, fy = fr.top + fr.height / 2 - h / 2, tx = tr.left + tr.width / 2 - w / 2, ty = tr.top + tr.height / 2 - h / 2;
+    chip.style.transform = `translate(${fx}px,${fy}px)`; chip.style.opacity = 0;
+    const an = chip.animate([{ transform: `translate(${fx}px,${fy}px) scale(.9)`, opacity: 0 }, { transform: `translate(${fx}px,${fy}px) scale(1)`, opacity: 1, offset: .12 }, { transform: `translate(${tx}px,${ty}px) scale(1)`, opacity: 1, offset: .88 }, { transform: `translate(${tx}px,${ty}px) scale(.9)`, opacity: 0 }],
+      { duration: d, delay: k * stagger, easing: "ease-in-out", fill: "forwards" });
+    an.onfinish = () => chip.remove(); an.oncancel = () => chip.remove();
+    activeChips.push(an);
+  });
+}
+let activeChips = [];
+function clearChips() { activeChips.forEach(a => { try { a.cancel(); } catch (e) { } }); activeChips = []; }
+
+/* ---------------- playback ---------------- */
+function setPlaying(v) {
+  playing = v; $("b-play").textContent = v ? "❚❚ Pause" : "▶ Play"; clearTimeout(timer);
+  if (v) schedule();
+}
+function schedule() {
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    if (!playing) return;
+    if (cur >= STEPS.length - 1) { setPlaying(false); return; }
+    const nx = cur + 1, phaseChange = STEPS[nx].phase !== STEPS[cur].phase;
+    clearChips(); go(nx, true);
+    if (phaseChange && $("stop-phase").checked) { setPlaying(false); return; }
+    schedule();
+  }, DUR[speed]);
+}
+$("b-play").onclick = () => { if (!playing && cur >= STEPS.length - 1) go(0, false); setPlaying(!playing); };
+$("b-next").onclick = () => { setPlaying(false); clearChips(); go(cur + 1, true); };
+$("b-prev").onclick = () => { setPlaying(false); clearChips(); go(cur - 1, false); };
+$("b-first").onclick = () => { setPlaying(false); clearChips(); go(0, false); };
+$("b-last").onclick = () => { setPlaying(false); clearChips(); go(STEPS.length - 1, false); };
+$("tl").addEventListener("input", () => { setPlaying(false); clearChips(); go(+$("tl").value, false); });
+function showSpeed() { $("s-val").textContent = speed + 1; $("s-sec").textContent = (DUR[speed] / 1000) + " s per step"; }
+$("s-minus").onclick = () => { speed = Math.max(0, speed - 1); showSpeed(); if (playing) schedule(); };
+$("s-plus").onclick = () => { speed = Math.min(DUR.length - 1, speed + 1); showSpeed(); if (playing) schedule(); };
+function showZoom() { const z = ZOOMS[zoom]; $("stage").style.setProperty("--z", z); $("stage").style.setProperty("--zw", Math.max(1, z)); $("z-val").textContent = z + "×"; }
+$("z-minus").onclick = () => { zoom = Math.max(0, zoom - 1); showZoom(); };
+$("z-plus").onclick = () => { zoom = Math.min(ZOOMS.length - 1, zoom + 1); showZoom(); };
+$("wal-sim").addEventListener("keydown", e => {
+  if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  if (e.key === " ") { e.preventDefault(); $("b-play").click(); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); $("b-next").click(); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); $("b-prev").click(); }
+});
+$("stage").addEventListener("click", e => { const el = e.target.closest("[data-l]"); if (!el) return; const l = +el.dataset.l; sel = sel === l ? null : l; render(); });
+
+/* ---------------- actions ---------------- */
+function updateActions(S) {
+  const up = S.mode === "up", down = S.mode === "down";
+  const xs = Object.keys(S.tt).filter(x => S.tt[x].status === "U");
+  const xsel = $("a-x"), prevV = xsel.value, newX = "T" + S.xn;
+  xsel.innerHTML = xs.map(x => `<option value="${x}">${x} (active)</option>`).join("") + `<option value="${newX}">${newX} (new)</option>`;
+  if ([...xsel.options].some(o => o.value === prevV)) xsel.value = prevV;
+  const isActive = xs.includes(xsel.value);
+  $("a-upd").disabled = !up; $("a-com").disabled = !up || !isActive; $("a-abt").disabled = !up || !isActive;
+  $("a-ck").disabled = !up; $("a-fp").disabled = down; $("a-fl").disabled = down; $("a-cr").disabled = down; $("a-rec").disabled = !down;
+}
+$("a-x").onchange = () => updateActions(STEPS[cur].S);
+$("a-p").onchange = () => { const S = STEPS[cur].S, p = $("a-p").value; $("a-v").value = (S.buf[p] ? S.buf[p].val : S.disk[p].val) + 50; };
+function act(op) {
+  const S0 = STEPS[cur].S, msg = $("a-msg");
+  if (op.op === "update") {
+    if (!Number.isFinite(op.v) || op.v < 0 || op.v > 999999) { msg.textContent = "Enter a balance between 0 and 999999."; return; }
+    const owner = S0.locks[op.p];
+    if (owner && owner !== op.x && S0.tt[owner]) { msg.textContent = `${op.p} is locked by ${owner} until it commits or aborts (strict two-phase locking). Pick another page or finish ${owner}.`; return; }
+  }
+  const dropped = STEPS.length - 1 - cur;
+  setPlaying(false); clearChips();
+  OUT = STEPS.slice(0, cur + 1); const S = clone(S0); const first = OUT.length;
+  runOp(S, op); STEPS = OUT;
+  if (scen !== "sandbox") { scen = "custom"; scenBox.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", "false")); }
+  buildList();
+  msg.textContent = `Added ${plural(STEPS.length - first, "step")}${dropped ? `, replacing ${plural(dropped, "later step")}` : ""}.`;
+  if (STEPS.length > first) { go(first, true); setPlaying(true); } else go(cur, false);
+}
+$("a-upd").onclick = () => act({ op: "update", x: $("a-x").value, p: $("a-p").value, v: Math.round(+$("a-v").value) });
+$("a-com").onclick = () => act({ op: "commit", x: $("a-x").value });
+$("a-abt").onclick = () => act({ op: "abort", x: $("a-x").value });
+$("a-fp").onclick = () => act({ op: "flushPage", p: $("a-p").value });
+$("a-fl").onclick = () => act({ op: "flushLog" });
+$("a-ck").onclick = () => act({ op: "checkpoint" });
+$("a-cr").onclick = () => act({ op: "crash" });
+$("a-rec").onclick = () => act({ op: "recover" });
+
+showSpeed(); showZoom(); loadScen("crash");
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Storage Devices in Motion</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:ital,wght@0,400;0,600;1,400&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap">
+<style>
+/* Layout: one reading column (~68ch) with simulator panels breaking out to 1080px, like a lab notebook with instruments pasted in */
+:root{
+  --bg:#eceeec; --surface:#f7f8f6; --ink:#141918; --muted:#57605d; --line:#cfd5d2;
+  --accent:#b77d00; --accent-ink:#7d5500; --accent-soft:#f4e5bd;
+  --go:#dcd7f6; --go-ink:#3a2f86;
+  --read:#235fa3; --write:#2a7d46; --stale:#ad412b;
+  --f-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --f-body:"Literata",Georgia,"Times New Roman",serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121514; --surface:#1a1e1d; --ink:#e6ebe9; --muted:#9ba6a2; --line:#2d3432;
+  --accent:#e7b33a; --accent-ink:#f0c661; --accent-soft:#3d3218;
+  --go:#2e2a55; --go-ink:#d4ccff; --read:#82b4ee; --write:#72cf92; --stale:#e57d64; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121514; --surface:#1a1e1d; --ink:#e6ebe9; --muted:#9ba6a2; --line:#2d3432;
+  --accent:#e7b33a; --accent-ink:#f0c661; --accent-soft:#3d3218;
+  --go:#2e2a55; --go-ink:#d4ccff; --read:#82b4ee; --write:#72cf92; --stale:#e57d64; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:17px/1.65 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 72px}
+.wrap{max-width:1080px;margin:0 auto}
+.prose{max-width:68ch}
+.prose p{margin:0 0 1em}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.08;letter-spacing:-0.012em}
+h1{font-size:clamp(2.5rem,7vw,4.6rem);font-weight:800;margin:.15em 0 .3em}
+h2{font-size:clamp(1.65rem,3.6vw,2.4rem);font-weight:800;margin:.2em 0 .5em}
+h3{font-size:1.18rem;font-weight:600;margin:1.6em 0 .45em}
+a{color:var(--accent-ink)}
+.eyebrow{font:600 12px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent-ink)}
+header.hero{padding-block:56px 32px}
+.dek{font-size:1.25rem;line-height:1.5;color:var(--muted);max-width:52ch;margin:0}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px}
+nav.toc a{font:500 13px var(--f-mono);text-decoration:none;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--surface)}
+nav.toc a:hover{border-color:var(--accent)}
+section{padding-block:56px 12px;border-top:1px solid var(--line)}
+code{font-family:var(--f-mono);font-size:.84em;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+.eq{font:13.5px/1.75 var(--f-mono);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;white-space:pre;margin:0 0 1.2em;font-variant-numeric:tabular-nums}
+.eq .c{color:var(--muted)}
+.eq b{color:var(--accent-ink);font-weight:600}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:18px 0 24px;max-width:68ch}
+.fact{border-top:2px solid var(--ink);padding-top:8px}
+.fact .n{font:600 1.35rem/1.2 var(--f-mono);font-variant-numeric:tabular-nums}
+.fact .l{font-size:.85rem;color:var(--muted);line-height:1.4}
+
+/* pipeline */
+ol.pipe{list-style:none;padding:0;margin:20px 0;display:grid;gap:0;counter-reset:s;max-width:76ch}
+ol.pipe li{counter-increment:s;display:grid;grid-template-columns:40px 1fr;gap:12px;padding:12px 0;border-bottom:1px dashed var(--line)}
+ol.pipe li::before{content:counter(s);font:600 13px/26px var(--f-mono);width:28px;height:28px;border-radius:50%;border:1px solid var(--ink);text-align:center}
+ol.pipe .who{font:600 13px var(--f-mono);letter-spacing:.04em;text-transform:uppercase}
+ol.pipe .what{font-size:.97rem;min-width:0}
+ol.pipe .num{font-family:var(--f-mono);font-size:.82rem;color:var(--muted);display:block;margin-top:2px;overflow-wrap:anywhere}
+
+/* simulator panel */
+.sim{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin:28px 0 32px;display:grid;gap:14px}
+.sim-head{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:flex-end;justify-content:space-between}
+.sim-title{font:600 13px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.ctls{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:flex-end}
+.grp{display:flex;flex-direction:column;gap:6px}
+.lbl{font:italic 12px var(--f-mono);color:var(--muted)}
+.row{display:flex;gap:6px;align-items:center}
+.btn{font:600 14px var(--f-mono);border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px;min-width:40px;height:40px;padding:0 12px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn:focus-visible,.chip:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.speed-val{font:600 15px var(--f-mono);min-width:40px;height:40px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--line);border-radius:6px}
+.btn.run{background:var(--go);color:var(--go-ink);border-color:transparent;padding:0 18px}
+.timer{font:600 20px/40px var(--f-mono);min-width:132px;height:40px;padding:0 14px;background:var(--go);color:var(--go-ink);border-radius:6px;text-align:center;font-variant-numeric:tabular-nums}
+.btn.pause[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.scrub{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
+.scrub input{width:100%;accent-color:var(--accent);min-width:0}
+.ratio{font:12px var(--f-mono);color:var(--muted);white-space:nowrap}
+.paused-tag{color:var(--accent-ink);font-weight:600}
+@media (max-width:560px){.scrub{grid-template-columns:1fr}.ratio{white-space:normal}}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:500 13px var(--f-mono);padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+select,input[type=text],input[type=number]{font:500 13px var(--f-mono);height:36px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);padding:0 10px}
+.stage{border-radius:12px;overflow:hidden;background:#141716}
+.stage.zoomed{overflow:auto;cursor:grab;overscroll-behavior:contain}
+.stage.zoomed.grabbing{cursor:grabbing}
+.zval{font:600 15px var(--f-mono);min-width:48px;height:40px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--line);border-radius:6px;font-variant-numeric:tabular-nums}
+.follow{font:12px var(--f-mono);color:var(--muted);display:flex;align-items:center;gap:4px;margin-left:4px;cursor:pointer}
+.follow input{accent-color:var(--accent)}
+.stage canvas{display:block;width:100%;height:auto}
+.status{font:500 13px/1.5 var(--f-mono);color:var(--muted);min-height:1.5em}
+.status b{color:var(--ink);font-weight:600}
+.note{font:italic 12px var(--f-mono);color:var(--accent-ink);min-height:1em}
+.out{font:13px/1.6 var(--f-mono);border-left:3px solid var(--read);padding:4px 0 4px 12px;color:var(--ink);overflow-wrap:anywhere}
+.out .k{color:var(--muted)}
+.math-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+table.math{width:100%;border-collapse:collapse;font:12.5px/1.45 var(--f-mono);font-variant-numeric:tabular-nums}
+.math th{text-align:left;font-weight:600;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.math td{padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap;color:var(--muted)}
+.math tr:last-child td{border-bottom:0}
+.math tr.done td{color:var(--ink)}
+.math tr.active td{background:var(--accent-soft);color:var(--ink)}
+.math tr.wp td{font-style:italic}
+.totals{font:13px/1.75 var(--f-mono);white-space:pre-wrap;background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:12px 14px;font-variant-numeric:tabular-nums;overflow-x:auto}
+.totals b{color:var(--accent-ink);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font:12px var(--f-mono);color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+.ftl{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;font:12px var(--f-mono)}
+.ftl div{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-variant-numeric:tabular-nums}
+.ftl div.chg{border-color:var(--write);color:var(--write)}
+
+/* scheduler + comparison charts */
+.chart-wrap{overflow-x:auto;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px}
+svg text{font-family:var(--f-mono)}
+.sv-axis{stroke:var(--line)}
+.sv-tick{fill:var(--muted);font-size:11px}
+.sv-path{fill:none;stroke:var(--accent);stroke-width:2.2;stroke-dasharray:1;stroke-dashoffset:1}
+.sv-path.go{transition:stroke-dashoffset 1.6s ease-in-out;stroke-dashoffset:0}
+.sv-jump{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-dasharray:5 5}
+.sv-pt{fill:var(--surface);stroke:var(--ink);stroke-width:1.5}
+.sv-lab{fill:var(--ink);font-size:11.5px}
+.sv-bar{fill:var(--accent)}
+.sv-bar.hdd{fill:var(--read)} .sv-bar.ssd{fill:var(--write)}
+.sv-name{fill:var(--ink);font-size:12.5px;font-weight:600}
+.sv-val{fill:var(--muted);font-size:12px}
+.algos{display:grid;gap:6px;font:12.5px var(--f-mono);max-width:620px}
+.algos .a{display:grid;grid-template-columns:70px 1fr 90px;gap:10px;align-items:center}
+.algos .bar{height:12px;background:var(--line);border-radius:3px;position:relative;overflow:hidden}
+.algos .bar span{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:3px}
+.algos .a.cur span{background:var(--ink)}
+.algos .v{text-align:right;font-variant-numeric:tabular-nums}
+table.cmp{border-collapse:collapse;font:13px/1.5 var(--f-mono);min-width:640px;font-variant-numeric:tabular-nums}
+.cmp th,.cmp td{border-bottom:1px solid var(--line);padding:8px 12px;text-align:left}
+.cmp th{color:var(--muted);font-weight:600}
+@media (max-width:560px){body{font-size:16px}.timer{min-width:110px}}
+@media (prefers-reduced-motion: reduce){.sv-path.go{transition:none}}
+</style>
+
+<style>[hidden]{display:none!important}body{margin:0}img{max-width:100%}</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">Storage engine notes · devices</div>
+  <h1>Storage Devices in Motion</h1>
+  <p class="dek">A tape drive, a hard disk and an SSD, each simulated with real timing numbers. Press <b>Time IO</b> on any of them to watch requests travel through the hardware, and read the arithmetic behind every second, millisecond and microsecond.</p>
+  <nav class="toc" aria-label="Sections">
+    <a href="#path">The read path</a><a href="#tape">Tape</a><a href="#hdd">Hard disk</a><a href="#sched">OS disk scheduling</a><a href="#ssd">SSD</a><a href="#compare">Side by side</a><a href="#db">Why databases care</a>
+  </nav>
+</header>
+
+<!-- ============ READ PATH ============ -->
+<section id="path">
+<div class="prose">
+  <div class="eyebrow">Before the device</div>
+  <h2>What happens between read() and the hardware</h2>
+  <p>Every device below receives the same kind of thing: a request for a numbered run of sectors, called <b>logical block addresses</b> (LBAs). The operating system turns your file read into those numbers first. Here is one concrete trip, with the numbers worked out.</p>
+  <p>Say a storage engine wants page 128 of <code>orders.db</code>, with 8 KB pages, on a filesystem with 4 KB blocks and a disk with 512-byte sectors.</p>
+</div>
+<ol class="pipe">
+  <li><div class="what"><span class="who">Application</span> calls <code>pread(fd, buf, 8192, offset)</code>.<span class="num">offset = 128 × 8,192 = 1,048,576 bytes</span></div></li>
+  <li><div class="what"><span class="who">Page cache</span> checks whether those bytes are already in RAM. On a miss, the kernel must go to the device.<span class="num">file blocks = 1,048,576 ÷ 4,096 = block 256 and 257</span></div></li>
+  <li><div class="what"><span class="who">Filesystem</span> looks up the file's extent map: file block 0 starts at disk block 9,000,000.<span class="num">disk blocks = 9,000,000 + 256 = 9,000,256 … 9,000,257</span></div></li>
+  <li><div class="what"><span class="who">Block layer</span> converts to sectors and queues one request. The I/O scheduler may merge it with neighbours or reorder the queue.<span class="num">LBA = 9,000,256 × (4,096 ÷ 512) = 72,002,048 · length = 16 sectors</span></div></li>
+  <li><div class="what"><span class="who">Driver</span> sends a command (SATA/AHCI or an NVMe submission queue entry) and gives the device a DMA address in RAM.<span class="num">READ LBA 72,002,048, 16 sectors → DMA to buffer</span></div></li>
+  <li><div class="what"><span class="who">Device</span> maps the LBA to something physical. A tape locates a block position, a disk maps it to a track and sector, an SSD's FTL maps it to a NAND page. This is the part the simulators show.</div></li>
+  <li><div class="what"><span class="who">Completion</span>: the device writes the data into RAM by DMA, raises an interrupt, and the kernel wakes the waiting process.</div></li>
+</ol>
+</section>
+
+<!-- ============ TAPE ============ -->
+<section id="tape">
+<div class="prose">
+  <div class="eyebrow">Device 1 · sequential access</div>
+  <h2>Tape: fast when streaming, slow when searching</h2>
+  <p>A tape cartridge holds a single long ribbon of magnetic tape wound on one reel. The drive threads it past a <b>fixed</b> read/write head onto a take-up reel inside the drive. The head never moves along the tape; the tape moves past the head. To reach a block, the drive has to physically wind the tape there.</p>
+  <p>That gives tape two very different speeds. Once it is positioned, it streams data faster than most hard disks. But reaching a random block means winding hundreds of metres of tape, which takes tens of seconds.</p>
+</div>
+<div class="facts">
+  <div class="fact"><div class="n">18 TB</div><div class="l">LTO-9 native capacity per cartridge</div></div>
+  <div class="fact"><div class="n">400 MB/s</div><div class="l">LTO-9 native streaming rate</div></div>
+  <div class="fact"><div class="n">≈1 km</div><div class="l">tape length in one cartridge</div></div>
+  <div class="fact"><div class="n">tens of s</div><div class="l">typical time to locate a random spot</div></div>
+</div>
+<div class="prose">
+  <h3>The formulas the simulator uses</h3>
+</div>
+<div class="eq"><span class="c">// time to move the tape to a block (wind), then read it</span>
+t_locate = t_ramp + distance ÷ v_locate        <span class="c">// ramp = stop, reverse, settle</span>
+t_read   = block size ÷ streaming rate          <span class="c">// 1 GB ÷ 400 MB/s = 2.5 s</span>
+distance = |target block − current block| × block length
+
+<span class="c">// how many turns the take-up reel makes</span>
+wound tape area:  π(r² − r₀²) = thickness × L    <span class="c">// L = tape length on the reel</span>
+radius:           r(L) = √(r₀² + thickness·L/π)
+rotations:        <b>n = (r_end − r_start) ÷ thickness</b>   <span class="c">// each turn adds one tape layer</span></div>
+<div class="prose"><p>Model values: each block is 5 m of tape holding 1 GB, the drive winds at 10 m/s while locating, and needs 1.2 s to stop, reverse and settle before each locate. The reel hub radius is 22 mm and the tape is 5.2 µm thick. Real drives also move the head across many parallel track bands ("wraps") and run the tape back and forth in a serpentine path; this model keeps one band so the geometry stays readable.</p></div>
+
+<div class="sim" id="sim-tape">
+  <div class="sim-head">
+    <div class="grp"><span class="lbl">Workload</span><div class="chips" data-presets></div></div>
+    <div class="ctls">
+      <div class="grp"><span class="lbl">Request order</span>
+        <select id="tape-order" aria-label="Request order"><option value="asis">As requested</option><option value="sorted">Sorted by position</option></select></div>
+      <div class="grp"><span class="lbl">Zoom</span><div class="row"><button class="btn zout" aria-label="Zoom out">−</button><span class="zval">1×</span><button class="btn zin" aria-label="Zoom in">+</button><label class="follow"><input type="checkbox" class="zfollow" checked> follow</label></div></div>
+      <div class="grp"><span class="lbl">Speed selector</span><div class="row"><button class="btn minus" aria-label="Slower">−</button><span class="speed-val">3</span><button class="btn plus" aria-label="Faster">+</button></div></div>
+      <div class="grp"><span class="lbl">Start and time IO queue</span><div class="row"><button class="btn run">Time IO</button><button class="btn pause" aria-pressed="false">❚❚ Pause</button><span class="timer" aria-live="off">0.00 s</span></div></div>
+    </div>
+  </div>
+  <div class="status"></div>
+  <div class="stage"><canvas id="tape-cv" aria-label="Animated tape drive with take-up reel, head and cartridge"></canvas></div>
+  <div class="scrub"><span class="lbl">Timeline</span><input type="range" class="scrub-in" min="0" max="1000" value="0" aria-label="Scrub through the run"><span class="ratio"></span></div>
+  <div class="note auto-note"></div>
+  <div class="out" id="tape-out"><span class="k">Data restored:</span> nothing yet</div>
+  <div class="math-wrap"><table class="math"><thead></thead><tbody></tbody></table></div>
+  <div class="totals"></div>
+</div>
+<div class="prose"><p>Try <b>Restore 4 scattered blocks</b> twice: once as requested, once sorted. Sorting turns a back-and-forth search into one pass down the tape. Backup software does exactly this, which is why tape restores of many small files are planned rather than issued one by one.</p></div>
+</section>
+
+<!-- ============ HDD ============ -->
+<section id="hdd">
+<div class="prose">
+  <div class="eyebrow">Device 2 · mechanical random access</div>
+  <h2>Hard disk: an arm, a spinning platter, and waiting</h2>
+  <p>A hard disk stores data on circular <b>tracks</b> on a spinning platter. Each track is cut into <b>sectors</b>. An actuator arm swings the head between tracks. Reading one sector costs three things in sequence:</p>
+  <p><b>Seek</b>: swing the arm to the right track. <b>Rotational latency</b>: wait for the sector to spin under the head. <b>Transfer</b>: let the sector pass under the head.</p>
+  <p>Outer tracks are longer, so modern drives put more sectors on them (zoned bit recording). This simulated platter does the same: track T0 near the centre has 8 sectors, and T4 near the edge has 24. One revolution therefore delivers three times as much data on T4 as on T0.</p>
+</div>
+<div class="facts">
+  <div class="fact"><div class="n">7,200 rpm</div><div class="l">platter speed</div></div>
+  <div class="fact"><div class="n">8.33 ms</div><div class="l">one revolution = 60,000 ÷ 7,200</div></div>
+  <div class="fact"><div class="n">4.17 ms</div><div class="l">average rotational wait (half a turn)</div></div>
+  <div class="fact"><div class="n">≈8–9 ms</div><div class="l">typical average seek on a desktop drive</div></div>
+</div>
+<div class="eq">t_access = t_seek + t_rotation + t_transfer
+
+t_seek(d)    = 1.0 ms + 1.5 ms × √d        <span class="c">// d = tracks crossed; settle + accelerate/coast</span>
+t_rotation   = (Δθ ÷ 360°) × 8.333 ms     <span class="c">// Δθ = how far the sector is from the head</span>
+t_transfer   = 8.333 ms ÷ sectors on track  <span class="c">// T0: 1.04 ms · T4: 0.35 ms</span>
+revolutions  = total time ÷ 8.333 ms</div>
+<div class="prose"><p>The platter is spinning before you press Time IO, so where it happens to be decides the rotational waits. Run the same workload twice and the waits change, which is exactly what happens on a real drive. The seek formula is a toy model for a five-track disk; a real drive has hundreds of thousands of tracks and the same square-root shape.</p></div>
+
+<div class="sim" id="sim-hdd">
+  <div class="sim-head">
+    <div class="grp"><span class="lbl">Workload</span><div class="chips" data-presets></div></div>
+    <div class="ctls">
+      <div class="grp"><span class="lbl">OS scheduler</span>
+        <select id="hdd-alg" aria-label="Disk scheduler"><option>FCFS</option><option>SSTF</option><option>SCAN</option><option>C-SCAN</option><option>LOOK</option><option>C-LOOK</option></select></div>
+      <div class="grp"><span class="lbl">Zoom</span><div class="row"><button class="btn zout" aria-label="Zoom out">−</button><span class="zval">1×</span><button class="btn zin" aria-label="Zoom in">+</button><label class="follow"><input type="checkbox" class="zfollow" checked> follow</label></div></div>
+      <div class="grp"><span class="lbl">Speed selector</span><div class="row"><button class="btn minus" aria-label="Slower">−</button><span class="speed-val">2</span><button class="btn plus" aria-label="Faster">+</button></div></div>
+      <div class="grp"><span class="lbl">Start and time IO queue</span><div class="row"><button class="btn run">Time IO</button><button class="btn pause" aria-pressed="false">❚❚ Pause</button><span class="timer">0.00 ms</span></div></div>
+    </div>
+  </div>
+  <div class="status"></div>
+  <div class="stage"><canvas id="hdd-cv" aria-label="Animated hard disk with platter, tracks, sectors and actuator arm"></canvas></div>
+  <div class="scrub"><span class="lbl">Timeline</span><input type="range" class="scrub-in" min="0" max="1000" value="0" aria-label="Scrub through the run"><span class="ratio"></span></div>
+  <div class="note auto-note"></div>
+  <div class="legend"><span><i style="background:#f2c96b"></i>under the head now</span><span><i style="background:#bcd3ee"></i>read</span><span><i style="background:#bfe3c8"></i>written</span><span>Each sector shows its byte and its sector number.</span></div>
+  <div class="out" id="hdd-out"><span class="k">Bytes returned:</span> nothing yet</div>
+  <div class="math-wrap"><table class="math"><thead></thead><tbody></tbody></table></div>
+  <div class="totals"></div>
+</div>
+<div class="prose"><p>Compare <b>hello.txt</b> with <b>report.txt</b>. Both are small files. hello.txt sits in eleven neighbouring sectors, so after one seek the bytes arrive back to back with no rotational wait. report.txt is fragmented across four tracks, and nearly all of its time goes to seeking and waiting. This is why defragmenting helped hard disks, and why databases try to allocate pages in contiguous extents.</p></div>
+</section>
+
+<!-- ============ SCHEDULING ============ -->
+<section id="sched">
+<div class="prose">
+  <div class="eyebrow">Inside the OS</div>
+  <h2>How the OS orders disk requests</h2>
+  <p>When several requests are waiting, the order in which they are sent decides how far the arm travels. The block layer's I/O scheduler picks that order. The classic algorithms, all measured in cylinders (tracks) the head crosses:</p>
+  <p><b>FCFS</b> serves requests in arrival order. <b>SSTF</b> always goes to the closest request next; it is short but can starve far-away requests. <b>SCAN</b> (the elevator) sweeps in one direction to the end of the disk, then reverses. <b>C-SCAN</b> sweeps one way, then jumps back to the start and sweeps again, giving more even wait times. <b>LOOK</b> and <b>C-LOOK</b> are SCAN and C-SCAN that turn around at the last request instead of the disk edge.</p>
+  <p>The example below is the standard textbook queue on a 200-cylinder disk with the head at 53. Edit the numbers to try your own.</p>
+</div>
+<div class="sim" id="sim-sched">
+  <div class="ctls">
+    <div class="grp"><span class="lbl">Request queue (cylinders)</span><input type="text" id="q-queue" value="98, 183, 37, 122, 14, 124, 65, 67" style="width:min(320px,80vw)"></div>
+    <div class="grp"><span class="lbl">Head at</span><input type="number" id="q-head" value="53" style="width:90px"></div>
+    <div class="grp"><span class="lbl">Last cylinder</span><input type="number" id="q-max" value="199" style="width:90px"></div>
+    <div class="grp"><span class="lbl">Initial direction</span><select id="q-dir"><option value="down">toward 0</option><option value="up">toward the end</option></select></div>
+  </div>
+  <div class="chips" id="q-algs"></div>
+  <div class="chart-wrap"><svg id="sched-svg" role="img" aria-label="Head movement chart"></svg></div>
+  <div class="totals" id="sched-math"></div>
+  <div class="algos" id="sched-all"></div>
+</div>
+</section>
+
+<!-- ============ SSD ============ -->
+<section id="ssd">
+<div class="prose">
+  <div class="eyebrow">Device 3 · no moving parts</div>
+  <h2>SSD: parallel flash chips and a translation layer</h2>
+  <p>An SSD has nothing to seek and nothing to spin. A controller talks to several NAND flash <b>dies</b> over independent <b>channels</b>. Each die holds <b>blocks</b>, and each block holds <b>pages</b> (typically 16 KB). Three rules shape everything an SSD does:</p>
+  <p>Reading a page is fast, about 50 µs for the chip to sense it. Writing (programming) a page is slower, several hundred µs. And a page cannot be overwritten in place: it can only be written after its whole block has been <b>erased</b>, which takes milliseconds.</p>
+  <p>So the controller's <b>flash translation layer</b> (FTL) keeps a map from each LBA to the page that currently holds it. An overwrite goes to a fresh page, the map is updated, and the old page is marked <b>stale</b>. Later, <b>garbage collection</b> copies the still-valid pages out of a dirty block and erases it to make room.</p>
+</div>
+<div class="facts">
+  <div class="fact"><div class="n">≈50 µs</div><div class="l">page read (tR), TLC NAND, typical</div></div>
+  <div class="fact"><div class="n">≈600 µs</div><div class="l">page program (tPROG), typical</div></div>
+  <div class="fact"><div class="n">≈3 ms</div><div class="l">block erase (tBERS), typical</div></div>
+  <div class="fact"><div class="n">12 µs</div><div class="l">moving 16 KB over one channel</div></div>
+</div>
+<div class="eq">t_read(page)   = tR + t_bus = 50 + 12 = 62 µs
+t_write(page)  = t_bus + tPROG = 12 + 600 = 612 µs
+t_erase(block) = 3,000 µs
+
+<span class="c">// requests on different dies run at the same time</span>
+total time ≈ max over dies ( Σ work queued on that die )
+speed-up   = Σ all work ÷ total time</div>
+
+<div class="sim" id="sim-ssd">
+  <div class="sim-head">
+    <div class="grp"><span class="lbl">Workload</span><div class="chips" data-presets></div></div>
+    <div class="ctls">
+      <div class="grp"><span class="lbl">Drive</span><button class="btn" id="ssd-reset">Reset drive</button></div>
+      <div class="grp"><span class="lbl">Zoom</span><div class="row"><button class="btn zout" aria-label="Zoom out">−</button><span class="zval">1×</span><button class="btn zin" aria-label="Zoom in">+</button><label class="follow"><input type="checkbox" class="zfollow" checked> follow</label></div></div>
+      <div class="grp"><span class="lbl">Speed selector</span><div class="row"><button class="btn minus" aria-label="Slower">−</button><span class="speed-val">2</span><button class="btn plus" aria-label="Faster">+</button></div></div>
+      <div class="grp"><span class="lbl">Start and time IO queue</span><div class="row"><button class="btn run">Time IO</button><button class="btn pause" aria-pressed="false">❚❚ Pause</button><span class="timer">0 µs</span></div></div>
+    </div>
+  </div>
+  <div class="status"></div>
+  <div class="stage"><canvas id="ssd-cv" aria-label="Animated SSD with controller, channels and four NAND dies"></canvas></div>
+  <div class="scrub"><span class="lbl">Timeline</span><input type="range" class="scrub-in" min="0" max="1000" value="0" aria-label="Scrub through the run"><span class="ratio"></span></div>
+  <div class="note auto-note"></div>
+  <div class="legend"><span><i style="background:#d6dad5"></i>valid page (LBA:data)</span><span><i style="background:#555b59"></i>free (erased)</span><span><i style="background:#d6dad5;background-image:repeating-linear-gradient(45deg,#b0432c 0 2px,transparent 2px 6px)"></i>stale</span><span><i style="background:#f2c96b"></i>busy</span></div>
+  <div class="out" id="ssd-out"><span class="k">Data returned:</span> nothing yet</div>
+  <div class="math-wrap"><table class="math"><thead></thead><tbody></tbody></table></div>
+  <div class="totals"></div>
+  <div><div class="lbl" style="margin-bottom:6px">FTL map (LBA → die · block · page)</div><div class="ftl" id="ftl"></div></div>
+</div>
+<div class="prose"><p>A good sequence to try: <b>Read 8 LBAs spread</b> (all four dies work at once), then <b>Read LBAs 0, 4, 8, 12, 16</b> (they all live on die 0, so they queue up), then <b>Overwrite 4 LBAs</b> (watch the old pages go stale), then <b>Garbage collect</b>. The extra page copy during garbage collection is <b>write amplification</b>: the flash wrote more than the host asked for.</p></div>
+</section>
+
+<!-- ============ COMPARE ============ -->
+<section id="compare">
+<div class="prose">
+  <div class="eyebrow">Side by side</div>
+  <h2>The same job on each device</h2>
+  <p>Eight random 16 KB reads, and one 1 GB sequential read. The figures use typical published numbers, not this page's toy models. The chart uses a log scale: each grid step is ten times longer than the one before.</p>
+</div>
+<div class="chart-wrap"><svg id="cmp-svg" role="img" aria-label="Time for 8 random reads on each device, log scale"></svg></div>
+<div class="math-wrap" style="margin-top:16px">
+<table class="cmp">
+<thead><tr><th>Device</th><th>8 random 16 KB reads</th><th>How</th><th>1 GB sequential</th></tr></thead>
+<tbody>
+<tr><td>Tape, LTO-9 (mounted)</td><td>≈ 400 s</td><td>8 × ~50 s average locate</td><td>2.5 s at 400 MB/s, after positioning</td></tr>
+<tr><td>HDD, 7,200 rpm</td><td>≈ 102 ms</td><td>8 × (8.5 seek + 4.17 rotation + 0.08 transfer)</td><td>≈ 5 s at ~200 MB/s</td></tr>
+<tr><td>SATA SSD, one at a time</td><td>≈ 0.7 ms</td><td>8 × ~90 µs</td><td>≈ 1.9 s at ~550 MB/s</td></tr>
+<tr><td>NVMe SSD, 8 in parallel</td><td>≈ 0.1 ms</td><td>dies serve them at once</td><td>≈ 0.15 s at ~7 GB/s</td></tr>
+</tbody></table></div>
+<div class="prose" style="margin-top:20px"><p>Random reads span more than six orders of magnitude, from minutes down to a tenth of a millisecond. Sequential reads differ by only about twenty times. Tape is a fine archive precisely because archives are written and read sequentially.</p></div>
+</section>
+
+<!-- ============ DB ============ -->
+<section id="db">
+<div class="prose">
+  <div class="eyebrow">Back to the storage engine</div>
+  <h2>Why databases care about all this</h2>
+  <p><b>B+ tree lookups are random reads.</b> Each level of the tree is one page somewhere in the file. On a hard disk, a three-level lookup that misses the buffer pool can cost three seeks plus three rotational waits, around 35 ms. That is why disk-era databases keep the upper levels of every index in memory, and why a large buffer pool mattered so much.</p>
+  <p><b>The write-ahead log is a sequential append.</b> On a hard disk the log head stays on one track region, so a commit is mostly a rotational wait instead of a seek. Putting the WAL on its own disk was standard advice for that reason.</p>
+  <p><b>Page size is a device decision.</b> An 8 KB or 16 KB page amortises one access cost over more rows. On an SSD, a page that matches the NAND page size avoids partial-page reads and extra writes.</p>
+  <p><b>SSDs reward concurrency.</b> One read at a time leaves most dies idle. Issuing several page reads at once (prefetching, parallel scans, io_uring or NVMe queues) is how engines reach the drive's rated IOPS.</p>
+  <p><b>SSDs dislike scattered overwrites.</b> Updating pages in place makes the FTL leave stale pages everywhere and run more garbage collection. Log-structured designs such as LSM trees write sequentially instead, which keeps write amplification low.</p>
+</div>
+</section>
+</div>
+
+<script>
+"use strict";
+const TAU = Math.PI * 2;
+const mod = (a, m) => ((a % m) + m) % m;
+const ease = x => x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const n2 = (v, d = 2) => Number(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+function setupCanvas(cv, W, H) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = W * dpr; cv.height = H * dpr; cv.style.aspectRatio = W + " / " + H;
+  const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); return c;
+}
+function rr(c, x, y, w, h, r, fill, stroke) {
+  c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.stroke(); }
+}
+function circ(c, x, y, r, fill, stroke, lw) {
+  c.beginPath(); c.arc(x, y, r, 0, TAU);
+  if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.lineWidth = lw || 1; c.strokeStyle = stroke; c.stroke(); }
+}
+const realFmt = ms => ms >= 1000 ? n2(ms / 1000, 1) + " s" : Math.round(ms) + " ms";
+function evAt(ev, t) { for (const e of ev) if (t >= e.t0 && t < e.t1) return e; return null; }
+const MONO = '"JetBrains Mono", ui-monospace, Menlo, monospace';
+function enclosure(c, W, H, pins) {
+  rr(c, 8, 8, W - 16, H - 16, 18, "#2a2e2d");
+  [[30, 30], [W - 30, 30], [30, H - 30], [W - 30, H - 30]].forEach(([x, y]) => { circ(c, x, y, 9, "#161918"); circ(c, x, y, 5, "#8d9390"); });
+  if (pins) { c.fillStyle = "#cfa82a"; for (let i = 0; i < 12; i++) c.fillRect(12, H * .28 + i * 9, 26, 5); for (let i = 0; i < 6; i++) c.fillRect(12, H * .28 + 120 + i * 9, 26, 5); }
+}
+
+/* ---------- generic player ---------- */
+const players = [];
+function makePlayer(root, cfg) {
+  const q = s => root.querySelector(s);
+  const p = { speed: cfg.speed, mode: "idle", t: 0, plan: null, scale: 1, cfg, status: [], paused: false, dragging: false };
+  const sv = q(".speed-val"), timer = q(".timer"), note = q(".auto-note"), tbody = q(".math tbody"), thead = q(".math thead"), totals = q(".totals"), statusEl = q(".status");
+  const pauseBtn = q(".pause"), scrub = q(".scrub-in"), ratioEl = q(".ratio");
+  thead.innerHTML = "<tr>" + cfg.cols.map(c => `<th>${c}</th>`).join("") + "</tr>";
+  function rescale() {
+    const base = cfg.factors[p.speed], tot = Math.max(1e-9, p.plan.total);
+    // only auto-accelerate very long runs at the default speed or faster; slower speeds are always honoured
+    p.scale = (p.speed >= cfg.speed && tot * base > cfg.maxReal) ? cfg.maxReal / tot : base;
+    note.textContent = p.mode === "run" && p.scale < base ? `Long run: playback sped up ${Math.round(base / p.scale)}× so it finishes in about ${Math.round(cfg.maxReal / 1000)} s. Lower the speed to watch it at full detail.` : "";
+    sv.textContent = p.speed + 1;
+    ratioEl.textContent = `speed ${p.speed + 1}/${cfg.factors.length} · ${cfg.ratio(p.scale)}`;
+  }
+  function setPaused(v) { p.paused = v; pauseBtn.setAttribute("aria-pressed", v ? "true" : "false"); pauseBtn.textContent = v ? "▶ Resume" : "❚❚ Pause"; }
+  pauseBtn.onclick = () => setPaused(!p.paused);
+  scrub.addEventListener("pointerdown", () => { p.dragging = true; });
+  window.addEventListener("pointerup", () => { p.dragging = false; });
+  scrub.addEventListener("input", () => {
+    if (p.mode === "idle" || p.plan.err) { scrub.value = 0; return; }
+    p.t = scrub.value / 1000 * p.plan.total;
+    if (p.mode === "done" && p.t < p.plan.total) p.mode = "run";
+    setPaused(true);
+  });
+  p.setPaused = setPaused;
+  function renderRows() {
+    tbody.innerHTML = p.plan.rows.map(r => `<tr class="${r.wp ? "wp" : ""}">` + r.cells.map(c => `<td>${c}</td>`).join("") + "</tr>").join("") || `<tr><td colspan="${cfg.cols.length}">${p.plan.err || "No requests."}</td></tr>`;
+    p.status = [];
+  }
+  function updateRows() {
+    const trs = tbody.children;
+    p.plan.rows.forEach((r, i) => {
+      let s = "";
+      if (p.mode === "done") s = "done";
+      else if (p.mode === "run") s = p.t >= r.t1 ? "done" : (p.t >= r.t0 ? "active" : "");
+      if (p.status[i] !== s && trs[i]) { trs[i].classList.toggle("done", s === "done"); trs[i].classList.toggle("active", s === "active"); p.status[i] = s; }
+    });
+  }
+  q(".minus").onclick = () => { p.speed = Math.max(0, p.speed - 1); rescale(); };
+  q(".plus").onclick = () => { p.speed = Math.min(cfg.factors.length - 1, p.speed + 1); rescale(); };
+  q(".run").onclick = () => {
+    p.plan = cfg.build(false); p.t = 0; p.mode = p.plan.err ? "idle" : "run"; setPaused(false); rescale(); renderRows();
+    totals.innerHTML = p.plan.err ? p.plan.err : "Running… totals appear when the last request finishes.";
+    cfg.onStart && cfg.onStart(p);
+  };
+  p.reset = () => { p.mode = "idle"; p.t = 0; p.plan = cfg.build(true); rescale(); renderRows(); totals.innerHTML = cfg.idleText; note.textContent = ""; cfg.onIdle && cfg.onIdle(p); };
+  let lastStatus = "";
+  p.tick = dt => {
+    if (p.mode === "run") {
+      if (!p.paused) p.t += dt / p.scale;
+      if (p.t >= p.plan.total) { p.t = p.plan.total; p.mode = "done"; note.textContent = ""; totals.innerHTML = cfg.totals(p.plan); cfg.onDone && cfg.onDone(p); }
+    }
+    cfg.draw(p, dt);
+    timer.textContent = cfg.fmt(p.mode === "idle" ? 0 : p.t);
+    if (!p.dragging) { const v = p.mode === "idle" ? 0 : Math.round(p.t / Math.max(1e-9, p.plan.total) * 1000); if (+scrub.value !== v) scrub.value = v; }
+    const st = (p.paused ? '<span class="paused-tag">PAUSED · </span>' : "") + cfg.statusText(p); if (st !== lastStatus) { statusEl.innerHTML = st; lastStatus = st; }
+    updateRows();
+  };
+  // presets
+  const box = q("[data-presets]");
+  if (box) {
+    Object.entries(cfg.presets).forEach(([k, v]) => {
+      const b = document.createElement("button"); b.className = "chip"; b.textContent = v.label; b.dataset.k = k;
+      b.setAttribute("aria-pressed", k === cfg.state.preset ? "true" : "false");
+      b.onclick = () => { cfg.state.preset = k; box.querySelectorAll(".chip").forEach(x => x.setAttribute("aria-pressed", x.dataset.k === k ? "true" : "false")); p.reset(); };
+      box.appendChild(b);
+    });
+  }
+  p.reset();
+  players.push(p);
+  return p;
+}
+
+/* =================================================================
+   TAPE
+   ================================================================= */
+const TP = { blocks: 60, len: 5, gb: 1, rate: 400, wind: 10, ramp: 1.2, hub: 0.022, thick: 5.2e-6, leader: 20 };
+TP.readT = TP.gb * 1000 / TP.rate;
+const TAPE_FILES = [
+  { name: "VOL1 label", a: 0, b: 0, hue: "#9aa6a2" },
+  { name: "invoices_2025.csv", a: 1, b: 8, hue: "#d8ad3f" },
+  { name: "photos_2024.tar", a: 9, b: 24, hue: "#6f9cc6" },
+  { name: "orders_db.sql", a: 25, b: 44, hue: "#7fb27c" },
+  { name: "app_logs.tgz", a: 45, b: 59, hue: "#c98a77" }];
+const tapeFile = i => TAPE_FILES.find(f => i >= f.a && i <= f.b);
+function tapeSample(i) {
+  const f = tapeFile(i);
+  if (f.a === 0) return "VOL1 BKP261029 LTO9 — volume label";
+  if (f.name.startsWith("inv")) return `INV-2025-${String(1000 + i * 137).padStart(5, "0")},Kolkata,₹${(12000 + i * 4733) % 90000}`;
+  if (f.name.startsWith("photo")) return `IMG_${2400 + i * 31}.jpg (tar member, ${3 + i % 5}.${i % 9} MB)`;
+  if (f.name.startsWith("orders")) return `INSERT INTO orders VALUES (${70000 + i * 211},'Pune',1299.00);`;
+  return `2026-03-${10 + i % 18} 02:14:${String(10 + i % 49).padStart(2, "0")} GET /api/cart 200`;
+}
+const tapeState = { preset: "scat" };
+const TAPE_PRESETS = {
+  seq: { label: "Restore invoices_2025.csv (p1–p8)", list: [1, 2, 3, 4, 5, 6, 7, 8] },
+  scat: { label: "Restore 4 scattered blocks", list: [52, 6, 40, 15] },
+  ping: { label: "Ping-pong: p58, p2, p57, p3", list: [58, 2, 57, 3] }};
+const rReal = L => Math.sqrt(TP.hub * TP.hub + TP.thick * L / Math.PI);
+function tapeBuild() {
+  let list = [...TAPE_PRESETS[tapeState.preset].list];
+  if (document.getElementById("tape-order").value === "sorted") list.sort((a, b) => a - b);
+  let pos = 0, t = 0, totM = 0, totRot = 0, totLoc = 0; const ev = [], rows = [];
+  list.forEach((b, i) => {
+    const t0 = t, p0 = pos; let loc = 0, dist = 0;
+    if (b !== pos) { dist = Math.abs(b - pos) * TP.len; loc = TP.ramp + dist / TP.wind; ev.push({ k: "loc", t0: t, t1: t + loc, p0: pos, p1: b }); t += loc; pos = b; }
+    ev.push({ k: "read", t0: t, t1: t + TP.readT, p0: b, p1: b + 1, b, i }); t += TP.readT;
+    const L0 = TP.leader + p0 * TP.len, Lb = TP.leader + b * TP.len, Le = TP.leader + (b + 1) * TP.len;
+    const rot = (Math.abs(rReal(Lb) - rReal(L0)) + Math.abs(rReal(Le) - rReal(Lb))) / TP.thick;
+    pos = b + 1; totM += dist + TP.len; totRot += rot; totLoc += loc;
+    rows.push({ t0, t1: t, cells: [i + 1, `p${b}`, `p${p0} → p${b}`, `${Math.abs(b - p0)} × ${TP.len} m = ${dist} m`,
+      dist ? `${TP.ramp} + ${dist}/${TP.wind} = ${n2(loc)} s` : "0 s (already there)", `1 GB ÷ 400 MB/s = ${n2(TP.readT)} s`, `≈ ${Math.round(rot).toLocaleString()}`, `${n2(t)} s`] });
+  });
+  return { total: t, ev, rows, list, totM, totRot, totLoc };
+}
+function tapePosAt(plan, t) {
+  if (!plan.ev.length) return 0;
+  for (const e of plan.ev) {
+    if (t < e.t0) return e.p0;
+    if (t < e.t1) { const f = (t - e.t0) / (e.t1 - e.t0); return e.k === "loc" ? e.p0 + (e.p1 - e.p0) * ease(f) : e.p0 + (e.p1 - e.p0) * f; }
+  }
+  return plan.ev[plan.ev.length - 1].p1;
+}
+const tctx = setupCanvas(document.getElementById("tape-cv"), 960, 430);
+function drawReel(c, x, y, r, th, maxR) {
+  circ(c, x, y, maxR + 4, null, "#3a3f3d", 2);
+  circ(c, x, y, r, "#eceee9", "#c5c9c3", 1);
+  for (let k = 1; k < 6; k++) circ(c, x, y, 30 + (r - 30) * k / 6, null, "rgba(0,0,0,.05)", 1);
+  circ(c, x, y, 28, "#6e7471"); circ(c, x, y, 28, null, "#4c5250", 2);
+  for (let k = 0; k < 5; k++) { const a = th + k * TAU / 5; circ(c, x + Math.cos(a) * 14, y + Math.sin(a) * 14, 4, "#1b1e1d"); }
+  circ(c, x, y, 4, "#1b1e1d");
+}
+function tapeDraw(p) {
+  const c = tctx, plan = p.plan;
+  const pos = p.mode === "idle" ? 0 : tapePosAt(plan, p.t);
+  const ev = p.mode === "run" ? evAt(plan.ev, p.t) : null;
+  c.clearRect(0, 0, 960, 430);
+  enclosure(c, 960, 430, false);
+  rr(c, 46, 46, 868, 340, 12, "#161918");
+  rr(c, 596, 150, 300, 228, 10, "#8f9592");
+  c.fillStyle = "#7d8481"; c.fillRect(596, 150, 300, 12);
+  const LT = TP.leader * 2 + TP.blocks * TP.len, Lw = TP.leader + pos * TP.len, R0 = 32, RM = 120, KV = (RM * RM - R0 * R0) / LT;
+  const rv = L => Math.sqrt(R0 * R0 + KV * L);
+  const rL = rv(Lw), rR = rv(LT - Lw);
+  const thL = 2 * (rL - R0) / KV * 40, thR = -2 * (rR - R0) / KV * 40;
+  drawReel(c, 190, 262, rL, thL, RM); drawReel(c, 746, 270, rR, thR, RM);
+  // tape path
+  c.strokeStyle = "#cfd3cd"; c.lineWidth = 2; c.beginPath();
+  const aL = -2.25, aR = -0.9;
+  c.moveTo(190 + rL * Math.cos(aL), 262 + rL * Math.sin(aL)); c.lineTo(300, 104);
+  c.moveTo(660, 104); c.lineTo(746 + rR * Math.cos(aR), 270 + rR * Math.sin(aR)); c.stroke();
+  // strip
+  c.save(); c.beginPath(); c.rect(300, 80, 360, 34); c.clip(); c.fillStyle = "#2f3433"; c.fillRect(300, 80, 360, 34);
+  const BW = 76, done = new Set();
+  if (p.mode !== "idle") plan.ev.forEach(e => { if (e.k === "read" && p.t >= e.t1) done.add(e.b); });
+  for (let i = Math.floor(pos) - 4; i <= Math.floor(pos) + 4; i++) {
+    if (i < 0 || i >= TP.blocks) continue;
+    const x = 480 + (i - pos) * BW, f = tapeFile(i);
+    const reading = ev && ev.k === "read" && ev.b === i;
+    rr(c, x + 2, 82, BW - 4, 30, 3, reading ? "#f2c96b" : done.has(i) ? "#d9e8d2" : "#eef0eb");
+    c.fillStyle = f.hue; c.fillRect(x + 2, 82, BW - 4, 4);
+    c.fillStyle = "#1d2221"; c.font = `600 14px ${MONO}`; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("p" + i, x + BW / 2, 99);
+  }
+  const gl = c.createLinearGradient(300, 0, 360, 0); gl.addColorStop(0, "#161918"); gl.addColorStop(1, "rgba(22,25,24,0)");
+  c.fillStyle = gl; c.fillRect(300, 80, 60, 34);
+  const gr = c.createLinearGradient(600, 0, 660, 0); gr.addColorStop(0, "rgba(22,25,24,0)"); gr.addColorStop(1, "#161918");
+  c.fillStyle = gr; c.fillRect(600, 80, 60, 34);
+  c.restore();
+  circ(c, 300, 104, 11, "#5d6361"); circ(c, 660, 104, 11, "#5d6361");
+  // head
+  const hot = ev && ev.k === "read";
+  rr(c, 446, 132, 68, 42, 7, "#5c6160");
+  c.beginPath(); c.moveTo(466, 132); c.lineTo(494, 132); c.lineTo(480, 116); c.closePath(); c.fillStyle = hot ? "#f2c96b" : "#7a807e"; c.fill();
+  if (hot) { c.shadowColor = "#f2c96b"; c.shadowBlur = 14; circ(c, 480, 153, 5, "#f2c96b"); c.shadowBlur = 0; } else circ(c, 480, 153, 5, "#3d4241");
+  // labels
+  c.fillStyle = "#98a19e"; c.font = `12px ${MONO}`; c.textAlign = "center"; c.textBaseline = "alphabetic";
+  c.fillText("take-up reel (in the drive)", 190, 72);
+  c.fillText("read/write head (fixed)", 480, 196);
+  c.fillStyle = "#3b403e"; c.fillText("cartridge · supply reel", 746, 182);
+  c.fillStyle = "#98a19e"; c.textAlign = "left";
+  const f = tapeFile(Math.min(TP.blocks - 1, Math.floor(pos)));
+  c.fillText(`under head: ${f.name}`, 300, 140 + 230);
+  c.textAlign = "right"; c.fillText(`tape wound: ${Math.round(Lw)} m`, 580, 370);
+}
+function tapeStatus(p) {
+  if (p.mode === "idle") return "Cartridge mounted. Head at <b>p0</b>, the beginning of tape. Press Time IO to restore the selected blocks.";
+  if (p.mode === "done") return `Done. <b>${p.plan.list.length} GB</b> restored in <b>${n2(p.plan.total)} s</b>.`;
+  const e = evAt(p.plan.ev, p.t); if (!e) return "";
+  if (e.k === "loc") { const pos = tapePosAt(p.plan, p.t); return `<b>LOCATE</b> p${e.p0} → p${e.p1} · winding at ${TP.wind} m/s · ${n2(Math.abs(e.p1 - pos) * TP.len, 1)} m to go`; }
+  return `<b>READ</b> p${e.b} (${tapeFile(e.b).name}) at 400 MB/s · tape crawling at ${n2(TP.len / TP.readT, 1)} m/s past the head`;
+}
+const tapeOut = document.getElementById("tape-out"); let tapeOutN = -1;
+const tapePlayer = makePlayer(document.getElementById("sim-tape"), {
+  speed: 5, factors: [4000, 2000, 1000, 400, 220, 110, 55, 22], maxReal: 30000,
+  ratio: s => `1 s of tape time = ${realFmt(s)} on screen`, state: tapeState, presets: TAPE_PRESETS,
+  cols: ["#", "Block", "Head moves", "Distance", "Locate time", "Read time", "Reel turns", "Finished at"],
+  build: tapeBuild, draw: tapeDraw, statusText: tapeStatus, fmt: t => n2(t) + " s",
+  idleText: "Press Time IO to run. Totals and the reel arithmetic appear here when the run finishes.",
+  totals: pl => {
+    const eff = pl.list.length * 1000 / pl.total;
+    return `Total time      = Σ(locate + read) = ${n2(pl.totLoc)} s locating + ${n2(pl.list.length * TP.readT)} s reading = <b>${n2(pl.total)} s</b>
+Tape moved      = ${n2(pl.totM, 0)} m past the head
+Reel rotations  ≈ Σ (r_end − r_start) ÷ 5.2 µm = <b>${Math.round(pl.totRot).toLocaleString()} turns</b> of the take-up reel
+Throughput      = ${pl.list.length} GB ÷ ${n2(pl.total)} s = <b>${n2(eff, 0)} MB/s</b>  (streaming would give 400 MB/s → ${n2(eff / 4, 0)}% efficiency)`;
+  },
+  onIdle: () => { tapeOut.innerHTML = '<span class="k">Data restored:</span> nothing yet'; tapeOutN = -1; },
+});
+document.getElementById("tape-order").onchange = () => tapePlayer.reset();
+function tapeOutUpdate(p) {
+  if (p.mode === "idle") return;
+  const doneReads = p.plan.ev.filter(e => e.k === "read" && p.t >= e.t1);
+  if (doneReads.length === tapeOutN) return; tapeOutN = doneReads.length;
+  tapeOut.innerHTML = '<span class="k">Data restored:</span> ' + (doneReads.length ? doneReads.map(e => `<br>p${e.b} · ${tapeFile(e.b).name} · first record: <span class="k">${tapeSample(e.b)}</span>`).join("") : "nothing yet");
+}
+
+/* =================================================================
+   HDD
+   ================================================================= */
+const HD = { rpm: 7200, N: [8, 12, 16, 20, 24], seekA: 1.0, seekB: 1.5, start: 2 };
+HD.T = 60000 / HD.rpm;
+const HC = { x: 600, y: 280 }, PV = { x: 236, y: 118 }, ARM = 330;
+const rIn = k => 80 + 30 * k, rOut = k => 110 + 30 * k, rMid = k => 95 + 30 * k;
+function headAt(r) {
+  const dx = HC.x - PV.x, dy = HC.y - PV.y, D = Math.hypot(dx, dy);
+  const a = Math.acos(Math.max(-1, Math.min(1, (ARM * ARM + D * D - r * r) / (2 * ARM * D))));
+  const b = Math.atan2(dy, dx) + a; return { x: PV.x + ARM * Math.cos(b), y: PV.y + ARM * Math.sin(b) };
+}
+const phiK = k => { const h = headAt(rMid(k)); return Math.atan2(h.y - HC.y, h.x - HC.x); };
+const HDD_INIT = (() => {
+  const m = {};
+  "HELLO WORLD".split("").forEach((ch, i) => m["3:" + (4 + i)] = ch === " " ? "␣" : ch);
+  [[0, 5, "S"], [4, 17, "A"], [1, 2, "L"], [3, 18, "E"], [2, 9, "S"], [0, 1, "="], [4, 3, "4"], [2, 14, "2"],
+   [4, 1, "q"], [1, 9, "z"], [2, 3, "k"], [0, 6, "m"], [4, 10, "x"], [1, 6, "r"], [3, 1, "v"], [2, 12, "p"]].forEach(([k, s, ch]) => m[k + ":" + s] = ch);
+  return m;
+})();
+const hddState = { preset: "frag" };
+const HDD_PRESETS = {
+  contig: { label: "Read hello.txt (11 sectors in a row)", reqs: Array.from({ length: 11 }, (_, i) => ({ op: "R", k: 3, s: 4 + i })) },
+  frag: { label: "Read report.txt (8 scattered sectors)", reqs: [[0, 5], [4, 17], [1, 2], [3, 18], [2, 9], [0, 1], [4, 3], [2, 14]].map(([k, s]) => ({ op: "R", k, s })) },
+  mixed: { label: "Mixed reads and writes", reqs: [{ op: "R", k: 3, s: 6 }, { op: "R", k: 4, s: 1 }, { op: "R", k: 1, s: 2 }, { op: "W", k: 3, s: 16, v: "N" }, { op: "W", k: 3, s: 17, v: "E" }, { op: "W", k: 2, s: 7, v: "W" }] }};
+
+/* generic scheduler, shared with the textbook section */
+function schedule(alg, start, reqs, max, up) {
+  const R = reqs.map((r, i) => ({ ...r, _i: i })), out = [];
+  const asc = (a, b) => a.cyl - b.cyl || a._i - b._i, desc = (a, b) => b.cyl - a.cyl || a._i - b._i;
+  const push = (r, jump) => out.push({ cyl: r.cyl, req: r, jump: !!jump });
+  if (alg === "FCFS") R.forEach(r => push(r));
+  else if (alg === "SSTF") {
+    let cur = start; const left = [...R];
+    while (left.length) { let bi = 0; left.forEach((r, i) => { if (Math.abs(r.cyl - cur) < Math.abs(left[bi].cyl - cur)) bi = i; }); const r = left.splice(bi, 1)[0]; push(r); cur = r.cyl; }
+  } else {
+    const hi = R.filter(r => r.cyl >= start).sort(asc), lo = R.filter(r => r.cyl < start).sort(desc);
+    const loUp = R.filter(r => r.cyl < start).sort(asc), hiDown = R.filter(r => r.cyl >= start).sort(desc);
+    const first = up ? hi : (alg === "SCAN" || alg === "LOOK" || alg === "C-SCAN" || alg === "C-LOOK" ? lo : lo);
+    const firstD = up ? hi : R.filter(r => r.cyl <= start).sort(desc);
+    const restD = up ? null : R.filter(r => r.cyl > start);
+    const f = up ? hi : firstD, rest = up ? lo : restD.sort(asc);
+    f.forEach(r => push(r));
+    if (alg === "SCAN") { if (rest.length) out.push({ cyl: up ? max : 0, req: null }); rest.forEach(r => push(r)); }
+    else if (alg === "LOOK") rest.forEach(r => push(r));
+    else {
+      const wrap = up ? R.filter(r => r.cyl < start).sort(asc) : R.filter(r => r.cyl > start).sort(desc);
+      if (alg === "C-SCAN") { if (wrap.length) { out.push({ cyl: up ? max : 0, req: null }); out.push({ cyl: up ? 0 : max, req: null, jump: true }); } wrap.forEach(r => push(r)); }
+      else wrap.forEach((r, i) => push(r, i === 0));
+    }
+    void first; void loUp; void hiDown;
+  }
+  return out;
+}
+
+let hdAngle = 0.4;
+function hddBuild() {
+  const alg = document.getElementById("hdd-alg").value;
+  const reqs = HDD_PRESETS[hddState.preset].reqs.map(r => ({ ...r, cyl: r.k }));
+  const steps = schedule(alg, HD.start, reqs, 4, true);
+  const w = TAU / HD.T, theta0 = hdAngle; let t = 0, cur = HD.start, tracks = 0, sSeek = 0, sLat = 0, sX = 0, nR = 0;
+  const ev = [], rows = [];
+  steps.forEach((st, i) => {
+    const t0 = t, d = Math.abs(st.cyl - cur), ts = d ? HD.seekA + HD.seekB * Math.sqrt(d) : 0, from = cur;
+    if (d) ev.push({ k: "seek", t0: t, t1: t + ts, a: cur, b: st.cyl, jump: st.jump });
+    t += ts; tracks += d; sSeek += ts; cur = st.cyl;
+    const seekTxt = d ? `T${from}→T${st.cyl}: 1.0+1.5√${d} = ${n2(ts)}` : "0 (same track)";
+    if (!st.req) { rows.push({ t0, t1: t, wp: true, cells: [i + 1, `sweep to T${st.cyl}${st.jump ? " (return jump)" : " (edge)"}`, seekTxt, "—", "—", n2(t) + " ms", ""] }); return; }
+    const r = st.req, N = HD.N[r.k], sa = r.s * TAU / N;
+    const L1 = mod(phiK(r.k) - theta0 + w * t, TAU);
+    let wait = mod(sa - L1, TAU) / w; if (wait > HD.T - 1e-6) wait = 0;
+    ev.push({ k: "wait", t0: t, t1: t + wait, trk: r.k, r }); t += wait; sLat += wait;
+    const tx = HD.T / N; ev.push({ k: "xfer", t0: t, t1: t + tx, r }); t += tx; sX += tx; nR++;
+    const val = r.op === "W" ? r.v : (HDD_INIT[r.k + ":" + r.s] || "·");
+    rows.push({ t0, t1: t, cells: [i + 1, `${r.op === "R" ? "READ " : "WRITE"} T${r.k}·S${r.s}`, seekTxt,
+      `${n2(wait / HD.T * 360, 0)}° → ${n2(wait)}`, `8.33÷${N} = ${n2(tx)}`, n2(t) + " ms", r.op === "R" ? `'${val}'` : `'${val}' written`] });
+  });
+  return { total: t, ev, rows, theta0, tracks, sSeek, sLat, sX, nR, alg };
+}
+const hctx = setupCanvas(document.getElementById("hdd-cv"), 960, 560);
+function hddDraw(p, dt) {
+  const c = hctx, w = TAU / HD.T;
+  if (p.mode === "run") hdAngle = p.plan.theta0 - w * p.t;
+  else if (!reduce && !p.paused) hdAngle -= w * dt / p.scale;
+  let r = rMid(HD.start), xfer = null;
+  if (p.mode !== "idle") {
+    let last = HD.start;
+    for (const e of p.plan.ev) if (e.k === "seek") { if (p.t >= e.t1) last = e.b; else if (p.t >= e.t0) { last = null; r = rMid(e.a) + (rMid(e.b) - rMid(e.a)) * ease((p.t - e.t0) / (e.t1 - e.t0)); break; } else break; }
+    if (last !== null) r = rMid(last);
+    if (p.mode === "run") { const e = evAt(p.plan.ev, p.t); if (e && e.k === "xfer") xfer = e.r; }
+  }
+  const content = { ...HDD_INIT }, readSet = new Set(), writeSet = new Set();
+  if (p.mode !== "idle") p.plan.ev.forEach(e => { if (e.k === "xfer" && p.t >= e.t1) { const key = e.r.k + ":" + e.r.s; if (e.r.op === "W") { content[key] = e.r.v; writeSet.add(key); } else readSet.add(key); } });
+  c.clearRect(0, 0, 960, 560);
+  enclosure(c, 960, 560, true);
+  rr(c, 64, 40, 856, 480, 12, "#161918");
+  // platter
+  c.save(); c.translate(HC.x, HC.y);
+  circ(c, 0, 0, 240, "#dcdfdb"); circ(c, 0, 0, 240, null, "#b7bbb6", 2);
+  c.rotate(hdAngle);
+  for (let k = 0; k < 5; k++) {
+    const N = HD.N[k];
+    for (let s = 0; s < N; s++) {
+      const a0 = s * TAU / N, a1 = (s + 1) * TAU / N, key = k + ":" + s;
+      const hot = xfer && xfer.k === k && xfer.s === s;
+      const fill = hot ? "#f2c96b" : writeSet.has(key) ? "#bfe3c8" : readSet.has(key) ? "#bcd3ee" : null;
+      if (fill) { c.beginPath(); c.arc(0, 0, rOut(k), a0, a1); c.arc(0, 0, rIn(k), a1, a0, true); c.closePath(); c.fillStyle = fill; c.fill(); }
+      c.strokeStyle = "#b9bdb8"; c.lineWidth = 1; c.beginPath(); c.moveTo(Math.cos(a0) * rIn(k), Math.sin(a0) * rIn(k)); c.lineTo(Math.cos(a0) * rOut(k), Math.sin(a0) * rOut(k)); c.stroke();
+      const am = (a0 + a1) / 2, ch = content[key];
+      c.save(); c.rotate(am); c.translate(rMid(k), 0); c.rotate(Math.PI / 2);
+      c.textAlign = "center"; c.textBaseline = "middle";
+      c.fillStyle = ch ? "#1b201f" : "#a3a8a3"; c.font = `600 ${ch ? 14 : 11}px ${MONO}`; c.fillText(ch || "·", 0, -4);
+      c.fillStyle = "#7d837f"; c.font = `9px ${MONO}`; c.fillText(String(s), 0, 9);
+      c.restore();
+    }
+    circ(c, 0, 0, rIn(k), null, "#a9aea8", 1);
+  }
+  circ(c, 0, 0, rOut(4), null, "#a9aea8", 1);
+  circ(c, 0, 0, 62, "#c9cdc8", "#a9aea8", 1.5); circ(c, 0, 0, 46, null, "#9ea39e", 1.5);
+  for (let k = 0; k < 4; k++) { const a = k * TAU / 4; circ(c, Math.cos(a) * 32, Math.sin(a) * 32, 5, "#7c827e"); }
+  circ(c, 0, 0, 13, "#eef0ec", "#9ea39e", 1.5);
+  c.restore();
+  // track tags
+  c.font = `600 10px ${MONO}`; c.textAlign = "center"; c.textBaseline = "middle";
+  for (let k = 0; k < 5; k++) { rr(c, HC.x - 12, HC.y + rMid(k) - 7, 24, 14, 4, "rgba(30,34,33,.78)"); c.fillStyle = "#e8ebe7"; c.fillText("T" + k, HC.x, HC.y + rMid(k)); }
+  // arm
+  const H = headAt(r); hddFocus = { x: H.x, y: H.y };
+  const dx = H.x - PV.x, dy = H.y - PV.y, L = Math.hypot(dx, dy), nx = -dy / L, ny = dx / L;
+  c.beginPath(); c.moveTo(PV.x + nx * 26, PV.y + ny * 26); c.lineTo(H.x + nx * 5, H.y + ny * 5); c.lineTo(H.x - nx * 5, H.y - ny * 5); c.lineTo(PV.x - nx * 26, PV.y - ny * 26); c.closePath();
+  c.fillStyle = "rgba(140,146,143,.96)"; c.fill();
+  circ(c, PV.x, PV.y, 44, "#7d8380"); circ(c, PV.x, PV.y, 16, "#4b504e");
+  if (xfer) { c.shadowColor = "#f2c96b"; c.shadowBlur = 16; circ(c, H.x, H.y, 6, "#f2c96b"); c.shadowBlur = 0; } else circ(c, H.x, H.y, 5, "#3a3f3d");
+  c.fillStyle = "#98a19e"; c.font = `12px ${MONO}`; c.textAlign = "left"; c.textBaseline = "alphabetic";
+  c.fillText("actuator arm + head", 90, 196);
+  c.textAlign = "right"; c.fillText("platter · 7,200 rpm · 8.33 ms per turn", 900, 508);
+  c.textAlign = "left"; c.fillText("T0 = 8 sectors … T4 = 24 sectors", 90, 508);
+}
+function hddStatus(p) {
+  if (p.mode === "idle") return `Spinning at <b>7,200 rpm</b>. Head parked over <b>T${HD.start}</b>. Scheduler: <b>${document.getElementById("hdd-alg").value}</b>.`;
+  if (p.mode === "done") return `Done: <b>${p.plan.nR} sectors</b> in <b>${n2(p.plan.total)} ms</b> · head crossed ${p.plan.tracks} tracks · platter turned ${n2(p.plan.total / HD.T)} times.`;
+  const e = evAt(p.plan.ev, p.t); if (!e) return "";
+  if (e.k === "seek") return `<b>SEEK</b> T${e.a} → T${e.b} (${Math.abs(e.b - e.a)} track${Math.abs(e.b - e.a) > 1 ? "s" : ""})${e.jump ? " · C-SCAN return jump" : ""}`;
+  if (e.k === "wait") return `<b>ROTATIONAL WAIT</b> on T${e.trk} for sector ${e.r.s} · ${n2((e.t1 - p.t) / HD.T * 360, 0)}° still to turn`;
+  return `<b>${e.r.op === "R" ? "READ" : "WRITE"}</b> T${e.r.k}·S${e.r.s} ${e.r.op === "W" ? "← '" + e.r.v + "'" : ""}`;
+}
+const hddOut = document.getElementById("hdd-out"); let hddOutN = -1;
+const hddPlayer = makePlayer(document.getElementById("sim-hdd"), {
+  speed: 4, factors: [6000, 3000, 1500, 600, 300, 150, 60, 20], maxReal: 25000,
+  ratio: s => `one platter turn (8.33 ms) = ${realFmt(HD.T * s)} on screen`, state: hddState, presets: HDD_PRESETS,
+  cols: ["#", "Request", "Seek (ms)", "Rotational wait (ms)", "Transfer (ms)", "Finished at", "Data"],
+  build: hddBuild, draw: hddDraw, statusText: hddStatus, fmt: t => n2(t) + " ms",
+  idleText: "The table shows the plan for where the platter is right now. Press Time IO to run it; the waits are recomputed from the platter's position at that moment.",
+  totals: pl => {
+    const pc = v => n2(v / pl.total * 100, 0) + "%";
+    return `Order (${pl.alg})  : head crossed <b>${pl.tracks} tracks</b>
+Seek total    = <b>${n2(pl.sSeek)} ms</b> (${pc(pl.sSeek)})
+Rotation wait = <b>${n2(pl.sLat)} ms</b> (${pc(pl.sLat)})
+Transfer      = <b>${n2(pl.sX)} ms</b> (${pc(pl.sX)})   ← the only part that moves data
+Total         = ${n2(pl.total)} ms = ${n2(pl.total / HD.T)} revolutions of the platter
+Rate          = ${pl.nR} sectors ÷ ${n2(pl.total)} ms = <b>${n2(pl.nR / pl.total * 1000, 0)} sectors/s</b>`;
+  },
+  onIdle: () => { hddOut.innerHTML = '<span class="k">Bytes returned:</span> nothing yet'; hddOutN = -1; },
+});
+document.getElementById("hdd-alg").onchange = () => hddPlayer.reset();
+function hddOutUpdate(p) {
+  if (p.mode === "idle") return;
+  const d = p.plan.ev.filter(e => e.k === "xfer" && p.t >= e.t1);
+  if (d.length === hddOutN) return; hddOutN = d.length;
+  const reads = d.filter(e => e.r.op === "R").map(e => HDD_INIT[e.r.k + ":" + e.r.s] || "·").join("");
+  const writes = d.filter(e => e.r.op === "W").map(e => `T${e.r.k}·S${e.r.s}='${e.r.v}'`).join(", ");
+  hddOut.innerHTML = `<span class="k">Bytes returned (in completion order):</span> <b>${reads || "—"}</b>` + (writes ? ` <span class="k">· written:</span> ${writes}` : "") +
+    (hddState.preset === "frag" && reads.length === 8 ? ' <span class="k">· the file reads "SALES=42" only if the OS reassembles the sectors in file order</span>' : "");
+}
+hddPlayer.cfg.onStart = () => { hddOutN = -1; };
+
+/* =================================================================
+   SSD
+   ================================================================= */
+const SS = { tR: 50, tX: 12, tP: 600, tE: 3000, dies: 4, blocks: 2, pages: 4 };
+const NAMES = ["Ana", "Raj", "Mia", "Leo", "Zoe", "Ivy", "Sam", "Kai", "Eva", "Ben", "Liu", "Noor", "Omar", "Pia", "Ravi", "Sara", "Tom", "Uma", "Vik", "Yan"];
+function ssdFresh() {
+  const pg = [], map = {};
+  for (let d = 0; d < 4; d++) { pg.push([]); for (let b = 0; b < 2; b++) { pg[d].push([]); for (let q = 0; q < 4; q++) pg[d][b].push({ st: "free" }); } }
+  for (let l = 0; l < 20; l++) { const d = l % 4, slot = Math.floor(l / 4), b = Math.floor(slot / 4), q = slot % 4; pg[d][b][q] = { st: "valid", lba: l, val: NAMES[l] }; map[l] = [d, b, q]; }
+  return { pg, map, rr: 0, ver: {} };
+}
+let ssd = ssdFresh(); let ssdChanged = new Set();
+const ssdState = { preset: "spread" };
+const SSD_PRESETS = {
+  spread: { label: "Read 8 LBAs spread (0–7)", ops: [0, 1, 2, 3, 4, 5, 6, 7].map(l => ({ op: "R", lba: l })) },
+  one: { label: "Read LBAs 0, 4, 8, 12, 16", ops: [0, 4, 8, 12, 16].map(l => ({ op: "R", lba: l })) },
+  write: { label: "Overwrite 4 LBAs (1, 5, 9, 2)", ops: [1, 5, 9, 2].map(l => ({ op: "W", lba: l })) },
+  gc: { label: "Garbage collect", ops: [{ op: "GC" }] }};
+const clone = o => JSON.parse(JSON.stringify(o));
+const loc = a => `D${a[0]}·B${a[1]}·P${a[2]}`;
+function findFree(S, d, avoidB) { for (let b = 0; b < 2; b++) { if (b === avoidB) continue; for (let q = 0; q < 4; q++) if (S.pg[d][b][q].st === "free") return [d, b, q]; } return null; }
+function ssdBuild() {
+  const S = clone(ssd), ev = [], rows = [], muts = [], free = [0, 0, 0, 0]; let busySum = 0, err = null, n = 0, gcCopies = 0, hostW = 0;
+  const ops = SSD_PRESETS[ssdState.preset].ops;
+  ops.forEach(o => {
+    if (o.op === "R") {
+      const a = S.map[o.lba], d = a[0], t0 = free[d], t1 = t0 + SS.tR, t2 = t1 + SS.tX, val = S.pg[a[0]][a[1]][a[2]].val;
+      ev.push({ k: "sense", d, a, t0, t1, n }, { k: "out", d, t0: t1, t1: t2, label: val, n });
+      rows.push({ t0, t1: t2, cells: [++n, `READ LBA ${o.lba}`, `${loc(a)}`, `${n2(t0, 0)} µs`, `tR ${SS.tR}`, `${SS.tX} µs → ctrl`, `${n2(t2, 0)} µs`, `'${val}'`] });
+      free[d] = t2; busySum += SS.tR + SS.tX;
+    } else if (o.op === "W") {
+      let dst = null;
+      for (let i = 0; i < 4 && !dst; i++) { const d = (S.rr + i) % 4; dst = findFree(S, d, -1); }
+      if (!dst) { err = err || "The drive has no free pages left. Run Garbage collect, or Reset drive."; return; }
+      S.rr = (dst[0] + 1) % 4; hostW++;
+      const old = S.map[o.lba], d = dst[0], ver = (S.ver[o.lba] || 1) + 1; S.ver[o.lba] = ver;
+      const val = NAMES[o.lba] + ver, t0 = free[d], t1 = t0 + SS.tX, t2 = t1 + SS.tP;
+      ev.push({ k: "in", d, t0, t1, label: val, n }, { k: "prog", d, a: dst, t0: t1, t1: t2, n });
+      const lba = o.lba;
+      const fn = st => { st.pg[dst[0]][dst[1]][dst[2]] = { st: "valid", lba, val }; if (old) st.pg[old[0]][old[1]][old[2]].st = "stale"; st.map[lba] = dst; };
+      muts.push({ t: t2, fn }); fn(S);
+      rows.push({ t0, t1: t2, cells: [++n, `WRITE LBA ${lba}='${val}'`, `${old ? loc(old) + " → stale; " : ""}new ${loc(dst)}`, `${n2(t0, 0)} µs`, `tPROG ${SS.tP}`, `${SS.tX} µs → die`, `${n2(t2, 0)} µs`, "map updated"] });
+      free[d] = t2; busySum += SS.tX + SS.tP;
+    } else {
+      let best = null, bestStale = 0;
+      for (let d = 0; d < 4; d++) for (let b = 0; b < 2; b++) { const s = S.pg[d][b].filter(x => x.st === "stale").length; if (s > bestStale) { bestStale = s; best = [d, b]; } }
+      if (!best) { err = "No stale pages yet, so there is nothing to collect. Run Overwrite 4 LBAs first."; return; }
+      const [d, b] = best, valid = S.pg[d][b].map((x, q) => [x, q]).filter(([x]) => x.st === "valid");
+      const freeOther = S.pg[d][1 - b].filter(x => x.st === "free").length;
+      if (freeOther < valid.length) { err = `Die ${d} lacks free pages to move ${valid.length} valid page(s). Reset drive and try again.`; return; }
+      valid.forEach(([x, q]) => {
+        const dst = findFree(S, d, b), t0 = free[d], t1 = t0 + SS.tR, t2 = t1 + SS.tP, lba = x.lba, val = x.val, src = [d, b, q];
+        ev.push({ k: "sense", d, a: src, t0, t1, n }, { k: "prog", d, a: dst, t0: t1, t1: t2, n });
+        const fn = st => { st.pg[dst[0]][dst[1]][dst[2]] = { st: "valid", lba, val }; st.pg[src[0]][src[1]][src[2]].st = "stale"; st.map[lba] = dst; };
+        muts.push({ t: t2, fn }); fn(S); gcCopies++;
+        rows.push({ t0, t1: t2, cells: [++n, `GC copy LBA ${lba}`, `${loc(src)} → ${loc(dst)}`, `${n2(t0, 0)} µs`, `tR ${SS.tR} + tPROG ${SS.tP}`, "inside die", `${n2(t2, 0)} µs`, "still valid, must move"] });
+        free[d] = t2; busySum += SS.tR + SS.tP;
+      });
+      const t0 = free[d], t1 = t0 + SS.tE;
+      ev.push({ k: "erase", d, b, t0, t1, n });
+      const fn = st => { for (let q = 0; q < 4; q++) st.pg[d][b][q] = { st: "free" }; };
+      muts.push({ t: t1, fn }); fn(S);
+      rows.push({ t0, t1, cells: [++n, `ERASE block`, `D${d}·B${b} (${bestStale} stale page${bestStale > 1 ? "s" : ""})`, `${n2(t0, 0)} µs`, `tBERS ${SS.tE}`, "inside die", `${n2(t1, 0)} µs`, "4 pages free again"] });
+      free[d] = t1; busySum += SS.tE;
+    }
+  });
+  const total = Math.max(...free);
+  return { total, ev, rows, muts, S, base: clone(ssd), busySum, err, nOps: ops.length, gcCopies, hostW, dieTime: free, kind: ssdState.preset };
+}
+const sctx = setupCanvas(document.getElementById("ssd-cv"), 960, 470);
+const DIE = d => ({ x: 340 + (d % 2) * 300, y: 62 + Math.floor(d / 2) * 196, w: 278, h: 166 });
+const LANE = [232, 238, 244, 250], VX = [470, 770, 490, 790];
+function chanPath(d) { const D = DIE(d), top = d < 2; return [[272, LANE[d]], [VX[d], LANE[d]], [VX[d], top ? D.y + D.h : D.y]]; }
+function alongPath(pts, f) {
+  let L = 0; const seg = []; for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); seg.push(l); L += l; }
+  let s = f * L; for (let i = 0; i < seg.length; i++) { if (s <= seg[i]) { const g = s / seg[i]; return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * g, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * g]; } s -= seg[i]; }
+  return pts[pts.length - 1];
+}
+function ssdStateAt(p) {
+  if (p.mode === "idle") return ssd;
+  if (p.mode === "done") return p.plan.S;
+  const st = clone(p.plan.base); p.plan.muts.forEach(m => { if (p.t >= m.t) m.fn(st); }); return st;
+}
+function ssdDraw(p) {
+  const c = sctx, S = ssdStateAt(p);
+  const act = p.mode === "run" ? p.plan.ev.filter(e => p.t >= e.t0 && p.t < e.t1) : [];
+  if (act.length) {
+    const tok = act.find(e => e.k === "in" || e.k === "out");
+    if (tok) { const f = (p.t - tok.t0) / (tok.t1 - tok.t0), q = alongPath(chanPath(tok.d), tok.k === "out" ? 1 - f : f); ssdFocus = { x: q[0], y: q[1] }; }
+    else { const D = DIE(act[0].d); ssdFocus = { x: D.x + D.w / 2, y: D.y + D.h / 2 }; }
+  }
+  c.clearRect(0, 0, 960, 470);
+  enclosure(c, 960, 470, true);
+  rr(c, 56, 40, 870, 396, 12, "#161918");
+  // controller
+  rr(c, 72, 62, 200, 360, 10, "#8f9592");
+  c.fillStyle = "#1d2221"; c.font = `600 14px ${MONO}`; c.textAlign = "left"; c.textBaseline = "alphabetic"; c.fillText("Controller", 88, 88);
+  c.font = `11px ${MONO}`; c.fillStyle = "#353a39"; c.fillText("FTL: LBA → NAND page", 88, 106);
+  if (p.plan && !p.plan.err) {
+    c.fillText("queue", 88, 132);
+    p.plan.rows.slice(0, 13).forEach((r, i) => {
+      const s = p.mode === "idle" ? "" : (p.mode === "done" || p.t >= r.t1) ? "done" : p.t >= r.t0 ? "busy" : "";
+      const y = 152 + i * 20; rr(c, 84, y - 13, 176, 18, 4, s === "busy" ? "#f2c96b" : s === "done" ? "#c6d9c1" : "#a5aba8");
+      c.fillStyle = "#1d2221"; c.fillText(String(r.cells[1]).slice(0, 24), 90, y);
+    });
+  }
+  // channels
+  for (let d = 0; d < 4; d++) {
+    const busy = act.some(e => e.d === d && (e.k === "in" || e.k === "out"));
+    const pts = chanPath(d); c.strokeStyle = busy ? "#f2c96b" : "#7b817e"; c.lineWidth = busy ? 2.5 : 1.5;
+    c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); pts.slice(1).forEach(q => c.lineTo(q[0], q[1])); c.stroke();
+  }
+  // dies
+  for (let d = 0; d < 4; d++) {
+    const D = DIE(d); rr(c, D.x, D.y, D.w, D.h, 9, "#3a3f3d");
+    c.fillStyle = "#d3d8d5"; c.font = `600 12px ${MONO}`; c.textAlign = "left"; c.fillText(`Die ${d} · channel ${d}`, D.x + 12, D.y + 22);
+    const job = act.find(e => e.d === d && (e.k === "sense" || e.k === "prog" || e.k === "erase"));
+    if (job) {
+      const f = (p.t - job.t0) / (job.t1 - job.t0);
+      rr(c, D.x + 168, D.y + 12, 98, 10, 3, "#262a29"); rr(c, D.x + 168, D.y + 12, Math.max(4, 98 * f), 10, 3, job.k === "erase" ? "#e07a62" : "#f2c96b");
+      c.fillStyle = "#c9cfcc"; c.font = `10px ${MONO}`; c.textAlign = "right";
+      c.fillText(job.k === "sense" ? "sensing" : job.k === "prog" ? "programming" : "erasing", D.x + 164, D.y + 21);
+    }
+    for (let b = 0; b < 2; b++) {
+      const by = D.y + 38 + b * 62;
+      c.fillStyle = "#a6ada9"; c.font = `10px ${MONO}`; c.textAlign = "left"; c.fillText("B" + b, D.x + 12, by + 29);
+      const erasing = job && job.k === "erase" && job.b === b;
+      for (let q = 0; q < 4; q++) {
+        const x = D.x + 40 + q * 58, pg = S.pg[d][b][q];
+        const hot = act.some(e => e.d === d && (e.k === "sense" || e.k === "prog") && e.a[1] === b && e.a[2] === q);
+        rr(c, x, by, 52, 52, 5, hot ? "#f2c96b" : erasing ? "#e9a18f" : pg.st === "free" ? "#555b59" : "#d6dad5");
+        if (pg.st === "stale") {
+          c.save(); rr(c, x, by, 52, 52, 5); c.clip(); c.strokeStyle = "rgba(176,67,44,.55)"; c.lineWidth = 2;
+          for (let k = -52; k < 52; k += 8) { c.beginPath(); c.moveTo(x + k, by + 52); c.lineTo(x + k + 52, by); c.stroke(); } c.restore();
+        }
+        c.textAlign = "center";
+        if (pg.st === "free") { c.fillStyle = "#8a908d"; c.font = `10px ${MONO}`; c.fillText("free", x + 26, by + 30); }
+        else {
+          c.fillStyle = pg.st === "stale" ? "#7a3a2c" : "#1d2221"; c.font = `10px ${MONO}`; c.fillText("LBA " + pg.lba, x + 26, by + 19);
+          c.font = `600 12px ${MONO}`; c.fillText(pg.val, x + 26, by + 37);
+        }
+      }
+    }
+  }
+  // tokens
+  act.filter(e => e.k === "in" || e.k === "out").forEach(e => {
+    const f = (p.t - e.t0) / (e.t1 - e.t0), pts = chanPath(e.d), [x, y] = alongPath(pts, e.k === "out" ? 1 - f : f);
+    rr(c, x - 22, y - 11, 44, 22, 5, e.k === "out" ? "#8fb8ea" : "#86d29f");
+    c.fillStyle = "#11181a"; c.font = `600 11px ${MONO}`; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(e.label, x, y + 1); c.textBaseline = "alphabetic";
+  });
+}
+function ssdStatus(p) {
+  if (p.mode === "idle") return p.plan.err ? p.plan.err : `${p.plan.rows.length} command${p.plan.rows.length > 1 ? "s" : ""} ready. All are submitted at once, so different dies can work in parallel.`;
+  if (p.mode === "done") return `Done in <b>${n2(p.plan.total, 0)} µs</b>.`;
+  const act = p.plan.ev.filter(e => p.t >= e.t0 && p.t < e.t1), dies = new Set(act.map(e => e.d));
+  return `<b>${dies.size} of 4 dies busy</b> right now` + (act.length ? " · " + act.map(e => `D${e.d} ${e.k === "sense" ? "sensing" : e.k === "prog" ? "programming" : e.k === "erase" ? "erasing" : e.k === "out" ? "sending data" : "receiving data"}`).join(" · ") : "");
+}
+const ssdOut = document.getElementById("ssd-out"), ftlEl = document.getElementById("ftl");
+function renderFTL(S) { ftlEl.innerHTML = Object.keys(S.map).sort((a, b) => a - b).map(l => `<div class="${ssdChanged.has(+l) ? "chg" : ""}">LBA ${String(l).padStart(2, " ")} → ${loc(S.map[l])}</div>`).join(""); }
+let ssdOutN = -1;
+const ssdPlayer = makePlayer(document.getElementById("sim-ssd"), {
+  speed: 4, factors: [400, 200, 100, 40, 20, 10, 4, 1.5], maxReal: 20000,
+  ratio: s => `one 50 µs page read = ${realFmt(50 * s)} on screen`, state: ssdState, presets: SSD_PRESETS,
+  cols: ["#", "Command", "Physical location", "Die free at", "Chip time (µs)", "Channel", "Finished at", "Result"],
+  build: ssdBuild, draw: ssdDraw, statusText: ssdStatus, fmt: t => n2(t, 0) + " µs",
+  idleText: "Press Time IO to run. The drive keeps its state between runs, so writes and garbage collection build on each other.",
+  totals: pl => {
+    const sp = pl.busySum / pl.total;
+    let s = `Work if one die did everything = Σ chip + bus time = ${n2(pl.busySum, 0)} µs
+Actual time (dies in parallel)  = max(${pl.dieTime.map(v => n2(v, 0)).join(", ")}) = <b>${n2(pl.total, 0)} µs</b>
+Parallel speed-up               = ${n2(pl.busySum, 0)} ÷ ${n2(pl.total, 0)} = <b>${n2(sp, 2)}×</b>`;
+    if (pl.kind === "spread" || pl.kind === "one") s += `\nThroughput                      = ${pl.nOps} × 16 KB ÷ ${n2(pl.total, 0)} µs = <b>${n2(pl.nOps * 16 / 1024 / (pl.total / 1e6), 0)} MB/s</b>  ·  ${n2(pl.nOps / pl.total * 1e6, 0)} IOPS`;
+    if (pl.kind === "write") s += `\nNote                            = each write went to a new page; the old copy is now stale, not erased`;
+    if (pl.kind === "gc") s += `\nWrite amplification             = (host writes + GC copies) ÷ host writes · this GC copied <b>${pl.gcCopies} page(s)</b> the host never asked to write`;
+    return s;
+  },
+  onDone: p => { if (p.plan.kind === "write" || p.plan.kind === "gc") { Object.keys(p.plan.S.map).forEach(l => { const a = ssd.map[l], b = p.plan.S.map[l]; if (!a || a.join() !== b.join()) ssdChanged.add(+l); }); } ssd = p.plan.S; renderFTL(ssd); },
+  onIdle: () => { ssdOut.innerHTML = '<span class="k">Data returned:</span> nothing yet'; ssdOutN = -1; },
+  onStart: () => { ssdChanged = new Set(); ssdOutN = -1; },
+});
+document.getElementById("ssd-reset").onclick = () => { ssd = ssdFresh(); ssdChanged = new Set(); renderFTL(ssd); ssdPlayer.reset(); };
+renderFTL(ssd);
+function ssdOutUpdate(p) {
+  if (p.mode === "idle") return;
+  const d = p.plan.ev.filter(e => e.k === "out" && p.t >= e.t1); if (d.length === ssdOutN) return; ssdOutN = d.length;
+  ssdOut.innerHTML = '<span class="k">Data returned (completion order):</span> ' + (d.length ? d.sort((a, b) => a.t1 - b.t1).map(e => `<b>${e.label}</b>`).join(", ") : "—");
+}
+
+/* ---------- zoom + pan ---------- */
+const zooms = [];
+let tapeFocus = { x: 480, y: 120 }, hddFocus = { x: 420, y: 330 }, ssdFocus = { x: 480, y: 240 };
+function makeZoom(root, cv, ctx, W, H, focus) {
+  const stage = cv.parentElement, levels = [1, 1.5, 2, 3, 4]; let i = 0;
+  const zv = root.querySelector(".zval"), fol = root.querySelector(".zfollow");
+  const s = () => cv.clientWidth / W;
+  function viewCenter() { return { x: (stage.scrollLeft + stage.clientWidth / 2) / s(), y: (stage.scrollTop + stage.clientHeight / 2) / s() }; }
+  function center(x, y) { stage.scrollLeft = x * s() - stage.clientWidth / 2; stage.scrollTop = y * s() - stage.clientHeight / 2; }
+  function sizeStage() { stage.style.height = levels[i] > 1 ? (stage.clientWidth * H / W) + "px" : ""; }
+  function apply(c) {
+    const z = levels[i], k = Math.min(3, Math.min(2, window.devicePixelRatio || 1) * z);
+    cv.width = Math.round(W * k); cv.height = Math.round(H * k); ctx.setTransform(k, 0, 0, k, 0, 0);
+    cv.style.width = (z * 100) + "%"; stage.classList.toggle("zoomed", z > 1); sizeStage();
+    zv.textContent = z + "×"; if (c) center(c.x, c.y);
+  }
+  const step = (d, c) => { const before = c || (levels[i] > 1 ? viewCenter() : focus()); i = Math.max(0, Math.min(levels.length - 1, i + d)); apply(before); };
+  root.querySelector(".zin").onclick = () => step(1);
+  root.querySelector(".zout").onclick = () => step(-1);
+  cv.addEventListener("dblclick", e => {
+    const r = cv.getBoundingClientRect(), c = { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
+    fol.checked = false; step(i === levels.length - 1 ? -(levels.length - 1) : 1, c);
+  });
+  // mouse drag to pan (touch uses native scrolling)
+  let drag = null;
+  stage.addEventListener("pointerdown", e => { if (levels[i] === 1 || e.pointerType !== "mouse") return; drag = { x: e.clientX, y: e.clientY, l: stage.scrollLeft, t: stage.scrollTop, moved: false }; stage.classList.add("grabbing"); });
+  window.addEventListener("pointermove", e => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 3) { drag.moved = true; fol.checked = false; } stage.scrollLeft = drag.l - dx; stage.scrollTop = drag.t - dy; });
+  window.addEventListener("pointerup", () => { drag = null; stage.classList.remove("grabbing"); });
+  stage.addEventListener("touchmove", () => { if (levels[i] > 1) fol.checked = false; }, { passive: true });
+  const z = {
+    update() { if (levels[i] === 1 || !fol.checked || drag) return; const f = focus(), c = viewCenter(); const nx = c.x + (f.x - c.x) * 0.12, ny = c.y + (f.y - c.y) * 0.12; center(nx, ny); },
+    resize: sizeStage };
+  zooms.push(z); return z;
+}
+makeZoom(document.getElementById("sim-tape"), document.getElementById("tape-cv"), tctx, 960, 430, () => tapeFocus);
+makeZoom(document.getElementById("sim-hdd"), document.getElementById("hdd-cv"), hctx, 960, 560, () => hddFocus);
+makeZoom(document.getElementById("sim-ssd"), document.getElementById("ssd-cv"), sctx, 960, 470, () => ssdFocus);
+window.addEventListener("resize", () => zooms.forEach(z => z.resize()));
+
+/* ---------- main loop ---------- */
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(64, now - last); last = now;
+  players.forEach(p => p.tick(dt));
+  tapeOutUpdate(tapePlayer); hddOutUpdate(hddPlayer); ssdOutUpdate(ssdPlayer);
+  zooms.forEach(z => z.update());
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* =================================================================
+   TEXTBOOK SCHEDULER
+   ================================================================= */
+const ALGS = ["FCFS", "SSTF", "SCAN", "C-SCAN", "LOOK", "C-LOOK"]; let curAlg = "SCAN";
+const algBox = document.getElementById("q-algs");
+ALGS.forEach(a => { const b = document.createElement("button"); b.className = "chip"; b.textContent = a; b.dataset.a = a; b.onclick = () => { curAlg = a; drawSched(); }; algBox.appendChild(b); });
+function schedInputs() {
+  const max = Math.max(1, parseInt(document.getElementById("q-max").value) || 199);
+  const head = Math.min(max, Math.max(0, parseInt(document.getElementById("q-head").value) || 0));
+  const q = document.getElementById("q-queue").value.split(/[^0-9]+/).filter(Boolean).map(Number).filter(v => v <= max).slice(0, 24);
+  return { max, head, q, up: document.getElementById("q-dir").value === "up" };
+}
+function movement(start, steps) { let cur = start, sum = 0; const parts = steps.map(s => { const d = Math.abs(s.cyl - cur); const o = { from: cur, to: s.cyl, d, jump: s.jump, wp: !s.req }; sum += d; cur = s.cyl; return o; }); return { sum, parts }; }
+function drawSched() {
+  algBox.querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed", b.dataset.a === curAlg ? "true" : "false"));
+  const I = schedInputs(), reqs = I.q.map(c => ({ cyl: c }));
+  const steps = schedule(curAlg, I.head, reqs, I.max, I.up), mv = movement(I.head, steps);
+  const W = 760, top = 46, rowH = 30, H = top + (mv.parts.length + 1) * rowH + 14, X = c => 30 + c / I.max * (W - 60);
+  const svg = document.getElementById("sched-svg"); svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H);
+  const ticks = [...new Set([0, I.max, I.head, ...I.q])].sort((a, b) => a - b);
+  let s = `<line class="sv-axis" x1="30" x2="${W - 30}" y1="30" y2="30" stroke-width="1.5"/>`;
+  ticks.forEach((t, i) => { s += `<line class="sv-axis" x1="${X(t)}" x2="${X(t)}" y1="26" y2="${H - 8}" stroke-width=".6"/><text class="sv-tick" x="${X(t)}" y="${i % 2 ? 22 : 13}" text-anchor="middle">${t}</text>`; });
+  const pts = [[X(I.head), top]]; mv.parts.forEach((p, i) => pts.push([X(p.to), top + (i + 1) * rowH]));
+  let d = `M${pts[0][0]},${pts[0][1]}`, jumps = "";
+  mv.parts.forEach((p, i) => { if (p.jump) { jumps += `<line class="sv-jump" x1="${pts[i][0]}" y1="${pts[i][1]}" x2="${pts[i + 1][0]}" y2="${pts[i + 1][1]}"/>`; d += ` M${pts[i + 1][0]},${pts[i + 1][1]}`; } else d += ` L${pts[i + 1][0]},${pts[i + 1][1]}`; });
+  s += jumps + `<path class="sv-path" pathLength="1" d="${d}"/>`;
+  pts.forEach((q, i) => { const wp = i > 0 && mv.parts[i - 1].wp; const val = i === 0 ? I.head : mv.parts[i - 1].to; const right = q[0] < W - 90;
+    s += `<circle class="sv-pt" cx="${q[0]}" cy="${q[1]}" r="${wp ? 3 : 4.5}"/><text class="sv-lab" x="${q[0] + (right ? 9 : -9)}" y="${q[1] + 4}" text-anchor="${right ? "start" : "end"}">${i === 0 ? "head " + val : val}${wp ? " (edge)" : ""}</text>`; });
+  svg.innerHTML = s;
+  const path = svg.querySelector(".sv-path"); requestAnimationFrame(() => requestAnimationFrame(() => path.classList.add("go")));
+  const order = steps.filter(x => x.req).map(x => x.cyl).join(" → ");
+  const terms = mv.parts.map(p => `|${p.from}−${p.to}|=${p.d}${p.jump ? "*" : ""}`);
+  const lines = []; for (let i = 0; i < terms.length; i += 4) lines.push(terms.slice(i, i + 4).join(" + "));
+  document.getElementById("sched-math").innerHTML = `${curAlg} order : ${I.head} → ${order}
+Movement : ${lines.join("\n           + ")}
+Total    = <b>${mv.sum} cylinders</b>${mv.parts.some(p => p.jump) ? "\n* the return jump is counted here; some textbooks leave it out because the head moves back without reading." : ""}
+At ~0.05 ms per cylinder crossed, that is about ${n2(mv.sum * 0.05, 1)} ms of arm travel.`;
+  const all = ALGS.map(a => ({ a, v: movement(I.head, schedule(a, I.head, reqs, I.max, I.up)).sum })), mx = Math.max(...all.map(x => x.v), 1);
+  document.getElementById("sched-all").innerHTML = `<div class="lbl">All algorithms on this queue (cylinders crossed)</div>` + all.map(x => `<div class="a ${x.a === curAlg ? "cur" : ""}"><span>${x.a}</span><span class="bar"><span style="width:${x.v / mx * 100}%"></span></span><span class="v">${x.v}</span></div>`).join("");
+}
+["q-queue", "q-head", "q-max", "q-dir"].forEach(id => document.getElementById(id).addEventListener("input", drawSched));
+drawSched();
+
+/* =================================================================
+   COMPARISON CHART
+   ================================================================= */
+(function () {
+  const data = [
+    { n: "Tape · LTO-9", v: 400000, t: "≈ 400 s", c: "" },
+    { n: "HDD · 7,200 rpm", v: 102, t: "≈ 102 ms", c: "hdd" },
+    { n: "SATA SSD · one at a time", v: 0.72, t: "≈ 0.72 ms", c: "ssd" },
+    { n: "NVMe SSD · 8 in parallel", v: 0.1, t: "≈ 0.1 ms", c: "ssd" }];
+  const W = 760, L = 200, R = 80, top = 34, bh = 26, gap = 22, H = top + data.length * (bh + gap) + 6;
+  const lo = Math.log10(0.05), hi = Math.log10(1e6), X = v => L + (Math.log10(v) - lo) / (hi - lo) * (W - L - R);
+  const svg = document.getElementById("cmp-svg"); svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H);
+  let s = "";
+  [[0.1, "0.1 ms"], [1, "1 ms"], [10, "10 ms"], [100, "100 ms"], [1000, "1 s"], [1e4, "10 s"], [1e5, "100 s"], [1e6, "1000 s"]].forEach(([v, l]) => {
+    s += `<line class="sv-axis" x1="${X(v)}" x2="${X(v)}" y1="${top - 8}" y2="${H}" stroke-width=".7"/><text class="sv-tick" x="${X(v)}" y="${top - 14}" text-anchor="middle">${l}</text>`; });
+  data.forEach((d, i) => { const y = top + i * (bh + gap);
+    s += `<text class="sv-name" x="${L - 12}" y="${y + bh / 2 + 4}" text-anchor="end">${d.n}</text><rect class="sv-bar ${d.c}" x="${L}" y="${y}" width="${Math.max(3, X(d.v) - L)}" height="${bh}" rx="3"/><text class="sv-val" x="${Math.min(X(d.v) + 8, W - R + 6)}" y="${y + bh / 2 + 4}">${d.t}</text>`; });
+  svg.innerHTML = s;
+})();
+</script>
+
+</body>
+</html>
