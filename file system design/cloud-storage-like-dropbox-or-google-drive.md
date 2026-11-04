@@ -1,12 +1,13 @@
-# [Dropbox](https://www.hellointerview.com/learn/system-design/problem-breakdowns/dropbox)
+# [Design Distribute Storage System like Dropbox or Google Drive](https://www.hellointerview.com/learn/system-design/problem-breakdowns/dropbox)
 Dropbox is a cloud-based file storage service that allows users to store and share files. It provides a secure and reliable way to store and access files from anywhere, on any device.
 
-## Functional Requirements
+## 1. Functional Requirements
 ### Core Requirements
 - Users should be able to upload a file from any device
 - Users should be able to download a file from any device
 - Users should be able to share a file with other users and view the files shared with them
-- Users can automatically sync files across devices
+- Users can automatically **sync** files across devices
+- **Quota / Storage limit:** per user quota
 - Users should be able to edit files (out of scope)
 - Users should be able to view files without downloading them (out of scope)
 > It's worth noting that there are related system design problems around designing Blob Storage itself. This is out of scope for this problem, but you may consider doing some research on your own to understand how Blob Storage works and how it's designed.
@@ -14,9 +15,14 @@ Dropbox is a cloud-based file storage service that allows users to store and sha
 
 ## Non-Functional Requirements
 ### Core Requirements
-- The system should be highly available (prioritizing availability over consistency).
-- The system should support files as large as 50GB.
-- The system should be secure and reliable. We should be able to recover files if they are lost or corrupted.
+- **Scale:** Millions of users / Billion of files
+- **CAP:** The system should be **highly available**  (availability >> consistency)
+  - whenever a user open the drive or try to upload a file, our app should be UP and running at that time
+  - why not consistency? when we upload a file it is acceptable that after a seconds or minute things got reflected in all devices. 
+  - > Eventual consistency for sync, storing consistency for Metadata
+- The system should support **large files** as large as 50GB.
+- Latency to upload file should be minimal
+- The system should be secure and reliable (no data loss). We should be able to recover files if they are lost or corrupted.
 - The system should make upload, download, and sync times as fast as possible (low latency).
 - The system should have a storage limit per user
 - The system should support file versioning
@@ -31,18 +37,38 @@ Dropbox is a cloud-based file storage service that allows users to store and sha
 
 ## Planning the Approach
 
-## Defining the Core Entities
+## 2. Defining the Core Entities
 I like to start with a broad overview of the primary entities. At this stage, it is not necessary to know every specific column or detail. We will focus on these intricacies later when we have a clearer grasp of the system (during the high-level design). Initially, establishing these key entities will guide our thought process and lay a solid foundation as we progress towards defining the API.
 
 For Dropbox, the primary entities are incredibly straightforward:
-- **File:** This is the raw data that users will be uploading, downloading, and sharing.
-- **FileMetadata:** This is the metadata associated with the file. It will include information like the file's name, size, mime type, and the user who uploaded it.
 - **User:** The user of our system.
+- **File/Folder:** This is the raw data that users will be uploading, downloading, and sharing.
+- **FileMetadata:** This is the metadata associated with the file. It will include information like the file's name, size, mime type, and the user who uploaded it.
+
 
 > As you move onto the design, your objective is simple: create a system that meets all functional and non-functional requirements. To do this, I recommend you start by satisfying the functional requirements and then layer in the non-functional requirements afterward. This will help you stay focused and ensure you don't get lost in the weeds as you go.
 
 
-## API or System Interface
+## 3. API or System Interface
+```text
+Folder operations:
+POST /api/v1/folders
+GET /api/v1/folders/{folderId}
+GET /api/v1/folders/{folderId}/contents
+... other CRUD
+```
+
+Output format:
+```json
+{
+ name: folder_name,
+ type: folder/directory,
+ children: [{name: "", type: "", ...}]
+}
+
+```
+
+
 ```text
 POST /files
 {
@@ -74,7 +100,7 @@ GET /files/changes?since={timestamp} -> ChangeEvent[]
 ---
 
 
-## High-Level Design
+## 4. High-Level Design
 ### 1) Users should be able to upload a file from any device
 The main requirement for a system like Dropbox is to allow users to upload files. When it comes to storing a file, we need to consider two things:
 1. Where do we store the file contents (the raw bytes)?
@@ -243,30 +269,84 @@ With chunks, it's rather straightforward for us to show a progress indicator to 
 The next question is: how will we handle **resumable uploads**? We need to keep track of which chunks have been uploaded and which haven't. We can do this by saving the state of the upload in the database, specifically in our FileMetadata table. Let's update the FileMetadata schema to include a chunks field.
 
 
+### Step1: Scenario1: Brand New File (First Time Upload)
 ```text
+POST /files/upload/init
 {
-  "id": "123",
-  "name": "file.txt",
-  "size": 1000,
-  "mimeType": "text/plain",
-  "uploadedBy": "user1",
-  "status": "uploading",
-  "chunks": [
-    {
-      "id": "chunk1",
-      "status": "uploaded"
-    },
-    {
-      "id": "chunk2",
-      "status": "uploading"
-    },
-    {
-      "id": "chunk3",
-      "status": "not-uploaded"
-    }
-  ]
+    fileName: "video1.mp4",
+    fileSize: 52428800,
+    parentFolderId: "root1234",
+    mimeType: "text/plain",
+    uploadedBy: "user1",
 }
 ```
+Resoponse:
+
+```json
+{
+  fileId: "file_789",
+  uploadId: "upload_123",
+  chunkSize: 5MB,
+  existingChunks: [] // nothing exists yet  
+}
+```
+
+### Step1: Scenario2: Resume upload (Connection Dropped)
+User was uploading, network failed, now resuming
+```text
+POST /files/upload/init
+{
+    fileName: "video1.mp4",
+    fileSize: 52428800,
+    checksum: "abc123def456",
+    resumeUploadId: "upload_123" // previous uploadId
+}
+```
+
+Resoponse:
+
+```json
+{
+  fileId: "file_789",
+  uploadId: "upload_123",
+  existingChunks: [1, 2, 3, 4, 5]
+}
+```
+
+### Step2: Chunker Service in local chunk the file based on chunkSize, and generate the SHA256 of each chunks = [0...9]
+
+
+### Step3: Client asked for signed URL for chunk N (by FileUploaderSrvc & its permissions)
+
+```text
+POST /upload/chunkUrl
+{                           - validate uploadId
+  uploadId: "upload_123",   - validate chunkId
+  chunkId: 3                - generate pre-signed PUT url
+}
+```
+
+## Step4: Upload the chunks (parallely 3 at a time)
+## Step5: Commit request: POST /uploads/{uploadId}/commit
+
+---
+
+
+### File Operations with chunking
+```json
+POST /files/upload/init                 : Initialize Upload
+POST /files/{uploadId}/chunks           : Upload Chunks
+POST /files/uploads/{uploadId}/chunkUrl
+POST /files/uploads/{uploadId}/commit   : Confirm Upload
+GET  /files/{fileId}/download
+DEL  /files/{fileId}
+... other CRUD
+```
+
+
+
+
+
 
 ## 2. How can you ensure file security?
 - Encryption in Transit
