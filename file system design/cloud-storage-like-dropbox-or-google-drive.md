@@ -1,20 +1,20 @@
 # [Design Distribute Storage System like Dropbox or Google Drive](https://www.hellointerview.com/learn/system-design/problem-breakdowns/dropbox)
 Dropbox is a cloud-based file storage service that allows users to store and share files. It provides a secure and reliable way to store and access files from anywhere, on any device.
 
-## 1. Functional Requirements
-### Core Requirements
-- Users should be able to upload a file from any device
-- Users should be able to download a file from any device
-- Users should be able to share a file with other users and view the files shared with them
-- Users can automatically **sync** files across devices
+## Step1. Functional Requirements
+- upload / download / CRUD a file from any device
+- Share file
+- **sync** files across devices
+- Folder management (create, delete, rename)
 - **Quota / Storage limit:** per user quota
+- **Versioning**: Restore previous version
 - Users should be able to edit files (out of scope)
 - Users should be able to view files without downloading them (out of scope)
+- Premium subscriptions with more feature
 > It's worth noting that there are related system design problems around designing Blob Storage itself. This is out of scope for this problem, but you may consider doing some research on your own to understand how Blob Storage works and how it's designed.
 
 
 ## Non-Functional Requirements
-### Core Requirements
 - **Scale:** Millions of users / Billion of files
 - **CAP:** The system should be **highly available**  (availability >> consistency)
   - whenever a user open the drive or try to upload a file, our app should be UP and running at that time
@@ -28,6 +28,17 @@ Dropbox is a cloud-based file storage service that allows users to store and sha
 - The system should support file versioning
 - The system should scan files for viruses and malware
 
+```text
+500 million total users
+100 million active
+Each user has average of 3 devices
+Each user has average 200 files
+Total files => 200 * 500 million = 100B
+Avg file size = 100 KB
+Total storage = 100 B * 100 KB = 10PB
+
+```
+
 ![dropbox.png](../assets/dropbox.png)
 
 
@@ -35,37 +46,55 @@ Dropbox is a cloud-based file storage service that allows users to store and sha
 
 ---
 
-## Planning the Approach
 
-## 2. Defining the Core Entities
+## Step2. Defining the Core Entities
 I like to start with a broad overview of the primary entities. At this stage, it is not necessary to know every specific column or detail. We will focus on these intricacies later when we have a clearer grasp of the system (during the high-level design). Initially, establishing these key entities will guide our thought process and lay a solid foundation as we progress towards defining the API.
 
 For Dropbox, the primary entities are incredibly straightforward:
-- **User:** The user of our system.
-- **File/Folder:** This is the raw data that users will be uploading, downloading, and sharing.
-- **FileMetadata:** This is the metadata associated with the file. It will include information like the file's name, size, mime type, and the user who uploaded it.
+- User
+- File/Folder
+- **FileMetadata:** name, size, mime type, and the user who uploaded it.
 
 
 > As you move onto the design, your objective is simple: create a system that meets all functional and non-functional requirements. To do this, I recommend you start by satisfying the functional requirements and then layer in the non-functional requirements afterward. This will help you stay focused and ensure you don't get lost in the weeds as you go.
 
 
-## 3. API or System Interface
-```text
+## Step3. API Designing
 Folder operations:
-POST /api/v1/folders
+```text
+POST /api/v1/folders 
 GET /api/v1/folders/{folderId}
 GET /api/v1/folders/{folderId}/contents
 ... other CRUD
 ```
 
-Output format:
+File Operations with chunking
+```json
+POST /files/upload/init                 : Initialize Upload
+POST /files/{uploadId}/chunks           : Upload Chunks
+POST /files/uploads/{uploadId}/chunkUrl
+POST /files/uploads/{uploadId}/commit   : Confirm Upload
+GET  /files/{fileId}/download
+DEL  /files/{fileId}
+... other CRUD
+```
+
+folder create request:
+
+```json
+{
+  name: folder_name,
+  type: folder/directory,
+  date: "2026-11-09"
+}
+```
+response:
 ```json
 {
  name: folder_name,
  type: folder/directory,
  children: [{name: "", type: "", ...}]
 }
-
 ```
 
 
@@ -330,19 +359,6 @@ POST /upload/chunkUrl
 ## Step5: Commit request: POST /uploads/{uploadId}/commit
 
 ---
-
-
-### File Operations with chunking
-```json
-POST /files/upload/init                 : Initialize Upload
-POST /files/{uploadId}/chunks           : Upload Chunks
-POST /files/uploads/{uploadId}/chunkUrl
-POST /files/uploads/{uploadId}/commit   : Confirm Upload
-GET  /files/{fileId}/download
-DEL  /files/{fileId}
-... other CRUD
-```
-
 
 
 
